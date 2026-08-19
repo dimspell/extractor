@@ -42,6 +42,52 @@ pub struct PostMapsData {
     pub map_ids: Vec<u32>,
 }
 
+impl PostMapsData {
+    pub(super) fn read_from<R: Read>(
+        reader: &mut R,
+        expected_map_count: u32,
+    ) -> std::io::Result<Self> {
+        let map_section_terminator = reader.read_u32::<LittleEndian>()?;
+        let game_version = reader.read_f32::<LittleEndian>()?;
+        let unknown_header_value_1 = reader.read_u32::<LittleEndian>()?;
+        let all_map_ini_id = reader.read_u32::<LittleEndian>()?;
+        let ref_map_ini_id = reader.read_u32::<LittleEndian>()?;
+        let monster_block_size = reader.read_u32::<LittleEndian>()?;
+        let npc_block_size = reader.read_u32::<LittleEndian>()?;
+        let unknown_header_value_2 = reader.read_u32::<LittleEndian>()?;
+        let extra_object_block_size = reader.read_u32::<LittleEndian>()?;
+        let number_of_visited_maps = reader.read_u32::<LittleEndian>()?;
+
+        if number_of_visited_maps != expected_map_count {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "post-maps visited-map count is {number_of_visited_maps}, expected {expected_map_count}"
+                ),
+            ));
+        }
+
+        let mut map_ids = vec![0u32; number_of_visited_maps as usize];
+        for map_id in &mut map_ids {
+            *map_id = reader.read_u32::<LittleEndian>()?;
+        }
+
+        Ok(Self {
+            map_section_terminator,
+            game_version,
+            unknown_header_value_1,
+            all_map_ini_id,
+            ref_map_ini_id,
+            monster_block_size,
+            npc_block_size,
+            unknown_header_value_2,
+            extra_object_block_size,
+            number_of_visited_maps,
+            map_ids,
+        })
+    }
+}
+
 /// A cached correspondence between an isometric screen position and a map tile.
 ///
 /// The game rebuilds records of this shape: screen positions

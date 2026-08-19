@@ -1,5 +1,11 @@
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
+use std::io::Read;
+
+pub(super) const JOURNAL_HEADER_SIZE: usize = 42;
+pub(super) const JOURNAL_ENTRY_SIZE: usize = 37;
+pub(super) const JOURNAL_ENTRIES_PER_SECTION: usize = 100;
+const JOURNAL_SECTION_SIZE: usize = JOURNAL_ENTRY_SIZE * JOURNAL_ENTRIES_PER_SECTION;
 
 /// Journal data from a save file (42-byte header + 3 sections × 100 entries).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -12,6 +18,29 @@ pub struct JournalData {
     pub side: Vec<JournalEntry>,
     /// Trading offer entries (100 × 37 bytes)
     pub trade: Vec<JournalEntry>,
+}
+
+impl JournalData {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut header_data = [0u8; JOURNAL_HEADER_SIZE];
+        reader.read_exact(&mut header_data)?;
+        let header = JournalHeader::parse(&header_data)?;
+
+        Ok(Self {
+            header,
+            main: read_entries(reader)?,
+            side: read_entries(reader)?,
+            trade: read_entries(reader)?,
+        })
+    }
+}
+
+fn read_entries<R: Read>(reader: &mut R) -> std::io::Result<Vec<JournalEntry>> {
+    let mut data = vec![0u8; JOURNAL_SECTION_SIZE];
+    reader.read_exact(&mut data)?;
+    data.chunks_exact(JOURNAL_ENTRY_SIZE)
+        .map(JournalEntry::parse)
+        .collect()
 }
 
 /// The 42-byte journal header before the three 100-entry journal sections.

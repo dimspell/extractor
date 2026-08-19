@@ -1,5 +1,18 @@
+use byteorder::{LittleEndian, ReadBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
+use std::io::Read;
+
+pub(super) const MONSTER_RECORD_SIZE: usize = 329;
+pub(super) const NPC_RECORD_SIZE: usize = 349;
+pub(super) const EXTRA_OBJECT_RECORD_SIZE: usize = 200;
+pub(super) const EXTRA_OBJECT_TRAILER_RECORD_SIZE: usize = 24;
+pub(super) const DRAW_ITEM_WEAPON_SIZE: usize = 296;
+pub(super) const DRAW_ITEM_HEAL_SIZE: usize = 264;
+pub(super) const DRAW_ITEM_EDIT_SIZE: usize = 280;
+pub(super) const DRAW_ITEM_MISC_SIZE: usize = 268;
+pub(super) const DRAW_ITEM_EVENT_SIZE: usize = 252;
+const EXTRA_OBJECT_TRAILER_FIXED_SIZE: usize = 17;
 
 /// Data for one map section in a save file.
 ///
@@ -27,6 +40,110 @@ pub struct MapSectionData {
     pub draw_items_misc: Vec<DrawItemMiscItem>,
     /// Ground items — Event type (count × 252 bytes each)
     pub draw_items_event: Vec<DrawItemEventItem>,
+}
+
+pub(super) fn read_maps<R: Read>(
+    reader: &mut R,
+    map_count: u32,
+) -> std::io::Result<Vec<MapSectionData>> {
+    let mut maps = Vec::with_capacity(map_count as usize);
+
+    for _ in 0..map_count {
+        let map_id = reader.read_u32::<LittleEndian>()?;
+        let monsters = read_u32_counted_records(reader, MONSTER_RECORD_SIZE, MonsterRecord::parse)?;
+        let npcs = read_u32_counted_records(reader, NPC_RECORD_SIZE, NpcRecord::parse)?;
+
+        let _separator = reader.read_u32::<LittleEndian>()?;
+        let extra_objects =
+            read_u32_counted_records(reader, EXTRA_OBJECT_RECORD_SIZE, ExtraObjectRecord::parse)?;
+
+        let tail_size = reader.read_u32::<LittleEndian>()?;
+        let records = read_u16_counted_records(
+            reader,
+            EXTRA_OBJECT_TRAILER_RECORD_SIZE,
+            ExtraObjectTrailerRecord::parse,
+        )?;
+        let extra_objects_trailer = MapExtraObjectsTrailer {
+            tail_size,
+            records,
+            automatic_placement_active: reader.read_u8()?,
+            automatic_placement_value: reader.read_u16::<LittleEndian>()?,
+            automatic_placement_global_item_index: reader.read_u16::<LittleEndian>()?,
+        };
+
+        let draw_items_weapon =
+            read_u16_counted_records(reader, DRAW_ITEM_WEAPON_SIZE, DrawItemWeaponItem::parse)?;
+        let draw_items_heal =
+            read_u16_counted_records(reader, DRAW_ITEM_HEAL_SIZE, DrawItemHealItem::parse)?;
+        let draw_items_edit =
+            read_u16_counted_records(reader, DRAW_ITEM_EDIT_SIZE, DrawItemEditItem::parse)?;
+        let draw_items_misc =
+            read_u16_counted_records(reader, DRAW_ITEM_MISC_SIZE, DrawItemMiscItem::parse)?;
+        let draw_items_event =
+            read_u16_counted_records(reader, DRAW_ITEM_EVENT_SIZE, DrawItemEventItem::parse)?;
+
+        let expected_tail_size = EXTRA_OBJECT_TRAILER_FIXED_SIZE
+            + extra_objects_trailer.records.len() * EXTRA_OBJECT_TRAILER_RECORD_SIZE
+            + draw_items_weapon.len() * DRAW_ITEM_WEAPON_SIZE
+            + draw_items_heal.len() * DRAW_ITEM_HEAL_SIZE
+            + draw_items_edit.len() * DRAW_ITEM_EDIT_SIZE
+            + draw_items_misc.len() * DRAW_ITEM_MISC_SIZE
+            + draw_items_event.len() * DRAW_ITEM_EVENT_SIZE;
+        if extra_objects_trailer.tail_size as usize != expected_tail_size {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "map extra-object trailer size is {}, expected {expected_tail_size}",
+                    extra_objects_trailer.tail_size
+                ),
+            ));
+        }
+
+        let _separator = reader.read_u32::<LittleEndian>()?;
+        maps.push(MapSectionData {
+            map_id,
+            monsters,
+            npcs,
+            extra_objects,
+            extra_objects_trailer,
+            draw_items_weapon,
+            draw_items_heal,
+            draw_items_edit,
+            draw_items_misc,
+            draw_items_event,
+        });
+    }
+
+    Ok(maps)
+}
+
+fn read_u32_counted_records<R: Read, T>(
+    reader: &mut R,
+    record_size: usize,
+    parse: fn(&[u8]) -> std::io::Result<T>,
+) -> std::io::Result<Vec<T>> {
+    let count = reader.read_u32::<LittleEndian>()? as usize;
+    read_records(reader, count, record_size, parse)
+}
+
+fn read_u16_counted_records<R: Read, T>(
+    reader: &mut R,
+    record_size: usize,
+    parse: fn(&[u8]) -> std::io::Result<T>,
+) -> std::io::Result<Vec<T>> {
+    let count = reader.read_u16::<LittleEndian>()? as usize;
+    read_records(reader, count, record_size, parse)
+}
+
+fn read_records<R: Read, T>(
+    reader: &mut R,
+    count: usize,
+    record_size: usize,
+    parse: fn(&[u8]) -> std::io::Result<T>,
+) -> std::io::Result<Vec<T>> {
+    let mut data = vec![0u8; count * record_size];
+    reader.read_exact(&mut data)?;
+    data.chunks_exact(record_size).map(parse).collect()
 }
 
 /// Monster record from save file (surface or dungeon)

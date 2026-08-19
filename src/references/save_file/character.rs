@@ -1,5 +1,28 @@
+use crate::references::extractor::read_null_terminated_windows_1250;
+use byteorder::{LittleEndian, ReadBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
+use std::io::Read;
+
+pub(super) const SPRITE_PATH_COUNT: usize = 4;
+pub(super) const SPRITE_PATH_SIZE: usize = 60;
+pub(super) const CHARACTER_DATA_SIZE: usize = 112;
+pub(super) const CHARACTER_IDENTITY_SIZE: usize = 35;
+pub(super) const LEARNED_SPELL_COUNT: usize = 41;
+const WAYPOINT_SIZE: usize = 8;
+
+pub(super) fn read_sprite_paths<R: Read>(reader: &mut R) -> std::io::Result<Vec<String>> {
+    let mut paths = Vec::with_capacity(SPRITE_PATH_COUNT);
+    for _ in 0..SPRITE_PATH_COUNT {
+        let mut buffer = [0u8; SPRITE_PATH_SIZE];
+        reader.read_exact(&mut buffer)?;
+        paths.push(
+            read_null_terminated_windows_1250(&buffer)
+                .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?,
+        );
+    }
+    Ok(paths)
+}
 
 /// Parse actual position, character stats, and some unknown bytes (112 bytes).
 /// The CharacterData bytes are after 4 x 60B blocks (sprites).
@@ -204,6 +227,14 @@ pub struct CharacterData {
     pub status_effect_stack: u8,
 }
 
+impl CharacterData {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut data = [0u8; CHARACTER_DATA_SIZE];
+        reader.read_exact(&mut data)?;
+        Self::parse(&data)
+    }
+}
+
 /// Character identity data (name, class, and persisted spell-bar state).
 ///
 /// Only the trailing 35 bytes of the identity block are retained here
@@ -223,6 +254,65 @@ pub struct CharacterIdentity {
     pub selected_spell_ui_index: u16,
 }
 
+impl CharacterIdentity {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        // Per-category inventory serial counters. Each is the next-slot serial
+        // stamped into the item records of that category (kept in sync with the
+        // item counts read in `parse_inventory_section`).
+        let _event_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _misc_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _edit_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _weapon_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _heal_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+
+        // Scripted-action state machine.
+        let _current_action_id: u32 = reader.read_u32::<LittleEndian>()?; // 0-7, -1 = idle
+        let _waypoint_index: u32 = reader.read_u32::<LittleEndian>()?; // current waypoint
+        let waypoint_count: u32 = reader.read_u32::<LittleEndian>()?; // number of waypoints
+
+        // Movement waypoint path: array of {u16 x, u16 y} records.
+        let mut waypoint_data = vec![0u8; waypoint_count as usize * WAYPOINT_SIZE];
+        reader.read_exact(&mut waypoint_data)?;
+
+        // Movement / teleport state.
+        let _move_requested: u8 = reader.read_u8()?; // pending move latch
+        let _move_destination_x: u32 = reader.read_u32::<LittleEndian>()?;
+        let _move_destination_y: u32 = reader.read_u32::<LittleEndian>()?;
+        let _movement_blocked: u8 = reader.read_u8()?; // blocked by event/cutscene
+        let _teleport_mode: u8 = reader.read_u8()?;
+        let _teleport_destination_pending: u8 = reader.read_u8()?;
+        let _teleport_execution_pending: u8 = reader.read_u8()?;
+        let _model_animation_index: u16 = reader.read_u16::<LittleEndian>()?;
+        let mut teleport_target = [0u8; 8]; // {u32 x, u32 y} tile coordinates
+        reader.read_exact(&mut teleport_target)?;
+        let _teleport_target_value: u32 = reader.read_u32::<LittleEndian>()?;
+        let _stop_after_path_end: u8 = reader.read_u8()?;
+        let _movement_sub_state: u8 = reader.read_u8()?; // 0=idle,1=started,2=walking,3=arrived
+        let _character_class: u8 = reader.read_u8()?; // 1=Paladin, 2=Hero (based on morale - good/evil path, the class, and level)
+        let _position_changed: u8 = reader.read_u8()?; // latch: sync position to 0x7c/0x80
+        let _global_object_id_counter: u32 = reader.read_u32::<LittleEndian>()?;
+        let _interaction_state: u8 = reader.read_u8()?;
+        let _interaction_state_paired: u8 = reader.read_u8()?;
+        let _stat_bonus_a: u8 = reader.read_u8()?; // class 1 stat bonus (offense stat bonus for Warrior class)
+        let _stat_bonus_b: u8 = reader.read_u8()?; // class 0 stat bonus (defense stat bonus for Knight class)
+        let _stat_bonus_c: u8 = reader.read_u8()?; // class 2 stat bonus (dodge_rate stat bonus for Archer class)
+        let _stat_bonus_d: u8 = reader.read_u8()?; // class 2 stat bonus (hit_rate stat bonus for Archer class)
+        let _stat_bonus_e: u8 = reader.read_u8()?; // class 3 stat bonus (magic_power stat bonus for the Mage class)
+        let _action_index: u32 = reader.read_u32::<LittleEndian>()?;
+        let _pathfinding_scratch_a: u32 = reader.read_u32::<LittleEndian>()?;
+        let _pathfinding_scratch_b: u32 = reader.read_u32::<LittleEndian>()?;
+        let _reserved_500: u32 = reader.read_u32::<LittleEndian>()?;
+        let _action_current_step: u32 = reader.read_u32::<LittleEndian>()?;
+        let _action_total_steps: u32 = reader.read_u32::<LittleEndian>()?;
+        let mut position = [0u8; 8]; // {u32 x, u32 y}
+        reader.read_exact(&mut position)?;
+
+        let mut identity = [0u8; CHARACTER_IDENTITY_SIZE];
+        reader.read_exact(&mut identity)?;
+        Self::parse(&identity)
+    }
+}
+
 /// Learned spells block (41 bytes).
 ///
 /// One byte per spell, likely boolean flags indicating whether each
@@ -230,4 +320,12 @@ pub struct CharacterIdentity {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LearnedSpells {
     pub spells: Vec<u8>,
+}
+
+impl LearnedSpells {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut spells = vec![0u8; LEARNED_SPELL_COUNT];
+        reader.read_exact(&mut spells)?;
+        Ok(Self { spells })
+    }
 }

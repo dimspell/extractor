@@ -418,3 +418,14 @@ impl PartyMember {
         Ok(())
     }
 }
+
+pub(super) fn read_party_members<R: Read>(
+    reader: &mut R,
+    count: u32,
+) -> std::io::Result<Vec<PartyMember>> {
+    let mut members = Vec::with_capacity(count as usize);
+    for _ in 0..count {
+        members.push(PartyMember::read_from(reader)?);
+    }
+    Ok(members)
+}

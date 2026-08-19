@@ -22,8 +22,21 @@ pub const BELT_BYTES_SIZE: usize = 6 * 16;
 
 /// Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes = 3780 bytes.
 pub const INVENTORY_BYTES_SIZE: usize = 3 * 7 * 9 * 20;
+pub(super) const INVENTORY_SLOTS_SIZE: usize =
+    EQUIPPED_ITEM_BYTES + BELT_BYTES_SIZE + INVENTORY_BYTES_SIZE;
+pub(super) const INVENTORY_EVENT_ITEM_SIZE: usize = 244;
+pub(super) const INVENTORY_MISC_ITEM_SIZE: usize = 264;
+pub(super) const INVENTORY_EDIT_ITEM_SIZE: usize = 272;
+pub(super) const INVENTORY_WEAPON_ITEM_SIZE: usize = 292;
+pub(super) const INVENTORY_HEAL_ITEM_SIZE: usize = 256;
 
 impl InventorySlots {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut data = [0u8; INVENTORY_SLOTS_SIZE];
+        reader.read_exact(&mut data)?;
+        Self::parse(&data)
+    }
+
     pub(crate) fn parse(data: &[u8]) -> std::io::Result<Self> {
         let mut reader = std::io::Cursor::new(data);
 
@@ -176,6 +189,49 @@ pub struct InventoryData {
     pub weapon_items: Vec<InventoryWeaponItem>,
     /// Heal-type items (count × 256 bytes each)
     pub heal_items: Vec<InventoryHealItem>,
+}
+
+impl InventoryData {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        Ok(Self {
+            event_items: read_item_section(
+                reader,
+                INVENTORY_EVENT_ITEM_SIZE,
+                InventoryEventItem::parse,
+            )?,
+            misc_items: read_item_section(
+                reader,
+                INVENTORY_MISC_ITEM_SIZE,
+                InventoryMiscItem::parse,
+            )?,
+            edit_items: read_item_section(
+                reader,
+                INVENTORY_EDIT_ITEM_SIZE,
+                InventoryEditItem::parse,
+            )?,
+            weapon_items: read_item_section(
+                reader,
+                INVENTORY_WEAPON_ITEM_SIZE,
+                InventoryWeaponItem::parse,
+            )?,
+            heal_items: read_item_section(
+                reader,
+                INVENTORY_HEAL_ITEM_SIZE,
+                InventoryHealItem::parse,
+            )?,
+        })
+    }
+}
+
+fn read_item_section<R: Read, T>(
+    reader: &mut R,
+    record_size: usize,
+    parse: fn(&[u8]) -> std::io::Result<T>,
+) -> std::io::Result<Vec<T>> {
+    let count = reader.read_u16::<LittleEndian>()? as usize;
+    let mut data = vec![0u8; count * record_size];
+    reader.read_exact(&mut data)?;
+    data.chunks_exact(record_size).map(parse).collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
