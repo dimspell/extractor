@@ -1,7 +1,7 @@
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+use std::io::{Read, Write};
 
 pub(super) const MONSTER_RECORD_SIZE: usize = 329;
 pub(super) const NPC_RECORD_SIZE: usize = 349;
@@ -12,7 +12,7 @@ pub(super) const DRAW_ITEM_HEAL_SIZE: usize = 264;
 pub(super) const DRAW_ITEM_EDIT_SIZE: usize = 280;
 pub(super) const DRAW_ITEM_MISC_SIZE: usize = 268;
 pub(super) const DRAW_ITEM_EVENT_SIZE: usize = 252;
-const EXTRA_OBJECT_TRAILER_FIXED_SIZE: usize = 17;
+pub(super) const EXTRA_OBJECT_TRAILER_FIXED_SIZE: usize = 17;
 
 /// Data for one map section in a save file.
 ///
@@ -115,6 +115,67 @@ pub(super) fn read_maps<R: Read>(
     }
 
     Ok(maps)
+}
+
+pub(super) fn write_maps<W: Write>(maps: &[MapSectionData], writer: &mut W) -> std::io::Result<()> {
+    for map in maps {
+        writer.write_u32::<LittleEndian>(map.map_id)?;
+        writer.write_u32::<LittleEndian>(map.monsters.len() as u32)?;
+        for monster in &map.monsters {
+            monster.write(writer)?;
+        }
+        writer.write_u32::<LittleEndian>(map.npcs.len() as u32)?;
+        for npc in &map.npcs {
+            npc.write(writer)?;
+        }
+        writer.write_u32::<LittleEndian>(0)?;
+        writer.write_u32::<LittleEndian>(map.extra_objects.len() as u32)?;
+        for extra in &map.extra_objects {
+            extra.write(writer)?;
+        }
+
+        writer.write_u32::<LittleEndian>(map.extra_objects_trailer.tail_size)?;
+        writer.write_u16::<LittleEndian>(map.extra_objects_trailer.records.len() as u16)?;
+        for record in &map.extra_objects_trailer.records {
+            record.write(writer)?;
+        }
+        writer.write_u8(map.extra_objects_trailer.automatic_placement_active)?;
+        writer.write_u16::<LittleEndian>(map.extra_objects_trailer.automatic_placement_value)?;
+        writer.write_u16::<LittleEndian>(
+            map.extra_objects_trailer
+                .automatic_placement_global_item_index,
+        )?;
+
+        write_u16_counted_records(writer, &map.draw_items_weapon, |item, writer| {
+            item.write(writer)
+        })?;
+        write_u16_counted_records(writer, &map.draw_items_heal, |item, writer| {
+            item.write(writer)
+        })?;
+        write_u16_counted_records(writer, &map.draw_items_edit, |item, writer| {
+            item.write(writer)
+        })?;
+        write_u16_counted_records(writer, &map.draw_items_misc, |item, writer| {
+            item.write(writer)
+        })?;
+        write_u16_counted_records(writer, &map.draw_items_event, |item, writer| {
+            item.write(writer)
+        })?;
+        writer.write_u32::<LittleEndian>(0)?;
+    }
+    Ok(())
+}
+
+fn write_u16_counted_records<W: Write, T>(
+    writer: &mut W,
+    records: &[T],
+    mut write: impl FnMut(&T, &mut W) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    writer.write_u16::<LittleEndian>(records.len() as u16)?;
+    for record in records {
+        write(record, writer)?;
+    }
+    Ok(())
 }
 
 fn read_u32_counted_records<R: Read, T>(

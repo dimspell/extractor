@@ -86,6 +86,23 @@ impl PostMapsData {
             map_ids,
         })
     }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u32::<LittleEndian>(self.map_section_terminator)?;
+        writer.write_f32::<LittleEndian>(self.game_version)?;
+        writer.write_u32::<LittleEndian>(self.unknown_header_value_1)?;
+        writer.write_u32::<LittleEndian>(self.all_map_ini_id)?;
+        writer.write_u32::<LittleEndian>(self.ref_map_ini_id)?;
+        writer.write_u32::<LittleEndian>(self.monster_block_size)?;
+        writer.write_u32::<LittleEndian>(self.npc_block_size)?;
+        writer.write_u32::<LittleEndian>(self.unknown_header_value_2)?;
+        writer.write_u32::<LittleEndian>(self.extra_object_block_size)?;
+        writer.write_u32::<LittleEndian>(self.number_of_visited_maps)?;
+        for map_id in &self.map_ids {
+            writer.write_u32::<LittleEndian>(*map_id)?;
+        }
+        Ok(())
+    }
 }
 
 /// A cached correspondence between an isometric screen position and a map tile.

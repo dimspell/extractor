@@ -20,9 +20,7 @@
 - `data`: (count − 1) × 8 bytes - `count − 1` records, each 2 × i32: `value1`, `value2`
 
 Skipping `(count-1)*8` lands exactly on the second block's size field.
-
-**Decoded layout (from `FUN_00423a99` in Dispel.psudo.c):** the game reads `count − 1`
-records of 8 bytes each into a 20-byte record array (map object offset `+0x14c`):
+Records of 8 bytes as a 20-byte record array (map object offset `+0x14c`):
 
 | offset | value | source |
 |---|---|---|
@@ -32,27 +30,13 @@ records of 8 bytes each into a 20-byte record array (map object offset `+0x14c`)
 | `+0x0c` | `0` | computed |
 | `+0x10` | `value2` | read from file (4 bytes) |
 
-Record 0 is pre-initialized to `{0, 0, 0, 0, 1}` by constructor `FUN_0042244f`.
-
-**Empirical observation (all 32 fixtures):** every record is `(0, 1)` — constant,
-zero per-map information.
-
-**No consumers found:** only ctor/dtor pairs (`FUN_0042244f/7a`,
-`FUN_004224a2/ac`) allocate/initialize/free the array; no gameplay logic reads it.
-Vestigial linked-list/link-table structure that is never dereferenced for map data.
-Skipping is byte-exact correct and loses nothing meaningful.
+This code is seems to be not used.
 
 #### Second Block (variable size)
 - `size`: i32
 - `data`: size × 2 bytes - byte pairs, read by the game into map object offset `+0x1ac`
 
-The game also derives an identity index array `[0, 1, …, size − 1]` (map object
-offset `+0x154`, allocated `size × 4 + 4` bytes) from `size` alone — it is not read
-from the file.
-
-**Empirical observation (all 32 fixtures):** bytes are only ever `{0, 1}` (starts
-`00 01 01 01 …`) — constant, zero per-map information. No gameplay consumer found;
-same vestigial status as the first block. Skipped.
+The game very likely skips those bytes.
 
 #### Sprite Block
 - `sprite_count`: i32

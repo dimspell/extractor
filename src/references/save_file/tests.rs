@@ -1,14 +1,15 @@
 use super::character::{
     CHARACTER_DATA_SIZE, CharacterData, LEARNED_SPELL_COUNT, LearnedSpells, SPRITE_PATH_COUNT,
-    SPRITE_PATH_SIZE, read_sprite_paths,
+    SPRITE_PATH_SIZE, read_sprite_paths, write_sprite_paths,
 };
 use super::events::{EVENT_RECORD_SIZE, PostEventsData, read_events};
-use super::game_tmp::{EXTRA_OBJECT_TRAILER_RECORD_SIZE, read_maps};
+use super::game_tmp::{EXTRA_OBJECT_TRAILER_RECORD_SIZE, read_maps, write_maps};
 use super::inventory::{INVENTORY_SLOTS_SIZE, InventoryData, InventorySlots};
 use super::journal::{JOURNAL_HEADER_SIZE, JournalData};
 use super::map_viewport::{MAP_VIEWPORT_STATE_SIZE, MapViewportState, PostMapsData};
-use super::{MonsterRecord, PartyMember, SaveFile};
-use std::io::Cursor;
+use super::{EventRecord, JournalEntry, MapSectionData, MonsterRecord, PartyMember, SaveFile};
+use crate::references::extractor::Extractor;
+use std::io::{Cursor, Write};
 
 #[test]
 fn test_parse_save_file_reports_section_and_offset() {
@@ -57,6 +58,25 @@ fn test_read_maps_accepts_empty_map_section() {
 }
 
 #[test]
+fn test_write_maps_round_trips_empty_map_section() {
+    let map = MapSectionData {
+        map_id: 7,
+        extra_objects_trailer: super::MapExtraObjectsTrailer {
+            tail_size: 17,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    let mut output = Vec::new();
+
+    write_maps(&[map], &mut output).unwrap();
+    let parsed = read_maps(&mut Cursor::new(output), 1).unwrap();
+
+    assert_eq!(parsed.len(), 1);
+    assert_eq!(parsed[0].map_id, 7);
+}
+
+#[test]
 fn test_parse_monster_record_rejects_truncated_input() {
     let error = MonsterRecord::parse(&[0; 328]).unwrap_err();
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
@@ -77,6 +97,22 @@ fn test_read_learned_spells_preserves_all_flags() {
     let spells = LearnedSpells::read_from(&mut Cursor::new(&flags)).unwrap();
 
     assert_eq!(spells.spells, flags);
+}
+
+#[test]
+fn test_write_sprite_paths_round_trips_fixed_width_strings() {
+    let paths = vec![
+        "one.spr".into(),
+        "two.spr".into(),
+        String::new(),
+        String::new(),
+    ];
+    let mut output = Vec::new();
+
+    write_sprite_paths(&paths, &mut output).unwrap();
+    let parsed = read_sprite_paths(&mut Cursor::new(output)).unwrap();
+
+    assert_eq!(parsed, paths);
 }
 
 #[test]
@@ -103,6 +139,21 @@ fn test_read_inventory_reads_one_count_prefixed_event_item() {
 
     assert_eq!(inventory.event_items.len(), 1);
     assert!(inventory.misc_items.is_empty());
+}
+
+#[test]
+fn test_write_inventory_round_trips_one_count_prefixed_event_item() {
+    let inventory = InventoryData {
+        event_items: vec![super::InventoryEventItem::default()],
+        ..Default::default()
+    };
+    let mut output = Vec::new();
+
+    inventory.write_to(&mut output).unwrap();
+    let parsed = InventoryData::read_from(&mut Cursor::new(output)).unwrap();
+
+    assert_eq!(parsed.event_items.len(), 1);
+    assert!(parsed.misc_items.is_empty());
 }
 
 #[test]
@@ -141,6 +192,23 @@ fn test_read_post_events_accepts_empty_record_collection() {
 }
 
 #[test]
+fn test_write_post_events_round_trips_empty_record_collection() {
+    let post_events = PostEventsData {
+        block_a: vec![1; 12],
+        records: Vec::new(),
+        block_b: vec![2; 56],
+    };
+    let mut output = Vec::new();
+
+    post_events.write_to(&mut output).unwrap();
+    let parsed = PostEventsData::read_from(&mut Cursor::new(output)).unwrap();
+
+    assert_eq!(parsed.block_a, post_events.block_a);
+    assert_eq!(parsed.records, post_events.records);
+    assert_eq!(parsed.block_b, post_events.block_b);
+}
+
+#[test]
 fn test_read_journal_rejects_truncated_main_section() {
     let error = JournalData::read_from(&mut Cursor::new(vec![0; JOURNAL_HEADER_SIZE])).unwrap_err();
 
@@ -167,6 +235,217 @@ fn test_read_post_maps_rejects_mismatched_duplicate_count() {
 }
 
 #[test]
+fn test_write_post_maps_round_trips_header_and_map_ids() {
+    let post_maps = PostMapsData {
+        game_version: 1.45,
+        number_of_visited_maps: 2,
+        map_ids: vec![7, 9],
+        ..Default::default()
+    };
+    let mut output = Vec::new();
+
+    post_maps.write_to(&mut output).unwrap();
+    let parsed = PostMapsData::read_from(&mut Cursor::new(output), 2).unwrap();
+
+    assert_eq!(parsed.game_version, post_maps.game_version);
+    assert_eq!(parsed.map_ids, post_maps.map_ids);
+}
+
+#[test]
 fn test_layout_constants_keep_verified_trailer_record_size() {
     assert_eq!(EXTRA_OBJECT_TRAILER_RECORD_SIZE, 24);
+}
+
+#[test]
+fn test_write_save_file_invalid_model_emits_no_bytes() {
+    let mut output = Vec::new();
+
+    let error = SaveFile::default().write_to(&mut output).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains("sprite paths"));
+    assert!(output.is_empty());
+}
+
+#[test]
+fn test_write_save_file_and_extractor_emit_identical_bytes() {
+    let save = valid_save();
+    let mut direct = Vec::new();
+    let mut through_trait = Vec::new();
+
+    save.write_to(&mut direct).unwrap();
+    SaveFile::to_writer(&[save], &mut through_trait).unwrap();
+
+    assert_eq!(direct, through_trait);
+}
+
+#[test]
+fn test_write_save_file_validates_fixed_collection_lengths_before_output() {
+    let cases = [
+        (
+            "sprite paths",
+            invalid_save(|save| {
+                save.sprite_paths.pop();
+            }),
+        ),
+        (
+            "map viewport",
+            invalid_save(|save| {
+                save.map_viewport_state.cells.pop();
+            }),
+        ),
+        (
+            "learned spells",
+            invalid_save(|save| {
+                save.learned_spells.spells.pop();
+            }),
+        ),
+        (
+            "events",
+            invalid_save(|save| {
+                save.events.pop();
+            }),
+        ),
+        (
+            "journal",
+            invalid_save(|save| {
+                save.journal.main.pop();
+            }),
+        ),
+    ];
+
+    for (section, save) in cases {
+        assert_preflight_rejection(save, section);
+    }
+}
+
+#[test]
+fn test_write_save_file_validates_cross_field_counts_before_output() {
+    let cases = [
+        (
+            "post-maps",
+            invalid_save(|save| save.post_maps.number_of_visited_maps = 1),
+        ),
+        (
+            "party members",
+            invalid_save(|save| save.party_members_count = 1),
+        ),
+        (
+            "maps",
+            invalid_save(|save| save.maps.push(MapSectionData::default())),
+        ),
+    ];
+
+    for (section, save) in cases {
+        assert_preflight_rejection(save, section);
+    }
+}
+
+#[test]
+fn test_write_count_validation_rejects_values_above_wire_limits() {
+    let u16_error =
+        super::writer::checked_u16("inventory", "item count", usize::from(u16::MAX) + 1)
+            .unwrap_err();
+
+    assert_eq!(u16_error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(u16_error.to_string().contains("inventory"));
+}
+
+#[cfg(target_pointer_width = "64")]
+#[test]
+fn test_write_count_validation_rejects_u32_overflow() {
+    let error = super::writer::checked_u32("maps", "map count", u32::MAX as usize + 1).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains("maps"));
+}
+
+#[test]
+fn test_write_save_file_validates_post_event_blocks_before_output() {
+    let cases = [
+        invalid_save(|save| {
+            save.post_events.block_a.pop();
+        }),
+        invalid_save(|save| save.post_events.records.push(0)),
+        invalid_save(|save| {
+            save.post_events.block_b.pop();
+        }),
+    ];
+
+    for save in cases {
+        assert_preflight_rejection(save, "post-events");
+    }
+}
+
+#[test]
+fn test_write_save_file_reports_section_and_output_offset() {
+    let save = valid_save();
+    let mut writer = FailAfter::new(10);
+
+    let error = save.write_to(&mut writer).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::Other);
+    assert!(error.to_string().contains("post-maps"));
+    assert!(error.to_string().contains("byte offset 10"));
+}
+
+fn valid_save() -> SaveFile {
+    SaveFile {
+        sprite_paths: vec![String::new(); 4],
+        learned_spells: super::LearnedSpells {
+            spells: vec![0; 41],
+        },
+        events: vec![EventRecord::default(); 2_251],
+        post_events: PostEventsData {
+            block_a: vec![0; 12],
+            records: Vec::new(),
+            block_b: vec![0; 56],
+        },
+        journal: JournalData {
+            main: vec![JournalEntry::default(); 100],
+            side: vec![JournalEntry::default(); 100],
+            trade: vec![JournalEntry::default(); 100],
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
+fn invalid_save(change: impl FnOnce(&mut SaveFile)) -> SaveFile {
+    let mut save = valid_save();
+    change(&mut save);
+    save
+}
+
+fn assert_preflight_rejection(save: SaveFile, section: &str) {
+    let mut output = Vec::new();
+    let error = save.write_to(&mut output).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains(section), "{error}");
+    assert!(output.is_empty());
+}
+
+struct FailAfter {
+    remaining: usize,
+}
+
+impl FailAfter {
+    fn new(remaining: usize) -> Self {
+        Self { remaining }
+    }
+}
+
+impl Write for FailAfter {
+    fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
+        if self.remaining == 0 {
+            return Err(std::io::Error::other("injected write failure"));
+        }
+        let written = buffer.len().min(self.remaining);
+        self.remaining -= written;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

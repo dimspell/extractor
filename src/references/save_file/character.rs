@@ -2,7 +2,7 @@ use crate::references::extractor::read_null_terminated_windows_1250;
 use byteorder::{LittleEndian, ReadBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+use std::io::{Read, Write};
 
 pub(super) const SPRITE_PATH_COUNT: usize = 4;
 pub(super) const SPRITE_PATH_SIZE: usize = 60;
@@ -22,6 +22,20 @@ pub(super) fn read_sprite_paths<R: Read>(reader: &mut R) -> std::io::Result<Vec<
         );
     }
     Ok(paths)
+}
+
+pub(super) fn write_sprite_paths<W: Write>(
+    paths: &[String],
+    writer: &mut W,
+) -> std::io::Result<()> {
+    for path in paths {
+        let mut buffer = [0u8; SPRITE_PATH_SIZE];
+        let (encoded, _, _) = encoding_rs::WINDOWS_1250.encode(path);
+        let len = encoded.len().min(buffer.len());
+        buffer[..len].copy_from_slice(&encoded[..len]);
+        writer.write_all(&buffer)?;
+    }
+    Ok(())
 }
 
 /// Parse actual position, character stats, and some unknown bytes (112 bytes).
@@ -327,5 +341,9 @@ impl LearnedSpells {
         let mut spells = vec![0u8; LEARNED_SPELL_COUNT];
         reader.read_exact(&mut spells)?;
         Ok(Self { spells })
+    }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(&self.spells)
     }
 }

@@ -1,6 +1,6 @@
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+use std::io::{Read, Write};
 
 pub(super) const JOURNAL_HEADER_SIZE: usize = 42;
 pub(super) const JOURNAL_ENTRY_SIZE: usize = 37;
@@ -33,6 +33,13 @@ impl JournalData {
             trade: read_entries(reader)?,
         })
     }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        self.header.write(writer)?;
+        write_entries(writer, &self.main)?;
+        write_entries(writer, &self.side)?;
+        write_entries(writer, &self.trade)
+    }
 }
 
 fn read_entries<R: Read>(reader: &mut R) -> std::io::Result<Vec<JournalEntry>> {
@@ -41,6 +48,13 @@ fn read_entries<R: Read>(reader: &mut R) -> std::io::Result<Vec<JournalEntry>> {
     data.chunks_exact(JOURNAL_ENTRY_SIZE)
         .map(JournalEntry::parse)
         .collect()
+}
+
+fn write_entries<W: Write>(writer: &mut W, entries: &[JournalEntry]) -> std::io::Result<()> {
+    for entry in entries {
+        entry.write(writer)?;
+    }
+    Ok(())
 }
 
 /// The 42-byte journal header before the three 100-entry journal sections.

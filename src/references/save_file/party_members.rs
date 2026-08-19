@@ -429,3 +429,14 @@ pub(super) fn read_party_members<R: Read>(
     }
     Ok(members)
 }
+
+pub(super) fn write_party_members<W: Write>(
+    members: &[PartyMember],
+    writer: &mut W,
+) -> std::io::Result<()> {
+    writer.write_u32::<LittleEndian>(members.len() as u32)?;
+    for member in members {
+        member.write(writer)?;
+    }
+    Ok(())
+}

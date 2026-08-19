@@ -1,13 +1,13 @@
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
-use std::io::Read;
+use std::io::{Read, Write};
 
 pub(super) const EVENT_COUNT: usize = 2_251;
 pub(super) const EVENT_RECORD_SIZE: usize = 284;
-const POST_EVENTS_BLOCK_A_SIZE: usize = 12;
-const POST_EVENTS_RECORD_SIZE: usize = 24;
-const POST_EVENTS_BLOCK_B_SIZE: usize = 56;
+pub(super) const POST_EVENTS_BLOCK_A_SIZE: usize = 12;
+pub(super) const POST_EVENTS_RECORD_SIZE: usize = 24;
+pub(super) const POST_EVENTS_BLOCK_B_SIZE: usize = 56;
 
 /// Event script record (save file format: 284 bytes each)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -27,6 +27,16 @@ pub(super) fn read_events<R: Read>(reader: &mut R) -> std::io::Result<Vec<EventR
         events.push(EventRecord::parse(&data)?);
     }
     Ok(events)
+}
+
+pub(super) fn write_events<W: Write>(
+    events: &[EventRecord],
+    writer: &mut W,
+) -> std::io::Result<()> {
+    for event in events {
+        event.write(writer)?;
+    }
+    Ok(())
 }
 
 /// Unknown data block between events and journal sections.
@@ -59,5 +69,12 @@ impl PostEventsData {
             records,
             block_b,
         })
+    }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(&self.block_a)?;
+        writer.write_u32::<LittleEndian>((self.records.len() / POST_EVENTS_RECORD_SIZE) as u32)?;
+        writer.write_all(&self.records)?;
+        writer.write_all(&self.block_b)
     }
 }

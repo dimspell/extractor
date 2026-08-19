@@ -34,7 +34,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .push(section_header("Player Identity"))
             .push(label_row(
                 "Party Members Count",
-                &sf.party_members_count.to_string(),
+                sf.party_members_count.to_string(),
             ))
             .push(Column::new().spacing(4).push(match party_members.first() {
                 Some(member) => party_member_block(member),

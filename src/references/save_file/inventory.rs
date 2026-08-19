@@ -221,6 +221,16 @@ impl InventoryData {
             )?,
         })
     }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        write_item_section(writer, &self.event_items, |item, writer| item.write(writer))?;
+        write_item_section(writer, &self.misc_items, |item, writer| item.write(writer))?;
+        write_item_section(writer, &self.edit_items, |item, writer| item.write(writer))?;
+        write_item_section(writer, &self.weapon_items, |item, writer| {
+            item.write(writer)
+        })?;
+        write_item_section(writer, &self.heal_items, |item, writer| item.write(writer))
+    }
 }
 
 fn read_item_section<R: Read, T>(
@@ -232,6 +242,18 @@ fn read_item_section<R: Read, T>(
     let mut data = vec![0u8; count * record_size];
     reader.read_exact(&mut data)?;
     data.chunks_exact(record_size).map(parse).collect()
+}
+
+fn write_item_section<W: Write, T>(
+    writer: &mut W,
+    records: &[T],
+    mut write: impl FnMut(&T, &mut W) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    writer.write_u16::<LittleEndian>(records.len() as u16)?;
+    for record in records {
+        write(record, writer)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
