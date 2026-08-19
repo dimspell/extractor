@@ -1035,14 +1035,14 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //         bytes
         //     },
         // },
-        RawHexEditorData {
-            label: "character_identity.unknown_00".into(),
-            data: save_file.character_identity.unknown_00.clone(),
-        },
-        RawHexEditorData {
-            label: "character_identity.unknown_02".into(),
-            data: save_file.character_identity.unknown_02.clone(),
-        },
+        // RawHexEditorData {
+        //     label: "character_identity.unknown_00".into(),
+        //     data: save_file.character_identity.unknown_00.clone(),
+        // },
+        // RawHexEditorData {
+        //     label: "character_identity.unknown_02".into(),
+        //     data: save_file.character_identity.unknown_02.clone(),
+        // },
         RawHexEditorData {
             label: "post_events.block_a".into(),
             data: save_file.post_events.block_a.clone(),

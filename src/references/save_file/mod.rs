@@ -409,14 +409,73 @@ impl SaveFile {
         Ok(events)
     }
 
-    /// Parse character identity (131 bytes).
+    /// Parse the character identity block (between the inventory and the
+    /// character name).
     ///
-    /// Layout:
-    ///   `[unknown_96B][name: 11B][class_id: u16][class_name: 11B][unknown_11B]`
+    /// This block holds the per-category inventory serial counters, the
+    /// scripted-action state machine, the movement waypoint path, and the
+    /// movement/teleport state. The trailing 35 bytes are the actual
+    /// `CharacterIdentity` (name + class).
     fn parse_character_identity<R: Read + Seek>(
         reader: &mut R,
     ) -> std::io::Result<CharacterIdentity> {
-        let mut header_buf = [0u8; 131];
+        // Per-category inventory serial counters. Each is the next-slot serial
+        // stamped into the item records of that category (kept in sync with the
+        // item counts read in `parse_inventory_section`).
+        let _event_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _misc_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _edit_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _weapon_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+        let _heal_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
+
+        // Scripted-action state machine.
+        let _current_action_id: u32 = reader.read_u32::<LittleEndian>()?; // 0-7, -1 = idle
+        let _waypoint_index: u32 = reader.read_u32::<LittleEndian>()?; // current waypoint
+        let waypoint_count: u32 = reader.read_u32::<LittleEndian>()?; // number of waypoints
+
+        // Movement waypoint path: array of {u16 x, u16 y} records.
+        let mut waypoint_data = vec![0u8; waypoint_count as usize * 8];
+        reader.read_exact(&mut waypoint_data)?;
+
+        // Movement / teleport state.
+        let _move_requested: u8 = reader.read_u8()?; // pending move latch
+        let _move_destination_x: u32 = reader.read_u32::<LittleEndian>()?;
+        let _move_destination_y: u32 = reader.read_u32::<LittleEndian>()?;
+        let _movement_blocked: u8 = reader.read_u8()?; // blocked by event/cutscene
+        let _teleport_mode: u8 = reader.read_u8()?;
+        let _teleport_destination_pending: u8 = reader.read_u8()?;
+        let _teleport_execution_pending: u8 = reader.read_u8()?;
+        let _model_animation_index: u16 = reader.read_u16::<LittleEndian>()?;
+        let mut teleport_target = [0u8; 8]; // {u32 x, u32 y} tile coordinates
+        reader.read_exact(&mut teleport_target)?;
+        let _teleport_target_value: u32 = reader.read_u32::<LittleEndian>()?;
+        let _stop_after_path_end: u8 = reader.read_u8()?;
+        let _movement_sub_state: u8 = reader.read_u8()?; // 0=idle,1=started,2=walking,3=arrived
+        let _character_class: u8 = reader.read_u8()?; // 1=Paladin, 2=Hero (based on morale - good/evil path, the class, and level)
+        let _position_changed: u8 = reader.read_u8()?; // latch: sync position to 0x7c/0x80
+        let _global_object_id_counter: u32 = reader.read_u32::<LittleEndian>()?;
+        let _interaction_state: u8 = reader.read_u8()?;
+        let _interaction_state_paired: u8 = reader.read_u8()?;
+        let _stat_bonus_a: u8 = reader.read_u8()?; // class 1 stat bonus (offense stat bonus for Warrior class)
+        let _stat_bonus_b: u8 = reader.read_u8()?; // class 0 stat bonus (defense stat bonus for Knight class)
+        let _stat_bonus_c: u8 = reader.read_u8()?; // class 2 stat bonus (dodge_rate stat bonus for Archer class)
+        let _stat_bonus_d: u8 = reader.read_u8()?; // class 2 stat bonus (hit_rate stat bonus for Archer class)
+        let _stat_bonus_e: u8 = reader.read_u8()?; // class 3 stat bonus (magic_power stat bonus for the Mage class)
+        let _action_index: u32 = reader.read_u32::<LittleEndian>()?;
+        let _pathfinding_scratch_a: u32 = reader.read_u32::<LittleEndian>()?;
+        let _pathfinding_scratch_b: u32 = reader.read_u32::<LittleEndian>()?;
+        let _reserved_500: u32 = reader.read_u32::<LittleEndian>()?;
+        let _action_current_step: u32 = reader.read_u32::<LittleEndian>()?;
+        let _action_total_steps: u32 = reader.read_u32::<LittleEndian>()?;
+        let mut position = [0u8; 8]; // {u32 x, u32 y}
+        reader.read_exact(&mut position)?;
+
+        // 11
+        // 2
+        // 20
+        // 2
+
+        let mut header_buf = [0u8; 35];
         reader.read_exact(&mut header_buf)?;
         let character_data_header = CharacterIdentity::parse(&header_buf)?;
         Ok(character_data_header)

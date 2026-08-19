@@ -204,38 +204,23 @@ pub struct CharacterData {
     pub status_effect_stack: u8,
 }
 
-/// Character identity data (name, class, unknown bytes) - 131 bytes.
+/// Character identity data (name, class, and persisted spell-bar state).
+///
+/// Only the trailing 35 bytes of the identity block are retained here
+/// (`player_name` through `selected_spell_ui_index`)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct CharacterIdentity {
-    // pub unknown_01a: u16,
-    // pub unknown_01b: u16,
-    // pub unknown_01c: u16,
-    // pub unknown_01d: u16,
-    // pub unknown_01e: u16, // 10
-    //
-    // pub unknown_02a: u32,
-    // pub unknown_02b: u32,
-    // pub unknown_02c: u32, // 24
-    /// Unknown block before player name (96 bytes).
-    #[binary_record(size = 96)]
-    pub unknown_00: Vec<u8>,
     /// Player name (11 bytes, null-terminated string).
     #[binary_record(string(encoding = "WINDOWS-1250", size = 11))]
     pub player_name: String,
     /// Player class ID.
     pub player_class_id: u16,
-    /// Player class name (11-byte WINDOWS-1250 null-terminated).
-    #[binary_record(string(encoding = "WINDOWS-1250", size = 11))]
+    /// Player class name (20-byte WINDOWS-1250 null-terminated).
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 20))]
     pub player_class_name: String,
-
-    // -- Header block before equipment data (11 bytes).
-    #[binary_record(size = 6)]
-    pub unknown_02: Vec<u8>,
-    pub unknown_03: u8, // TODO: It is likely strength attribute (maybe after modificators/curses)
-    pub unknown_04: u8,
-    pub unknown_05: u8, // TODO: It is likely agility attribute (maybe after modificators/curses)
-    pub unknown_06: u8,
-    pub unknown_07: u8,
+    /// UI index of the currently selected spell, derived from the spell ID
+    /// and used by the renderer to position the spell bar.
+    pub selected_spell_ui_index: u16,
 }
 
 /// Learned spells block (41 bytes).

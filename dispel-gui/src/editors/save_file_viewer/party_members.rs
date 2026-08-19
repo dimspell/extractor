@@ -18,24 +18,8 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         Column::new()
             .push(section_header("Character Data Header"))
             .push(label_row(
-                "unknown_03",
-                sf.character_identity.unknown_03.to_string(),
-            ))
-            .push(label_row(
-                "unknown_4",
-                sf.character_identity.unknown_04.to_string(),
-            ))
-            .push(label_row(
-                "unknown_5",
-                sf.character_identity.unknown_05.to_string(),
-            ))
-            .push(label_row(
-                "unknown_6",
-                sf.character_identity.unknown_06.to_string(),
-            ))
-            .push(label_row(
-                "unknown_7",
-                sf.character_identity.unknown_07.to_string(),
+                "selected_spell_ui_index",
+                sf.character_identity.selected_spell_ui_index.to_string(),
             ))
             .push(section_header("Learned Spells"))
             .push(sf.learned_spells.spells.iter().enumerate().fold(
