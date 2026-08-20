@@ -9,6 +9,7 @@ use super::game_tmp::{EXTRA_OBJECT_TRAILER_RECORD_SIZE, read_maps, write_maps};
 use super::inventory::{INVENTORY_SLOTS_SIZE, InventoryData, InventorySlots};
 use super::journal::{JOURNAL_HEADER_SIZE, JournalData};
 use super::map_viewport::{MAP_VIEWPORT_STATE_SIZE, MapViewportState, PostMapsData};
+use super::party_members::PartyMemberBinaryRecord;
 use super::{EventRecord, JournalEntry, MapSectionData, MonsterRecord, PartyMember, SaveFile};
 use crate::references::extractor::Extractor;
 use std::io::{Cursor, Write};
@@ -317,6 +318,36 @@ fn test_party_member_write_rejects_snapshot_presence_mismatch() {
 
     assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
     assert!(error.to_string().contains("presence byte"));
+}
+
+#[test]
+fn test_party_member_overlapping_snapshot_ranges_keep_exact_offsets() {
+    let mut runtime = vec![0u8; PartyMember::RUNTIME_STATE_SIZE];
+    for (index, byte) in runtime[..296].iter_mut().enumerate() {
+        *byte = index as u8;
+    }
+    let parsed = PartyMemberBinaryRecord::parse(&runtime).unwrap();
+
+    assert_eq!(parsed.maximum_mana_points_overlap, runtime[4..6]);
+    assert_eq!(parsed.class_and_level_overlap, runtime[8..10]);
+    assert_eq!(parsed.class_ai_snapshot_overlaps, runtime[12..24]);
+    assert_eq!(parsed.agility_attack_snapshot_tails, runtime[42..48]);
+    assert_eq!(parsed.magic_spell_snapshot_tails, runtime[51..60]);
+    assert_eq!(parsed.party_character_index_snapshot_tail, runtime[61..64]);
+    assert_eq!(parsed.current_health_snapshot_tail, runtime[82..84]);
+    assert_eq!(parsed.current_mana_snapshot_tail, runtime[86..88]);
+    assert_eq!(parsed.selected_map_object_snapshot_tail, runtime[118..120]);
+    assert_eq!(parsed.rejoin_level_up_snapshot_overlaps, runtime[215..220]);
+    assert_eq!(parsed.current_position_snapshot_overlap, runtime[252..256]);
+    assert_eq!(parsed.previous_position_snapshot_overlap, runtime[260..264]);
+    assert_eq!(
+        parsed.sprite_horizontal_flip_snapshot_tail,
+        runtime[265..268]
+    );
+
+    let mut output = Vec::new();
+    parsed.write(&mut output).unwrap();
+    assert_eq!(output, runtime);
 }
 
 #[test]

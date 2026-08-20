@@ -4,11 +4,11 @@ use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-/// Fixed 321-byte party-member record as it appears on disk.
+/// Fixed 300-byte runtime payload within a party-member record.
 ///
-/// The runtime state contains preserved bytes between the decoded values.
-/// Keep those gaps in the derived record so `BinaryRecord` still consumes the
-/// exact layout while the public [`PartyMember`] type exposes only named data.
+/// The containing record adds a 21-byte name and an optional combat snapshot.
+/// The payload is assembled from overlapping four-byte runtime snapshots, so
+/// some bytes repeat values that are decoded elsewhere in this structure.
 ///
 /// Some preserved ranges contain overlapping four-byte snapshots of packed
 /// runtime fields. They must remain byte-exact even when only one byte has a
@@ -19,22 +19,23 @@ pub struct PartyMemberBinaryRecord {
     pub maximum_health_points: u16,
     /// Maximum mana points from the party-level progression record.
     pub maximum_mana_points: u16,
+    /// Duplicate maximum-mana bytes from the next overlapping four-byte snapshot.
     #[binary_record(size = 2)]
-    pub unknown_04: Vec<u8>,
+    pub maximum_mana_points_overlap: Vec<u8>,
     /// Party character class ID from `PrtIni.db` (21–24 in shipped data).
     pub class_id: u8,
     /// Current progression level.
     pub level: u8,
-    // TODO: Recognise the unknown bytes
+    /// Duplicate class and level bytes from an overlapping runtime snapshot.
     #[binary_record(size = 2)]
-    pub unknown_08: Vec<u8>,
+    pub class_and_level_overlap: Vec<u8>,
     /// Class-specific runtime behaviour selected during companion creation.
     pub class_behaviour: u8,
     /// Range used by the companion AI when searching for a combat target.
     pub ai_target_search_range: u8,
-    // TODO: Recognise the unknown bytes
+    /// Overlapping tails of the level, class-behaviour, and AI-range snapshots.
     #[binary_record(size = 12)]
-    pub unknown_12: Vec<u8>,
+    pub class_ai_snapshot_overlaps: Vec<u8>,
     /// Inferred AI action-state value saved between target-selection updates.
     pub ai_runtime_state: u32,
     /// Strength from `PrtLevel.db` for this character and level.
@@ -47,9 +48,9 @@ pub struct PartyMemberBinaryRecord {
     pub agility: u8,
     /// Attack stat from `PrtLevel.db` for this character and level.
     pub attack: u8,
-    // TODO: Recognise the unknown bytes
+    /// Overlapping tails of the agility and attack snapshots.
     #[binary_record(size = 6)]
-    pub unknown_42: Vec<u8>,
+    pub agility_attack_snapshot_tails: Vec<u8>,
     /// First magic spell unlocked at the member's current level.
     /// A value of `0xff` means that the slot is empty.
     pub magic_spell_id_1: u8,
@@ -59,14 +60,14 @@ pub struct PartyMemberBinaryRecord {
     /// Third magic spell unlocked at the member's current level.
     /// A value of `0xff` means that the slot is empty.
     pub magic_spell_id_3: u8,
+    /// Overlapping tails of the three one-byte spell-ID snapshots.
     #[binary_record(size = 9)]
-    // TODO: Recognise the unknown bytes
-    pub unknown_51: Vec<u8>,
+    pub magic_spell_snapshot_tails: Vec<u8>,
     /// Zero-based index of this companion in the game's party-character table.
     pub party_character_index: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte party-character-index snapshot.
     #[binary_record(size = 3)]
-    pub unknown_61: Vec<u8>,
+    pub party_character_index_snapshot_tail: Vec<u8>,
     /// Visual/class variant selected for this companion from the party-character table.
     pub party_class_variant: u32,
     /// Weapon-skill level from `PrtLevel.db` for this character and level.
@@ -80,39 +81,39 @@ pub struct PartyMemberBinaryRecord {
     pub party_slot_index: u32,
     /// Health points remaining at the time the save was written.
     pub current_health_points: u16,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte current-health snapshot.
     #[binary_record(size = 2)]
-    pub unknown_82: Vec<u8>,
+    pub current_health_snapshot_tail: Vec<u8>,
     /// Mana points remaining at the time the save was written.
     pub current_mana_points: u16,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte current-mana snapshot.
     #[binary_record(size = 2)]
-    pub unknown_86: Vec<u8>,
+    pub current_mana_snapshot_tail: Vec<u8>,
     /// Horizontal screen-pixel offset used while drawing the companion sprite.
     pub sprite_offset_x: i8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte horizontal-offset snapshot.
     #[binary_record(size = 3)]
-    pub unknown_89: Vec<u8>,
+    pub sprite_offset_x_snapshot_tail: Vec<u8>,
     /// Vertical screen-pixel offset used while drawing the companion sprite.
     pub sprite_offset_y: i8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte vertical-offset snapshot.
     #[binary_record(size = 3)]
-    pub unknown_93: Vec<u8>,
+    pub sprite_offset_y_snapshot_tail: Vec<u8>,
     /// Current frame within the companion's active animation.
     pub animation_frame_index: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte animation-frame snapshot.
     #[binary_record(size = 3)]
-    pub unknown_97: Vec<u8>,
+    pub animation_frame_snapshot_tail: Vec<u8>,
     /// Map occupancy ID written into tiles and supplied to pathfinding for this companion.
     pub map_occupancy_id: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte occupancy-ID snapshot.
     #[binary_record(size = 3)]
-    pub unknown_101: Vec<u8>,
+    pub map_occupancy_id_snapshot_tail: Vec<u8>,
     /// Current facing direction; `-1` means that no directional animation is active.
     pub facing_direction: i8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte facing-direction snapshot.
     #[binary_record(size = 3)]
-    pub unknown_105: Vec<u8>,
+    pub facing_direction_snapshot_tail: Vec<u8>,
     /// Inferred movement-transition state, stored beside the direction bytes.
     pub movement_transition_state: u32,
     /// Inferred substate for the current movement transition.
@@ -120,9 +121,9 @@ pub struct PartyMemberBinaryRecord {
     /// ID of the map object currently selected as this companion's movement or action target.
     /// A negative value means that no map object is selected.
     pub selected_map_object_id: i16,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte selected-map-object snapshot.
     #[binary_record(size = 2)]
-    pub unknown_118: Vec<u8>,
+    pub selected_map_object_snapshot_tail: Vec<u8>,
     /// Inferred phase value for the active movement animation.
     pub movement_animation_phase: u32,
     /// Number of animation frames processed in the current action.
@@ -135,32 +136,32 @@ pub struct PartyMemberBinaryRecord {
     pub follow_target_y: i32,
     /// Whether the companion's one-frame hit reaction still needs to be drawn.
     pub hit_animation_pending: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte hit-animation snapshot.
     #[binary_record(size = 3)]
-    pub unknown_141: Vec<u8>,
+    pub hit_animation_snapshot_tail: Vec<u8>,
     /// Current visual frame while the combat action waits for execution.
     pub combat_action_delay_animation_frame: u32,
     /// Whether the selected combat action is waiting for its execution delay (boolean).
     pub combat_action_delay_active: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte combat-delay-active snapshot.
     #[binary_record(size = 3)]
-    pub unknown_149: Vec<u8>,
+    pub combat_action_delay_active_snapshot_tail: Vec<u8>,
     /// Ticks remaining before the delayed combat action is executed.
     pub combat_action_delay_ticks_remaining: u32,
     /// Whether a delayed combat action has become ready for execution (boolean).
     pub combat_action_ready: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte combat-ready snapshot.
     #[binary_record(size = 3)]
-    pub unknown_157: Vec<u8>,
+    pub combat_action_ready_snapshot_tail: Vec<u8>,
     /// Current visual frame while the ready combat action is resolved.
     pub combat_action_resolution_animation_frame: u32,
     /// Selected combat action or spell. Negative values are runtime sentinels.
     pub selected_combat_action_id: i32,
     /// Whether the combat action's completion frame has been reached (boolean).
     pub combat_action_completion_latched: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte completion-latch snapshot.
     #[binary_record(size = 3)]
-    pub unknown_169: Vec<u8>,
+    pub combat_action_completion_snapshot_tail: Vec<u8>,
     /// Auxiliary value for a timed status effect; `-1` means inactive.
     ///
     /// Depending on the effect phase, the game uses this as a countdown or a
@@ -193,19 +194,19 @@ pub struct PartyMemberBinaryRecord {
     pub rejoin_leader_in_progress: u8,
     /// Whether this companion has earned a level and awaits the level-up sequence (boolean).
     pub level_up_pending: u8,
-    // TODO: Recognise the unknown bytes
+    /// Overlapping tails of the rejoin and pending-level-up snapshots.
     #[binary_record(size = 5)]
-    pub unknown_215: Vec<u8>,
+    pub rejoin_level_up_snapshot_overlaps: Vec<u8>,
     /// Whether the level-up animation is currently active (boolean).
     pub level_up_animation_active: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte level-up-animation-active snapshot.
     #[binary_record(size = 3)]
-    pub unknown_221: Vec<u8>,
+    pub level_up_animation_active_snapshot_tail: Vec<u8>,
     /// Preserved runtime byte following the level-up state.
     pub level_up_runtime_state: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte level-up runtime-state snapshot.
     #[binary_record(size = 3)]
-    pub unknown_225: Vec<u8>,
+    pub level_up_runtime_state_snapshot_tail: Vec<u8>,
     /// Current frame of the level-up animation.
     pub level_up_animation_frame: u32,
     /// Variant of the level-up animation selected for this companion's class.
@@ -220,21 +221,21 @@ pub struct PartyMemberBinaryRecord {
     pub map_x: u16,
     /// Current map-cell Y coordinate.
     pub map_y: u16,
-    // TODO: Recognise the unknown bytes
+    /// Duplicate map-Y and following coordinate bytes from an overlapping snapshot.
     #[binary_record(size = 4)]
-    pub unknown_252: Vec<u8>,
+    pub current_position_snapshot_overlap: Vec<u8>,
     /// Previous map-cell X coordinate, used by movement and formation logic.
     pub previous_map_x: u16,
     /// Previous map-cell Y coordinate, used by movement and formation logic.
     pub previous_map_y: u16,
-    // TODO: Recognise the unknown bytes
+    /// Duplicate previous-map-Y and following coordinate bytes from an overlapping snapshot.
     #[binary_record(size = 4)]
-    pub unknown_260: Vec<u8>,
+    pub previous_position_snapshot_overlap: Vec<u8>,
     /// Whether the companion sprite is rendered horizontally flipped (boolean).
     pub sprite_horizontal_flip: u8,
-    // TODO: Recognise the unknown bytes
+    /// Remaining bytes of the four-byte horizontal-flip snapshot.
     #[binary_record(size = 3)]
-    pub unknown_265: Vec<u8>,
+    pub sprite_horizontal_flip_snapshot_tail: Vec<u8>,
     /// Runtime movement state for the companion.
     pub movement_state: u32,
     /// Number of nodes in the active movement path.
