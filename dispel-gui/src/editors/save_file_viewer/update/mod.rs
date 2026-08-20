@@ -1200,10 +1200,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.padding6.to_string(),
                                     item.padding7.to_string(),
                                     item.padding8.to_string(),
+                                    item.item_category.to_string(),
                                     item.inventory_instance_id.to_string(),
-                                    item.unknown_2.to_string(),
-                                    item.unknown_3.to_string(),
-                                    item.unknown_4.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1225,11 +1223,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.poison_heal.to_string(),
                                     item.petrif_heal.to_string(),
                                     item.polimorph_heal.to_string(),
-                                    item.unknown_1.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.position_index.to_string(),
-                                    item.unknown_4.to_string(),
-                                    item.unknown_5.to_string(),
+                                    item.reserved_definition_byte.to_string(),
+                                    item.item_category.to_string(),
+                                    item.inventory_record_index.to_string(),
+                                    hex_bytes(&item.reserved_runtime_bytes),
                                 ]
                             })
                             .collect(),
@@ -1259,9 +1256,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.reserved_byte.to_string(),
                                     item.modifies_item.to_string(),
                                     item.additional_effect.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_5.to_string(),
-                                    item.unknown_6.to_string(),
+                                    item.item_category.to_string(),
+                                    item.item_category_padding.to_string(),
+                                    item.inventory_record_index.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1276,9 +1273,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.description.clone(),
                                     item.base_price.to_string(),
                                     item.event_item_id.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_3.to_string(),
-                                    item.unknown_4.to_string(),
+                                    item.item_category.to_string(),
+                                    item.item_category_padding.to_string(),
+                                    item.inventory_record_index.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1292,13 +1289,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.name.clone(),
                                     item.description.clone(),
                                     item.base_price.to_string(),
-                                    hex_bytes(&item.unknown_1),
+                                    hex_bytes(&item.reserved_definition_bytes),
                                     item.misc_item_id.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_4.to_string(),
-                                    item.unknown_5.to_string(),
-                                    item.unknown_6.to_string(),
-                                    item.unknown_7.to_string(),
+                                    item.item_category.to_string(),
+                                    item.inventory_record_index.to_string(),
+                                    item.inventory_instance_id.to_string(),
                                 ]
                             })
                             .collect(),

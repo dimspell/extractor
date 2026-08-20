@@ -263,14 +263,17 @@ pub struct InventoryMiscItem {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
+    /// Reserved bytes copied from the item definition; no runtime use is known.
     #[binary_record(size = 16)]
-    pub unknown_1: Vec<u8>,
-    pub misc_item_id: u32, // misc_item_id
-    pub item_type_id: u16,
-    pub unknown_4: u16, // 260
-    pub unknown_5: u8,  // inventory position
-    pub unknown_6: u8,  // inventory position
-    pub unknown_7: u16, // 264
+    pub reserved_definition_bytes: Vec<u8>,
+    /// Zero-based index of the corresponding miscellaneous-item definition.
+    pub misc_item_id: u32,
+    /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.
+    pub item_category: u16,
+    /// Zero-based index of this record in the save's miscellaneous-item array.
+    pub inventory_record_index: u16,
+    /// Per-save item identity referenced by inventory placement cells.
+    pub inventory_instance_id: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -281,9 +284,12 @@ pub struct InventoryEventItem {
     pub description: String, // 232
     pub base_price: u32,    // 236
     pub event_item_id: u32, // 240
-    pub item_type_id: u8,   // inventory position 241
-    pub unknown_3: u8,      // inventory position 242
-    pub unknown_4: u16,     // 244
+    /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.
+    pub item_category: u8,
+    /// Alignment byte following the category; observed as zero.
+    pub item_category_padding: u8,
+    /// Zero-based index of this record in the save's event-item array.
+    pub inventory_record_index: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -312,9 +318,12 @@ pub struct InventoryEditItem {
     pub reserved_byte: u8, // 265
     pub modifies_item: u8, // 266
     pub additional_effect: i16, // 268
-    pub item_type_id: u8, // inventory position 269
-    pub unknown_5: u8,   // inventory position 270
-    pub unknown_6: u16,  // 272
+    /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.
+    pub item_category: u8,
+    /// Alignment byte following the category; observed as zero.
+    pub item_category_padding: u8,
+    /// Zero-based index of this record in the save's edit-item array.
+    pub inventory_record_index: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -333,11 +342,14 @@ pub struct InventoryHealItem {
     pub poison_heal: u8,         // 247
     pub petrif_heal: u8,         // 248
     pub polimorph_heal: u8,      // 249
-    pub unknown_1: u8,           // 250
-    pub item_type_id: u16,       // 252
-    pub position_index: u16,     // inventory position 254
-    pub unknown_4: u8,           // inventory position 255
-    pub unknown_5: u8,           // 6c 6c (108, 108) for the first row 256
+    /// First byte of the item definition's reserved trailer; normally zero.
+    pub reserved_definition_byte: u8,
+    /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.
+    pub item_category: u16,
+    /// Zero-based index of this record in the save's heal-item array.
+    pub inventory_record_index: u16,
+    /// Runtime scratch bytes. They are normally zero but are not initialized consistently.
+    pub reserved_runtime_bytes: [u8; 2],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -371,9 +383,83 @@ pub struct InventoryWeaponItem {
     pub padding6: i16,         // 280
     pub padding7: i16,         // 282
     pub padding8: i16,         // 284
-    /// Per-save identity of this weapon inventory record, referenced by equipped slots.
-    pub inventory_instance_id: u32, // 288
-    pub unknown_2: u8,         // inventory position 289
-    pub unknown_3: u8,         // inventory position 290
-    pub unknown_4: u16,        // 292
+    /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.
+    pub item_category: u32,
+    /// Per-save item identity referenced by equipped slots and inventory placement cells.
+    pub inventory_instance_id: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_round_trip<T>(
+        bytes: &[u8],
+        parse: fn(&[u8]) -> std::io::Result<T>,
+        write: fn(&T, &mut Vec<u8>) -> std::io::Result<()>,
+    ) {
+        let record = parse(bytes).unwrap();
+        let mut encoded = Vec::new();
+        write(&record, &mut encoded).unwrap();
+        assert_eq!(encoded, bytes);
+    }
+
+    #[test]
+    fn test_inventory_runtime_fields_parse_at_their_binary_offsets() {
+        let mut misc = vec![0; INVENTORY_MISC_ITEM_SIZE];
+        misc[252..256].copy_from_slice(&17u32.to_le_bytes());
+        misc[256..258].copy_from_slice(&3u16.to_le_bytes());
+        misc[258..260].copy_from_slice(&7u16.to_le_bytes());
+        misc[260..264].copy_from_slice(&0x1234_5678u32.to_le_bytes());
+        let parsed_misc = InventoryMiscItem::parse(&misc).unwrap();
+        assert_eq!(parsed_misc.misc_item_id, 17);
+        assert_eq!(parsed_misc.item_category, 3);
+        assert_eq!(parsed_misc.inventory_record_index, 7);
+        assert_eq!(parsed_misc.inventory_instance_id, 0x1234_5678);
+        assert_round_trip(&misc, InventoryMiscItem::parse, InventoryMiscItem::write);
+
+        let mut event = vec![0; INVENTORY_EVENT_ITEM_SIZE];
+        event[240] = 4;
+        event[241] = 0xaa;
+        event[242..244].copy_from_slice(&9u16.to_le_bytes());
+        let parsed_event = InventoryEventItem::parse(&event).unwrap();
+        assert_eq!(parsed_event.item_category, 4);
+        assert_eq!(parsed_event.item_category_padding, 0xaa);
+        assert_eq!(parsed_event.inventory_record_index, 9);
+        assert_round_trip(&event, InventoryEventItem::parse, InventoryEventItem::write);
+
+        let mut edit = vec![0; INVENTORY_EDIT_ITEM_SIZE];
+        edit[268] = 2;
+        edit[269] = 0xbb;
+        edit[270..272].copy_from_slice(&11u16.to_le_bytes());
+        let parsed_edit = InventoryEditItem::parse(&edit).unwrap();
+        assert_eq!(parsed_edit.item_category, 2);
+        assert_eq!(parsed_edit.item_category_padding, 0xbb);
+        assert_eq!(parsed_edit.inventory_record_index, 11);
+        assert_round_trip(&edit, InventoryEditItem::parse, InventoryEditItem::write);
+
+        let mut heal = vec![0; INVENTORY_HEAL_ITEM_SIZE];
+        heal[249] = 0xcc;
+        heal[250..252].copy_from_slice(&1u16.to_le_bytes());
+        heal[252..254].copy_from_slice(&13u16.to_le_bytes());
+        heal[254..256].copy_from_slice(&[0x6c, 0x6c]);
+        let parsed_heal = InventoryHealItem::parse(&heal).unwrap();
+        assert_eq!(parsed_heal.reserved_definition_byte, 0xcc);
+        assert_eq!(parsed_heal.item_category, 1);
+        assert_eq!(parsed_heal.inventory_record_index, 13);
+        assert_eq!(parsed_heal.reserved_runtime_bytes, [0x6c, 0x6c]);
+        assert_round_trip(&heal, InventoryHealItem::parse, InventoryHealItem::write);
+
+        let mut weapon = vec![0; INVENTORY_WEAPON_ITEM_SIZE];
+        weapon[284..288].copy_from_slice(&0u32.to_le_bytes());
+        weapon[288..292].copy_from_slice(&5152u32.to_le_bytes());
+        let parsed_weapon = InventoryWeaponItem::parse(&weapon).unwrap();
+        assert_eq!(parsed_weapon.item_category, 0);
+        assert_eq!(parsed_weapon.inventory_instance_id, 5152);
+        assert_round_trip(
+            &weapon,
+            InventoryWeaponItem::parse,
+            InventoryWeaponItem::write,
+        );
+    }
 }

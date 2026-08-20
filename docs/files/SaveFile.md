@@ -242,7 +242,22 @@ Raw inventory data for 5 item categories, each prefixed with a `u16` count:
 | Weapon items | 292 bytes | Weapon-type items |
 | Heal items | 256 bytes | Heal-type items |
 
-Each item record contains name, description, base price, item ID, stat modifiers, and inventory position data.
+Each item record contains a copy of its database definition followed by save-runtime fields.
+The runtime category is zero-based: `0`=weapon, `1`=heal, `2`=edit,
+`3`=misc, and `4`=event. This numbering differs from the one-based item type
+used by some map and object files.
+
+| Category | Runtime fields after/copied into the definition |
+|----------|--------------------------------------------------|
+| Event | Category, alignment byte, category-local record index |
+| Misc | Category, category-local record index, global inventory-instance ID |
+| Edit | Category, alignment byte, category-local record index |
+| Weapon | Category, global inventory-instance ID |
+| Heal | Reserved definition byte, category, category-local record index, two runtime scratch bytes |
+
+The global inventory-instance ID connects a weapon to equipped slots and connects
+weapon or miscellaneous items to inventory placement cells. Heal runtime scratch
+bytes are normally zero, but saved games show that they are not initialized consistently.
 
 ### Inventory Slots (`inventory_slots`)
 
