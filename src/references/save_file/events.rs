@@ -8,14 +8,34 @@ pub(super) const EVENT_RECORD_SIZE: usize = 284;
 pub(super) const POST_EVENTS_RECORD_SIZE: usize = 24;
 pub(super) const RECRUITABLE_COMPANION_COUNT: usize = 8;
 
-/// Event script record (save file format: 284 bytes each)
+/// Event-script definition and its saved runtime state (284 bytes).
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct EventRecord {
+    /// Event identifier and index in the fixed event table.
     pub event_id: u32,
-    pub unknown_1: u32,
-    pub unknown_2: u32,
-    #[binary_record(string(encoding = "WINDOWS-1250", size = 272))]
-    pub script_name: String,
+    /// Event whose triggered state controls this event for types `3`-`8`.
+    pub required_event_id: u32,
+    /// Dispatch rule:
+    ///
+    /// - `0` = once, unconditionally
+    /// - `1` = up to `execution_limit` times, unconditionally
+    /// - `2` = always, unconditionally
+    /// - `3` = once, while the required event has not triggered
+    /// - `4` = up to `execution_limit` times, while the required event has not triggered
+    /// - `5` = always, while the required event has not triggered
+    /// - `6` = once, after the required event has triggered
+    /// - `7` = up to `execution_limit` times, after the required event has triggered
+    /// - `8` = always, after the required event has triggered
+    pub event_type: u32,
+    /// Event script filename, or an empty string when no script is assigned.
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 260))]
+    pub script_filename: String,
+    /// Maximum trigger count used by event types `1`, `4`, and `7`.
+    pub execution_limit: u32,
+    /// Number of times this event has started dispatching.
+    pub execution_count: u32,
+    /// Whether this event has started dispatching (`0`=not triggered, `1`=triggered).
+    pub has_triggered: u32,
 }
 
 pub(super) fn read_events<R: Read>(reader: &mut R) -> std::io::Result<Vec<EventRecord>> {

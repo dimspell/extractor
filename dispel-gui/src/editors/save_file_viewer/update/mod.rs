@@ -1140,9 +1140,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     for ev in loaded.save_file.events.iter() {
                         display_cache.push(vec![
                             ev.event_id.to_string(),
-                            ev.unknown_1.to_string(),
-                            ev.unknown_2.to_string(),
-                            ev.script_name.clone(),
+                            ev.required_event_id.to_string(),
+                            ev.event_type.to_string(),
+                            ev.script_filename.clone(),
+                            ev.execution_limit.to_string(),
+                            ev.execution_count.to_string(),
+                            ev.has_triggered.to_string(),
                         ]);
                     }
                     state.events_display_cache = display_cache;

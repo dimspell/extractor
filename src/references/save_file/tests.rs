@@ -45,6 +45,32 @@ fn test_parse_save_file_reports_section_and_offset() {
 }
 
 #[test]
+fn test_event_record_fields_match_the_284_byte_runtime_layout() {
+    let mut data = vec![0u8; EVENT_RECORD_SIZE];
+    data[0..4].copy_from_slice(&42u32.to_le_bytes());
+    data[4..8].copy_from_slice(&17u32.to_le_bytes());
+    data[8..12].copy_from_slice(&7u32.to_le_bytes());
+    data[12..21].copy_from_slice(b"quest.scr");
+    data[272..276].copy_from_slice(&5u32.to_le_bytes());
+    data[276..280].copy_from_slice(&3u32.to_le_bytes());
+    data[280..284].copy_from_slice(&1u32.to_le_bytes());
+
+    let event = EventRecord::parse(&data).unwrap();
+
+    assert_eq!(event.event_id, 42);
+    assert_eq!(event.required_event_id, 17);
+    assert_eq!(event.event_type, 7);
+    assert_eq!(event.script_filename, "quest.scr");
+    assert_eq!(event.execution_limit, 5);
+    assert_eq!(event.execution_count, 3);
+    assert_eq!(event.has_triggered, 1);
+
+    let mut serialized = Vec::new();
+    event.write(&mut serialized).unwrap();
+    assert_eq!(serialized, data);
+}
+
+#[test]
 fn test_read_sprite_paths_reads_four_fixed_windows_1250_strings() {
     let mut data = vec![0u8; SPRITE_PATH_COUNT * SPRITE_PATH_SIZE];
     data[..8].copy_from_slice(b"one.spr\0");

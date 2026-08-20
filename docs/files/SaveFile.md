@@ -300,10 +300,13 @@ values and preserves each repeated snapshot tail or overlap under an explicit
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `event_id` | `u32` | Event script ID |
-| `unknown_1` | `u32` | Unknown |
-| `unknown_2` | `u32` | Unknown |
-| `script_name` | String (272 bytes) | Script filename (WINDOWS-1250, null-terminated) |
+| `event_id` | `u32` | Event identifier and fixed-table index |
+| `required_event_id` | `u32` | Event whose triggered state controls conditional event types |
+| `event_type` | `u32` | Dispatch rule: `0`=once unconditionally, `1`=limited unconditionally, `2`=always unconditionally, `3`=once while required event is untriggered, `4`=limited while required event is untriggered, `5`=always while required event is untriggered, `6`=once after required event triggers, `7`=limited after required event triggers, `8`=always after required event triggers |
+| `script_filename` | String (260 bytes) | Script filename (WINDOWS-1250, null-terminated) |
+| `execution_limit` | `u32` | Trigger limit used by event types `1`, `4`, and `7` |
+| `execution_count` | `u32` | Number of times dispatch has started |
+| `has_triggered` | `u32` | Triggered state: `0`=not triggered, `1`=triggered |
 
 ### Post-Events Data (`post_events`)
 
