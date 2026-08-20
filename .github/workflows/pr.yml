@@ -58,6 +58,7 @@ jobs:
 
   build-release-binaries:
     name: ${{ matrix.build }}
+    needs: verify
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:

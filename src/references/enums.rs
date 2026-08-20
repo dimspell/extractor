@@ -1564,7 +1564,7 @@ impl MagicType {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "Magic" => Some(MagicType::Magic),
-            "LightHoly" => Some(MagicType::LightMagic),
+            "LightMagic" => Some(MagicType::LightMagic),
             "BlackMagic" => Some(MagicType::BlackMagic),
             _ => None,
         }
@@ -2160,6 +2160,10 @@ mod tests {
 
         assert_eq!(u32::from(MagicType::BlackMagic), 2);
         assert_eq!(MagicType::BlackMagic.value(), 2);
+        assert_eq!(
+            MagicType::from_name("LightMagic"),
+            Some(MagicType::LightMagic)
+        );
     }
 
     #[test]
