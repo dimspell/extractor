@@ -61,6 +61,7 @@ fn write_entries<W: Write>(writer: &mut W, entries: &[JournalEntry]) -> std::io:
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct JournalHeader {
     /// Runtime flag controlled by the journal UI; the game meaning is unknown.
+    /// Probably if the map or the journal is opened
     pub runtime_unknown_flag: u8,
     /// Journal section selected by the UI (zero-based).
     pub selected_section: u8,

@@ -105,15 +105,20 @@ Contains save-world header values and the list of visited map IDs:
 |-------|------|-------------|
 | `map_section_terminator` | `u32` | Terminator after the final map section (known saves store zero) |
 | `game_version` | `f32` | Save-format version (observed as 1.45) |
-| `unknown_header_value_1` | `u32` | Unknown header value |
-| `all_map_ini_id` | `u32` | ID reference in AllMap.ini |
-| `ref_map_ini_id` | `u32` | ID reference in Ref/Map.ini |
+| `all_map_ini_id` | `u32` | `AllMap.ini.id` for the loaded map's files, geometry, name, dialogue, and lighting |
+| `ref_map_ini_id` | `u32` | `Ref/Map.ini.id` for the entrance configuration, including spawn coordinates and placement files |
+| `reserved_header_word` | `u32` | Reserved header word (observed as zero) |
 | `monster_block_size` | `u32` | Size of a MonsterRecord (329 in known saves) |
 | `npc_block_size` | `u32` | Size of an NpcRecord (349 in known saves) |
-| `unknown_header_value_2` | `u32` | Unknown header value |
+| `unused_map_object_block_size` | `u32` | Record size for an unused map-object section (observed as zero) |
 | `extra_object_block_size` | `u32` | Size of an ExtraObjectRecord (200 in known saves) |
 | `number_of_visited_maps` | `u32` | Number of visited maps (must match the map section count) |
 | `map_ids` | `Vec<u32>` | IDs of the visited maps |
+
+The two map identifiers address different tables. `all_map_ini_id` selects the
+map itself. `ref_map_ini_id` selects the route or entrance used to initialize
+that map. Multiple `Ref/Map.ini` records can target the same `AllMap.ini` map
+while providing different spawn coordinates.
 
 ### Map Viewport State (`map_viewport_state`)
 
@@ -121,13 +126,15 @@ A fixed-size (10,148 bytes) serialized state of the game's isometric map viewpor
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `render_bounds` | `[u32; 4]` | Four viewport/render-bound values |
-| `viewport_bounds` | `[u32; 4]` | Four viewport-bound values |
-| `geometry` | `[u32; 24]` | Geometry values |
+| `viewport_clip_rect` | `MapViewportRect` | Fixed screen rectangle in which the map is drawn |
+| `map_projection_rect` | `MapViewportRect` | Projected map rectangle translated while the camera scrolls |
+| `camera_boundary_tiles` | `[MapTileReference; 8]` | Tile coordinates and row-major indices used to constrain camera movement |
 | `cells` | `Vec<MapViewportCell>` | Cached screen-to-map lookup cells (500 entries, 20 bytes each) |
-| `selected_tile_index` | `u32` | Currently selected tile index |
-| `renderer_global_state` | `[u32; 2]` | Two renderer-global values |
-| `runtime_state` | `[u32; 2]` | Runtime state values |
+| `scroll_direction` | `i32` | Smooth-scroll direction: `-1`=idle, `0`=up, `1`=up-right, `2`=right, `3`=down-right, `4`=down, `5`=down-left, `6`=left, `7`=up-left |
+| `smooth_scroll_offset_x` | `u32` | Accumulated horizontal sub-tile scroll offset |
+| `smooth_scroll_offset_y` | `u32` | Accumulated vertical sub-tile scroll offset |
+| `scroll_animation_frame` | `u32` | Current smooth-scroll animation frame |
+| `scroll_animation_frame_count` | `u32` | Total frames in the active smooth-scroll animation |
 
 Each `MapViewportCell` contains:
 - `screen_x` (`u32`): Screen X coordinate
@@ -279,6 +286,13 @@ Variable-length records, each consisting of:
 - A 21-byte name (WINDOWS-1250, null-terminated)
 - A 300-byte `PartyMemberBinaryRecord` containing stats, position, AI state, and combat data
 - An optional 52-byte combat snapshot (48 bytes + 4-byte terminator), present when the companion has an active combat object
+
+The 300-byte payload is a serialized stream of overlapping four-byte runtime
+snapshots. Adjacent snapshots frequently begin one or two bytes apart. As a
+result, the stream repeats parts of health, mana, class, level, spell IDs,
+animation flags, coordinates, and other fields. The parser exposes the primary
+values and preserves each repeated snapshot tail or overlap under an explicit
+`*_snapshot_tail` or `*_snapshot_overlap` name.
 
 ### Events (`events`)
 
@@ -435,5 +449,5 @@ This documentation:
 - The `game_tmp_blob_size` field in the header acts as a jump address; the reader seeks to this offset after parsing map sections
 - The `CharacterIdentity` struct only retains the trailing 35 bytes of the full identity block, skipping many runtime fields
 - Party member records have an optional combat snapshot that is conditionally present based on a marker value
-- The `PostEventsData` and `PostMapsData` structures contain unknown fields that are preserved verbatim for round-trip fidelity
+- Reserved runtime and header fields are preserved verbatim for round-trip fidelity.
 - The writer validates all fixed-size constraints before serialization to prevent corrupt output

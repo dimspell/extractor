@@ -30,7 +30,9 @@ pub use inventory::{
     InventoryMiscItem, InventoryWeaponItem,
 };
 pub use journal::{JournalData, JournalEntry, JournalHeader};
-pub use map_viewport::{MapViewportCell, MapViewportState, PostMapsData};
+pub use map_viewport::{
+    MapTileReference, MapViewportCell, MapViewportRect, MapViewportState, PostMapsData,
+};
 pub use party_members::PartyMember;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};

@@ -12,7 +12,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             let map_id = state
                 .save_file
                 .as_ref()
-                .map(|save| save.post_maps.ref_map_ini_id.to_string())
+                .map(|save| save.post_maps.all_map_ini_id.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             container(
                 column![

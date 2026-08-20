@@ -57,11 +57,8 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 sf.post_maps.ref_map_ini_id.to_string(),
             ))
             .push(label_row(
-                "Unknown Header Values",
-                format!(
-                    "{}, {}",
-                    sf.post_maps.unknown_header_value_1, sf.post_maps.unknown_header_value_2
-                ),
+                "Reserved Header Word",
+                sf.post_maps.reserved_header_word.to_string(),
             ))
             .push(label_row(
                 "Monster Block Size",
@@ -70,6 +67,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .push(label_row(
                 "NPC Block Size",
                 sf.post_maps.npc_block_size.to_string(),
+            ))
+            .push(label_row(
+                "Unused Object Block Size",
+                sf.post_maps.unused_map_object_block_size.to_string(),
             ))
             .push(label_row(
                 "Extra Object Block Size",

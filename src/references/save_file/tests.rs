@@ -15,6 +15,27 @@ use crate::references::extractor::Extractor;
 use std::io::{Cursor, Write};
 
 #[test]
+fn test_save_file_round_trips_six_map_fixtures() {
+    for filename in ["3.sav", "4.sav", "5.sav"] {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures/Dispel/zapisy")
+            .join(filename);
+        let original = std::fs::read(&path).unwrap();
+
+        let save = SaveFile::parse(&original).unwrap();
+        let mut serialized = Vec::new();
+        save.write_to(&mut serialized).unwrap();
+
+        assert_eq!(
+            serialized,
+            original,
+            "{} did not round trip",
+            path.display()
+        );
+    }
+}
+
+#[test]
 fn test_parse_save_file_reports_section_and_offset() {
     let error = SaveFile::parse(&0u32.to_le_bytes()).unwrap_err();
 
@@ -438,6 +459,32 @@ fn test_read_map_viewport_rejects_truncated_input() {
         .unwrap_err();
 
     assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+}
+
+#[test]
+fn test_map_viewport_named_fields_preserve_the_binary_layout() {
+    let mut bytes = vec![0u8; MAP_VIEWPORT_STATE_SIZE];
+    for (index, chunk) in bytes.chunks_exact_mut(4).enumerate() {
+        chunk.copy_from_slice(&(index as u32).to_le_bytes());
+    }
+    bytes[10_128..10_132].copy_from_slice(&(-1i32).to_le_bytes());
+
+    let viewport = MapViewportState::read_from(&mut Cursor::new(&bytes)).unwrap();
+
+    assert_eq!(viewport.viewport_clip_rect.left, 0);
+    assert_eq!(viewport.viewport_clip_rect.bottom, 3);
+    assert_eq!(viewport.map_projection_rect.left, 4);
+    assert_eq!(viewport.camera_boundary_tiles[0].map_x, 8);
+    assert_eq!(viewport.camera_boundary_tiles[7].map_tile_index, 31);
+    assert_eq!(viewport.cells[0].screen_x, 32);
+    assert_eq!(viewport.scroll_direction, -1);
+    assert_eq!(viewport.smooth_scroll_offset_x, 2533);
+    assert_eq!(viewport.scroll_animation_frame_count, 2536);
+
+    let mut encoded = Vec::new();
+    viewport.write_to(&mut encoded).unwrap();
+    assert_eq!(encoded, bytes);
+    assert_eq!(viewport.raw_bytes(), bytes);
 }
 
 #[test]

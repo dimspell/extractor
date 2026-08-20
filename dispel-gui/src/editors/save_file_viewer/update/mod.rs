@@ -245,7 +245,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 let active_map_index = state.save_file.as_ref().and_then(|save| {
                     save.maps
                         .iter()
-                        .position(|map| map.map_id == save.post_maps.ref_map_ini_id)
+                        .position(|map| map.map_id == save.post_maps.all_map_ini_id)
                 });
                 let Some(map_idx) = active_map_index else {
                     return Task::done(Message::System(crate::message::SystemMessage::ShowError(
@@ -391,7 +391,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         && save
                             .maps
                             .get(map_idx)
-                            .is_some_and(|map| map.map_id == save.post_maps.ref_map_ini_id)
+                            .is_some_and(|map| map.map_id == save.post_maps.all_map_ini_id)
                 })
                 .map(|save| save.map_viewport_state.cells.clone())
                 .unwrap_or_default();
