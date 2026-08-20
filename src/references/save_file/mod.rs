@@ -29,7 +29,7 @@ pub use inventory::{
     BeltPotionSlot, InventoryData, InventoryEditItem, InventoryEventItem, InventoryHealItem,
     InventoryMiscItem, InventoryWeaponItem,
 };
-pub use journal::{JournalData, JournalEntry, JournalHeader};
+pub use journal::{JournalData, JournalEntry, JournalHeader, WorldMapMarkerDiscovery};
 pub use map_viewport::{
     MapTileReference, MapViewportCell, MapViewportRect, MapViewportState, PostMapsData,
 };

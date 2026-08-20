@@ -368,25 +368,33 @@ records are written when a walk cycle finishes.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `runtime_unknown_flag` | `u8` | Runtime flag |
-| `selected_section` | `u8` | Selected journal section |
-| `visible_entry_selection_flags` | `[u8; 30]` | Per-section, per-visible-row selection flags |
-| `active_section` | `u8` | Active journal section |
-| `section_page_offsets` | `[u8; 3]` | Page offset per section |
-| `section_selected_entry_offsets` | `[u8; 3]` | Selected entry offset per section |
+| `is_world_map_open` | `u8` | Combined-interface view: `0`=journal, `1`=world map |
+| `selected_map_layer` | `u8` | Selected world-map layer (`0`-`2`) |
+| `map_marker_discovery` | `WorldMapMarkerDiscovery` | Persistent marker discovery state for all three world-map layers |
+| `active_section` | `u8` | Active journal section: `0`=main, `1`=side, `2`=trade |
+| `section_first_visible_entries` | `[u8; 3]` | First visible entry index per section |
+| `section_selected_entries` | `[u8; 3]` | Selected entry index per section |
 | `section_entry_counts` | `[u8; 3]` | Active entry count per section |
+
+`WorldMapMarkerDiscovery` divides the 30-byte marker storage as follows:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `layer_0` | `[u8; 10]` | Layer 0 marker flags: `0`=hidden, `1`=discovered |
+| `layer_1` | `[u8; 10]` | Layer 1 marker flags: `0`=hidden, `1`=discovered |
+| `layer_2` | `[u8; 7]` | Layer 2 marker flags: `0`=hidden, `1`=discovered |
+| `unused_layer_2_slots` | `[u8; 3]` | Unused tail of layer 2's ten-slot storage |
 
 #### Journal Entry (37 bytes)
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `entry_index` | `u8` | Slot within this journal section |
-| `quest_title` | String (24 bytes) | Quest title (WINDOWS-1250, null-terminated) |
-| `quest_state` | `[u8; 8]` | Quest-specific state |
+| `quest_title` | String (32 bytes) | Quest title (WINDOWS-1250, null-terminated) |
 | `quest_id` | `u8` | Quest ID from Quest.scr |
-| `progress_quest_id_1` | `u8` | First follow-up quest ID |
-| `progress_quest_id_2` | `u8` | Second follow-up quest ID |
-| `is_completed` | `u8` | Completion flag |
+| `follow_up_quest_id_1` | `u8` | First linked follow-up quest ID, or `0` if absent |
+| `follow_up_quest_id_2` | `u8` | Second linked follow-up quest ID, or `0` if absent |
+| `is_completed` | `u8` | Completion flag: `0`=active, `1`=completed |
 
 ## Binary Record Macro
 

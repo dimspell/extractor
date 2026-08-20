@@ -1,3 +1,4 @@
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -58,23 +59,99 @@ fn write_entries<W: Write>(writer: &mut W, entries: &[JournalEntry]) -> std::io:
 }
 
 /// The 42-byte journal header before the three 100-entry journal sections.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JournalHeader {
-    /// Runtime flag controlled by the journal UI; the game meaning is unknown.
-    /// Probably if the map or the journal is opened
-    pub runtime_unknown_flag: u8,
-    /// Journal section selected by the UI (zero-based).
-    pub selected_section: u8,
-    /// Per-section, per-visible-row selection flags (three sections × ten rows).
-    pub visible_entry_selection_flags: [u8; 30],
-    /// Journal section currently being displayed (zero-based).
+    /// Screen shown by the combined map and journal interface
+    /// (`0`=journal, `1`=world map).
+    pub is_world_map_open: u8,
+    /// Selected world-map layer (`0`-`2`).
+    pub selected_map_layer: u8,
+    /// Persistent discovery state for world-map markers.
+    pub map_marker_discovery: WorldMapMarkerDiscovery,
+    /// Journal section currently displayed (`0`=main, `1`=side, `2`=trade).
     pub active_section: u8,
-    /// Page offset in each journal section.
-    pub section_page_offsets: [u8; 3],
-    /// Selected entry offset in each journal section.
-    pub section_selected_entry_offsets: [u8; 3],
+    /// Index of the first visible entry in each journal section.
+    pub section_first_visible_entries: [u8; 3],
+    /// Selected entry index in each journal section.
+    pub section_selected_entries: [u8; 3],
     /// Number of active entries in main, side, and trade sections respectively.
     pub section_entry_counts: [u8; 3],
+}
+
+/// Persistent discovery flags for the three world-map layers.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct WorldMapMarkerDiscovery {
+    /// Marker flags for map layer 0 (10 slots; `0`=hidden, `1`=discovered).
+    pub layer_0: [u8; 10],
+    /// Marker flags for map layer 1 (10 slots; `0`=hidden, `1`=discovered).
+    pub layer_1: [u8; 10],
+    /// Marker flags for map layer 2 (7 slots; `0`=hidden, `1`=discovered).
+    pub layer_2: [u8; 7],
+    /// Unused tail of the ten-slot storage allocated for map layer 2.
+    pub unused_layer_2_slots: [u8; 3],
+}
+
+impl JournalHeader {
+    /// Parse the fixed 42-byte journal header.
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != JOURNAL_HEADER_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "JournalHeader requires 42 bytes",
+            ));
+        }
+
+        let mut reader = std::io::Cursor::new(data);
+        let is_world_map_open = reader.read_u8()?;
+        let selected_map_layer = reader.read_u8()?;
+        let map_marker_discovery = WorldMapMarkerDiscovery::read_from(&mut reader)?;
+        let active_section = reader.read_u8()?;
+        let mut section_first_visible_entries = [0; 3];
+        reader.read_exact(&mut section_first_visible_entries)?;
+        let mut section_selected_entries = [0; 3];
+        reader.read_exact(&mut section_selected_entries)?;
+        let mut section_entry_counts = [0; 3];
+        reader.read_exact(&mut section_entry_counts)?;
+
+        Ok(Self {
+            is_world_map_open,
+            selected_map_layer,
+            map_marker_discovery,
+            active_section,
+            section_first_visible_entries,
+            section_selected_entries,
+            section_entry_counts,
+        })
+    }
+
+    /// Write the fixed 42-byte journal header.
+    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u8(self.is_world_map_open)?;
+        writer.write_u8(self.selected_map_layer)?;
+        self.map_marker_discovery.write_to(writer)?;
+        writer.write_u8(self.active_section)?;
+        writer.write_all(&self.section_first_visible_entries)?;
+        writer.write_all(&self.section_selected_entries)?;
+        writer.write_all(&self.section_entry_counts)
+    }
+}
+
+impl WorldMapMarkerDiscovery {
+    fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut discovery = Self::default();
+        reader.read_exact(&mut discovery.layer_0)?;
+        reader.read_exact(&mut discovery.layer_1)?;
+        reader.read_exact(&mut discovery.layer_2)?;
+        reader.read_exact(&mut discovery.unused_layer_2_slots)?;
+        Ok(discovery)
+    }
+
+    fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(&self.layer_0)?;
+        writer.write_all(&self.layer_1)?;
+        writer.write_all(&self.layer_2)?;
+        writer.write_all(&self.unused_layer_2_slots)
+    }
 }
 
 /// Journal entry (37 bytes each)
@@ -82,18 +159,15 @@ pub struct JournalHeader {
 pub struct JournalEntry {
     /// Zero-based slot within this journal section.
     pub entry_index: u8,
-    /// Title copied from the corresponding `Quest.scr` entry.
-    #[binary_record(string(encoding = "WINDOWS-1250", size = 24))]
+    /// Title copied from the corresponding quest definition in `Quest.scr`.
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub quest_title: String,
-    /// Eight bytes of quest-specific state. The game does not access them in the
-    /// journal code path, so their individual meanings are not yet known.
-    pub quest_state: [u8; 8],
-    /// ID of the quest from `ExtraInGame/Quest.scr`.
+    /// ID of the quest definition.
     pub quest_id: u8,
-    /// Quest ID recorded when this quest advances to its first follow-up stage (multi-stage quest).
-    pub progress_quest_id_1: u8,
-    /// Quest ID recorded when this quest advances to its second follow-up stage (multi-stage quest).
-    pub progress_quest_id_2: u8,
-    /// Set when the game marks this journal entry as completed.
+    /// First follow-up quest ID linked to this journal entry, or `0` if absent.
+    pub follow_up_quest_id_1: u8,
+    /// Second follow-up quest ID linked to this journal entry, or `0` if absent.
+    pub follow_up_quest_id_2: u8,
+    /// Whether this journal entry is complete (`0`=active, `1`=completed).
     pub is_completed: u8,
 }
