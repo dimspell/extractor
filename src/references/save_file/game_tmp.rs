@@ -277,15 +277,18 @@ pub struct MonsterRecord {
     pub target_position_x: u32,
     /// Target tile Y coordinate.
     pub target_position_y: u32,
-    pub unknown_runtime_1: u32,
-    pub unknown_runtime_2: u32,
+    /// Remaining ticks for the active status effect.
+    pub status_effect_ticks_remaining: u32,
+    /// Active status-effect type. Observed values include 0=none, 1, 2, 3, 4, 7, and 12.
+    pub status_effect_type: u32,
     /// Active/awake flag, initialized from MonsterRef padding 3.
     pub awake_flag: u8,
-    pub unknown_runtime_3: u32,
+    /// Runtime entity index of the current combat target.
+    pub combat_target_entity_index: u32,
     /// Event ID that runs when this monster dies.
     pub event_id_on_kill: u32,
-    /// An unknown constructor field. The constructor initializes it to `-1`.
-    pub unknown_5: i32,
+    /// Status-effect parameter. `-1` means no parameter; type 3 stores a monster ID here.
+    pub status_effect_parameter: i32,
     /// Current tile X coordinate.
     pub current_position_x: u16,
     /// Current tile Y coordinate.
@@ -298,34 +301,42 @@ pub struct MonsterRecord {
     pub home_position_x: u16,
     /// Home tile Y coordinate used for respawn.
     pub home_position_y: u16,
-    pub unknown_patrol_flag: u8,
-    /// This value is cleared when the monster dies.
-    pub unknown_cleared_on_death_1: u8,
-    /// This value is cleared when the monster dies.
-    pub unknown_cleared_on_death_2: u8,
+    /// Sprite mirroring flag: 0=normal, 1=mirrored.
+    pub render_direction_flag: u8,
+    /// Screen-space X offset while moving between cells.
+    pub cell_offset_x: u8,
+    /// Screen-space Y offset while moving between cells.
+    pub cell_offset_y: u8,
     /// Spawn/group ID.
     pub spawn_group_id: u16,
     /// Constructor-initialized to `0xff`.
     pub constructor_marker: u8,
-    /// This value is cleared when the monster dies.
-    pub unknown_cleared_on_death_3: u8,
+    /// Current frame within the active movement animation.
+    pub movement_animation_frame: u8,
     /// Set when the monster is dead or removed.
     pub dead_or_removed_flag: u8,
-    pub unknown_runtime_flag_0: u8,
-    /// Unknown value loaded from map data.
-    pub unknown_map_data: u32,
-    pub unknown_runtime_4: u32,
-    pub unknown_runtime_5: u32,
-    pub unknown_runtime_flag_1: u8,
-    pub unknown_runtime_6: u32,
-    pub unknown_runtime_flag_2: u8,
-    pub unknown_runtime_7: u32,
-    /// An unknown constructor field. The constructor initializes it to `-1`.
-    pub constructor_unknown_negative_one: i32,
-    /// Whether the following path-buffer position is present.
-    pub path_buffer_present_flag: u32,
-    /// This value is cleared when the monster dies.
-    pub unknown_cleared_on_death_4: u32,
+    /// One-shot sprite-render override: 0=normal rendering, 1=use the override path once.
+    pub sprite_render_override_pending: u8,
+    /// Number of sprite frames in one directional movement sequence.
+    pub movement_animation_frame_count: u32,
+    /// Countdown used by status-effect type 1 before its periodic animation repeats.
+    pub periodic_status_animation_timer: u32,
+    /// Current frame of the active status-effect animation.
+    pub status_effect_animation_frame: u32,
+    /// Status-effect animation state: 0=inactive, 1=playing.
+    pub status_effect_animation_active: u8,
+    /// Remaining ticks for the active status-effect animation.
+    pub status_effect_animation_ticks_remaining: u32,
+    /// Ground-effect animation state: 0=inactive, 1=playing.
+    pub ground_effect_animation_active: u8,
+    /// Current frame of the ground-effect animation.
+    pub ground_effect_animation_frame: u32,
+    /// Runtime handle for the active ground effect; `-1` means none.
+    pub ground_effect_handle: i32,
+    /// Number of entries in the movement path buffer.
+    pub path_buffer_length: u32,
+    /// Current entry in the movement path buffer.
+    pub path_buffer_index: u32,
     /// First item that this monster can drop.
     #[binary_record(inventory_item(wire_type = "i32"))]
     pub loot_item1: crate::references::enums::InventoryItem,
@@ -341,29 +352,40 @@ pub struct MonsterRecord {
     pub drop_all_loot: u32,
     /// Initialized to 12,000 by the constructor.
     pub respawn_timer: u32,
-    pub unknown_runtime_8: u32,
-    pub unknown_runtime_9: u32,
+    /// Sprite frame saved before a temporary animation replaces it.
+    pub saved_sprite_frame_id: u32,
+    /// Render direction saved before a temporary animation replaces it.
+    pub saved_render_direction: u32,
     /// Special attack ID from Monster.db.
     pub special_attack: u32,
     /// Chance that the monster uses its special attack.
     pub special_attack_chance: u32,
     /// Duration of the special attack.
     pub special_attack_duration: u32,
-    pub unknown_runtime_10: u32,
-    pub unknown_runtime_11: u32,
+    /// Remaining ticks for the special-attack visual effect.
+    pub special_attack_effect_ticks_remaining: u32,
+    /// Current frame of the special-attack visual effect.
+    pub special_attack_effect_frame: u32,
     /// Boldness value from Monster.db.
     pub boldness: u32,
     /// Attack speed from Monster.db.
     pub attack_speed: u32,
     /// One for guard monsters.
     pub guard_flag: u8,
-    pub unknown_runtime_flag_3: u8,
-    pub unknown_runtime_12: u32,
-    pub unknown_runtime_flag_4: u8,
-    pub unknown_runtime_13: u32,
-    pub unknown_runtime_14: u32,
-    pub unknown_runtime_flag_5: u8,
-    pub unknown_runtime_15: u32,
+    /// Guard visual state: 0=inactive, 1=playing.
+    pub guard_effect_active: u8,
+    /// Current frame of the guard visual effect.
+    pub guard_effect_frame: u32,
+    /// Blood-hit visual state: 0=inactive, 1=playing.
+    pub blood_effect_active: u8,
+    /// Current frame of the blood-hit visual effect.
+    pub blood_effect_frame: u32,
+    /// Direction index used by the blood-hit visual effect (`0..=7`).
+    pub blood_effect_direction: u32,
+    /// Timed overlay state: 0=inactive, 1=active.
+    pub timed_overlay_active: u8,
+    /// Remaining ticks for the timed overlay.
+    pub timed_overlay_ticks_remaining: u32,
     /// AI update/tick counter.
     pub ai_tick_counter: u32,
     /// Backup of `detection_sight_size`.
@@ -595,13 +617,13 @@ pub struct ExtraObjectTrailerRecord {
     /// Maximum placement attempts; the constructor initializes it to three.
     pub placement_attempt_limit: u8,
     /// These bytes are not initialized by the constructor and must be preserved.
-    pub unknown_6_7: [u8; 2],
+    pub reserved_6_7: [u8; 2],
     /// Index into the selected category's ground-item section.
     pub category_item_index: u32,
     /// ID of the entity that created this pending item placement.
     pub source_entity_id: u16,
     /// These bytes are not initialized by the constructor and must be preserved.
-    pub unknown_14_15: [u8; 2],
+    pub reserved_14_15: [u8; 2],
     /// Map X coordinate of the deferred item.
     pub map_x: i32,
     /// Map Y coordinate of the deferred item.
@@ -634,7 +656,7 @@ pub struct DrawItemMiscItem {
     pub description: String, // 232
     pub base_price: u32, // 236
     #[binary_record(size = 16)]
-    pub unknown_1: Vec<u8>, // 252
+    pub reserved_bytes: Vec<u8>, // 252
     pub misc_item_id: u32, // 256
     pub map_coordinate_x: u32, // 260 coord-X
     pub map_coordinate_y: u32, // 264 coord-Y
@@ -709,8 +731,8 @@ pub struct DrawItemHealItem {
     pub poison_heal: u8,         // 247
     pub petrif_heal: u8,         // 248
     pub polimorph_heal: u8,      // 249
-    pub unknown_1: u8,           // 250
-    pub unknown_2: u16,          // 252
+    /// Reserved trailer bytes; preserve them verbatim.
+    pub reserved_trailer: [u8; 3], // 252
     pub map_coordinate_x: u32,   // 256
     pub map_coordinate_y: u32,   // 260
     /// One-based encoded object ID used by the map's ground-item grid.

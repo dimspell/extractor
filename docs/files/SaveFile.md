@@ -69,6 +69,16 @@ The direction values are `0=(0,+32)`, `1=(-32,+16)`, `2=(-64,0)`, `3=(-32,-16)`,
 `4=(0,-32)`, `5=(+32,-16)`, `6=(+64,0)`, `7=(+32,+16)`, and `255=inactive`.
 The pairs are screen-space offsets from the destination cell.
 
+Monster runtime data includes the current combat target, timed status-effect
+type and duration, movement-animation frame and offsets, path-buffer length and
+index, and temporary visual effects. Temporary visuals have separate active,
+frame, and duration fields for status, ground, special-attack, guard, blood,
+and timed-overlay effects. Blood-effect directions use values `0..=7`.
+
+The monster status-effect type uses `0=none`; observed active values are `1`,
+`2`, `3`, `4`, `7`, and `12`. Its parameter is `-1` when unused. Type `3`
+stores a monster identifier in the parameter field.
+
 NPC runtime flags use these values:
 
 - `world_active`: `0=inactive`, `1=active`.

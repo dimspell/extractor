@@ -85,6 +85,53 @@ fn test_parse_monster_record_rejects_truncated_input() {
 }
 
 #[test]
+fn test_monster_record_decodes_runtime_subsystems_at_exact_offsets() {
+    let mut bytes = vec![0u8; 329];
+    bytes[85..89].copy_from_slice(&30u32.to_le_bytes());
+    bytes[89..93].copy_from_slice(&3u32.to_le_bytes());
+    bytes[94..98].copy_from_slice(&42u32.to_le_bytes());
+    bytes[102..106].copy_from_slice(&7i32.to_le_bytes());
+    bytes[118..121].copy_from_slice(&[1, 0x20, 0x10]);
+    bytes[124] = 4;
+    bytes[126] = 1;
+    bytes[127..131].copy_from_slice(&8u32.to_le_bytes());
+    bytes[153..157].copy_from_slice(&5u32.to_le_bytes());
+    bytes[157..161].copy_from_slice(&2u32.to_le_bytes());
+    bytes[205..209].copy_from_slice(&45u32.to_le_bytes());
+    bytes[209..213].copy_from_slice(&6u32.to_le_bytes());
+    bytes[222] = 1;
+    bytes[223..227].copy_from_slice(&3u32.to_le_bytes());
+    bytes[227] = 1;
+    bytes[228..232].copy_from_slice(&2u32.to_le_bytes());
+    bytes[232..236].copy_from_slice(&7u32.to_le_bytes());
+
+    let parsed = MonsterRecord::parse(&bytes).unwrap();
+
+    assert_eq!(parsed.status_effect_ticks_remaining, 30);
+    assert_eq!(parsed.status_effect_type, 3);
+    assert_eq!(parsed.combat_target_entity_index, 42);
+    assert_eq!(parsed.status_effect_parameter, 7);
+    assert_eq!(parsed.render_direction_flag, 1);
+    assert_eq!(parsed.cell_offset_x, 0x20);
+    assert_eq!(parsed.cell_offset_y, 0x10);
+    assert_eq!(parsed.movement_animation_frame, 4);
+    assert_eq!(parsed.sprite_render_override_pending, 1);
+    assert_eq!(parsed.movement_animation_frame_count, 8);
+    assert_eq!(parsed.path_buffer_length, 5);
+    assert_eq!(parsed.path_buffer_index, 2);
+    assert_eq!(parsed.special_attack_effect_ticks_remaining, 45);
+    assert_eq!(parsed.special_attack_effect_frame, 6);
+    assert_eq!(parsed.guard_effect_active, 1);
+    assert_eq!(parsed.guard_effect_frame, 3);
+    assert_eq!(parsed.blood_effect_active, 1);
+    assert_eq!(parsed.blood_effect_frame, 2);
+    assert_eq!(parsed.blood_effect_direction, 7);
+    let mut output = Vec::new();
+    parsed.write(&mut output).unwrap();
+    assert_eq!(output, bytes);
+}
+
+#[test]
 fn test_ground_item_records_decode_trailing_object_id_and_padding() {
     macro_rules! assert_trailing_id {
         ($record:ty, $size:expr) => {{
