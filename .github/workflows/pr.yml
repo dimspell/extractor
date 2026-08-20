@@ -1,0 +1,124 @@
+name: Pull Request
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+        with:
+          persist-credentials: false
+
+      - name: Install Linux GUI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxkbcommon-dev pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: pr-verify-${{ runner.os }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            pr-verify-${{ runner.os }}-
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+
+      - name: Run full test suite
+        run: cargo test --workspace --all-features
+
+  build-release-binaries:
+    name: ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: cli-windows
+            app: cli
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - build: gui-windows
+            app: gui
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - build: gui-linux
+            app: gui
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - build: cli-linux
+            app: cli
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - build: gui-macos-arm
+            app: gui
+            os: macos-latest
+            target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+        with:
+          persist-credentials: false
+
+      - name: Install Linux GUI dependencies
+        if: matrix.os == 'ubuntu-latest' && matrix.app == 'gui'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxkbcommon-dev pkg-config
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: pr-build-${{ matrix.build }}-${{ hashFiles('**/Cargo.toml', '**/Cargo.lock') }}
+          restore-keys: |
+            pr-build-${{ matrix.build }}-
+
+      - name: Build release binary (CLI)
+        if: matrix.app == 'cli'
+        run: cargo build --verbose --release --target ${{ matrix.target }} --bin dispel-extractor
+
+      - name: Build release binary (GUI)
+        if: matrix.app == 'gui'
+        run: cargo build --verbose --release --target ${{ matrix.target }} --package dispel-gui --bin dispel-gui
