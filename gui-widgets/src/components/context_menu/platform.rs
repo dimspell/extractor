@@ -2,6 +2,7 @@ use super::entry::Entry;
 
 /// Description of a menu item for native rendering — strips the generic `Message`
 /// so platform code doesn't need to know about Iced's message type.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 #[derive(Debug)]
 pub(crate) struct MenuItem {
     pub label: String,
@@ -33,6 +34,7 @@ pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Optio
         return None;
     }
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     let items: Vec<MenuItem> = entries
         .iter()
         .map(|e| match e {
@@ -54,6 +56,7 @@ pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Optio
         })
         .collect();
 
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     if items.is_empty() {
         return None;
     }
@@ -68,7 +71,7 @@ pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Optio
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let _ = items;
+        let _ = entries;
         None
     }
 }
