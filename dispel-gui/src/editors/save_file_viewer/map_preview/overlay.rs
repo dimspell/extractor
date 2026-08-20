@@ -71,6 +71,48 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
 
         let mut frame = Frame::new(renderer, bounds.size());
 
+        // ── Saved viewport cells ───────────────────────────────────────────
+        // The game persists a 25 × 20 screen-to-map cache rather than pixels.
+        // Draw those mapped tiles directly over the resolved .map tiles.
+        if self.state.show_saved_viewport {
+            let map_size = self.state.map_data.as_ref().map(|map| {
+                (
+                    map.0.model.tiled_map_width as u32,
+                    map.0.model.tiled_map_height as u32,
+                )
+            });
+            for cell in &self.state.saved_viewport_cells {
+                let Some((map_width, map_height)) = map_size else {
+                    break;
+                };
+                if cell.map_x >= map_width || cell.map_y >= map_height {
+                    continue;
+                }
+
+                let (px, py) = tile_to_screen(
+                    cell.map_x as i32,
+                    cell.map_y as i32,
+                    diagonal,
+                    pan_x,
+                    pan_y,
+                    zoom,
+                );
+                if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                    continue;
+                }
+
+                let center = Point::new(px + TILE_W * zoom * 0.5, py + TILE_H * zoom * 0.5);
+                let tile = diamond_path(center.x, center.y, TILE_H * zoom * 0.5);
+                frame.fill(&tile, Color::from_rgba(0.2, 0.85, 1.0, 0.16));
+                frame.stroke(
+                    &tile,
+                    canvas::Stroke::default()
+                        .with_color(Color::from_rgba(0.35, 0.9, 1.0, 0.45))
+                        .with_width(0.75 * zoom),
+                );
+            }
+        }
+
         // ── Entity markers (fallback shapes for entities without sprites) ──
         for (i, entity) in self.state.entity_markers.iter().enumerate() {
             // Skip entities that have a decoded sprite (rendered in tile layer)

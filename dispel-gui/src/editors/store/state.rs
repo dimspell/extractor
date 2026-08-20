@@ -26,7 +26,7 @@ pub struct StoreEditorState {
 
     pub edit_store_name: String,
     pub edit_inn_night_cost: String,
-    pub edit_some_unknown_number: String,
+    pub edit_price_modifier: String,
     pub edit_invitation: String,
     pub edit_haggle_success: String,
     pub edit_haggle_fail: String,
@@ -72,7 +72,7 @@ impl Default for StoreEditorState {
             selected_idx: None,
             edit_store_name: String::new(),
             edit_inn_night_cost: String::new(),
-            edit_some_unknown_number: String::new(),
+            edit_price_modifier: String::new(),
             edit_invitation: String::new(),
             edit_haggle_success: String::new(),
             edit_haggle_fail: String::new(),
@@ -153,7 +153,7 @@ impl StoreEditorState {
         if let Some((_, record)) = self.filtered_stores.get(idx) {
             self.edit_store_name = record.store_name.clone();
             self.edit_inn_night_cost = record.inn_night_cost.to_string();
-            self.edit_some_unknown_number = record.some_unknown_number.to_string();
+            self.edit_price_modifier = record.price_modifier.to_string();
             self.edit_invitation = record.invitation.clone();
             self.edit_haggle_success = record.haggle_success.clone();
             self.edit_haggle_fail = record.haggle_fail.clone();
@@ -180,7 +180,7 @@ impl StoreEditorState {
                 let old = match field {
                     "store_name" => record.store_name.clone(),
                     "inn_night_cost" => record.inn_night_cost.to_string(),
-                    "some_unknown_number" => record.some_unknown_number.to_string(),
+                    "price_modifier" => record.price_modifier.to_string(),
                     "invitation" => record.invitation.clone(),
                     "haggle_success" => record.haggle_success.clone(),
                     "haggle_fail" => record.haggle_fail.clone(),
@@ -220,9 +220,9 @@ impl StoreEditorState {
                         record.inn_night_cost = v
                     }
                 }
-                "some_unknown_number" => {
+                "price_modifier" => {
                     if let Ok(v) = value.parse() {
-                        record.some_unknown_number = v
+                        record.price_modifier = v
                     }
                 }
                 "invitation" => record.invitation = value.clone(),
@@ -242,9 +242,9 @@ impl StoreEditorState {
                         cat_record.inn_night_cost = v
                     }
                 }
-                "some_unknown_number" => {
+                "price_modifier" => {
                     if let Ok(v) = value.parse() {
-                        cat_record.some_unknown_number = v
+                        cat_record.price_modifier = v
                     }
                 }
                 "invitation" => cat_record.invitation = value.clone(),
@@ -386,7 +386,7 @@ mod tests {
             index: 0,
             store_name: name.to_string(),
             inn_night_cost: 0,
-            some_unknown_number: 0,
+            price_modifier: 0,
             invitation: String::new(),
             haggle_success: String::new(),
             haggle_fail: String::new(),

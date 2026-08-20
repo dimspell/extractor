@@ -1,4 +1,6 @@
 use super::*;
+use gui_widgets::lucide::icon_char;
+use lucide_icons::Icon;
 
 // ============================================================================
 // Search overlay
@@ -28,7 +30,8 @@ fn test_search_toggle_mode_shows_ascii() {
     send(&mut state, &config, HexEditorMessage::OpenSearch);
     send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
     let mut ui = simulator(view(&state, &config));
-    ui.find("TXT").expect("search mode button should show TXT");
+    ui.find("TEXT")
+        .expect("search mode button should show TEXT");
 }
 
 #[test]
@@ -183,8 +186,8 @@ fn test_search_overlay_shows_match_count() {
     send(&mut state, &config, HexEditorMessage::Search("FF".into()));
     assert_eq!(state.search.count(), 2);
     let mut ui = simulator(view(&state, &config));
-    // Shows "-/2" after initial search (no match selected yet)
-    ui.find("-/2")
+    // Shows 0 of 2 after initial search (no match selected yet).
+    ui.find("0 of 2")
         .expect("search overlay should show match count");
 }
 
@@ -198,8 +201,8 @@ fn test_search_overlay_shows_no_matches() {
         HexEditorMessage::Search("xyzzy".into()),
     );
     let mut ui = simulator(view(&state, &config));
-    ui.find("0 matches")
-        .expect("should show 0 matches for no results");
+    ui.find("No matches")
+        .expect("should show an explicit empty-result state");
 }
 
 #[test]
@@ -208,8 +211,10 @@ fn test_search_overlay_nav_buttons_render() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::Search("FF".into()));
     let mut ui = simulator(view(&state, &config));
-    ui.find("<").expect("prev match button should render");
-    ui.find(">").expect("next match button should render");
+    ui.find(icon_char(Icon::ChevronUp).to_string())
+        .expect("previous-match button should render");
+    ui.find(icon_char(Icon::ChevronDown).to_string())
+        .expect("next-match button should render");
 }
 
 // ============================================================================

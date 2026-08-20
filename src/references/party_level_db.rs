@@ -5,185 +5,121 @@ use serde::{Deserialize, Serialize};
 use std::io::{Read, Result, Seek, Write};
 use std::path::Path;
 
-// ===========================================================================
-// PRTLEVEL.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | PrtLevel.db - Character Progression  |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Record Size: 36 bytes per level      |
-// | Total Size: 5760 bytes (8×20×36)      |
-// +--------------------------------------+
-// | [NPC 1]                              |
-// | - [Level 1]                         |
-// |   - sentinel: u32                   |
-// |   - strength: u32                   |
-// |   - constitution: u32               |
-// |   - wisdom: u32                      |
-// |   - health_points: u16              |
-// |   - mana_points: u16               |
-// |   - agility: u32                    |
-// |   - attack: u32                      |
-// |   - mana_recharge: u32               |
-// |   - defense: u16                     |
-// |   - padding: u16                     |
-// | - [Level 2]                         |
-// |   ... (same structure) ...           |
-// +--------------------------------------+
-// | [NPC 2]                              |
-// | ... (20 levels) ...                  |
-// +--------------------------------------+
-// | ... (8 NPCs total) ...               |
-// +--------------------------------------+
-//
-// STAT GROWTH PATTERNS:
-// - strength: Physical damage output
-// - constitution: Health point scaling
-// - wisdom: Mana point scaling
-// - agility: Evasion and speed
-// - attack: Combat accuracy
-// - defense: Damage resistance
-//
-// LEVEL RANGES:
-// - Levels 1-20: Standard progression
-// - Each level adds fixed stat increases
-// - Growth curves vary by character class
-//
-// SPECIAL VALUES:
-// - sentinel = 0: Standard record marker
-// - Fixed 20 levels per NPC
-// - 8 NPC slots (party size limit)
-// - 5760-byte total file size
-//
-// FILE PURPOSE:
-// Defines character progression statistics for
-// levels 1-20. Used for level-up calculations,
-// stat growth, and character development.
-//
-// ===========================================================================
-
-/// Stub Extractor so `GenericEditorState<PartyLevelRecord>` can be used in the GUI.
-/// The actual binary format is embedded inside `PartyLevelNpc::parse`; these methods
-/// are never called directly on `PartyLevelRecord`.
-impl Extractor for PartyLevelRecord {
-    fn parse<R: Read + Seek>(_reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        Ok(Vec::new())
-    }
-    fn to_writer<W: Write>(_records: &[Self], _writer: &mut W) -> std::io::Result<()> {
-        Ok(())
-    }
-}
-
+/// One 36-byte (`0x24`) level-progression entry from `PrtLevel.db`.
+///
+/// The game addresses entries as `party_slot * 0x2d0 + (level - 1) * 0x24`.
+/// The three action IDs and all reserved bytes are retained so editing a stat
+/// cannot silently change a party member's available actions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyLevelRecord {
-    /// Derived multiplier level tracking.
+    /// Derived from the zero-based record position; it is not stored on disk.
     pub level: u32,
-    /// Scaling milestone block for strength.
+    /// First magic-spell ID available at this level (`0xff` means absent).
+    pub magic_spell_id_1: u8,
+    /// Second magic-spell ID available at this level (`0xff` means absent).
+    pub magic_spell_id_2: u8,
+    /// Third magic-spell ID available at this level (`0xff` means absent).
+    pub magic_spell_id_3: u8,
+    /// Alignment/reserved byte at offset `0x03`.
+    pub reserved_0x03: u8,
     pub strength: u32,
-    /// Health expansion parameters per level.
     pub constitution: u32,
-    /// Mana multiplier logic.
     pub wisdom: u32,
-    /// Fixed gain of base stamina.
     pub health_points: u16,
-    /// Fixed gain of magical pools.
     pub mana_points: u16,
-    /// Avoidance calculation matrix shift.
-    pub agility: u32,
-    /// Derived raw throughput bonus.
-    pub attack: u32,
-    /// Frequency recovery tracking matrix.
-    pub mana_recharge: u32,
-    /// Armor tracking expansion rating.
-    pub defense: u16,
+    /// Agility at offset `0x14`; the following three bytes are reserved.
+    pub agility: u8,
+    pub reserved_0x15: u8,
+    pub reserved_0x16: u8,
+    pub reserved_0x17: u8,
+    /// Attack-related stat at offset `0x18`; the following three bytes are reserved.
+    pub attack: u8,
+    pub reserved_0x19: u8,
+    pub reserved_0x1a: u8,
+    pub reserved_0x1b: u8,
+    /// Shared weapon-skill/proficiency level used in weapon calculations.
+    pub weapon_skill_level: u32,
+    /// Percentage threshold used after level 10 to trigger a tactical action.
+    pub tactical_action_chance: u32,
 }
 
+/// Fixed table of 20 progression entries for one of the eight party slots.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyLevelNpc {
     pub npc_index: usize,
     pub records: Vec<PartyLevelRecord>,
 }
 
-/// Stores the experience and stat progression tables for party members per level.
-///
-/// Reads file: `NpcInGame/PrtLevel.db`
-/// # File Format: `NpcInGame/PrtLevel.db`
-///
-/// Binary file, little-endian. Fixed size: `8 NPCs × 20 levels × 36 bytes = 5760 bytes`.
-/// No header. Each 36-byte sub-block:
-/// - 4-byte sentinel (u32)
-/// - `strength`, `constitution`, `wisdom` : u32 each
-/// - `health_points`, `mana_points`      : u16 each
-/// - `agility`, `attack`, `mana_recharge` : u32 each
-/// - `defense`                            : u16
+/// Stub Extractor so `GenericEditorState<PartyLevelRecord>` can be used in the GUI.
+/// The actual binary format is embedded inside `PartyLevelNpc::parse`.
+impl Extractor for PartyLevelRecord {
+    fn parse<R: Read + Seek>(_reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        Ok(Vec::new())
+    }
+
+    fn to_writer<W: Write>(_records: &[Self], _writer: &mut W) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 impl Extractor for PartyLevelNpc {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> Result<Vec<Self>> {
-        let mut npcs = Vec::new();
-
-        // 8 NPCs * 720 bytes = 5760 bytes.
-        // Each 720 byte block is 20 sub-blocks of 36 bytes.
-        // Each 36 byte sub-block starts with a 4-byte sentinel followed by 8 u32 data fields.
-
+        let mut npcs = Vec::with_capacity(8);
         for npc_index in 0..8 {
-            let mut records = Vec::new();
-            for _block_idx in 0..20 {
-                let _sentinel = reader.read_u32::<LittleEndian>()?;
-
-                // Each block has 8 u32 values
-                let strength = reader.read_u32::<LittleEndian>()?;
-                let constitution = reader.read_u32::<LittleEndian>()?;
-                let wisdom = reader.read_u32::<LittleEndian>()?;
-                let health_points = reader.read_u16::<LittleEndian>()?;
-                let mana_points = reader.read_u16::<LittleEndian>()?;
-
-                let agility = reader.read_u32::<LittleEndian>()?;
-                let attack = reader.read_u32::<LittleEndian>()?;
-                let mana_recharge = reader.read_u32::<LittleEndian>()?;
-                let defense = reader.read_u16::<LittleEndian>()?;
-                let _ = reader.read_u16::<LittleEndian>()?; // Null byte (\0)
-
+            let mut records = Vec::with_capacity(20);
+            for level_index in 0..20 {
                 records.push(PartyLevelRecord {
-                    level: _block_idx + 1_u32,
-                    strength,
-                    constitution,
-                    wisdom,
-                    health_points,
-                    mana_points,
-                    agility,
-                    attack,
-                    mana_recharge,
-                    defense,
+                    level: level_index + 1,
+                    magic_spell_id_1: reader.read_u8()?,
+                    magic_spell_id_2: reader.read_u8()?,
+                    magic_spell_id_3: reader.read_u8()?,
+                    reserved_0x03: reader.read_u8()?,
+                    strength: reader.read_u32::<LittleEndian>()?,
+                    constitution: reader.read_u32::<LittleEndian>()?,
+                    wisdom: reader.read_u32::<LittleEndian>()?,
+                    health_points: reader.read_u16::<LittleEndian>()?,
+                    mana_points: reader.read_u16::<LittleEndian>()?,
+                    agility: reader.read_u8()?,
+                    reserved_0x15: reader.read_u8()?,
+                    reserved_0x16: reader.read_u8()?,
+                    reserved_0x17: reader.read_u8()?,
+                    attack: reader.read_u8()?,
+                    reserved_0x19: reader.read_u8()?,
+                    reserved_0x1a: reader.read_u8()?,
+                    reserved_0x1b: reader.read_u8()?,
+                    weapon_skill_level: reader.read_u32::<LittleEndian>()?,
+                    tactical_action_chance: reader.read_u32::<LittleEndian>()?,
                 });
             }
             npcs.push(PartyLevelNpc { npc_index, records });
         }
-
         Ok(npcs)
     }
 
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        for npc in records {
+    fn to_writer<W: Write>(npcs: &[Self], writer: &mut W) -> std::io::Result<()> {
+        for npc in npcs {
             for record in &npc.records {
-                writer.write_u32::<LittleEndian>(0)?; // sentinel
-
+                writer.write_u8(record.magic_spell_id_1)?;
+                writer.write_u8(record.magic_spell_id_2)?;
+                writer.write_u8(record.magic_spell_id_3)?;
+                writer.write_u8(record.reserved_0x03)?;
                 writer.write_u32::<LittleEndian>(record.strength)?;
                 writer.write_u32::<LittleEndian>(record.constitution)?;
                 writer.write_u32::<LittleEndian>(record.wisdom)?;
                 writer.write_u16::<LittleEndian>(record.health_points)?;
                 writer.write_u16::<LittleEndian>(record.mana_points)?;
-
-                writer.write_u32::<LittleEndian>(record.agility)?;
-                writer.write_u32::<LittleEndian>(record.attack)?;
-                writer.write_u32::<LittleEndian>(record.mana_recharge)?;
-                writer.write_u16::<LittleEndian>(record.defense)?;
-                writer.write_u16::<LittleEndian>(0)?; // null byte
+                writer.write_u8(record.agility)?;
+                writer.write_u8(record.reserved_0x15)?;
+                writer.write_u8(record.reserved_0x16)?;
+                writer.write_u8(record.reserved_0x17)?;
+                writer.write_u8(record.attack)?;
+                writer.write_u8(record.reserved_0x19)?;
+                writer.write_u8(record.reserved_0x1a)?;
+                writer.write_u8(record.reserved_0x1b)?;
+                writer.write_u32::<LittleEndian>(record.weapon_skill_level)?;
+                writer.write_u32::<LittleEndian>(record.tactical_action_chance)?;
             }
         }
-
         Ok(())
     }
 }
@@ -194,28 +130,36 @@ pub fn read_party_level_db(source_path: &Path) -> Result<Vec<PartyLevelNpc>> {
 
 pub fn save_party_levels(conn: &mut Connection, npcs: &[PartyLevelNpc]) -> DbResult<()> {
     let tx = conn.transaction()?;
-    {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_party_level.sql"))?;
-        for npc in npcs {
-            for record in &npc.records {
-                stmt.execute(params![
-                    npc.npc_index as i32,
-                    record.level as i32,
-                    record.strength as i32,
-                    record.constitution as i32,
-                    record.wisdom as i32,
-                    record.health_points as i32,
-                    record.mana_points as i32,
-                    record.agility as i32,
-                    record.attack as i32,
-                    record.mana_recharge as i32,
-                    record.defense as i32,
-                ])?;
-            }
+    let mut stmt = tx.prepare(include_str!("../queries/insert_party_level.sql"))?;
+    for npc in npcs {
+        for record in &npc.records {
+            stmt.execute(params![
+                npc.npc_index as i32,
+                record.level as i32,
+                record.magic_spell_id_1 as i32,
+                record.magic_spell_id_2 as i32,
+                record.magic_spell_id_3 as i32,
+                record.reserved_0x03 as i32,
+                record.strength as i64,
+                record.constitution as i64,
+                record.wisdom as i64,
+                record.health_points as i32,
+                record.mana_points as i32,
+                record.agility as i32,
+                record.reserved_0x15 as i32,
+                record.reserved_0x16 as i32,
+                record.reserved_0x17 as i32,
+                record.attack as i32,
+                record.reserved_0x19 as i32,
+                record.reserved_0x1a as i32,
+                record.reserved_0x1b as i32,
+                record.weapon_skill_level as i64,
+                record.tactical_action_chance as i64,
+            ])?;
         }
     }
-    tx.commit()?;
-    Ok(())
+    drop(stmt);
+    tx.commit()
 }
 
 #[cfg(test)]
@@ -223,48 +167,70 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn level_block(strength: u32, hp: u16) -> [u8; 36] {
+    fn level_block() -> [u8; 36] {
         let mut buf = [0u8; 36];
-        // sentinel (u32 at 0): 0
-        buf[4..8].copy_from_slice(&strength.to_le_bytes()); // strength at offset 4
-        // constitution, wisdom = 0
-        buf[16..18].copy_from_slice(&hp.to_le_bytes()); // health_points at offset 16
-        // rest stays zero
+        buf[0..4].copy_from_slice(&[3, 1, 0xff, 0]);
+        buf[4..8].copy_from_slice(&100u32.to_le_bytes());
+        buf[16..18].copy_from_slice(&50u16.to_le_bytes());
+        buf[20..24].copy_from_slice(&[30, 7, 8, 9]);
+        buf[24..28].copy_from_slice(&[15, 10, 11, 12]);
+        buf[28..32].copy_from_slice(&4u32.to_le_bytes());
+        buf[32..36].copy_from_slice(&35u32.to_le_bytes());
         buf
     }
 
-    fn full_file(strength: u32, hp: u16) -> Vec<u8> {
-        // 8 NPCs × 20 levels × 36 bytes = 5760 bytes
-        let block = level_block(strength, hp);
-        let mut data = Vec::with_capacity(5760);
-        for _ in 0..160 {
-            data.extend_from_slice(&block);
-        }
-        data
+    fn full_file() -> Vec<u8> {
+        let block = level_block();
+        std::iter::repeat_n(block, 160).flatten().collect()
     }
 
     #[test]
     fn parse_all_npcs_and_levels() {
-        let data = full_file(100, 50);
-        assert_eq!(data.len(), 5760);
-
-        let mut c = Cursor::new(&data[..]);
-        let npcs = PartyLevelNpc::parse(&mut c, 5760).unwrap();
+        let data = full_file();
+        let npcs = PartyLevelNpc::parse(&mut Cursor::new(&data), 5760).unwrap();
         assert_eq!(npcs.len(), 8);
-        for npc in &npcs {
-            assert_eq!(npc.records.len(), 20);
-            assert_eq!(npc.records[0].strength, 100);
-            assert_eq!(npc.records[0].health_points, 50);
-            assert_eq!(npc.records[0].level, 1);
-            assert_eq!(npc.records[19].level, 20);
-        }
+        assert_eq!(npcs[0].records.len(), 20);
+        assert_eq!(npcs[0].records[0].level, 1);
+        assert_eq!(npcs[0].records[19].level, 20);
+    }
+
+    #[test]
+    fn parse_preserves_action_ids_and_nonzero_reserved_bytes() {
+        let data = full_file();
+        let records = PartyLevelNpc::parse(&mut Cursor::new(&data), data.len() as u64).unwrap();
+        let record = &records[0].records[0];
+        assert_eq!(
+            [
+                record.magic_spell_id_1,
+                record.magic_spell_id_2,
+                record.magic_spell_id_3,
+            ],
+            [3, 1, 0xff]
+        );
+        assert_eq!(
+            [
+                record.reserved_0x15,
+                record.reserved_0x16,
+                record.reserved_0x17
+            ],
+            [7, 8, 9]
+        );
+        assert_eq!(
+            [
+                record.reserved_0x19,
+                record.reserved_0x1a,
+                record.reserved_0x1b
+            ],
+            [10, 11, 12]
+        );
+        assert_eq!(record.weapon_skill_level, 4);
+        assert_eq!(record.tactical_action_chance, 35);
     }
 
     #[test]
     fn serialize_round_trip() {
-        let data = full_file(100, 50);
-        let mut c = Cursor::new(&data[..]);
-        let records = PartyLevelNpc::parse(&mut c, data.len() as u64).unwrap();
+        let data = full_file();
+        let records = PartyLevelNpc::parse(&mut Cursor::new(&data), data.len() as u64).unwrap();
         let mut out = Vec::new();
         PartyLevelNpc::to_writer(&records, &mut out).unwrap();
         assert_eq!(out, data);

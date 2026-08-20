@@ -11,8 +11,8 @@ use super::super::message::{MapEditorMessage, SelectedEntity};
 
 /// Iterate all `FieldDescriptor`s for `R` and build a scrollable column of editor rows.
 ///
-/// `text_input` copies its value string internally, so the `String` returned by
-/// `get_field` can be a temporary — the resulting `Element` has no lifetime tie to it.
+/// Text input values are cloned so the resulting widgets do not borrow temporary
+/// field strings.
 pub fn build_record_fields<'a, R: EditableRecord>(
     record: &R,
     tab_id: usize,
@@ -33,8 +33,8 @@ pub fn build_record_fields<'a, R: EditableRecord>(
 /// Render a single labeled field row for the map editor inspector.
 ///
 /// `label` and `name` are `&'static str` (from `FieldDescriptor`); `value` is a
-/// short-lived borrow of a locally-computed `String` — safe because `text_input`
-/// and `pick_list` copy their value arguments before returning the widget.
+/// short-lived borrow of a locally-computed `String`; text inputs clone it before
+/// constructing their returned widgets.
 pub fn inspector_field_row<'a>(
     label: &'static str,
     name: &'static str,
@@ -51,7 +51,7 @@ pub fn inspector_field_row<'a>(
                 .size(11)
                 .width(LABEL_W)
                 .style(style::subtle_text),
-            text_input("", value)
+            text_input("", value.to_owned())
                 .on_input(move |v| {
                     Message::map_editor(MapEditorMessage::EntityFieldChanged(
                         tab_id,
@@ -97,7 +97,7 @@ pub fn inspector_field_row<'a>(
                     .text_size(11)
                     .into()
             } else {
-                text_input("", value)
+                text_input("", value.to_owned())
                     .on_input(move |v| {
                         Message::map_editor(MapEditorMessage::EntityFieldChanged(
                             tab_id,

@@ -116,17 +116,25 @@ pub fn update(
             state.bpr_input = s;
         }
         HexEditorMessage::BytesPerRowInputInvalid => {
-            state.status_msg = format!(
+            state.notify(format!(
                 "Bytes per row must be {}–{}",
                 crate::state::MIN_BYTES_PER_ROW,
                 crate::state::MAX_BYTES_PER_ROW
-            );
+            ));
         }
         HexEditorMessage::SelectAt(addr) => {
             state.selection.select(addr, max_addr);
             state.edit_mode = None;
             state.refresh_active_patterns();
         }
+        HexEditorMessage::JumpToLayout(addr) => {
+            let addr = addr.min(max_addr);
+            state.selection.select(addr, max_addr);
+            state.pending_center_on.set(Some(addr));
+            state.edit_mode = None;
+            state.refresh_active_patterns();
+        }
+        HexEditorMessage::ToggleOutline(id) => state.toggle_outline(id),
         HexEditorMessage::ExtendTo(addr) => {
             state.selection.extend(addr, max_addr);
             state.refresh_active_patterns();
@@ -165,8 +173,10 @@ pub fn update(
                 let text: String = c.into();
                 let encoded = encode_text(&text, state.write_mode, &state.custom_encodings);
                 if encoded.is_empty() {
-                    state.status_msg =
-                        format!("Cannot encode '{c}' in {} mode", state.write_mode.label(),);
+                    state.notify(format!(
+                        "Cannot encode '{c}' in {} mode",
+                        state.write_mode.label(),
+                    ));
                     return Task::none();
                 }
                 let addr = state.selection.cursor;
@@ -275,7 +285,7 @@ pub fn update(
                 && len - cursor >= entry.min_size as u64
             {
                 let decoded = (entry.decode)(bytes);
-                state.status_msg = format!("Copied: {decoded}");
+                state.notify(format!("Copied: {decoded}"));
                 return clipboard::write(decoded).map(|_| HexEditorMessage::ClipboardWriteResult);
             }
         }
@@ -446,19 +456,22 @@ pub fn update(
             if let Some(ref on_save) = config.on_save {
                 return on_save(state);
             }
-            state.status_msg = "Save not available.".to_string();
+            state.notify("Save not available.");
         }
         HexEditorMessage::SavedIntoRecording(result) => match result {
             Ok(msg) => {
                 state.provider.clear_dirty();
-                state.status_msg = msg;
+                state.notify(msg);
             }
             Err(e) => {
-                state.status_msg = format!("Save failed: {e}");
+                state.notify(format!("Save failed: {e}"));
             }
         },
         HexEditorMessage::ClearStatus => {
-            state.status_msg.clear();
+            state.clear_notifications();
+        }
+        HexEditorMessage::DismissNotification(index) => {
+            state.dismiss_notification(index);
         }
         HexEditorMessage::ClipboardWriteResult => {}
 
@@ -563,11 +576,11 @@ pub fn update(
         // ── Pattern highlighting ────────────────────────────────────────
         HexEditorMessage::CreatePattern => {
             if state.selection.is_single() {
-                state.status_msg = "Select a range of bytes to create a pattern".to_string();
+                state.notify("Select a range of bytes to create a pattern");
             } else {
                 let (start, end) = (state.selection.start(), state.selection.end());
                 state.add_pattern(start, end);
-                state.status_msg = format!("Pattern created: 0x{:08X}..0x{:08X}", start, end);
+                state.notify(format!("Pattern created: 0x{:08X}..0x{:08X}", start, end));
             }
         }
         HexEditorMessage::RemovePatternAt(addr) => {
@@ -587,7 +600,7 @@ pub fn update(
         HexEditorMessage::ClearAllPatterns => {
             state.clear_patterns();
             state.context_menu_addr = None;
-            state.status_msg = "All patterns cleared".to_string();
+            state.notify("All patterns cleared");
         }
         HexEditorMessage::RightClickAt(addr) => {
             state.context_menu_addr = Some(addr);
@@ -596,7 +609,7 @@ pub fn update(
         // ── Repeat pattern dialog ────────────────────────────────────────
         HexEditorMessage::BeginRepeatedPattern => {
             if state.selection.is_single() {
-                state.status_msg = "Select a range of bytes to repeat".to_string();
+                state.notify("Select a range of bytes to repeat");
             } else {
                 let (start, end) = (state.selection.start(), state.selection.end());
                 let block_size = end - start + 1;
@@ -665,8 +678,9 @@ pub fn update(
                     }
                     state.rebuild_pattern_lookup();
                     state.recompute_row_annotations();
-                    state.status_msg =
-                        format!("Created group \"{label}\" with {created} repetition(s)");
+                    state.notify(format!(
+                        "Created group \"{label}\" with {created} repetition(s)"
+                    ));
                 }
                 Some(Err(msg)) => {
                     if let Some(ref mut dlg) = state.repeat_pattern {
@@ -776,7 +790,7 @@ pub fn update(
             state.rebuild_pattern_lookup();
             state.recompute_row_annotations();
             state.context_menu_addr = None;
-            state.status_msg = format!("Removed group and {removed} pattern(s)");
+            state.notify(format!("Removed group and {removed} pattern(s)"));
         }
         HexEditorMessage::BeginRenameGroup(gid) => {
             state.renaming_group = Some(gid);
@@ -826,7 +840,7 @@ pub fn update(
                         }
                     }
                 }
-                state.status_msg = format!("Group renamed to \"{label}\"");
+                state.notify(format!("Group renamed to \"{label}\""));
                 state.recompute_row_annotations();
             }
             state.renaming_group_draft.clear();
@@ -915,11 +929,11 @@ pub fn update(
         }
         HexEditorMessage::PatternsExported(result) => match result {
             Ok(()) => {
-                state.status_msg = "Patterns exported".to_string();
+                state.notify("Patterns exported");
             }
             Err(e) => {
                 if e != "cancelled" {
-                    state.status_msg = format!("Export failed: {e}");
+                    state.notify(format!("Export failed: {e}"));
                 }
             }
         },
@@ -928,15 +942,15 @@ pub fn update(
                 Ok(msg) => {
                     state.rebuild_pattern_lookup();
                     state.recompute_row_annotations();
-                    state.status_msg = msg;
+                    state.notify(msg);
                 }
                 Err(e) => {
-                    state.status_msg = format!("Import failed: {e}");
+                    state.notify(format!("Import failed: {e}"));
                 }
             },
             Err(e) => {
                 if e != "cancelled" {
-                    state.status_msg = format!("Import failed: {e}");
+                    state.notify(format!("Import failed: {e}"));
                 }
             }
         },
@@ -981,7 +995,7 @@ pub fn update(
             state.show_entropy_band = true;
             state.theme_variant = ThemeVariant::Dark;
             state.theme = ThemeVariant::Dark.theme();
-            state.status_msg = "Settings reset to defaults".to_string();
+            state.notify("Settings reset to defaults");
         }
 
         // ── Write mode / text encoding ───────────────────────────────────
@@ -1017,9 +1031,9 @@ pub fn update(
                             label: label.to_string(),
                             encoding_name: enc_name.to_string(),
                         });
-                    state.status_msg = format!("Added encoding: {label}");
+                    state.notify(format!("Added encoding: {label}"));
                 } else {
-                    state.status_msg = format!("Encoding already added: {label}");
+                    state.notify(format!("Encoding already added: {label}"));
                 }
             }
         }
@@ -1027,7 +1041,7 @@ pub fn update(
             if idx < state.custom_encodings.len() {
                 let removed = state.custom_encodings.remove(idx);
                 remap_write_mode(&mut state.write_mode, idx);
-                state.status_msg = format!("Removed encoding: {}", removed.label);
+                state.notify(format!("Removed encoding: {}", removed.label));
             }
         }
         HexEditorMessage::SetCustomEncodings(encodings) => {
@@ -1051,7 +1065,7 @@ pub fn update(
                 .collect::<Vec<_>>()
                 .join(" ");
             let n = bytes.len();
-            state.status_msg = format!("Copied {} byte(s) to clipboard", n);
+            state.notify(format!("Copied {} byte(s) to clipboard", n));
             return clipboard::write(hex_str).map(|_| HexEditorMessage::ClipboardWriteResult);
         }
 
@@ -1070,31 +1084,31 @@ pub fn update(
                 return Task::none();
             }
             let bytes = if contents.is_empty() {
-                state.status_msg = "Clipboard is empty".to_string();
+                state.notify("Clipboard is empty");
                 return Task::none();
             } else {
                 match parse_hex_query(&contents) {
                     Some(b) if !b.is_empty() => b,
                     _ => {
-                        state.status_msg = "Clipboard doesn't contain valid hex bytes".to_string();
+                        state.notify("Clipboard doesn't contain valid hex bytes");
                         return Task::none();
                     }
                 }
             };
             let addr = state.selection.cursor;
             if addr >= state.provider.len() {
-                state.status_msg = "Cannot paste: cursor is past end of file".to_string();
+                state.notify("Cannot paste: cursor is past end of file");
                 return Task::none();
             }
             state.provider.write(addr, &bytes);
             state.recompute_vanilla_diff();
-            state.status_msg = format!("Pasted {} byte(s)", bytes.len());
+            state.notify(format!("Pasted {} byte(s)", bytes.len()));
         }
 
         // ── Fill Selection ───────────────────────────────────────────────
         HexEditorMessage::BeginFill => {
             if state.provider.is_empty() || state.selection.is_single() {
-                state.status_msg = "Select a range of bytes to fill".to_string();
+                state.notify("Select a range of bytes to fill");
                 return Task::none();
             }
             state.fill_dialog = Some(crate::domain::fill_dialog::FillDialog::new());
@@ -1128,10 +1142,9 @@ pub fn update(
                         }
                         state.recompute_vanilla_diff();
                         let written = range_len;
-                        state.status_msg =
-                            format!("Filled {} byte(s) with {:02X?}", written, pattern);
+                        state.notify(format!("Filled {} byte(s) with {:02X?}", written, pattern));
                     } else {
-                        state.status_msg = "No bytes to fill — empty pattern".to_string();
+                        state.notify("No bytes to fill — empty pattern");
                     }
                     state.fill_dialog = None;
                 }
@@ -1150,7 +1163,7 @@ pub fn update(
         // ── Extend File ─────────────────────────────────────────────────
         HexEditorMessage::BeginExtend => {
             if state.provider.is_empty() {
-                state.status_msg = "Cannot extend an empty file".to_string();
+                state.notify("Cannot extend an empty file");
                 return Task::none();
             }
             state.extend_dialog = Some(crate::domain::extend_dialog::ExtendDialog::new());
@@ -1183,13 +1196,13 @@ pub fn update(
                     // valid insert point — reject instead of clamping to
                     // max_addr.
                     if state.context_menu_addr.is_some() && addr > state.max_addr() {
-                        state.status_msg = "Cannot extend: clicked past end of file".to_string();
+                        state.notify("Cannot extend: clicked past end of file");
                         return Task::none();
                     }
                     // Selection-driven path: `addr == len` is a valid append;
                     // anything past EOF is rejected.
                     if addr > state.provider.len() {
-                        state.status_msg = "Cannot extend: cursor is past end of file".to_string();
+                        state.notify("Cannot extend: cursor is past end of file");
                         return Task::none();
                     }
                     // Repeat the pattern to exactly `count` bytes (count > 0
@@ -1250,8 +1263,10 @@ pub fn update(
                     // inserted data.
                     state.edit_mode = None;
 
-                    state.status_msg =
-                        format!("Extended file by {} byte(s) with {:02X?}", count, pattern);
+                    state.notify(format!(
+                        "Extended file by {} byte(s) with {:02X?}",
+                        count, pattern
+                    ));
                     state.extend_dialog = None;
                 }
                 Some(Err(msg)) => {
@@ -1301,7 +1316,7 @@ pub fn update(
             Ok((data, name)) => {
                 let diff = crate::vanilla_diff::compute_diff(state.provider.as_slice(), &data);
                 state.comparison_file = Some(ComparisonFile { name, data, diff });
-                state.status_msg = "Comparison file loaded".to_string();
+                state.notify("Comparison file loaded");
 
                 // Ensure the focused pane switches to Diff view.
                 let focus = state.pane_focus;
@@ -1310,7 +1325,7 @@ pub fn update(
                 }
             }
             Err(e) => {
-                state.status_msg = e;
+                state.notify(e);
             }
         },
         HexEditorMessage::CloseComparison => {
@@ -1322,7 +1337,7 @@ pub fn update(
                     panel.content = crate::domain::panel::HexPanelContent::Matrix;
                 }
             }
-            state.status_msg = "Diff closed".to_string();
+            state.notify("Diff closed");
         }
         HexEditorMessage::DiffAddrSelected { addr, is_baseline } => {
             let max_addr = state.max_addr();
@@ -1381,11 +1396,11 @@ pub fn update(
         }
         HexEditorMessage::ToggleDiffReview => {
             state.diff_review = !state.diff_review;
-            state.status_msg = if state.diff_review {
-                "Showing only diff rows".to_string()
+            state.notify(if state.diff_review {
+                "Reviewing change blocks".to_string()
             } else {
-                "Showing all rows".to_string()
-            };
+                "Showing full diff".to_string()
+            });
         }
 
         // ── Export as text ──────────────────────────────────────────────
@@ -1420,7 +1435,7 @@ pub fn update(
         HexEditorMessage::CommitExport => {
             let bytes = state.provider.as_slice().to_vec();
             if bytes.is_empty() {
-                state.status_msg = "Nothing to export — file is empty".to_string();
+                state.notify("Nothing to export — file is empty");
                 state.export_config = None;
                 return Task::none();
             }
@@ -1451,11 +1466,11 @@ pub fn update(
 
         HexEditorMessage::TextExportCompleted(result) => match result {
             Ok(()) => {
-                state.status_msg = "Exported as text file".to_string();
+                state.notify("Exported as text file");
             }
             Err(e) => {
                 if e != "cancelled" {
-                    state.status_msg = format!("Export failed: {e}");
+                    state.notify(format!("Export failed: {e}"));
                 }
             }
         },

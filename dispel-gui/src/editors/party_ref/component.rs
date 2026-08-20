@@ -1,5 +1,5 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::{GhostFaceId, PartyRef};
+use dispel_core::PartyRef;
 
 crate::editable_record_fields!(PartyRef, {
     { id = Integer / "ID:" },
@@ -9,7 +9,7 @@ crate::editable_record_fields!(PartyRef, {
     { npc_id = Integer / "NPC ID:" },
     { dlg_when_not_in_party = Integer / "Dialog (not in party):" },
     { dlg_when_in_party = Integer / "Dialog (in party):" },
-    { ghost_face_id = ReprEnum(GhostFaceId) / "Ghost Face ID:" },
+    { is_in_party = Boolean / "In Party:" },
 });
 
 impl EditableRecord for PartyRef {

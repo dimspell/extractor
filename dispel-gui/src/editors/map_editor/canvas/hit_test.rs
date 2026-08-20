@@ -27,7 +27,7 @@ pub fn find_hovered_entity_impl(
     let mut best: Option<(f32, SelectedEntity)> = None;
 
     for (i, m) in state.data.monsters.iter().enumerate() {
-        let (wx, wy) = tile_world_center(m.pos_x, m.pos_y, diagonal);
+        let (wx, wy) = tile_world_center(m.map_x, m.map_y, diagonal);
         let d2 = (world_x - wx).powi(2) + (world_y - wy).powi(2);
         if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
             best = Some((d2, SelectedEntity::Monster(i)));
@@ -42,7 +42,7 @@ pub fn find_hovered_entity_impl(
         }
     }
     for (i, e) in state.data.extra_refs.iter().enumerate() {
-        let (wx, wy) = tile_world_center(e.x_pos, e.y_pos, diagonal);
+        let (wx, wy) = tile_world_center(e.map_x, e.map_y, diagonal);
         let d2 = (world_x - wx).powi(2) + (world_y - wy).powi(2);
         if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
             best = Some((d2, SelectedEntity::Extra(i)));
@@ -131,12 +131,12 @@ pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<
 /// Return the tile coordinates for an entity.
 pub fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, i32)> {
     match sel {
-        SelectedEntity::Monster(i) => state.data.monsters.get(i).map(|m| (m.pos_x, m.pos_y)),
+        SelectedEntity::Monster(i) => state.data.monsters.get(i).map(|m| (m.map_x, m.map_y)),
         SelectedEntity::Npc(i) => state.data.npcs.get(i).map(|n| {
             let (x, y) = npc_pos(n);
             (x, y)
         }),
-        SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.x_pos, e.y_pos)),
+        SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.map_x, e.map_y)),
         SelectedEntity::DrawItem(i) => state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord)),
         SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
     }

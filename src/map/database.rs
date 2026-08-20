@@ -495,9 +495,9 @@ fn collect_monsters(
         f = f.replace('\\', "/");
         if let Some(name) = f.split('/').next_back() {
             let q = format!(
-                "SELECT mr.pos_x, mr.pos_y, mi.sprite_filename \
+                "SELECT mr.map_x, mr.map_y, mi.sprite_filename \
                  FROM monster_refs mr \
-                 LEFT JOIN monster_inis mi ON mi.id = mr.mon_id \
+                 LEFT JOIN monster_inis mi ON mi.id = mr.monster_db_id \
                  WHERE mr.file_path LIKE '%{}'",
                 name
             );
@@ -541,7 +541,7 @@ fn collect_npcs(
                         nr.goto4_filled, nr.goto4_x, nr.goto4_y,
                         ni.sprite_filename, nr.looking_direction \
                  FROM npc_refs nr \
-                 LEFT JOIN npc_inis ni ON ni.id = nr.npc_id \
+                 LEFT JOIN npc_inis ni ON ni.id = nr.npc_ini_id \
                  WHERE nr.file_path LIKE '%{}'",
                 name
             );

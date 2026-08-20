@@ -327,7 +327,7 @@ impl App {
                         .editors
                         .hex_editors
                         .entry(tab_id)
-                        .or_insert_with(|| HexEditorState::load_from_path(path));
+                        .or_insert_with(|| hex_editor_state_for_path(path));
                     if let Some(ref dir) = scripts_dir {
                         let errors = state.load_lua_scripts(dir);
                         for e in &errors {
@@ -449,7 +449,7 @@ impl App {
                 .editors
                 .hex_editors
                 .entry(tab_id)
-                .or_insert_with(|| HexEditorState::load_from_path(path));
+                .or_insert_with(|| hex_editor_state_for_path(path));
             if let Some(ref dir) = scripts_dir {
                 let errors = state.load_lua_scripts(dir);
                 for e in &errors {
@@ -464,4 +464,14 @@ impl App {
         let idx = self.state.workspace.active_tab?;
         self.state.workspace.tabs.get(idx).map(|t| t.id)
     }
+}
+
+fn hex_editor_state_for_path(path: &Path) -> HexEditorState {
+    let mut state = HexEditorState::load_from_path(path);
+    state.set_layout(crate::binary_layout::layout_for_path(
+        path,
+        state.provider.as_slice(),
+    ));
+    state.ensure_outline_pane();
+    state
 }

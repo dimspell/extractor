@@ -3,25 +3,40 @@
 ## File Information
 - **Location**: `Map/*.map` files
 - **Format**: Binary (Little-Endian)
-- **Coordinate System**: Isometric with 25×25 tile chunks
-- **Tile Size**: 32×32 pixels
+- **Coordinate System**: Isometric
+- **Tile Size**: 62×32 pixels (diamond)
 
 ## File Structure
 
-### Header (8 bytes)
+### Header (12 bytes)
 - `width_in_chunks`: i32 - Map width in 25-tile chunks
 - `height_in_chunks`: i32 - Map height in 25-tile chunks
+- `border_count`: i32 - Border chunk count (always 2)
 
 ### Blocks (in order)
 
 #### First Block (variable size)
-- `multiplier`: i32
-- `size`: i32
-- `data`: multiplier × size × 4 bytes (unknown purpose, skipped)
+- `count`: i32 - Record count
+- `data`: (count − 1) × 8 bytes - `count − 1` records, each 2 × i32: `value1`, `value2`
+
+Skipping `(count-1)*8` lands exactly on the second block's size field.
+Records of 8 bytes as a 20-byte record array (map object offset `+0x14c`):
+
+| offset | value | source |
+|---|---|---|
+| `+0x00` | `index = i + 1` | computed (linked-list-style index) |
+| `+0x04` | `0` | computed |
+| `+0x08` | `value1` | read from file (4 bytes) |
+| `+0x0c` | `0` | computed |
+| `+0x10` | `value2` | read from file (4 bytes) |
+
+This code is seems to be not used.
 
 #### Second Block (variable size)
 - `size`: i32
-- `data`: size × 2 bytes (unknown purpose, skipped)
+- `data`: size × 2 bytes - byte pairs, read by the game into map object offset `+0x1ac`
+
+The game very likely skips those bytes.
 
 #### Sprite Block
 - `sprite_count`: i32

@@ -140,7 +140,10 @@ fn test_cache_directory_creation() {
 
 #[test]
 fn test_cache_deletion() {
-    let cache_manager = FileIndexCacheManager::new().unwrap();
+    let temp_dir = tempdir().unwrap();
+    let cache_manager = FileIndexCacheManager {
+        cache_dir: temp_dir.path().to_path_buf(),
+    };
 
     // Create a test cache
     let cache = FileIndexCache {

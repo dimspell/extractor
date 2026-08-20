@@ -36,6 +36,64 @@ use gui_widgets::components::paragraph_cache::ParagraphCache;
 use self::layout::{HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS};
 use super::minimap;
 
+/// Number of unchanged rows retained on each side of a changed region in
+/// review mode. Keeping a little context makes a binary change legible while
+/// still reducing a large file to its meaningful blocks.
+const REVIEW_CONTEXT_ROWS: u64 = 2;
+
+/// A rendered row in diff review mode. A collapsed run occupies one visual
+/// row, rather than thousands of blank rows, and is labelled by the renderer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum DisplayRow {
+    Data { source_row: u64 },
+    Collapsed { first_row: u64, count: u64 },
+}
+
+/// Row lookup for the rendered document. The normal view stays virtual: it
+/// maps display rows directly to source rows without allocating one entry per
+/// row of a potentially multi-gigabyte file.
+pub(super) enum DisplayRows {
+    Full { total_rows: u64 },
+    Compact(Vec<DisplayRow>),
+}
+
+impl DisplayRows {
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::Full { total_rows } => *total_rows as usize,
+            Self::Compact(rows) => rows.len(),
+        }
+    }
+
+    pub(super) fn get(&self, index: usize) -> Option<DisplayRow> {
+        match self {
+            Self::Full { total_rows } if index < *total_rows as usize => Some(DisplayRow::Data {
+                source_row: index as u64,
+            }),
+            Self::Full { .. } => None,
+            Self::Compact(rows) => rows.get(index).copied(),
+        }
+    }
+
+    pub(super) fn display_row_for_source(&self, source_row: u64) -> Option<usize> {
+        match self {
+            Self::Full { total_rows } if source_row < *total_rows => Some(source_row as usize),
+            Self::Full { .. } => None,
+            Self::Compact(rows) => rows.iter().position(|row| {
+                matches!(row, DisplayRow::Data { source_row: row_source } if *row_source == source_row)
+            }),
+        }
+    }
+
+    #[cfg(test)]
+    fn compact_rows(&self) -> &[DisplayRow] {
+        match self {
+            Self::Compact(rows) => rows,
+            Self::Full { .. } => panic!("expected compact review rows"),
+        }
+    }
+}
+
 /// A virtualized side-by-side binary diff widget.
 ///
 /// Two byte buffers are rendered within the same pane, sharing a single
@@ -189,8 +247,8 @@ impl<'a, Message> DiffView<'a, Message> {
         self
     }
 
-    /// Enable "Show Diffs Only" mode — hides rows that have zero differing
-    /// bytes between the two buffers.
+    /// Enable review mode — collapse unchanged runs into labelled separators
+    /// around the changed rows.
     pub fn diff_review(mut self, v: bool) -> Self {
         self.diff_review = v;
         self
@@ -251,17 +309,55 @@ impl<'a, Message> DiffView<'a, Message> {
     }
 
     pub(super) fn right_strip(&self) -> f32 {
-        if self.show_minimap {
+        // The minimap represents source-file coordinates, while review mode
+        // deliberately uses compact display coordinates. Hide it there rather
+        // than showing a misleading thumb position.
+        if self.show_minimap && !self.diff_review {
             SCROLLBAR_THICKNESS + minimap::MINIMAP_WIDTH
         } else {
             SCROLLBAR_THICKNESS
         }
     }
 
-    /// Whether the row starting at `base_addr` contains any differing bytes.
-    pub(super) fn row_has_diff(&self, base_addr: u64) -> bool {
+    /// Build the rows shown by this view. In review mode, unchanged spans are
+    /// collapsed to a single separator between groups of changed rows.
+    pub(super) fn build_display_rows(&self) -> DisplayRows {
+        let total_rows = self.total_rows();
+        if !self.diff_review {
+            return DisplayRows::Full { total_rows };
+        }
+
         let bpr = self.bytes_per_row as u64;
-        self.diff.range(base_addr..base_addr + bpr).next().is_some()
+        let mut kept = BTreeSet::new();
+        for &addr in self.diff {
+            let changed_row = addr / bpr;
+            let first = changed_row.saturating_sub(REVIEW_CONTEXT_ROWS);
+            let last = (changed_row + REVIEW_CONTEXT_ROWS).min(total_rows.saturating_sub(1));
+            kept.extend(first..=last);
+        }
+
+        let mut rows = Vec::new();
+        let mut next = 0;
+        for source_row in kept {
+            if source_row >= total_rows {
+                continue;
+            }
+            if next < source_row {
+                rows.push(DisplayRow::Collapsed {
+                    first_row: next,
+                    count: source_row - next,
+                });
+            }
+            rows.push(DisplayRow::Data { source_row });
+            next = source_row + 1;
+        }
+        if next < total_rows {
+            rows.push(DisplayRow::Collapsed {
+                first_row: next,
+                count: total_rows - next,
+            });
+        }
+        DisplayRows::Compact(rows)
     }
 }
 
@@ -467,6 +563,7 @@ mod tests {
 
     use gui_widgets::components::paragraph_cache::ParagraphCache;
 
+    use super::DisplayRow;
     use super::draw::col_at_x;
     use super::layout::*;
 
@@ -514,6 +611,68 @@ mod tests {
     fn total_rows_computed_from_longer_buffer() {
         let dv = minimal_dv(&[0u8; 32], &[0u8; 48], 16);
         assert_eq!(dv.total_rows(), 3);
+    }
+
+    #[test]
+    fn review_mode_collapses_unchanged_runs_and_keeps_context() {
+        let mut diff = BTreeSet::new();
+        // One changed byte on source row 10 in a 20-row file.
+        diff.insert(10 * 16 + 3);
+        let mut dv = minimal_dv(&[0u8; 20 * 16], &[0u8; 20 * 16], 16);
+        dv.diff = &diff;
+        dv.diff_review = true;
+
+        assert_eq!(
+            dv.build_display_rows().compact_rows(),
+            &[
+                DisplayRow::Collapsed {
+                    first_row: 0,
+                    count: 8,
+                },
+                DisplayRow::Data { source_row: 8 },
+                DisplayRow::Data { source_row: 9 },
+                DisplayRow::Data { source_row: 10 },
+                DisplayRow::Data { source_row: 11 },
+                DisplayRow::Data { source_row: 12 },
+                DisplayRow::Collapsed {
+                    first_row: 13,
+                    count: 7,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn review_mode_merges_nearby_changes_into_one_block() {
+        let mut diff = BTreeSet::new();
+        diff.insert(4 * 16);
+        diff.insert(8 * 16);
+        let mut dv = minimal_dv(&[0u8; 16 * 16], &[0u8; 16 * 16], 16);
+        dv.diff = &diff;
+        dv.diff_review = true;
+
+        assert_eq!(
+            dv.build_display_rows().compact_rows(),
+            &[
+                DisplayRow::Collapsed {
+                    first_row: 0,
+                    count: 2,
+                },
+                DisplayRow::Data { source_row: 2 },
+                DisplayRow::Data { source_row: 3 },
+                DisplayRow::Data { source_row: 4 },
+                DisplayRow::Data { source_row: 5 },
+                DisplayRow::Data { source_row: 6 },
+                DisplayRow::Data { source_row: 7 },
+                DisplayRow::Data { source_row: 8 },
+                DisplayRow::Data { source_row: 9 },
+                DisplayRow::Data { source_row: 10 },
+                DisplayRow::Collapsed {
+                    first_row: 11,
+                    count: 5,
+                },
+            ]
+        );
     }
 
     #[test]

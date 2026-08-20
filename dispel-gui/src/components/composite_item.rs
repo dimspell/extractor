@@ -36,7 +36,7 @@ pub fn composite_item_picker(
                 .size(11)
                 .width(LABEL_W)
                 .style(style::subtle_text),
-            text_input("", value)
+            text_input("", value.to_owned())
                 .on_input(move |v| oc(v))
                 .padding(4)
                 .size(11)

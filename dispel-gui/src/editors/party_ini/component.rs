@@ -5,12 +5,11 @@ use crate::editable_record_fields;
 
 editable_record_fields!(PartyIniNpc, {
     { name = String / "Name:" },
-    { unknown1 = Integer / "Unknown 1:" },
-    { unknown2 = Integer / "Unknown 2:" },
-    { unknown3 = Integer / "Unknown 3:" },
-    { unknown4 = Integer / "Unknown 4:" },
-    { unknown5 = Integer / "Unknown 5:" },
-    { unknown6 = Integer / "Unknown 6:" },
+    { reserved_0x14 = Integer / "Reserved (0x14):" },
+    { class_id = Integer / "Class ID:" },
+    { starting_level = Integer / "Starting Level:" },
+    { pathfinding_mode = Integer / "Pathfinding Mode:" },
+    { character_variant = Integer / "Character Variant:" },
 });
 
 impl EditableRecord for PartyIniNpc {

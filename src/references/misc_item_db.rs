@@ -36,32 +36,13 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// | - name: 30 bytes (WINDOWS-1250)    |
 /// | - description: 202 bytes (WINDOWS...) |
 /// | - base_price: i32                    |
-/// | - padding: 20 bytes (binary compat)  |
+/// | - reserved_bytes: 16 bytes           |
+/// | - runtime_record_index_slot: i32     |
 /// +--------------------------------------+
 /// | [Record 2]                           |
 /// | ... (same structure) ...             |
 /// +--------------------------------------+
 /// ```
-///
-/// # Field Categories
-///
-/// - **Identification**: `id` (auto-generated from position)
-/// - **Localization**: `name` (30 bytes, WINDOWS-1250, null-padded)
-/// - **Description**: `description` (202 bytes, WINDOWS-1250, null-padded)
-/// - **Economy**: `base_price` (i32, economic valuation)
-/// - **Padding**: `padding` (20 bytes for binary compatibility)
-///
-/// # Special Values
-///
-/// - `name`: 30 bytes max, null-padded (WINDOWS-1250)
-/// - `description`: 202 bytes max, null-padded (WINDOWS-1250)
-/// - `padding`: Always observed as 20 zero bytes
-///
-/// # File Purpose
-///
-/// Defines miscellaneous items with names, descriptions,
-/// and prices. Used for consumables, quest items,
-/// and generic inventory objects.
 #[derive(
     Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
 )]
@@ -82,10 +63,16 @@ pub struct MiscItem {
     /// Value retrieved when standard bartering.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
-    /// Padding field to preserve binary compatibility.
-    #[extractor(string(encoding = "EUC-KR", size = 20))]
-    #[translatable(encoding = "EUC-KR", max_bytes = 20)]
-    pub padding: String,
+    /// Unused bytes.
+    #[extractor(vec_u8(size = 16))]
+    pub reserved_bytes: Vec<u8>,
+    /// On-disk slot at offset `0xFC` for the runtime record index.
+    ///
+    /// During database loading, the game unconditionally replaces this value
+    /// with the sequential index of the record. Its on-disk value therefore is
+    /// not an item attribute, but is retained to preserve exact file bytes.
+    #[extractor(primitive(type = "i32"))]
+    pub runtime_record_index_slot: i32,
 }
 
 pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
@@ -102,7 +89,8 @@ pub fn save_misc_items(conn: &mut Connection, misc_items: &[MiscItem]) -> Result
                 item.name,
                 item.description,
                 item.base_price,
-                item.padding
+                item.reserved_bytes,
+                item.runtime_record_index_slot,
             ])?;
         }
     }
@@ -122,7 +110,8 @@ mod tests {
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description (zeroed = empty)
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 20]); // padding
+        rec.extend_from_slice(&[0xA5; 16]); // reserved bytes
+        rec.extend_from_slice(&0x1234_5678i32.to_le_bytes()); // runtime index slot
         rec
     }
 
@@ -137,6 +126,8 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].name, "Torch");
         assert_eq!(items[0].base_price, 15);
+        assert_eq!(items[0].reserved_bytes, vec![0xA5; 16]);
+        assert_eq!(items[0].runtime_record_index_slot, 0x1234_5678);
     }
 
     #[test]

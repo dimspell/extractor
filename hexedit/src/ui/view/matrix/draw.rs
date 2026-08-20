@@ -306,8 +306,13 @@ pub fn draw_matrix<'a, Message>(
             let is_dirty = widget.dirty.contains(&addr);
             let is_diff = widget.vanilla_diff.contains(&addr);
             let pat_entry = widget.patterns.get(&addr).copied();
+            let structure_field = widget
+                .layout
+                .and_then(|layout| layout.field_at(addr, widget.bytes.len() as u64));
             let is_editing = edit_addr == Some(addr);
 
+            // Structure overlays deliberately do not paint cell backgrounds:
+            // the data and explicit user overlays remain visually dominant.
             // Background priority: edit > selection-cursor > selection >
             // pattern > dirty (this session) > diff (cumulative vs vanilla).
             let base_bg = if is_editing {
@@ -391,6 +396,14 @@ pub fn draw_matrix<'a, Message>(
             if let Some(c) = bg {
                 fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, cell_clip);
                 fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, cell_clip);
+            }
+            if structure_field
+                .as_ref()
+                .is_some_and(|field| field.range.start == addr)
+            {
+                let boundary = theme.annotation_separator;
+                fill_cell(renderer, cell_x, y, 1.0, boundary, cell_clip);
+                fill_cell(renderer, ax, y, 1.0, boundary, cell_clip);
             }
 
             if is_editing {

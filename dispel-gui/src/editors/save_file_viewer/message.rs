@@ -310,6 +310,6 @@ pub struct SaveFileLoaded {
 /// Data to initialize one embedded hex editor for a raw section.
 #[derive(Debug, Clone)]
 pub struct RawHexEditorData {
-    pub label: &'static str,
+    pub label: String,
     pub data: Vec<u8>,
 }

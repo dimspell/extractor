@@ -20,18 +20,18 @@ pub fn build_toolbar<'a>(
     let hint = config.save_hint.clone();
 
     // Check if an Inspector pane exists in the grid (Halloy-style).
-    let has_inspector_pane = editor
-        .panes
-        .iter()
-        .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Inspector));
-    let inspector_label = if has_inspector_pane {
-        "Hide Inspector"
-    } else {
-        "Inspector"
-    };
-    let inspector_btn = button(text(inspector_label).size(11).font(Font::MONOSPACE))
-        .padding([3, 10])
-        .on_press(HexEditorMessage::ToggleInspector);
+    // let has_inspector_pane = editor
+    //     .panes
+    //     .iter()
+    //     .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Inspector));
+    // let inspector_label = if has_inspector_pane {
+    //     "Hide Inspector"
+    // } else {
+    //     "Inspector"
+    // };
+    // let inspector_btn = button(text(inspector_label).size(11).font(Font::MONOSPACE))
+    //     .padding([3, 10])
+    //     .on_press(HexEditorMessage::ToggleInspector);
 
     // Check if a PatternList pane exists in the grid (Halloy-style).
     let has_patterns_pane = editor.panes.iter().any(|(_, p)| {
@@ -50,18 +50,18 @@ pub fn build_toolbar<'a>(
         .on_press(HexEditorMessage::TogglePatternList);
 
     // Byte statistics toggle.
-    let has_stats_pane = editor
-        .panes
-        .iter()
-        .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Statistics));
-    let stats_label = if has_stats_pane {
-        "Hide Stats"
-    } else {
-        "Stats"
-    };
-    let stats_btn = button(text(stats_label).size(11).font(Font::MONOSPACE))
-        .padding([3, 10])
-        .on_press(HexEditorMessage::ToggleStats);
+    // let has_stats_pane = editor
+    //     .panes
+    //     .iter()
+    //     .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Statistics));
+    // let stats_label = if has_stats_pane {
+    //     "Hide Stats"
+    // } else {
+    //     "Stats"
+    // };
+    // let stats_btn = button(text(stats_label).size(11).font(Font::MONOSPACE))
+    //     .padding([3, 10])
+    //     .on_press(HexEditorMessage::ToggleStats);
 
     // Diff / comparison button.
     let has_comparison = editor.comparison_file.is_some();
@@ -112,22 +112,22 @@ pub fn build_toolbar<'a>(
 
     let diff_review_btn = if has_comparison {
         let label = if editor.diff_review {
-            "Full View"
+            "Show Full Diff"
         } else {
-            "Show Diffs Only"
+            "Review Changes"
         };
         button(text(label).size(11).font(Font::MONOSPACE))
             .padding([3, 10])
             .on_press(HexEditorMessage::ToggleDiffReview)
     } else {
-        button(text("Show Diffs Only").size(11).font(Font::MONOSPACE))
+        button(text("Review Changes").size(11).font(Font::MONOSPACE))
             .padding([3, 10])
             .style(button::secondary)
     };
 
-    let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
-        .padding([3, 10])
-        .on_press(HexEditorMessage::OpenExportConfig);
+    // let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
+    //     .padding([3, 10])
+    //     .on_press(HexEditorMessage::OpenExportConfig);
 
     let settings_btn = button(text("Settings").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
@@ -138,30 +138,25 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::OpenGotoDialog);
 
-    let status: Element<'a, HexEditorMessage> = if editor.status_msg.is_empty() {
-        text("").size(11).into()
-    } else {
-        text(editor.status_msg.clone())
-            .size(11)
-            .font(Font::MONOSPACE)
-            .into()
-    };
+    let find_btn = button(text("Find...").size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(HexEditorMessage::OpenSearch);
 
     container(
         row![
             save_btn,
             goto_btn,
-            inspector_btn,
+            find_btn,
+            // inspector_btn,
             patterns_btn,
-            stats_btn,
+            // stats_btn,
             diff_btn,
             nav_prev_btn,
             nav_next_btn,
             diff_review_btn,
-            export_btn,
+            // export_btn,
             settings_btn,
             text(hint).size(11).font(Font::MONOSPACE),
-            container(status).width(Fill),
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),

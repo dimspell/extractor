@@ -3,9 +3,7 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableKey};
-use crate::editors::save_file_viewer::state::{
-    CharacterTableKind, ResizeDrag, SaveFileViewerState,
-};
+use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileSection, SaveFileViewerState};
 use crate::message::{Message, MessageExt};
 
 pub(crate) mod csv_export;
@@ -236,7 +234,31 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
     match msg {
         SaveFileViewerMessage::SelectSection(section) => {
+            if state.active_section == SaveFileSection::SavedViewport
+                && section != SaveFileSection::SavedViewport
+            {
+                state.show_preview = false;
+                state.map_preview = None;
+            }
             state.active_section = section;
+            if section == SaveFileSection::SavedViewport {
+                let active_map_index = state.save_file.as_ref().and_then(|save| {
+                    save.maps
+                        .iter()
+                        .position(|map| map.map_id == save.post_maps.all_map_ini_id)
+                });
+                let Some(map_idx) = active_map_index else {
+                    return Task::done(Message::System(crate::message::SystemMessage::ShowError(
+                        "The active map is not present in this save file.".to_string(),
+                    )));
+                };
+                state.selected_map = Some(map_idx);
+                state.show_preview = false;
+                state.map_preview = None;
+                return Task::done(Message::save_file_viewer(
+                    SaveFileViewerMessage::TogglePreview,
+                ));
+            }
             Task::none()
         }
         SaveFileViewerMessage::SelectCategory(cat) => {
@@ -359,6 +381,21 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
             let game_path = app.state.workspace.game_path.clone();
 
+            // The 500-cell cache is the active map's viewport. Other map
+            // sections remain renderable, but do not receive this overlay.
+            let saved_viewport_cells = state
+                .save_file
+                .as_ref()
+                .filter(|save| {
+                    state.active_section == SaveFileSection::SavedViewport
+                        && save
+                            .maps
+                            .get(map_idx)
+                            .is_some_and(|map| map.map_id == save.post_maps.all_map_ini_id)
+                })
+                .map(|save| save.map_viewport_state.cells.clone())
+                .unwrap_or_default();
+
             use crate::components::map_render::MapViewState;
             use crate::editors::map_editor::message::MapDataHandle;
             use crate::editors::save_file_viewer::map_preview::state::{
@@ -371,6 +408,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 view: MapViewState::default(),
                 loading: MapPreviewLoading::Loaded,
                 entity_markers: Vec::new(),
+                saved_viewport_cells,
+                show_saved_viewport: true,
                 gtl_handles: std::collections::HashMap::new(),
                 btl_handles: std::collections::HashMap::new(),
                 tiles_ready: false,
@@ -434,38 +473,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         });
                     }
                 }
-                // NPCs — first active waypoint (HIGH confidence)
-                // Mirrors npc_pos() in map_editor/canvas/hit_test.rs.
-                // The save file has no "current position" field, so if an NPC
-                // is mid-patrol the best we can do is its first filled waypoint.
+                // NPCs — the save record stores the current map-cell position.
                 for n in &map_data.npcs {
-                    let waypoints = [
-                        (
-                            n.npc_ref_waypoint1filled,
-                            n.npc_ref_waypoint1x,
-                            n.npc_ref_waypoint1y,
-                        ),
-                        (
-                            n.npc_ref_waypoint2filled,
-                            n.npc_ref_waypoint2x,
-                            n.npc_ref_waypoint2y,
-                        ),
-                        (
-                            n.npc_ref_waypoint3filled,
-                            n.npc_ref_waypoint3x,
-                            n.npc_ref_waypoint3y,
-                        ),
-                        (
-                            n.npc_ref_waypoint4filled,
-                            n.npc_ref_waypoint4x,
-                            n.npc_ref_waypoint4y,
-                        ),
-                    ];
-                    let (nx, ny) = waypoints
-                        .iter()
-                        .find(|(filled, _, _)| *filled != 0)
-                        .map(|&(_, x, y)| (to_tile(x), to_tile(y)))
-                        .unwrap_or((to_tile(n.npc_ref_waypoint1x), to_tile(n.npc_ref_waypoint1y)));
+                    let nx = to_tile(n.current_position_x as u32);
+                    let ny = to_tile(n.current_position_y as u32);
                     if nx != 0 || ny != 0 {
                         entities.push(PreviewEntity {
                             kind: EntityKind::Npc,
@@ -475,25 +486,25 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             confirmed: true,
                             db_id: Some(n.npc_ini_id as i32),
                             is_dead: false,
-                            look_direction: n.npc_ref_look_direction as u8,
+                            look_direction: n.waypoint1_facing_direction as u8,
                         });
                     }
                 }
-                // Extra objects — use unknown_7/8 which map structurally to
-                // ExtraRef.x_pos/y_pos (both appear right after name + type byte
+                // Extra objects — use map_x/map_y, which structurally map to
+                // ExtraRef.map_x/map_y (both appear right after name + type byte
                 // in their respective struct layouts).  Keep confirmed:false
                 // pending empirical verification against real save files.
                 for e in &map_data.extra_objects {
-                    let x = to_tile(e.x_pos);
-                    let y = to_tile(e.y_pos);
+                    let x = to_tile(e.map_x);
+                    let y = to_tile(e.map_y);
                     if x != 0 || y != 0 {
                         entities.push(PreviewEntity {
                             kind: EntityKind::Extra,
-                            label: e.name.clone(),
+                            label: e.object_name.clone(),
                             tile_x: x,
                             tile_y: y,
                             confirmed: false,
-                            db_id: Some(e.extra_ini_id as i32),
+                            db_id: Some(e.extra_definition_id as i32),
                             is_dead: false,
                             look_direction: 0,
                         });
@@ -1129,9 +1140,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     for ev in loaded.save_file.events.iter() {
                         display_cache.push(vec![
                             ev.event_id.to_string(),
-                            ev.unknown_1.to_string(),
-                            ev.unknown_2.to_string(),
-                            ev.script_name.clone(),
+                            ev.required_event_id.to_string(),
+                            ev.event_type.to_string(),
+                            ev.script_filename.clone(),
+                            ev.execution_limit.to_string(),
+                            ev.execution_count.to_string(),
+                            ev.has_triggered.to_string(),
                         ]);
                     }
                     state.events_display_cache = display_cache;
@@ -1142,8 +1156,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         .map(|d| {
                             use crate::editors::save_file_viewer::state::RawHexViewer;
                             let editor = hexedit::HexEditorState::from_bytes(
-                                d.label,
-                                d.data.clone(),
+                                d.label.clone(),
+                                d.data,
                                 None,
                                 None,
                             );
@@ -1189,10 +1203,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.padding6.to_string(),
                                     item.padding7.to_string(),
                                     item.padding8.to_string(),
-                                    item.unknown_1.to_string(),
-                                    item.unknown_2.to_string(),
-                                    item.unknown_3.to_string(),
-                                    item.unknown_4.to_string(),
+                                    item.item_category.to_string(),
+                                    item.inventory_instance_id.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1214,11 +1226,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.poison_heal.to_string(),
                                     item.petrif_heal.to_string(),
                                     item.polimorph_heal.to_string(),
-                                    item.unknown_1.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.position_index.to_string(),
-                                    item.unknown_4.to_string(),
-                                    item.unknown_5.to_string(),
+                                    item.reserved_definition_byte.to_string(),
+                                    item.item_category.to_string(),
+                                    item.inventory_record_index.to_string(),
+                                    hex_bytes(&item.reserved_runtime_bytes),
                                 ]
                             })
                             .collect(),
@@ -1232,8 +1243,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.name.clone(),
                                     item.description.clone(),
                                     item.base_price.to_string(),
-                                    item.unknown_1.to_string(),
-                                    item.unknown_2.to_string(),
+                                    item.edit_item_id.to_string(),
                                     item.health_points.to_string(),
                                     item.mana_points.to_string(),
                                     item.strength.to_string(),
@@ -1245,13 +1255,13 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.offense.to_string(),
                                     item.defense.to_string(),
                                     item.magical_power.to_string(),
-                                    item.item_destroying_power.to_string(),
-                                    item.unknown_3.to_string(),
+                                    item.modification_resistance.to_string(),
+                                    item.reserved_byte.to_string(),
                                     item.modifies_item.to_string(),
                                     item.additional_effect.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_5.to_string(),
-                                    item.unknown_6.to_string(),
+                                    item.item_category.to_string(),
+                                    item.item_category_padding.to_string(),
+                                    item.inventory_record_index.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1266,9 +1276,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.description.clone(),
                                     item.base_price.to_string(),
                                     item.event_item_id.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_3.to_string(),
-                                    item.unknown_4.to_string(),
+                                    item.item_category.to_string(),
+                                    item.item_category_padding.to_string(),
+                                    item.inventory_record_index.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1282,13 +1292,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.name.clone(),
                                     item.description.clone(),
                                     item.base_price.to_string(),
-                                    hex_bytes(&item.unknown_1),
+                                    hex_bytes(&item.reserved_definition_bytes),
                                     item.misc_item_id.to_string(),
-                                    item.item_type_id.to_string(),
-                                    item.unknown_4.to_string(),
-                                    item.unknown_5.to_string(),
-                                    item.unknown_6.to_string(),
-                                    item.unknown_7.to_string(),
+                                    item.item_category.to_string(),
+                                    item.inventory_record_index.to_string(),
+                                    item.inventory_instance_id.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1326,52 +1334,52 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // Build character display caches (equipment / belt potions /
                     // inventory placement) from the character identity.
                     use crate::editors::save_file_viewer::state::CharacterTableKind;
-                    let identity = &loaded.save_file.character_identity;
+                    let slots = &loaded.save_file.inventory_slots;
                     let mut char_caches: std::collections::HashMap<
                         CharacterTableKind,
                         Vec<Vec<String>>,
                     > = std::collections::HashMap::new();
                     char_caches.insert(
                         CharacterTableKind::Equipment,
-                        identity
+                        slots
                             .equipped_equipment
                             .iter()
                             .map(|s| {
                                 vec![
-                                    s.unknown_a.to_string(),
-                                    s.unknown_b.to_string(),
-                                    s.unknown_c.to_string(),
+                                    s.panel_slot_marker.to_string(),
+                                    s.weapon_catalog_index.to_string(),
+                                    s.weapon_inventory_instance_id.to_string(),
                                 ]
                             })
                             .collect(),
                     );
                     char_caches.insert(
                         CharacterTableKind::BeltPotions,
-                        identity
+                        slots
                             .belt_potions
                             .iter()
                             .map(|s| {
                                 vec![
-                                    s.unknown_a.to_string(),
-                                    s.unknown_b.to_string(),
-                                    s.unknown_c.to_string(),
-                                    s.unknown_d.to_string(),
+                                    s.item_category.to_string(),
+                                    s.item_catalog_index.to_string(),
+                                    s.icon_x.to_string(),
+                                    s.icon_y.to_string(),
                                 ]
                             })
                             .collect(),
                     );
                     char_caches.insert(
                         CharacterTableKind::InventoryPlacement,
-                        identity
+                        slots
                             .inventory_placement
                             .iter()
                             .map(|e| {
                                 vec![
-                                    e.unknown_a.to_string(),
-                                    e.unknown_b.to_string(),
-                                    e.unknown_c.to_string(),
-                                    e.unknown_d.to_string(),
-                                    e.unknown_e.to_string(),
+                                    e.item_category.to_string(),
+                                    e.item_catalog_index.to_string(),
+                                    e.icon_x.to_string(),
+                                    e.icon_y.to_string(),
+                                    e.item_instance_index.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1483,57 +1491,82 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             m.monster_ai_type.to_string(),
                                             m.experience_on_kill.to_string(),
                                             m.gold_drop_on_kill.to_string(),
-                                            m.unknown_1.to_string(),
-                                            m.sight_range.to_string(),
-                                            m.attack_range.to_string(),
+                                            m.distance_range_size.to_string(),
+                                            m.detection_sight_size.to_string(),
+                                            m.aggression_flag.to_string(),
                                             m.spell_slot_1.to_string(),
                                             m.spell_slot_2.to_string(),
                                             m.spell_slot_3.to_string(),
                                             m.oversize.to_string(),
                                             m.magic_level.to_string(),
-                                            m.unknown_2.to_string(),
-                                            m.unknown_3a.to_string(),
-                                            m.unknown_3b.to_string(),
-                                            m.unknown_3c.to_string(),
-                                            m.unknown_3d.to_string(),
-                                            hex_bytes(&m.unknown_3e),
-                                            m.unknown_3f.to_string(),
+                                            m.patrol_countdown.to_string(),
+                                            m.behavior_flag.to_string(),
+                                            m.ai_state.to_string(),
+                                            m.ai_sub_state.to_string(),
+                                            m.movement_direction.to_string(),
+                                            m.target_position_x.to_string(),
+                                            m.target_position_y.to_string(),
+                                            m.status_effect_ticks_remaining.to_string(),
+                                            m.status_effect_type.to_string(),
+                                            m.awake_flag.to_string(),
+                                            m.combat_target_entity_index.to_string(),
                                             m.event_id_on_kill.to_string(),
-                                            m.unknown_5.to_string(),
+                                            m.status_effect_parameter.to_string(),
                                             m.current_position_x.to_string(),
                                             m.current_position_y.to_string(),
                                             m.spawn_position_x.to_string(),
                                             m.spawn_position_y.to_string(),
-                                            m.unknown_10_coordinate.to_string(),
-                                            m.unknown_11_coordinate.to_string(),
-                                            m.unknown_12.to_string(),
-                                            m.unknown_13.to_string(),
-                                            m.unknown_14.to_string(),
-                                            m.unknown_15.to_string(),
-                                            m.unknown_16.to_string(),
-                                            m.unknown_17.to_string(),
-                                            m.unknown_18.to_string(),
-                                            hex_bytes(&m.unknown_19),
-                                            m.unknown_20.to_string(),
-                                            m.unknown_21.to_string(),
-                                            m.unknown_22.to_string(),
+                                            m.home_position_x.to_string(),
+                                            m.home_position_y.to_string(),
+                                            m.render_direction_flag.to_string(),
+                                            m.cell_offset_x.to_string(),
+                                            m.cell_offset_y.to_string(),
+                                            m.spawn_group_id.to_string(),
+                                            m.constructor_marker.to_string(),
+                                            m.movement_animation_frame.to_string(),
+                                            m.dead_or_removed_flag.to_string(),
+                                            m.sprite_render_override_pending.to_string(),
+                                            m.movement_animation_frame_count.to_string(),
+                                            m.periodic_status_animation_timer.to_string(),
+                                            m.status_effect_animation_frame.to_string(),
+                                            m.status_effect_animation_active.to_string(),
+                                            m.status_effect_animation_ticks_remaining.to_string(),
+                                            m.ground_effect_animation_active.to_string(),
+                                            m.ground_effect_animation_frame.to_string(),
+                                            m.ground_effect_handle.to_string(),
+                                            m.path_buffer_length.to_string(),
+                                            m.path_buffer_index.to_string(),
                                             m.loot_item1.raw().to_string(),
                                             m.loot_item2.raw().to_string(),
                                             m.loot_item3.raw().to_string(),
-                                            m.mon_ref_padding_12.to_string(),
-                                            m.mon_ref_padding_13.to_string(),
-                                            m.unknown_23.to_string(),
-                                            m.unknown_24.to_string(),
-                                            m.unknown_25.to_string(),
-                                            m.unknown_26.to_string(),
+                                            m.force_ai_update.to_string(),
+                                            m.drop_all_loot.to_string(),
+                                            m.respawn_timer.to_string(),
+                                            m.saved_sprite_frame_id.to_string(),
+                                            m.saved_render_direction.to_string(),
+                                            m.special_attack.to_string(),
                                             m.special_attack_chance.to_string(),
                                             m.special_attack_duration.to_string(),
-                                            hex_bytes(&m.unknown_27),
+                                            m.special_attack_effect_ticks_remaining.to_string(),
+                                            m.special_attack_effect_frame.to_string(),
                                             m.boldness.to_string(),
                                             m.attack_speed.to_string(),
-                                            hex_bytes(&m.unknown_28),
-                                            m.unknown_29.to_string(),
-                                            hex_bytes(&m.unknown_30),
+                                            m.guard_flag.to_string(),
+                                            m.guard_effect_active.to_string(),
+                                            m.guard_effect_frame.to_string(),
+                                            m.blood_effect_active.to_string(),
+                                            m.blood_effect_frame.to_string(),
+                                            m.blood_effect_direction.to_string(),
+                                            m.timed_overlay_active.to_string(),
+                                            m.timed_overlay_ticks_remaining.to_string(),
+                                            m.ai_tick_counter.to_string(),
+                                            m.sight_backup.to_string(),
+                                            m.patrol_countdown_backup.to_string(),
+                                            m.hidden_or_delisted_flag.to_string(),
+                                            m.path_buffer_position_x.to_string(),
+                                            m.path_buffer_position_y.to_string(),
+                                            m.nested_summon_flag.to_string(),
+                                            hex_bytes(&m.nested_summon_record),
                                         ]
                                     })
                                     .collect(),
@@ -1545,56 +1578,80 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                         vec![
                                             n.name.clone(),
                                             n.role_description.clone(),
-                                            n.unknown1.to_string(),
-                                            n.unknown2.to_string(),
-                                            n.unknown3.to_string(),
-                                            n.unknown4.to_string(),
-                                            n.unknown5.to_string(),
-                                            n.unknown6.to_string(),
-                                            n.unknown7.to_string(),
-                                            n.unknown8.to_string(),
-                                            n.unknown9.to_string(),
-                                            n.unknown10.to_string(),
-                                            n.unknown11.to_string(),
-                                            hex_bytes(&n.unknown12),
+                                            n.movement_state.to_string(),
+                                            n.tile_data_entry.to_string(),
+                                            n.path_progress.to_string(),
+                                            n.current_position_x.to_string(),
+                                            n.current_position_y.to_string(),
+                                            n.last_position_x.to_string(),
+                                            n.last_position_y.to_string(),
+                                            n.target_position_x.to_string(),
+                                            n.target_position_y.to_string(),
+                                            n.path_destination_x.to_string(),
+                                            n.path_destination_y.to_string(),
+                                            n.render_direction_flag.to_string(),
+                                            n.cell_offset_x.to_string(),
+                                            n.cell_offset_y.to_string(),
+                                            n.map_npc_index_plus_500.to_string(),
+                                            n.path_step_direction.to_string(),
+                                            n.path_step_animation_frame.to_string(),
+                                            n.path_handle.to_string(),
+                                            n.path_step_counter.to_string(),
                                             n.npc_ini_id.to_string(),
-                                            hex_bytes(&n.unknown13),
-                                            n.npc_ref_party_script_id.to_string(),
+                                            n.patrol_waypoint_count.to_string(),
+                                            n.current_patrol_waypoint_index.to_string(),
+                                            n.world_active.to_string(),
+                                            n.transient_spawn.to_string(),
+                                            n.removed_from_world.to_string(),
+                                            n.event_npc_origin.to_string(),
+                                            n.current_waypoint_index.to_string(),
+                                            n.player_interaction_latched.to_string(),
+                                            n.wait_tick_counter.to_string(),
+                                            n.reserved_runtime_90.to_string(),
+                                            n.reserved_runtime_94.to_string(),
+                                            n.npc_ref_party_member_slot.to_string(),
                                             n.npc_ref_show_on_event_id.to_string(),
-                                            n.unknown14.to_string(),
-                                            n.npc_ref_unknown_1.to_string(),
-                                            n.npc_ref_waypoint1filled.to_string(),
-                                            n.npc_ref_waypoint1x.to_string(),
-                                            n.npc_ref_waypoint1y.to_string(),
-                                            n.npc_ref_unknown_2.to_string(),
-                                            n.npc_ref_look_direction.to_string(),
-                                            n.npc_ref_unknown_9.to_string(),
-                                            n.npc_ref_waypoint2filled.to_string(),
-                                            n.npc_ref_waypoint2x.to_string(),
-                                            n.npc_ref_waypoint2y.to_string(),
-                                            n.npc_ref_unknown_3.to_string(),
-                                            n.npc_ref_unknown_6.to_string(),
-                                            n.npc_ref_unknown_10.to_string(),
-                                            n.npc_ref_waypoint3filled.to_string(),
-                                            n.npc_ref_waypoint3x.to_string(),
-                                            n.npc_ref_waypoint3y.to_string(),
-                                            n.npc_ref_unknown_4.to_string(),
-                                            n.npc_ref_unknown_7.to_string(),
-                                            n.npc_ref_unknown_11.to_string(),
-                                            n.npc_ref_waypoint4filled.to_string(),
-                                            n.npc_ref_waypoint4x.to_string(),
-                                            n.npc_ref_waypoint4y.to_string(),
-                                            n.npc_ref_unknown_5.to_string(),
-                                            n.npc_ref_unknown_8.to_string(),
-                                            n.npc_ref_unknown_12.to_string(),
-                                            n.npc_ref_unknown_13.to_string(),
-                                            n.npc_ref_unknown_14.to_string(),
-                                            n.npc_ref_unknown_15.to_string(),
-                                            n.npc_ref_unknown_16.to_string(),
-                                            n.npc_ref_unknown_17.to_string(),
-                                            n.unknown15.to_string(),
+                                            n.npc_ref_movement_mode.to_string(),
+                                            n.waypoint1_filled.to_string(),
+                                            n.waypoint1_x.to_string(),
+                                            n.waypoint1_y.to_string(),
+                                            n.waypoint1_wait_time.to_string(),
+                                            n.waypoint1_facing_direction.to_string(),
+                                            n.waypoint1_reserved.to_string(),
+                                            n.waypoint2_filled.to_string(),
+                                            n.waypoint2_x.to_string(),
+                                            n.waypoint2_y.to_string(),
+                                            n.waypoint2_wait_time.to_string(),
+                                            n.waypoint2_facing_direction.to_string(),
+                                            n.waypoint2_reserved.to_string(),
+                                            n.waypoint3_filled.to_string(),
+                                            n.waypoint3_x.to_string(),
+                                            n.waypoint3_y.to_string(),
+                                            n.waypoint3_wait_time.to_string(),
+                                            n.waypoint3_facing_direction.to_string(),
+                                            n.waypoint3_reserved.to_string(),
+                                            n.waypoint4_filled.to_string(),
+                                            n.waypoint4_x.to_string(),
+                                            n.waypoint4_y.to_string(),
+                                            n.waypoint4_wait_time.to_string(),
+                                            n.waypoint4_facing_direction.to_string(),
+                                            n.waypoint4_reserved.to_string(),
+                                            n.activation_rect_x1.to_string(),
+                                            n.activation_rect_y1.to_string(),
+                                            n.activation_rect_x2.to_string(),
+                                            n.activation_rect_y2.to_string(),
+                                            n.npc_ref_interaction_mode.to_string(),
+                                            n.npc_ref_interaction_result.to_string(),
+                                            n.npc_ref_interaction_range.to_string(),
                                             n.npc_ref_dialog_id.to_string(),
-                                            hex_bytes(&n.unknown16),
+                                            n.dialogue_face_sprite_id.to_string(),
+                                            n.move_mode.to_string(),
+                                            n.start_dialogue_on_arrival.to_string(),
+                                            n.runtime_target_position_x.to_string(),
+                                            n.runtime_target_position_y.to_string(),
+                                            n.arrival_dialogue_id.to_string(),
+                                            n.freeze_flag.to_string(),
+                                            n.freeze_counter.to_string(),
                                         ]
                                     })
                                     .collect(),
@@ -1604,45 +1661,49 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     .iter()
                                     .map(|e| {
                                         vec![
-                                            e.unknown_1.to_string(),
-                                            e.unknown_2.to_string(),
-                                            e.unknown_3.to_string(),
-                                            e.extra_ref_record_id.to_string(),
-                                            e.extra_ini_id.to_string(),
-                                            e.name.clone(),
+                                            e.render_state_slot.to_string(),
+                                            e.render_variant_index.to_string(),
+                                            e.current_sprite_frame.to_string(),
+                                            e.map_object_id.to_string(),
+                                            e.extra_definition_id.to_string(),
+                                            e.object_name.clone(),
                                             e.object_type.to_string(),
-                                            e.x_pos.to_string(),
-                                            e.y_pos.to_string(),
-                                            e.rotation.to_string(),
-                                            hex_bytes(&e.unknown_10),
-                                            e.unknown_11.to_string(),
-                                            e.unknown_12.to_string(),
-                                            e.unknown_13.to_string(),
-                                            e.unknown_14.to_string(),
-                                            e.unknown_15.to_string(),
-                                            e.unknown_16.to_string(),
-                                            e.unknown_17.to_string(),
-                                            e.unknown_18.to_string(),
-                                            e.unknown_19.to_string(),
-                                            e.unknown_20.to_string(),
-                                            e.unknown_21.to_string(),
-                                            e.unknown_22.to_string(),
-                                            hex_bytes(&e.unknown_23),
-                                            e.unknown_24.to_string(),
-                                            e.event_ini_id.to_string(),
-                                            e.message_scr_id.to_string(),
-                                            e.unknown_27.to_string(),
-                                            e.unknown_28.to_string(),
-                                            e.unknown_29.to_string(),
-                                            hex_bytes(&e.unknown_30),
-                                            hex_bytes(&e.unknown_31),
-                                            e.unknown_32.to_string(),
-                                            e.unknown_33.to_string(),
-                                            e.unknown_34.to_string(),
-                                            e.unknown_35.to_string(),
-                                            e.unknown_36.to_string(),
-                                            e.unknown_37.to_string(),
-                                            e.unknown_38.to_string(),
+                                            e.map_x.to_string(),
+                                            e.map_y.to_string(),
+                                            e.direction.to_string(),
+                                            e.interaction_state.to_string(),
+                                            e.requires_key.to_string(),
+                                            e.required_item_and_padding.to_string(),
+                                            e.required_item2_and_padding.to_string(),
+                                            e.requirement_range_2_start.to_string(),
+                                            e.requirement_range_2_end.to_string(),
+                                            e.requirement_range_3_start.to_string(),
+                                            e.requirement_range_3_end.to_string(),
+                                            e.gold_amount.to_string(),
+                                            e.loot_item_and_padding.to_string(),
+                                            e.loot_item_count.to_string(),
+                                            e.additional_loot_1.to_string(),
+                                            e.additional_loot_1_count.to_string(),
+                                            e.additional_loot_2.to_string(),
+                                            hex_bytes(&e.additional_loot_2_count_and_config),
+                                            e.interaction_event_id.to_string(),
+                                            e.interaction_message_id.to_string(),
+                                            e.footprint_width.to_string(),
+                                            e.footprint_height.to_string(),
+                                            e.footprint_orientation.to_string(),
+                                            e.interaction_range.to_string(),
+                                            hex_bytes(&e.interaction_range_padding),
+                                            e.is_quest_element.to_string(),
+                                            e.post_activation_tile_flag.to_string(),
+                                            e.post_activation_footprint_mode.to_string(),
+                                            e.preserve_final_sprite_frame.to_string(),
+                                            e.alternate_render_mode.to_string(),
+                                            e.activation_effect_id.to_string(),
+                                            e.activation_effect_reserved.to_string(),
+                                            e.activation_effect_padding.to_string(),
+                                            e.active_overlay_enabled.to_string(),
+                                            e.map_object_active.to_string(),
+                                            e.interaction_pending.to_string(),
                                         ]
                                     })
                                     .collect(),
@@ -1680,7 +1741,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             d.padding8.to_string(),
                                             d.map_coordinate_x.to_string(),
                                             d.map_coordinate_y.to_string(),
-                                            d.unknown_1.to_string(),
+                                            d.ground_item_object_id.to_string(),
+                                            hex_bytes(&d.ground_item_object_id_padding),
                                         ]
                                     })
                                     .collect(),
@@ -1701,11 +1763,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             d.poison_heal.to_string(),
                                             d.petrif_heal.to_string(),
                                             d.polimorph_heal.to_string(),
-                                            d.unknown_1.to_string(),
-                                            d.unknown_2.to_string(),
+                                            hex_bytes(&d.reserved_trailer),
                                             d.map_coordinate_x.to_string(),
                                             d.map_coordinate_y.to_string(),
-                                            d.unknown_3.to_string(),
+                                            d.ground_item_object_id.to_string(),
+                                            hex_bytes(&d.ground_item_object_id_padding),
                                         ]
                                     })
                                     .collect(),
@@ -1730,13 +1792,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             d.offense.to_string(),
                                             d.defense.to_string(),
                                             d.magical_power.to_string(),
-                                            d.item_destroying_power.to_string(),
-                                            d.unknown_3.to_string(),
+                                            d.modification_resistance.to_string(),
+                                            d.reserved_byte.to_string(),
                                             d.modifies_item.to_string(),
                                             d.additional_effect.to_string(),
                                             d.map_coordinate_x.to_string(),
                                             d.map_coordinate_y.to_string(),
-                                            d.unknown_4.to_string(),
+                                            d.ground_item_object_id.to_string(),
+                                            hex_bytes(&d.ground_item_object_id_padding),
                                         ]
                                     })
                                     .collect(),
@@ -1749,11 +1812,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             d.name.clone(),
                                             d.description.clone(),
                                             d.base_price.to_string(),
-                                            hex_bytes(&d.unknown_1),
+                                            hex_bytes(&d.reserved_bytes),
                                             d.misc_item_id.to_string(),
                                             d.map_coordinate_x.to_string(),
                                             d.map_coordinate_y.to_string(),
-                                            d.unknown_7.to_string(),
+                                            d.ground_item_object_id.to_string(),
+                                            hex_bytes(&d.ground_item_object_id_padding),
                                         ]
                                     })
                                     .collect(),
@@ -1769,7 +1833,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             d.event_item_id.to_string(),
                                             d.map_coordinate_x.to_string(),
                                             d.map_coordinate_y.to_string(),
-                                            d.unknown_1.to_string(),
+                                            d.ground_item_object_id.to_string(),
+                                            hex_bytes(&d.ground_item_object_id_padding),
                                         ]
                                     })
                                     .collect(),
@@ -1817,19 +1882,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 // let hex_rest: Vec<String> =
                                 //     entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
                                 vec![
-                                    format!("{}", entry.index),
-                                    entry.name.clone(),
-                                    entry.unknown_1.to_string(),
-                                    entry.unknown_2a.to_string(),
-                                    entry.unknown_2b.to_string(),
-                                    entry.unknown_3a.to_string(),
-                                    entry.unknown_3b.to_string(),
-                                    entry.unknown_4a.to_string(),
-                                    entry.unknown_4b.to_string(),
-                                    entry.unknown_5a.to_string(),
-                                    entry.quest_scr_id.to_string(),
-                                    entry.quest_scr_id_progress1.to_string(),
-                                    entry.quest_scr_id_progress2.to_string(),
+                                    entry.entry_index.to_string(),
+                                    entry.quest_title.clone(),
+                                    entry.quest_id.to_string(),
+                                    entry.follow_up_quest_id_1.to_string(),
+                                    entry.follow_up_quest_id_2.to_string(),
                                     entry.is_completed.to_string(),
                                     // hex_rest.join(" "),
                                 ]

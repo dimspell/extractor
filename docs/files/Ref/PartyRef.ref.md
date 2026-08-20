@@ -21,7 +21,7 @@
 - `npc_id`: i32 - Linked NPC record ID
 - `dlg_out`: i32 - Dialog ID when not in party
 - `dlg_in`: i32 - Dialog ID when in party
-- `ghost`: i32 - Ghost face/sprite ID for UI
+- `in_party`: i32 - Boolean flag (0/1) marking the character as currently in the party
 
 ## Field Definitions
 
@@ -60,17 +60,12 @@
 - Party member dialogue
 - Ongoing interaction text
 
-### ghost
-- Ghost face/sprite ID for UI
-- Visual representation in menus
-- Portrait in party interface
-- Ghost form in certain contexts
-
-## Ghost Face IDs
-- `0`: None/No portrait
-- `1-8`: Standard party member portraits
-- `9-16`: Special character portraits
-- `17+`: Unique/NPC portraits
+### in_party
+- Boolean flag (0/1) marking the character as currently in the party
+- The game reads this as a single byte and uses it to highlight the character's
+  name in the party member list when non-zero
+- `0`: character not in the party (default)
+- `1`: character is in the party (name shown highlighted)
 
 ## Special Values
 - `"null"` literal for missing name/job fields
@@ -102,11 +97,11 @@ cargo run -- extract -i "fixtures/Dispel/Ref/PartyRef.ref"
 ### Format Example
 ```
 ; Party character definitions
-; id,name,job,map_id,npc_id,dlg_out,dlg_in,ghost
+; id,name,job,map_id,npc_id,dlg_out,dlg_in,in_party
 1,Hero,null,1,1,100,101,1
-2,Warrior,Fighter,1,2,102,103,2
-3,Mage,Sorcerer,2,3,104,105,3
-4,Rogue,Thief,3,4,106,107,4
+2,Warrior,Fighter,1,2,102,103,0
+3,Mage,Sorcerer,2,3,104,105,0
+4,Rogue,Thief,3,4,106,107,0
 ```
 
 ## Character Classes

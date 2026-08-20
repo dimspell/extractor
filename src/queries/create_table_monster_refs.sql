@@ -2,15 +2,15 @@ CREATE TABLE monster_refs
 (
     file_id         INTEGER NOT NULL REFERENCES monster_ref_files(id),
     id              INTEGER,
-    record_id       INTEGER,
-    mon_id          INTEGER REFERENCES monster_inis(id) ON DELETE SET NULL,
-    pos_x           INTEGER,
-    pos_y           INTEGER,
-    padding1        INTEGER,
-    padding2        INTEGER,
-    padding3        INTEGER,
-    padding4        INTEGER,
-    event_id        INTEGER,
+    placement_id    INTEGER,
+    monster_db_id   INTEGER REFERENCES monster_inis(id) ON DELETE SET NULL,
+    map_x           INTEGER,
+    map_y           INTEGER,
+    initial_patrol_countdown INTEGER,
+    skip_ai_action  INTEGER,
+    initial_active_flag INTEGER,
+    ai_type_override INTEGER,
+    event_id_on_kill INTEGER,
     loot1_item_id   INTEGER,
     loot1_item_type INTEGER,
     loot1_item_raw  INTEGER,
@@ -20,6 +20,6 @@ CREATE TABLE monster_refs
     loot3_item_id   INTEGER,
     loot3_item_type INTEGER,
     loot3_item_raw  INTEGER,
-    padding12       INTEGER,
-    padding13       INTEGER
+    drop_all_loot   INTEGER,
+    force_ai_update INTEGER
 );

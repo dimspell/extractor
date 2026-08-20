@@ -10,7 +10,7 @@
 #   db_path    = database.sqlite
 #   out        = out
 
-.PHONY: help fmt cargo_test iced_test clippy run run-custom-context-menu \
+.PHONY: help fmt cargo_test iced_test hexedit_test clippy run run-custom-context-menu \
         check build hexedit \
         extract-help extract-file extract-file-pretty \
         extract-all-maps extract-map extract-monsters extract-heal-item \
@@ -62,7 +62,12 @@ cargo_test:
 	cargo test --workspace --all-features --quiet
 
 iced_test:
-	cargo test -p dispel-gui --features "iced_test app::tests"
+	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test app::tests"
+
+# GUI simulations require Iced's CPU renderer when no GPU/window
+# server is available (for example, in CI or headless development shells).
+hexedit_test:
+	ICED_TEST_BACKEND=software cargo test -p hexedit --quiet
 
 clippy:
 	cargo clippy --workspace -- -D warnings

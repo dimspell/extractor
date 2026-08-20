@@ -19,7 +19,7 @@ use dispel_macros::RecordPatcher;
 ///
 /// - **Encoding**: Little-endian for all numeric values
 /// - **Text Encoding**: WINDOWS-1250 for `name` (30 bytes) and `description` (202 bytes)
-/// - **Record Size**: 268 bytes (4 + 30 + 202 + 16 × i16 + 2 × u8 + 2 padding)
+/// - **Record Size**: 268 bytes
 /// - **Header**: 4-byte i32 record count, followed by records
 ///
 /// ```text
@@ -36,7 +36,7 @@ use dispel_macros::RecordPatcher;
 /// | - name: 30 bytes (WINDOWS-1250)     |
 /// | - description: 202 bytes (WINDOWS...) |
 /// | - base_price: i16                     |
-/// | - padding1-3: i16 (unknown)         |
+/// | - runtime_item_id: u32 (loader-assigned) |
 /// | - health_points: i16 (vitality)      |
 /// | - mana_points: i16 (spell scaling)    |
 /// | - strength: i16                       |
@@ -48,8 +48,8 @@ use dispel_macros::RecordPatcher;
 /// | - offense: i16                       |
 /// | - defense: i16                       |
 /// | - magical_power: i16                  |
-/// | - item_destroying_power: i16          |
-/// | - padding4: u8 (unknown)            |
+/// | - modification_resistance: i16        |
+/// | - reserved_byte: u8                  |
 /// | - modifies_item: u8 (EditItemModification)|
 /// | - additional_effect: i16 (EditItemEffect)|
 /// +--------------------------------------+
@@ -61,19 +61,20 @@ use dispel_macros::RecordPatcher;
 /// # Field Categories
 ///
 /// - **Identification**: `index` (auto-generated), `name` (30 bytes), `description` (202 bytes)
-/// - **Economy**: `base_price` (i16, economic valuation)
+/// - **Economy**: `base_price` (i32, economic valuation)
 /// - **Stats**: `health_points`, `mana_points`, `strength`, `agility`, `wisdom`, `constitution`
 /// - **Combat**: `to_dodge`, `to_hit`, `offense`, `defense`, `magical_power`
-/// - **Durability**: `item_destroying_power` (erosion factor)
+/// - **Modification**: `modification_resistance` (resistance to item modification)
 /// - **Behavior**: `modifies_item` (EditItemModification flag), `additional_effect` (EditItemEffect)
-/// - **Unknown**: `padding1-4` (need investigation)
+/// - **Runtime metadata**: `runtime_item_id` is assigned by the game after loading.
 ///
 /// # Special Values
 ///
 /// - `modifies_item`: Enum controlling if item mutates behavior
 /// - `additional_effect`: Enum for procedural elemental modifiers (mana drain, fire, etc.)
-/// - `padding1-3`: Unknown fields, observed as 0
-/// - `padding4`: Unknown byte, observed as 0 or 255
+/// - `runtime_item_id`: Stored as zero in the shipped database; overwritten with the zero-based
+///   record index by the game loader and used to identify this item definition at runtime.
+/// - `reserved_byte`: Always zero in shipped data; no runtime access was identified.
 ///
 /// # File Purpose
 ///
@@ -100,12 +101,12 @@ pub struct EditItem {
     /// Economic valuation offset.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
-    /// Unknown field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding1: i16,
-    /// Unknown field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding2: i16,
+    /// Runtime database index assigned by the game loader.
+    ///
+    /// The on-disk database leaves this word as zero. The game overwrites it after loading and
+    /// uses it to identify this definition in inventory and equipment records.
+    #[extractor(primitive(type = "u32"))]
+    pub runtime_item_id: u32,
     /// Unknown field.
     /// Base additive metric for derived vitality.
     #[extractor(primitive(type = "i16"))]
@@ -140,12 +141,12 @@ pub struct EditItem {
     /// Magical power bonus.
     #[extractor(primitive(type = "i16"))]
     pub magical_power: i16,
-    /// Durability erosion factor.
+    /// Resistance to modification by edit items. Negative values make an item easier to modify.
     #[extractor(primitive(type = "i16"))]
-    pub item_destroying_power: i16,
-    /// Unknown field.
+    pub modification_resistance: i16,
+    /// Reserved byte. Always zero in shipped data; no runtime use was identified.
     #[extractor(primitive(type = "u8"))]
-    pub padding4: u8,
+    pub reserved_byte: u8,
     /// Flag specifying if behavior mutates.
     #[extractor(enum_from_u8(type = "EditItemModification"))]
     pub modifies_item: EditItemModification,
@@ -168,8 +169,7 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result
                 item.name,
                 item.description,
                 item.base_price,
-                item.padding1,
-                item.padding2,
+                item.runtime_item_id,
                 item.health_points,
                 item.mana_points,
                 item.strength,
@@ -181,8 +181,8 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result
                 item.offense,
                 item.defense,
                 item.magical_power,
-                item.item_destroying_power,
-                item.padding4,
+                item.modification_resistance,
+                item.reserved_byte,
                 u8::from(item.modifies_item),
                 i16::from(item.additional_effect),
             ])?;
@@ -197,14 +197,14 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn item_bytes(name: &str, base_price: i32, defense: i16) -> Vec<u8> {
+    fn item_bytes(name: &str, base_price: i32, runtime_item_id: u32, defense: i16) -> Vec<u8> {
         let mut rec = Vec::with_capacity(268);
         let mut name_buf = [0u8; 30];
         name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 4]); // 2 padding i16s
+        rec.extend_from_slice(&runtime_item_id.to_le_bytes());
         rec.extend(vec![0u8; 14]); // hp, mp, str, agi, wis, con, dodge i16s
         rec.extend_from_slice(&(0i16).to_le_bytes()); // to_hit
         rec.extend_from_slice(&(0i16).to_le_bytes()); // offense
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn parse_single_item() {
         let mut data = 1i32.to_le_bytes().to_vec();
-        data.extend(item_bytes("Shield", 200, 15));
+        data.extend(item_bytes("Shield", 200, 7, 15));
         assert_eq!(data.len(), 272);
 
         let mut c = Cursor::new(&data[..]);
@@ -224,13 +224,14 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].name, "Shield");
         assert_eq!(items[0].base_price, 200);
+        assert_eq!(items[0].runtime_item_id, 7);
         assert_eq!(items[0].defense, 15);
     }
 
     #[test]
     fn serialize_round_trip() {
         let mut data = 1i32.to_le_bytes().to_vec();
-        data.extend(item_bytes("Shield", 200, 15));
+        data.extend(item_bytes("Shield", 200, 7, 15));
         let mut c = Cursor::new(&data[..]);
         let records = EditItem::parse(&mut c, data.len() as u64).unwrap();
         let mut out = Vec::new();

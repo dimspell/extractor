@@ -1,116 +1,183 @@
-use iced::widget::{button, container, row, text, text_input};
-use iced::{Element, Fill, Font, Length};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{button, column, container, row, text, text_input};
+use iced::{Alignment, Element, Fill, Font, Length};
+use lucide_icons::Icon;
 
 use crate::HexEditorMessage;
 use crate::search::{SearchMode, SearchState};
 use crate::ui::theme::HexEditorTheme;
 
-/// Search overlay bar rendered above the hex matrix.
+/// Search bar rendered above the hex matrix.
+///
+/// The layout deliberately keeps the query, result state, and navigation in
+/// distinct groups. This makes the most common flow — type, inspect count,
+/// then move through matches — easy to scan without turning decimal options
+/// into permanent visual noise.
 pub fn view<'a>(
     state: &'a SearchState,
     theme: &'a HexEditorTheme,
 ) -> Element<'a, HexEditorMessage> {
-    let mode_label = match state.mode {
-        SearchMode::Hex => "HEX",
-        SearchMode::Ascii => "TXT",
-        SearchMode::Decimal => "DEC",
+    let (mode_label, mode_hint, placeholder) = match state.mode {
+        SearchMode::Hex => ("HEX", "byte sequence", "DE AD BE EF"),
+        SearchMode::Ascii => ("TEXT", "ASCII text", "Text to find"),
+        SearchMode::Decimal => ("NUMBER", "signed integer", "e.g. 1024"),
     };
 
-    let mode_btn = button(text(mode_label).size(10).font(Font::MONOSPACE))
-        .padding([2, 6])
-        .on_press(HexEditorMessage::ToggleSearchMode);
+    // The mode control remains a cycle button because the search model has a
+    // single toggle action, but its secondary label makes the active syntax
+    // explicit instead of relying on the abbreviated button label alone.
+    let mode = button(
+        row![
+            text(icon_char(Icon::Search)).font(LUCIDE_FONT).size(14),
+            column![
+                text(mode_label).size(10).font(Font::MONOSPACE),
+                text(mode_hint)
+                    .size(9)
+                    .font(Font::MONOSPACE)
+                    .color(theme.modal_muted_fg),
+            ]
+            .spacing(1),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center),
+    )
+    .padding([4, 7])
+    .on_press(HexEditorMessage::ToggleSearchMode);
 
-    let search_input = text_input("Find...", &state.query)
+    let query = text_input(placeholder, &state.query)
         .on_input(HexEditorMessage::Search)
-        .padding(4)
-        .size(11)
-        .width(Length::Fixed(160.0));
+        .on_submit(HexEditorMessage::SearchNext)
+        .padding([6, 8])
+        .size(12)
+        .width(Length::Fixed(220.0));
 
-    let count_text = {
-        let label = if state.has_results() {
-            let cur = state
-                .current_idx()
-                .map(|i| i + 1)
-                .map_or("-".to_string(), |n| n.to_string());
-            format!("{}/{}", cur, state.count())
-        } else if state.query.is_empty() {
-            String::new()
-        } else {
-            "0 matches".to_string()
-        };
-        text(label).size(10).font(Font::MONOSPACE)
+    let result_status = match (state.query.is_empty(), state.has_results()) {
+        (true, _) => "Enter a value".to_owned(),
+        (false, true) => format!(
+            "{} of {}",
+            state.current_idx().map_or(0, |index| index + 1),
+            state.count()
+        ),
+        (false, false) => "No matches".to_owned(),
     };
+    let address = state.current_addr().map_or_else(
+        || "Search results".to_owned(),
+        |addr| format!("0x{addr:08X}"),
+    );
+    let results = container(
+        column![
+            text(result_status).size(11).font(Font::MONOSPACE),
+            text(address)
+                .size(9)
+                .font(Font::MONOSPACE)
+                .color(theme.modal_muted_fg),
+        ]
+        .spacing(1),
+    )
+    .width(Length::Fixed(88.0));
 
-    let prev_btn = button(text("<").size(10).font(Font::MONOSPACE))
-        .padding([2, 6])
+    let previous = button(text(icon_char(Icon::ChevronUp)).font(LUCIDE_FONT).size(14))
+        .padding([1, 8])
         .on_press(HexEditorMessage::SearchPrev);
+    let next = button(
+        text(icon_char(Icon::ChevronDown))
+            .font(LUCIDE_FONT)
+            .size(14),
+    )
+    .padding([1, 8])
+    .on_press(HexEditorMessage::SearchNext);
+    let navigation = row![previous, next].spacing(2).align_y(Alignment::Center);
 
-    let next_btn = button(text(">").size(10).font(Font::MONOSPACE))
-        .padding([2, 6])
-        .on_press(HexEditorMessage::SearchNext);
+    let decimal_options = (state.mode == SearchMode::Decimal).then(|| {
+        let width_picker = row([1_u8, 2, 4, 8].into_iter().map(|width| {
+            let active = state.width == width;
+            let background = if active {
+                theme.search_current_bg
+            } else {
+                theme.search_overlay_bg
+            };
+            let foreground = if active {
+                theme.search_current_fg
+            } else {
+                theme.modal_muted_fg
+            };
+            button(text(width.to_string()).size(10).font(Font::MONOSPACE))
+                .padding([3, 6])
+                .on_press(HexEditorMessage::SetSearchWidth(width))
+                .style(move |_, _| iced::widget::button::Style {
+                    background: Some(background.into()),
+                    text_color: foreground,
+                    border: iced::Border {
+                        color: if active {
+                            theme.search_current_bg
+                        } else {
+                            theme.search_overlay_border
+                        },
+                        width: 1.0,
+                        radius: 3.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .into()
+        }))
+        .spacing(2);
+        let endian = if state.little_endian {
+            "Little-endian"
+        } else {
+            "Big-endian"
+        };
+        let endian_button = button(text(endian).size(10).font(Font::MONOSPACE))
+            .padding([3, 7])
+            .on_press(HexEditorMessage::ToggleSearchEndian);
 
-    let close_btn = button(text("✕").size(10).font(Font::MONOSPACE))
-        .padding([2, 6])
+        row![
+            column![
+                text("WIDTH")
+                    .size(9)
+                    .font(Font::MONOSPACE)
+                    .color(theme.modal_muted_fg),
+                width_picker,
+            ]
+            .spacing(3),
+            column![
+                text("ORDER")
+                    .size(9)
+                    .font(Font::MONOSPACE)
+                    .color(theme.modal_muted_fg),
+                endian_button,
+            ]
+            .spacing(3),
+        ]
+        .spacing(8)
+        .align_y(Alignment::End)
+    });
+
+    let close = button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
+        .padding([1, 8])
         .on_press(HexEditorMessage::CloseSearch);
 
-    // Decimal-specific controls: byte-width selector and endianness toggle.
-    let decimal_controls = if state.mode == SearchMode::Decimal {
-        let mut widths: Vec<Element<'_, HexEditorMessage>> = vec![];
-        for w in [1u8, 2, 4, 8] {
-            let active = state.width == w;
-            let mut b = button(text(w.to_string()).size(10).font(Font::MONOSPACE))
-                .padding([2, 5])
-                .on_press(HexEditorMessage::SetSearchWidth(w));
-            if active {
-                let bg = theme.search_overlay_border;
-                let fg = theme.search_current_fg;
-                b = b.style(move |_: &iced::Theme, _: iced::widget::button::Status| {
-                    iced::widget::button::Style {
-                        background: Some(iced::Background::Color(bg)),
-                        text_color: fg,
-                        border: iced::Border {
-                            color: bg,
-                            width: 1.0,
-                            radius: 2.0.into(),
-                        },
-                        ..iced::widget::button::Style::default()
-                    }
-                });
-            }
-            widths.push(b.into());
-        }
-        let endian_label = if state.little_endian { "LE" } else { "BE" };
-        let endian_btn = button(text(endian_label).size(10).font(Font::MONOSPACE))
-            .padding([2, 6])
-            .on_press(HexEditorMessage::ToggleSearchEndian);
-        Some(row![row(widths).spacing(2), endian_btn].spacing(6))
-    } else {
-        None
-    };
-
-    let content = row![mode_btn, search_input, count_text, prev_btn, next_btn];
-    // Insert decimal controls before the close button when active.
-    let content = if let Some(decimal_controls) = decimal_controls {
-        content.push(decimal_controls)
-    } else {
-        content
-    };
-    let content = content
-        .push(close_btn)
-        .spacing(6)
-        .align_y(iced::Alignment::Center);
+    let content = row![
+        mode,
+        query,
+        results,
+        navigation,
+        decimal_options.unwrap_or_else(|| row![]),
+        close,
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center);
 
     container(content)
-        .padding([4, 12])
+        .padding([6, 12])
         .width(Fill)
-        .style(|_: &iced::Theme| container::Style {
+        .style(|_| container::Style {
             background: Some(theme.search_overlay_bg.into()),
             border: iced::Border {
                 color: theme.search_overlay_border,
                 width: 1.0,
                 radius: 0.into(),
             },
-            ..container::Style::default()
+            ..Default::default()
         })
         .into()
 }

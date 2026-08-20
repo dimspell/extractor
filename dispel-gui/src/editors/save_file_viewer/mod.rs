@@ -1,7 +1,7 @@
 //! Read-only save file viewer.
 //!
 //! Opens `.sav` files and displays parsed game state through sectioned tabs:
-//! Overview, Maps, Stats, Inventory, Identity, Events, Journal, Raw.
+//! Overview, Maps, Saved Viewport, Stats, Inventory, Identity, Events, Journal, Raw.
 //!
 //! **Read-only.** No edit buffers, no undo/redo, no save wiring.
 
@@ -22,6 +22,7 @@ pub(crate) mod message;
 pub(crate) mod overview;
 pub(crate) mod party_members;
 pub(crate) mod raw;
+pub(crate) mod saved_viewport;
 pub(crate) mod state;
 pub(crate) mod stats;
 pub(crate) mod update;

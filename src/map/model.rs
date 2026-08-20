@@ -8,6 +8,9 @@ use super::types::{TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF};
 /// Computed geometry of a map, used to drive rendering and tile coordinate maths.
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MapModel {
+    /// Border chunk count from the header (always 2 in practice).
+    #[serde(default)]
+    pub border_count: i32,
     /// Number of tiles along the X axis of the tiled grid.
     pub tiled_map_width: i32,
     /// Number of tiles along the Y axis of the tiled grid.
@@ -26,12 +29,13 @@ pub struct MapModel {
     pub occluded_map_in_pixels_height: i32,
 }
 
-/// Reads the two leading i32 values (chunk width × height) and derives all
-/// pixel dimensions and occlusion offsets for the map.
+/// Reads the three leading i32 values (chunk width × height, border count)
+/// and derives all pixel dimensions and occlusion offsets for the map.
 pub fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
-    // map size in chunks
+    // map size in chunks + border chunk count (header is 3 × i32)
     let width = reader.read_i32::<LittleEndian>()?;
     let height = reader.read_i32::<LittleEndian>()?;
+    let border_count = reader.read_i32::<LittleEndian>()?;
     let diagonal = width
         .checked_add(height)
         .ok_or_else(|| std::io::Error::other(format!("Map size overflow: {}x{}", width, height)))?;
@@ -61,6 +65,7 @@ pub fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
     let occluded_map_in_pixels_height = map_height_in_pixels - (map_non_occluded_start_y * 2);
 
     Ok(MapModel {
+        border_count,
         tiled_map_width,
         tiled_map_height,
         map_width_in_pixels,

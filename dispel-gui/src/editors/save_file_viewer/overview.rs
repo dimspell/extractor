@@ -26,21 +26,15 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     sf.character_identity.player_class_name, sf.character_identity.player_class_id
                 ),
             ))
-            .push(label_row("Level", sf.character_stats.level.to_string()))
-            .push(label_row("Gold", sf.character_stats.gold.to_string()))
+            .push(label_row("Level", sf.character.level.to_string()))
+            .push(label_row("Gold", sf.character.gold.to_string()))
             .push(label_row(
                 "HP",
-                format!(
-                    "{}/{}",
-                    sf.character_stats.hp_current, sf.character_stats.hp_maximum
-                ),
+                format!("{}/{}", sf.character.hp_current, sf.character.hp_maximum),
             ))
             .push(label_row(
                 "MP",
-                format!(
-                    "{}/{}",
-                    sf.character_stats.mp_current, sf.character_stats.mp_maximum
-                ),
+                format!("{}/{}", sf.character.mp_current, sf.character.mp_maximum),
             ))
             .push(section_header("Sprite Paths"))
             .extend(
@@ -51,21 +45,20 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             )
             .push(section_header("Save Metadata"))
             .push(label_row(
-                "Save Slot ID",
-                sf.post_maps.save_slot_id.to_string(),
-            ))
-            .push(label_row(
                 "Game Version",
                 sf.post_maps.game_version.to_string(),
             ))
             .push(label_row(
-                "Unknowns A",
-                format!(
-                    "{}, {}, {}",
-                    sf.post_maps.unknowns_a[0],
-                    sf.post_maps.unknowns_a[1],
-                    sf.post_maps.unknowns_a[2]
-                ),
+                "AllMap.ini ID",
+                sf.post_maps.all_map_ini_id.to_string(),
+            ))
+            .push(label_row(
+                "Ref/Map.ini ID",
+                sf.post_maps.ref_map_ini_id.to_string(),
+            ))
+            .push(label_row(
+                "Reserved Header Word",
+                sf.post_maps.reserved_header_word.to_string(),
             ))
             .push(label_row(
                 "Monster Block Size",
@@ -76,21 +69,28 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 sf.post_maps.npc_block_size.to_string(),
             ))
             .push(label_row(
+                "Unused Object Block Size",
+                sf.post_maps.unused_map_object_block_size.to_string(),
+            ))
+            .push(label_row(
                 "Extra Object Block Size",
                 sf.post_maps.extra_object_block_size.to_string(),
             ))
-            .push(label_row("Unknown B", sf.post_maps.unknown_b.to_string()))
             .push(label_row(
                 "Visited Maps",
                 sf.post_maps.number_of_visited_maps.to_string(),
             ))
             .push(label_row(
                 "Position X (tile)",
-                sf.character_position_x.to_string(),
+                sf.character.character_position_x.to_string(),
             ))
             .push(label_row(
                 "Position Y (tile)",
-                sf.character_position_y.to_string(),
+                sf.character.character_position_y.to_string(),
+            ))
+            .push(label_row(
+                "Selected Spell ID",
+                sf.character.selected_spell_id.to_string(),
             ))
             .push(label_row(
                 "Map IDs",
@@ -110,16 +110,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     }
                     s
                 },
-            ))
-            .push(label_row(
-                "Unknown C",
-                format!(
-                    "{}, {}, {}, {}",
-                    sf.post_maps.unknown_c[0],
-                    sf.post_maps.unknown_c[1],
-                    sf.post_maps.unknown_c[2],
-                    sf.post_maps.unknown_c[3]
-                ),
             ))
             .spacing(4)
             .padding(16),

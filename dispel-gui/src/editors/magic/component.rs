@@ -1,31 +1,31 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::{MagicSchool, MagicSpell, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
+use dispel_core::{MagicSpell, MagicSpellFlag, MagicType, SpellTargetType};
 
 use crate::editable_record_fields;
 
 editable_record_fields!(MagicSpell, {
     { enabled = Enum(MagicSpellFlag, ["Disabled", "Enabled"]) / "Enabled:" },
-    { flag1 = Enum(MagicSpellFlag, ["Disabled", "Enabled"]) / "Flag 1:" },
-    { mana_cost = Integer / "Mana Cost:" },
-    { success_rate = Integer / "Success Rate:" },
+    { effect_visual_blends_with_background = Boolean / "Effect Visual Blends:" },
     { base_damage = Integer / "Base Damage:" },
-    { reserved1 = Integer / "Reserved 1:" },
-    { reserved2 = Integer / "Reserved 2:" },
-    { flag2 = Enum(MagicSpellFlag, ["Disabled", "Enabled"]) / "Flag 2:" },
+    { base_success_rate = Integer / "Base Success Rate:" },
+    { mana_cost = Integer / "Mana Cost:" },
+    { reserved_0x14 = Integer / "Reserved (0x14):" },
+    { reserved_0x18 = Integer / "Reserved (0x18):" },
+    { effect_animation_repeats = Boolean / "Effect Animation Repeats:" },
     { range = Integer / "Range:" },
-    { reserved3 = Integer / "Reserved 3:" },
-    { level_required = Integer / "Level Required:" },
-    { constant1 = Enum(MagicSpellConstant, ["Invalid", "Standard"]) / "Constant 1:" },
+    { reserved_0x24 = Integer / "Reserved (0x24):" },
+    { cast_duration = Integer / "Cast Duration:" },
+    { animation_data_index = Integer / "Animation Data Index:" },
     { effect_value = Integer / "Effect Value:" },
     { effect_type = Integer / "Effect Type:" },
     { effect_modifier = Integer / "Effect Modifier:" },
-    { reserved4 = Integer / "Reserved 4:" },
-    { magic_school = Enum(MagicSchool, ["Unknown", "School1", "School2", "School3", "School4", "School5", "School6"]) / "Magic School:" },
-    { flag3 = Enum(MagicSpellFlag, ["Disabled", "Enabled"]) / "Flag 3:" },
-    { animation_id = Integer / "Animation ID:" },
-    { visual_id = Integer / "Visual ID:" },
+    { reserved_0x3c = Integer / "Reserved (0x3C):" },
+    { magic_type = Enum(MagicType, ["Magic", "LightMagic", "BlackMagic"]) / "Magic Type:" },
+    { target_animation_blends_with_background = Boolean / "Target Animation Blends:" },
+    { animation_set_id = Integer / "Animation Set ID:" },
+    { effect_visual_id = Integer / "Effect Visual ID:" },
     { icon_id = Integer / "Icon ID:" },
-    { target_type = Enum(SpellTargetType, ["Single", "SelfTarget", "AreaOfEffect", "MultiTarget"]) / "Target Type:" },
+    { targeting_mode = Enum(SpellTargetType, ["Single", "SelfTarget", "AreaOfEffect", "MultiTarget"]) / "Targeting Mode:" },
 });
 
 impl EditableRecord for MagicSpell {
@@ -33,8 +33,8 @@ impl EditableRecord for MagicSpell {
 
     fn list_label(&self) -> String {
         format!(
-            "[{}] School:{:?} Mana:{} DMG:{} Lv:{}",
-            self.id, self.magic_school, self.mana_cost, self.base_damage, self.level_required
+            "[{}] School:{:?} Mana:{} DMG:{} Duration:{}",
+            self.id, self.magic_type, self.mana_cost, self.base_damage, self.cast_duration
         )
     }
 

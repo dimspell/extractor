@@ -1,6 +1,6 @@
 [package]
 name = "hexedit"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2024"
 
 [[bin]]
@@ -32,6 +32,9 @@ features = ["lua54", "send", "vendored"]
 
 [dev-dependencies]
 iced_test = { workspace = true }
+# `iced_test` selects its renderer through Cargo feature unification. Enable
+# the software renderer so UI simulations run without a GPU or window server.
+iced_renderer = { git = "https://github.com/dimspell/iced", rev = "48fb8feecec54fdf52593744f780186fd7175f65", default-features = false, features = ["tiny-skia"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

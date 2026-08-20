@@ -1,7 +1,7 @@
 INSERT OR REPLACE INTO stores(id,
                    store_name,
                    inn_night_cost,
-                   some_unknown_number,
+                   price_modifier,
                    invitation,
                    haggle_success,
                    haggle_fail)

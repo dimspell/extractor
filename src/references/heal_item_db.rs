@@ -16,34 +16,33 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// # Binary Format
 ///
 /// - **Encoding**: Little-endian for all numeric values
-/// - **Text Encoding**: WINDOWS-1250 for `name` (30 bytes) and `description` (202 bytes)
-/// - **Record Size**: 252 bytes (4 + 30 + 202 + 16 × i16)
-/// - **Header**: None; parse until EOF
+/// - **Text Encoding**: WINDOWS-1250 for `name` and EUC-KR for `description`
+/// - **Record Size**: 252 bytes
+/// - **Header**: 4-byte record count
 ///
 /// ```text
 /// +--------------------------------------+
-/// | HealItem.db - Healing Items        |
+/// | HealItem.db - Healing Items          |
 /// +--------------------------------------+
 /// | Encoding: Binary (Little-Endian)     |
-/// | Text Encoding: WINDOWS-1250           |
+/// | Text: WINDOWS-1250 / EUC-KR          |
 /// | Record Size: 252 bytes               |
-/// | Header: None (parse until EOF)       |
+/// | Header: i32 record count             |
 /// +--------------------------------------+
 /// | [Record 1] - 252 bytes               |
 /// | - id: i32 (auto-generated)           |
 /// | - name: 30 bytes (WINDOWS-1250)    |
 /// | - description: 202 bytes (EUC-KR)   |
-/// | - base_price: i16                    |
-/// | - padding1-3: i16 (unknown)         |
+/// | - base_price: i32                    |
+/// | - runtime_item_index_slot: i32       |
 /// | - health_points: i16 (healing amount) |
 /// | - mana_points: i16 (mana restore)     |
-/// | - restore_full_health: u8 (HealItemFlag)|
-/// | - restore_full_mana: u8 (HealItemFlag)|
-/// | - poison_heal: u8 (HealItemFlag)    |
-/// | - petrif_heal: u8 (HealItemFlag)    |
-/// | - polimorph_heal: u8 (HealItemFlag) |
-/// | - padding4: u8 (unknown)            |
-/// | - padding5: i16 (unknown)           |
+/// | - restores_full_health: u8           |
+/// | - restores_full_mana: u8             |
+/// | - cures_poison: u8                   |
+/// | - cures_petrification: u8            |
+/// | - cures_polymorph: u8                |
+/// | - reserved_trailer: 3 bytes          |
 /// +--------------------------------------+
 /// | [Record 2]                           |
 /// | ... (same structure) ...             |
@@ -53,22 +52,23 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// # Field Categories
 ///
 /// - **Identification**: `id` (auto-generated), `name` (30 bytes, WINDOWS-1250), `description` (202 bytes, EUC-KR)
-/// - **Economy**: `base_price` (i16, merchant valuation)
+/// - **Economy**: `base_price` (i32, merchant valuation)
 /// - **Healing**: `health_points` (HP restore), `mana_points` (MP restore)
-/// - **Full Restore Flags**: `restore_full_health`, `restore_full_mana` (HealItemFlag)
-/// - **Cure Effects**: `poison_heal`, `petrif_heal`, `polimorph_heal` (HealItemFlag)
-/// - **Unknown**: `padding1-5` (need investigation)
+/// - **Full Restore Flags**: `restores_full_health`, `restores_full_mana` (HealItemFlag)
+/// - **Cure Effects**: `cures_poison`, `cures_petrification`, `cures_polymorph` (HealItemFlag)
+/// - **Runtime bookkeeping**: `runtime_item_index_slot` is overwritten with the
+///   record index while loading.
+/// - **Reserved data**: `reserved_trailer` is retained verbatim.
 ///
 /// # Special Values
 ///
-/// - `restore_full_health`: HealItemFlag::Enabled = restore full HP
-/// - `restore_full_mana`: HealItemFlag::Enabled = restore full MP
-/// - `poison_heal`: HealItemFlag::Enabled = cure poison
-/// - `petrif_heal`: HealItemFlag::Enabled = cure petrification
-/// - `polimorph_heal`: HealItemFlag::Enabled = cure polymorph
-/// - `padding1-3`: Unknown i16 fields, observed as 0
-/// - `padding4`: Unknown u8, observed as 0 or 255
-/// - `padding5`: Unknown i16, observed as 0
+/// - `restores_full_health`: HealItemFlag::Active = restore full HP
+/// - `restores_full_mana`: HealItemFlag::Active = restore full MP
+/// - `cures_poison`: HealItemFlag::Active = cure poison
+/// - `cures_petrification`: HealItemFlag::Active = cure petrification
+/// - `cures_polymorph`: HealItemFlag::Active = cure polymorph
+/// - `runtime_item_index_slot`: Overwritten with the sequential record index.
+/// - `reserved_trailer`: Three bytes, zero in the bundled fixture.
 ///
 /// # File Purpose
 ///
@@ -95,32 +95,33 @@ pub struct HealItem {
     /// Standardized merchant valuation.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
-    /// Padding field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding1: i16,
-    /// Padding field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding2: i16,
+    /// On-disk slot replaced with the sequential item index during loading.
+    ///
+    /// The game writes the record index to offset `0xEC` after reading each
+    /// 252-byte record. Preserve the disk value, but do not treat it as an
+    /// item property.
+    #[extractor(primitive(type = "i32"))]
+    pub runtime_item_index_slot: i32,
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
     #[extractor(primitive(type = "i16"))]
     pub mana_points: i16,
     #[extractor(enum_from_u8(type = "HealItemFlag"))]
-    pub restore_full_health: HealItemFlag,
+    pub restores_full_health: HealItemFlag,
     #[extractor(enum_from_u8(type = "HealItemFlag"))]
-    pub restore_full_mana: HealItemFlag,
+    pub restores_full_mana: HealItemFlag,
     #[extractor(enum_from_u8(type = "HealItemFlag"))]
-    pub poison_heal: HealItemFlag,
+    pub cures_poison: HealItemFlag,
     #[extractor(enum_from_u8(type = "HealItemFlag"))]
-    pub petrif_heal: HealItemFlag,
+    pub cures_petrification: HealItemFlag,
     #[extractor(enum_from_u8(type = "HealItemFlag"))]
-    pub polimorph_heal: HealItemFlag,
-    /// Padding field.
-    #[extractor(padding(count = 1, type = "u8", default_value = "0"))]
-    pub padding4: u8,
-    /// Padding field.
-    #[extractor(padding(count = 1, type = "i16", default_value = "0"))]
-    pub padding5: i16,
+    pub cures_polymorph: HealItemFlag,
+    /// Reserved bytes at offsets `0xF9..0xFB`.
+    ///
+    /// No direct use was found in the executable. Preserve these bytes
+    /// verbatim; the bundled fixture stores zero in all three positions.
+    #[extractor(vec_u8(size = 3))]
+    pub reserved_trailer: Vec<u8>,
 }
 
 pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
@@ -137,17 +138,15 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result
                 item.name,
                 item.description,
                 item.base_price,
-                item.padding1,
-                item.padding2,
+                item.runtime_item_index_slot,
                 item.health_points,
                 item.mana_points,
-                u8::from(item.restore_full_health),
-                u8::from(item.restore_full_mana),
-                u8::from(item.poison_heal),
-                u8::from(item.petrif_heal),
-                u8::from(item.polimorph_heal),
-                item.padding4,
-                item.padding5,
+                u8::from(item.restores_full_health),
+                u8::from(item.restores_full_mana),
+                u8::from(item.cures_poison),
+                u8::from(item.cures_petrification),
+                u8::from(item.cures_polymorph),
+                item.reserved_trailer,
             ])?;
         }
     }
@@ -166,16 +165,17 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn item_bytes(name: &str, base_price: i16, health_points: i16) -> Vec<u8> {
+    fn item_bytes(name: &str, base_price: i32, health_points: i16) -> Vec<u8> {
         let mut rec = Vec::with_capacity(252);
         let mut name_buf = [0u8; 30];
         name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 6]); // 3 padding i16s
+        rec.extend_from_slice(&0x1234_5678i32.to_le_bytes()); // runtime index slot
         rec.extend_from_slice(&health_points.to_le_bytes());
-        rec.extend(vec![0u8; 10]); // mana_points + 5 u8 flags + 1 pad u8 + pad i16
+        rec.extend(vec![0u8; 7]); // mana_points + 5 effect flags
+        rec.extend_from_slice(&[0xA5; 3]); // reserved trailer
         rec
     }
 
@@ -191,6 +191,8 @@ mod tests {
         assert_eq!(items[0].name, "Potion");
         assert_eq!(items[0].base_price, 50);
         assert_eq!(items[0].health_points, 100);
+        assert_eq!(items[0].runtime_item_index_slot, 0x1234_5678);
+        assert_eq!(items[0].reserved_trailer, vec![0xA5; 3]);
     }
 
     #[test]

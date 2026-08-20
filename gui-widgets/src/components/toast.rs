@@ -24,6 +24,7 @@ use crate::lucide::{LUCIDE_FONT, icon_char};
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::overlay;
 use iced::advanced::renderer;
+use iced::advanced::shell::Bus;
 use iced::advanced::widget::{self, Operation, Tree};
 use iced::advanced::{Shell, Widget};
 use iced::mouse;
@@ -397,7 +398,7 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             .zip(layout.children())
             .zip(self.instants.iter_mut())
         {
-            let mut local_messages = vec![];
+            let mut local_messages = Bus::new();
             let mut local_shell = shell.local(&mut local_messages);
 
             child.as_widget_mut().update(

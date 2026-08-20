@@ -6,7 +6,7 @@ use crate::editable_record_fields;
 editable_record_fields!(Extra, {
     { id = Integer / "ID:" },
     { sprite_filename = OptStr / "Sprite:" },
-    { unknown = Integer / "Unknown:" },
+    { activation_sprite_frame_mode = Integer / "Activation frame mode:" },
     { description = OptStr / "Description:" },
 });
 

@@ -1,9 +1,9 @@
 /// Binary block readers for the `.map` file format.
 ///
 /// The `.map` file is laid out as a sequence of distinct blocks:
-/// 1. Map model header (width × height)
-/// 2. First block  – unknown, skipped
-/// 3. Second block – unknown, skipped
+/// 1. Map model header (width × height × border count, 3 × i32)
+/// 2. First block  – count + (count-1) × 8 bytes of 2 × i32 records, skipped
+/// 3. Second block – size + size × 2 bytes of byte pairs, skipped
 /// 4. Sprite block – internal embedded sprites (sequence headers)
 /// 5. Sprite info block – placement records for embedded sprites
 /// 6. Tiled objects block – building/object tile stacks
@@ -24,11 +24,16 @@ use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo};
 // Unknown blocks (skipped on read, not persisted)
 // --------------------------------------------------------------------------
 
+/// First block: `count` (i32) followed by `(count - 1)` records of 2 × i32 each.
+///
+/// Verified against cat1/cat3/dun01/map1/catp fixtures: skipping `(count-1)*8`
+/// lands exactly on the second block's size field (974, 3783, 1419, 6643, 353),
+/// while `count*8` lands on `0x01010101` garbage. The previous
+/// `multiplier*size*4` skip only worked by coincidence
+/// (`8 + 2*count*4 == 16 + (count-1)*8`).
 pub fn first_block(reader: &mut BufReader<File>) -> Result<()> {
-    let multiplier = reader.read_i32::<LittleEndian>()?;
-    let size = reader.read_i32::<LittleEndian>()?;
-    reader.seek(SeekFrom::Start(8))?;
-    let skip: i64 = (multiplier * size * 4).into();
+    let count = reader.read_i32::<LittleEndian>()?;
+    let skip: i64 = ((count - 1) * 8).into();
     reader.seek(SeekFrom::Current(skip))?;
     Ok(())
 }

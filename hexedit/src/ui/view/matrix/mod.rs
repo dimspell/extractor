@@ -33,6 +33,7 @@ use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
 
 use crate::coloring::ColorScheme;
+use crate::domain::layout::BinaryLayout;
 use crate::domain::write_mode::WriteMode;
 use crate::selection::{NavDir, Selection};
 use crate::ui::theme::HexEditorTheme;
@@ -49,6 +50,7 @@ use gui_widgets::components::paragraph_cache::ParagraphCache;
 /// horizontal scrollbars.
 pub struct HexMatrix<'a, Message> {
     pub(super) bytes: &'a [u8],
+    pub(super) layout: Option<&'a dyn BinaryLayout>,
     pub(super) bytes_per_row: u8,
     pub(super) selection: Selection,
     pub(super) edit: Option<EditView<'a>>,
@@ -108,6 +110,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         bytes: &'a [u8],
+        layout: Option<&'a dyn BinaryLayout>,
         bytes_per_row: u8,
         selection: Selection,
         edit: Option<EditView<'a>>,
@@ -128,6 +131,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
     ) -> Self {
         HexMatrix {
             bytes,
+            layout,
             bytes_per_row: bytes_per_row.max(1),
             selection,
             edit,
@@ -870,6 +874,7 @@ mod tests {
 
         let matrix = super::HexMatrix::<()>::new(
             &[],                       // bytes (empty)
+            None,                      // layout
             16,                        // bytes_per_row
             Selection::default(),      // selection
             None,                      // edit

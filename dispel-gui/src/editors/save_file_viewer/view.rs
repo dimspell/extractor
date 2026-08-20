@@ -64,6 +64,9 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
         SaveFileSection::Events => crate::editors::save_file_viewer::events::view(state),
         SaveFileSection::Journal => crate::editors::save_file_viewer::journal::view(state),
         SaveFileSection::Maps => crate::editors::save_file_viewer::maps::view(state),
+        SaveFileSection::SavedViewport => {
+            crate::editors::save_file_viewer::saved_viewport::view(state)
+        }
     };
 
     container(Column::new().push(section_tabs).push(content))

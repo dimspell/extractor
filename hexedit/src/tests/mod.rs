@@ -39,6 +39,10 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
     HexEditorState {
         path: PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        layout: None,
+        outline: gui_widgets::sweeten::list::Content::new(),
+        outline_all: Vec::new(),
+        collapsed_outline: BTreeSet::new(),
         panes,
         pane_focus,
         provider: BufferProvider::from_bytes(data),
@@ -63,6 +67,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         goto: None,
         search: SearchState::new(),
         show_decimal: false,
+        notifications: Vec::new(),
         status_msg: String::new(),
         error: None,
         cache: ParagraphCache::default(),
@@ -129,13 +134,13 @@ fn test_error_state_hides_header_and_toolbar() {
 }
 
 // ============================================================================
-// Status message
+// Toast notifications
 // ============================================================================
 
 #[test]
-fn test_status_message_displays() {
+fn test_toast_notification_displays() {
     let mut state = make_state((0..64).collect());
-    state.status_msg = "Operation completed".into();
+    state.notify("Operation completed");
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
     ui.find("Operation completed")
@@ -143,12 +148,32 @@ fn test_status_message_displays() {
 }
 
 #[test]
-fn test_clear_status_removes_message() {
+fn test_clear_status_removes_notifications() {
     let mut state = make_state((0..64).collect());
-    state.status_msg = "temporary".into();
+    state.notify("temporary");
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::ClearStatus);
-    assert!(state.status_msg.is_empty(), "status should be cleared");
+    assert!(
+        state.notifications.is_empty(),
+        "notifications should be cleared"
+    );
+}
+
+#[test]
+fn test_dismiss_notification_removes_only_the_selected_toast() {
+    let mut state = make_state((0..64).collect());
+    state.notify("First");
+    state.notify("Second");
+    let config = default_config();
+
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DismissNotification(0),
+    );
+
+    assert_eq!(state.notifications.len(), 1);
+    assert_eq!(state.notifications[0].body, "Second");
 }
 
 // ============================================================================
@@ -164,6 +189,39 @@ fn test_hex_matrix_uses_paragraph_cache() {
     let config = default_config();
     // Just verify the element can be created without errors
     let _element = view(&state, &config);
+}
+
+#[test]
+fn test_outline_collapses_descendants_without_removing_siblings() {
+    use crate::domain::layout::{NamedSpan, SpanBinaryLayout};
+
+    let mut state = make_state(vec![0; 100]);
+    state.set_layout(Some(Box::new(SpanBinaryLayout::new(
+        "test",
+        vec![
+            NamedSpan {
+                range: 0..60,
+                name: "parent",
+                ty: "section",
+                record_index: 0,
+            },
+            NamedSpan {
+                range: 0..20,
+                name: "child",
+                ty: "record",
+                record_index: 0,
+            },
+            NamedSpan {
+                range: 60..100,
+                name: "sibling",
+                ty: "section",
+                record_index: 0,
+            },
+        ],
+    ))));
+    assert_eq!(state.outline.len(), 3);
+    state.toggle_outline(0);
+    assert_eq!(state.outline.len(), 2);
 }
 
 pub mod pane_grid;

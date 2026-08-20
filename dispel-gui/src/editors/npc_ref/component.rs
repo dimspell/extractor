@@ -1,17 +1,19 @@
 use crate::components::editable::EditableRecord;
 use dispel_core::NPC;
-use dispel_core::references::enums::{BooleanFlag, NpcLookingDirection, Unknown012, Unknown0110};
+use dispel_core::references::enums::{
+    BooleanFlag, NpcInteractionMode, NpcLookingDirection, NpcMovementMode,
+};
 
 use crate::editable_record_fields;
 
 editable_record_fields!(NPC, {
-    { id = Integer / "ID:" },
-    { npc_id = Integer / "NPC ID:" },
+    { file_record_id = Integer / "File Record ID:" },
+    { npc_ini_id = Integer / "NPC ID:" },
     { name = String / "Name:" },
-    { description = String / "Description:" },
-    { party_script_id = Integer / "Party Script ID:" },
+    { role_description = String / "Role Description:" },
+    { party_member_slot = Integer / "Party Member Slot:" },
     { show_on_event = Integer / "Show on Event:" },
-    { unknown_1 = DispEnum(Unknown012, ["0", "1", "2"]) / "Unknown 1:" },
+    { movement_mode = DispEnum(NpcMovementMode, ["Static", "Waypoints", "RandomInActivationRect"]) / "Movement Mode:" },
     { goto1_filled = Enum(BooleanFlag, ["False", "True"]) / "Waypoint 1 Filled:" },
     { goto2_filled = Enum(BooleanFlag, ["False", "True"]) / "Waypoint 2 Filled:" },
     { goto3_filled = Enum(BooleanFlag, ["False", "True"]) / "Waypoint 3 Filled:" },
@@ -24,26 +26,26 @@ editable_record_fields!(NPC, {
     { goto3_y = Integer / "Waypoint 3 Y:" },
     { goto4_x = Integer / "Waypoint 4 X:" },
     { goto4_y = Integer / "Waypoint 4 Y:" },
-    { unknown_2 = Integer / "Unknown 2:" },
-    { unknown_3 = Integer / "Unknown 3:" },
-    { unknown_4 = Integer / "Unknown 4:" },
-    { unknown_5 = Integer / "Unknown 5:" },
-    { looking_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Direction:" },
-    { rotation_1 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 1:" },
-    { rotation_2 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 2:" },
-    { rotation_3 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 3:" },
-    { unknown_9 = Integer / "Unknown 9:" },
-    { unknown_10 = Integer / "Unknown 10:" },
-    { unknown_11 = Integer / "Unknown 11:" },
-    { unknown_12 = Integer / "Unknown 12:" },
-    { unknown_13 = Integer / "Unknown 13:" },
-    { unknown_14 = Integer / "Unknown 14:" },
-    { unknown_15 = Integer / "Unknown 15:" },
-    { unknown_16 = Integer / "Unknown 16:" },
-    { unknown_17 = DispEnum(Unknown012, ["0", "1", "2"]) / "Unknown 17:" },
-    { unknown_18 = Integer / "Unknown 18:" },
-    { unknown_item = CompositeItem("items") / "Unknown Item:" },
-    { unknown_19 = DispEnum(Unknown0110, ["0", "1", "10"]) / "Unknown 19:" },
+    { waypoint1_wait_time = Integer / "Waypoint 1 Wait Time:" },
+    { waypoint2_wait_time = Integer / "Waypoint 2 Wait Time:" },
+    { waypoint3_wait_time = Integer / "Waypoint 3 Wait Time:" },
+    { waypoint4_wait_time = Integer / "Waypoint 4 Wait Time:" },
+    { waypoint1_facing_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Waypoint 1 Facing Direction:" },
+    { waypoint2_facing_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Waypoint 2 Facing Direction:" },
+    { waypoint3_facing_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Waypoint 3 Facing Direction:" },
+    { waypoint4_facing_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Waypoint 4 Facing Direction:" },
+    { waypoint1_reserved = Integer / "Waypoint 1 Reserved:" },
+    { waypoint2_reserved = Integer / "Waypoint 2 Reserved:" },
+    { waypoint3_reserved = Integer / "Waypoint 3 Reserved:" },
+    { waypoint4_reserved = Integer / "Waypoint 4 Reserved:" },
+    { activation_rect_x1 = Integer / "Activation Rect X1:" },
+    { activation_rect_y1 = Integer / "Activation Rect Y1:" },
+    { activation_rect_x2 = Integer / "Activation Rect X2:" },
+    { activation_rect_y2 = Integer / "Activation Rect Y2:" },
+    { interaction_mode = DispEnum(NpcInteractionMode, ["Default", "RandomResult", "ConfiguredThenRandom"]) / "Interaction Mode:" },
+    { interaction_result_parameter = Integer / "Interaction Result Parameter:" },
+    { interaction_result_item = CompositeItem("items") / "Interaction Result Item:" },
+    { interaction_range_offset = Integer / "Interaction Range Offset:" },
     { dialog_id = Integer / "Dialog ID:" },
     { dialogue_face_sprite_id = Integer / "Face Sprite ID:" },
 });
@@ -54,9 +56,9 @@ impl EditableRecord for NPC {
     fn list_label(&self) -> String {
         format!(
             "[{}] {} (NPC {})",
-            self.id,
+            self.file_record_id,
             self.name.chars().take(20).collect::<String>(),
-            self.npc_id
+            self.npc_ini_id
         )
     }
 

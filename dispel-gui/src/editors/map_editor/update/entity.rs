@@ -114,9 +114,9 @@ pub fn field_changed(
             new_value: value,
         });
 
-        // When an NPC's looking_direction or npc_id changes, re-resolve its
+        // When an NPC's waypoint1_facing_direction or npc_ini_id changes, re-resolve its
         // sprite so the map canvas reflects the new state immediately.
-        if (field == "looking_direction" || field == "npc_id")
+        if (field == "waypoint1_facing_direction" || field == "npc_ini_id")
             && let SelectedEntity::Npc(i) = entity
             && let Some(ref game_path) = app.state.workspace.game_path
         {
@@ -138,7 +138,8 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_undo() {
         // Capture NPC index before the field value is moved.
-        let needs_sprite_update = action.field == "looking_direction" || action.field == "npc_id";
+        let needs_sprite_update =
+            action.field == "waypoint1_facing_direction" || action.field == "npc_ini_id";
         let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
@@ -225,7 +226,8 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_redo() {
         // Capture NPC index before the field value is moved.
-        let needs_sprite_update = action.field == "looking_direction" || action.field == "npc_id";
+        let needs_sprite_update =
+            action.field == "waypoint1_facing_direction" || action.field == "npc_ini_id";
         let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
@@ -280,7 +282,7 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
             }
         }
 
-        // Recompute NPC sprite if looking_direction was re-applied.
+        // Recompute the NPC sprite if waypoint1_facing_direction was re-applied.
         if let Some(idx) = npc_idx
             && let Some(ref game_path) = app.state.workspace.game_path
         {

@@ -33,6 +33,10 @@ pub enum HexEditorMessage {
     BytesPerRowInputInvalid,
     /// Single click on a cell — sets `anchor = cursor = addr`.
     SelectAt(u64),
+    /// Select and centre the matrix on a structure-outline entry.
+    JumpToLayout(u64),
+    /// Expand or collapse a branch in the structure outline.
+    ToggleOutline(usize),
     /// Shift-click or drag — moves cursor only.
     ExtendTo(u64),
     /// Keyboard navigation; `extend = true` for Shift-modified moves.
@@ -82,8 +86,10 @@ pub enum HexEditorMessage {
     SaveIntoRecording,
     /// Async result from the save flow.
     SavedIntoRecording(Result<String, String>),
-    /// Wipe the editor's transient status_msg.
+    /// Dismiss all transient notifications.
     ClearStatus,
+    /// Dismiss one toast notification by its display index.
+    DismissNotification(usize),
 
     // ── Pattern highlighting ─────────────────────────────────────────────
     /// Create a pattern from the current selection range (CTRL+E).
@@ -293,7 +299,7 @@ pub enum HexEditorMessage {
     DiffNavNext,
     /// Jump to the previous contiguous diff chunk.
     DiffNavPrev,
-    /// Toggle "show only diff rows" mode in the diff view.
+    /// Toggle compact change-review mode in the diff view.
     ToggleDiffReview,
 
     // ── Export as text ──────────────────────────────────────────────────

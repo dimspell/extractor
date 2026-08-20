@@ -461,7 +461,7 @@ pub fn load_entities(
         map_ini.monsters_filename,
         "MonsterInGame",
         &resolve,
-        |m: &MonsterRef| (m.mon_id, 3, false),
+        |m: &MonsterRef| (m.monster_db_id, 3, false),
         &monster_id_to_sprite,
         &mut sprite_cache,
     );
@@ -472,13 +472,13 @@ pub fn load_entities(
         "NpcInGame",
         &resolve,
         |n: &NPC| {
-            let dir = i32::from(n.looking_direction);
+            let dir = i32::from(n.waypoint1_facing_direction);
             let (seq, flip) = if dir > 4 {
                 ((8 - dir) as usize, true)
             } else {
                 (dir as usize, false)
             };
-            (n.npc_id, seq, flip)
+            (n.npc_ini_id, seq, flip)
         },
         &npc_id_to_sprite,
         &mut sprite_cache,
@@ -490,14 +490,14 @@ pub fn load_entities(
         "ExtraInGame",
         &resolve,
         |e: &ExtraRef| {
-            let rotation = e.rotation as usize;
+            let direction = e.direction as usize;
             let obj_type = u8::from(e.object_type) as usize;
             let seq = if obj_type == 0 {
-                2 * e.closed as usize + rotation
+                2 * e.interaction_state as usize + direction
             } else {
-                rotation
+                direction
             };
-            (e.ext_id as i32, seq, false)
+            (e.extra_definition_id as i32, seq, false)
         },
         &extra_id_to_sprite,
         &mut sprite_cache,

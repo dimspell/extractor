@@ -23,10 +23,11 @@ mod tests {
         name_buf[..6].copy_from_slice(b"Potion");
         data.extend_from_slice(&name_buf);
         data.extend(vec![0u8; 202]); // description
-        data.extend_from_slice(&50i16.to_le_bytes()); // base_price
-        data.extend(vec![0u8; 6]); // pad1-3 (i16s)
+        data.extend_from_slice(&50i32.to_le_bytes()); // base_price
+        data.extend_from_slice(&0i32.to_le_bytes()); // runtime item index slot
         data.extend_from_slice(&100i16.to_le_bytes()); // health_points
-        data.extend(vec![0u8; 10]); // mp + 5 flag bytes + pad
+        data.extend(vec![0u8; 7]); // MP + five effect flags
+        data.extend(vec![0u8; 3]); // reserved trailer
         data
     }
 
@@ -53,7 +54,7 @@ mod tests {
     }
 
     #[test]
-    fn heal_i16_primitive_via_string() {
+    fn heal_i32_primitive_via_string() {
         let p = HealItemPatcher;
         let out = p
             .apply_field(&heal_blob(), 0, "base_price", &Value::String("999".into()))
@@ -63,21 +64,18 @@ mod tests {
 
     #[test]
     fn heal_enum_from_u8_via_i64() {
-        // HealItemFlag::FullRestoration discriminant.
-        let enabled_disc = u8::from(HealItemFlag::FullRestoration);
+        // HealItemFlag::Active discriminant.
+        let active_disc = u8::from(HealItemFlag::Active);
         let p = HealItemPatcher;
         let out = p
             .apply_field(
                 &heal_blob(),
                 0,
-                "poison_heal",
-                &Value::I64(enabled_disc as i64),
+                "cures_poison",
+                &Value::I64(active_disc as i64),
             )
             .unwrap();
-        assert_eq!(
-            parse_heal(&out)[0].poison_heal,
-            HealItemFlag::FullRestoration
-        );
+        assert_eq!(parse_heal(&out)[0].cures_poison, HealItemFlag::Active);
     }
 
     #[test]
@@ -86,18 +84,18 @@ mod tests {
         // `Default::default()`. We mirror that on patch.
         let p = HealItemPatcher;
         let out = p
-            .apply_field(&heal_blob(), 0, "poison_heal", &Value::I64(255))
+            .apply_field(&heal_blob(), 0, "cures_poison", &Value::I64(255))
             .unwrap();
-        assert_eq!(parse_heal(&out)[0].poison_heal, HealItemFlag::default());
+        assert_eq!(parse_heal(&out)[0].cures_poison, HealItemFlag::default());
     }
 
     #[test]
-    fn heal_padding_field_rejected() {
+    fn heal_runtime_item_index_slot_via_i64() {
         let p = HealItemPatcher;
-        let err = p
-            .apply_field(&heal_blob(), 0, "padding5", &Value::I64(0))
-            .unwrap_err();
-        assert!(err.to_string().contains("synthetic padding"));
+        let out = p
+            .apply_field(&heal_blob(), 0, "runtime_item_index_slot", &Value::I64(42))
+            .unwrap();
+        assert_eq!(parse_heal(&out)[0].runtime_item_index_slot, 42);
     }
 
     // -------------------------------------------------------------------- EditItem
@@ -187,11 +185,11 @@ mod tests {
             .apply_field(
                 &extra_ref_blob(),
                 0,
-                "name",
+                "object_name",
                 &Value::String("Treasure".into()),
             )
             .unwrap();
-        assert_eq!(parse_extra(&out)[0].name, "Treasure");
+        assert_eq!(parse_extra(&out)[0].object_name, "Treasure");
     }
 
     #[test]
@@ -211,11 +209,11 @@ mod tests {
             .apply_field(
                 &extra_ref_blob(),
                 0,
-                "unknown2",
+                "direction_padding",
                 &Value::Bytes(bytes.clone()),
             )
             .unwrap();
-        assert_eq!(parse_extra(&out)[0].unknown2, bytes);
+        assert_eq!(parse_extra(&out)[0].direction_padding, bytes);
     }
 
     #[test]
@@ -224,18 +222,18 @@ mod tests {
         use crate::references::enums::BooleanFlag;
         let p = crate::modding::patchers::ExtraRefPatcher;
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "closed", &Value::I64(1))
+            .apply_field(&extra_ref_blob(), 0, "requires_key", &Value::I64(1))
             .unwrap();
         let parsed = &parse_extra(&out)[0];
-        assert_ne!(parsed.closed, BooleanFlag::default());
+        assert_ne!(parsed.requires_key, BooleanFlag::default());
     }
 
     #[test]
     fn extra_ref_enum_from_i32_from_u8() {
-        // visibility uses enum_from_i32_from_u8(VisibilityType) — wire is u8.
+        // activation_effect_id uses enum_from_i32_from_u8(ActivationEffectId) — wire is u8.
         let p = crate::modding::patchers::ExtraRefPatcher;
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "visibility", &Value::I64(1))
+            .apply_field(&extra_ref_blob(), 0, "activation_effect_id", &Value::I64(1))
             .unwrap();
         // Round-trip should not panic; just verify parse succeeds.
         assert!(!parse_extra(&out).is_empty());
@@ -245,7 +243,7 @@ mod tests {
     fn extra_ref_id_field_rejected() {
         let p = crate::modding::patchers::ExtraRefPatcher;
         let err = p
-            .apply_field(&extra_ref_blob(), 0, "id", &Value::I64(7))
+            .apply_field(&extra_ref_blob(), 0, "record_index", &Value::I64(7))
             .unwrap_err();
         assert!(err.to_string().contains("positional"));
     }

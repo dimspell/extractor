@@ -78,6 +78,7 @@ pub mod extra_ini;
 pub mod extra_ref;
 pub mod extractor;
 pub mod heal_item_db;
+pub mod layout;
 pub mod magic_db;
 pub mod map_ini;
 pub mod message_scr;

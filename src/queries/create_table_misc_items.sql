@@ -4,5 +4,6 @@ CREATE TABLE IF NOT EXISTS misc_items
     name         TEXT,
     description  TEXT,
     base_price   INTEGER,
-    padding      BLOB
+    reserved_bytes BLOB,
+    runtime_record_index_slot INTEGER
 );

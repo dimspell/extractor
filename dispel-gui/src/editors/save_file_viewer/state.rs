@@ -13,6 +13,7 @@ use std::time::Instant;
 pub enum SaveFileSection {
     Overview,
     Maps,
+    SavedViewport,
     Stats,
     Inventory,
     PartyMembers,
@@ -28,6 +29,7 @@ impl SaveFileSection {
         match self {
             SaveFileSection::Overview => "Overview",
             SaveFileSection::Maps => "Maps",
+            SaveFileSection::SavedViewport => "Saved Viewport",
             SaveFileSection::Stats => "Stats",
             SaveFileSection::Inventory => "Inventory",
             SaveFileSection::PartyMembers => "Party Members",
@@ -44,6 +46,7 @@ impl SaveFileSection {
         &[
             Overview,
             Maps,
+            SavedViewport,
             Stats,
             Inventory,
             PartyMembers,
@@ -57,7 +60,7 @@ impl SaveFileSection {
 
 /// One embedded hex editor for a raw/unknown block.
 pub struct RawHexViewer {
-    pub label: &'static str,
+    pub label: String,
     pub state: HexEditorState,
 }
 
@@ -117,152 +120,205 @@ impl MapsTableKind {
                 ("monster_ai_type", 60.0),
                 ("experience_on_kill", 60.0),
                 ("gold_drop_on_kill", 60.0),
-                ("unknown_1", 60.0),
-                ("sight_range", 60.0),
-                ("attack_range", 60.0),
+                ("distance_range_size", 60.0),
+                ("detection_sight_size", 60.0),
+                ("aggression_flag", 60.0),
                 ("spell_slot_1", 60.0),
                 ("spell_slot_2", 60.0),
                 ("spell_slot_3", 60.0),
                 ("oversize", 60.0),
                 ("magic_level", 60.0),
-                ("unknown_2", 60.0),
-                ("unknown_3a", 60.0),
-                ("unknown_3b", 60.0),
-                ("unknown_3c", 60.0),
-                ("unknown_3d", 60.0),
-                ("unknown_3e", 120.0),
-                ("unknown_3f", 60.0),
+                ("patrol_countdown", 60.0),
+                ("behavior_flag", 60.0),
+                ("ai_state", 60.0),
+                ("ai_sub_state", 60.0),
+                ("movement_direction", 60.0),
+                ("target_position_x", 60.0),
+                ("target_position_y", 60.0),
+                ("status_effect_ticks_remaining", 60.0),
+                ("status_effect_type", 60.0),
+                ("awake_flag", 60.0),
+                ("combat_target_entity_index", 60.0),
                 ("event_id_on_kill", 60.0),
-                ("unknown_5", 60.0),
+                ("status_effect_parameter", 60.0),
                 ("current_position_x", 60.0),
                 ("current_position_y", 60.0),
                 ("spawn_position_x", 60.0),
                 ("spawn_position_y", 60.0),
-                ("unknown_10_coordinate", 60.0),
-                ("unknown_11_coordinate", 60.0),
-                ("unknown_12", 60.0),
-                ("unknown_13", 60.0),
-                ("unknown_14", 60.0),
-                ("unknown_15", 60.0),
-                ("unknown_16", 60.0),
-                ("unknown_17", 60.0),
-                ("unknown_18", 60.0),
-                ("unknown_19", 320.0),
-                ("unknown_20", 60.0),
-                ("unknown_21", 60.0),
-                ("unknown_22", 60.0),
+                ("home_position_x", 60.0),
+                ("home_position_y", 60.0),
+                ("render_direction_flag", 60.0),
+                ("cell_offset_x", 60.0),
+                ("cell_offset_y", 60.0),
+                ("spawn_group_id", 60.0),
+                ("constructor_marker", 60.0),
+                ("movement_animation_frame", 60.0),
+                ("dead_or_removed_flag", 60.0),
+                ("sprite_render_override_pending", 60.0),
+                ("movement_animation_frame_count", 60.0),
+                ("periodic_status_animation_timer", 60.0),
+                ("status_effect_animation_frame", 60.0),
+                ("status_effect_animation_active", 60.0),
+                ("status_effect_animation_ticks_remaining", 60.0),
+                ("ground_effect_animation_active", 60.0),
+                ("ground_effect_animation_frame", 60.0),
+                ("ground_effect_handle", 60.0),
+                ("path_buffer_length", 60.0),
+                ("path_buffer_index", 60.0),
                 ("loot_item1", 60.0),
                 ("loot_item2", 60.0),
                 ("loot_item3", 60.0),
-                ("mon_ref_padding_12", 60.0),
-                ("mon_ref_padding_13", 60.0),
-                ("unknown_23", 60.0),
-                ("unknown_24", 60.0),
-                ("unknown_25", 60.0),
-                ("unknown_26", 60.0),
+                ("force_ai_update", 60.0),
+                ("drop_all_loot", 60.0),
+                ("respawn_timer", 60.0),
+                ("saved_sprite_frame_id", 60.0),
+                ("saved_render_direction", 60.0),
+                ("special_attack", 60.0),
                 ("special_attack_chance", 60.0),
                 ("special_attack_duration", 60.0),
-                ("unknown_27", 200.0),
+                ("special_attack_effect_ticks_remaining", 60.0),
+                ("special_attack_effect_frame", 60.0),
                 ("boldness", 60.0),
                 ("attack_speed", 60.0),
-                ("unknown_28", 200.0),
-                ("unknown_29", 60.0),
-                ("unknown_30", 320.0),
+                ("guard_flag", 60.0),
+                ("guard_effect_active", 60.0),
+                ("guard_effect_frame", 60.0),
+                ("blood_effect_active", 60.0),
+                ("blood_effect_frame", 60.0),
+                ("blood_effect_direction", 60.0),
+                ("timed_overlay_active", 60.0),
+                ("timed_overlay_ticks_remaining", 60.0),
+                ("ai_tick_counter", 60.0),
+                ("sight_backup", 60.0),
+                ("patrol_countdown_backup", 60.0),
+                ("hidden_or_delisted_flag", 60.0),
+                ("path_buffer_position_x", 60.0),
+                ("path_buffer_position_y", 60.0),
+                ("nested_summon_flag", 60.0),
+                ("nested_summon_record", 320.0),
             ],
             Npcs => &[
                 ("name", 160.0),
                 ("role_description", 160.0),
-                ("unknown1", 60.0),
-                ("unknown2", 60.0),
-                ("unknown3", 60.0),
-                ("unknown4", 60.0),
-                ("unknown5", 60.0),
-                ("unknown6", 60.0),
-                ("unknown7", 60.0),
-                ("unknown8", 60.0),
-                ("unknown9", 60.0),
-                ("unknown10", 60.0),
-                ("unknown11", 60.0),
-                ("unknown12", 200.0),
+                ("movement_state", 60.0),
+                ("tile_data_entry", 60.0),
+                ("path_progress", 60.0),
+                ("current_position_x", 60.0),
+                ("current_position_y", 60.0),
+                ("last_position_x", 60.0),
+                ("last_position_y", 60.0),
+                ("target_position_x", 60.0),
+                ("target_position_y", 60.0),
+                ("path_destination_x", 60.0),
+                ("path_destination_y", 60.0),
+                ("render_direction_flag", 60.0),
+                ("cell_offset_x", 60.0),
+                ("cell_offset_y", 60.0),
+                ("map_npc_index_plus_500", 60.0),
+                ("path_step_direction", 60.0),
+                ("path_step_animation_frame", 60.0),
+                ("path_handle", 60.0),
+                ("path_step_counter", 60.0),
                 ("npc_ini_id", 60.0),
-                ("unknown13", 320.0),
-                ("npc_ref_party_script_id", 60.0),
+                ("patrol_waypoint_count", 60.0),
+                ("current_patrol_waypoint_index", 60.0),
+                ("world_active", 60.0),
+                ("transient_spawn", 60.0),
+                ("removed_from_world", 60.0),
+                ("event_npc_origin", 60.0),
+                ("current_waypoint_index", 60.0),
+                ("player_interaction_latched", 60.0),
+                ("wait_tick_counter", 60.0),
+                ("reserved_runtime_90", 60.0),
+                ("reserved_runtime_94", 60.0),
+                ("npc_ref_party_member_slot", 60.0),
                 ("npc_ref_show_on_event_id", 60.0),
-                ("unknown14", 60.0),
-                ("npc_ref_unknown_1", 60.0),
-                ("npc_ref_waypoint1filled", 60.0),
-                ("npc_ref_waypoint1x", 60.0),
-                ("npc_ref_waypoint1y", 60.0),
-                ("npc_ref_unknown_2", 60.0),
-                ("npc_ref_look_direction", 60.0),
-                ("npc_ref_unknown_9", 60.0),
-                ("npc_ref_waypoint2filled", 60.0),
-                ("npc_ref_waypoint2x", 60.0),
-                ("npc_ref_waypoint2y", 60.0),
-                ("npc_ref_unknown_3", 60.0),
-                ("npc_ref_unknown_6", 60.0),
-                ("npc_ref_unknown_10", 60.0),
-                ("npc_ref_waypoint3filled", 60.0),
-                ("npc_ref_waypoint3x", 60.0),
-                ("npc_ref_waypoint3y", 60.0),
-                ("npc_ref_unknown_4", 60.0),
-                ("npc_ref_unknown_7", 60.0),
-                ("npc_ref_unknown_11", 60.0),
-                ("npc_ref_waypoint4filled", 60.0),
-                ("npc_ref_waypoint4x", 60.0),
-                ("npc_ref_waypoint4y", 60.0),
-                ("npc_ref_unknown_5", 60.0),
-                ("npc_ref_unknown_8", 60.0),
-                ("npc_ref_unknown_12", 60.0),
-                ("npc_ref_unknown_13", 60.0),
-                ("npc_ref_unknown_14", 60.0),
-                ("npc_ref_unknown_15", 60.0),
-                ("npc_ref_unknown_16", 60.0),
-                ("npc_ref_unknown_17", 60.0),
-                ("unknown15", 60.0),
+                ("npc_ref_movement_mode", 60.0),
+                ("waypoint1_filled", 60.0),
+                ("waypoint1_x", 60.0),
+                ("waypoint1_y", 60.0),
+                ("waypoint1_wait_time", 60.0),
+                ("waypoint1_facing_direction", 60.0),
+                ("waypoint1_reserved", 60.0),
+                ("waypoint2_filled", 60.0),
+                ("waypoint2_x", 60.0),
+                ("waypoint2_y", 60.0),
+                ("waypoint2_wait_time", 60.0),
+                ("waypoint2_facing_direction", 60.0),
+                ("waypoint2_reserved", 60.0),
+                ("waypoint3_filled", 60.0),
+                ("waypoint3_x", 60.0),
+                ("waypoint3_y", 60.0),
+                ("waypoint3_wait_time", 60.0),
+                ("waypoint3_facing_direction", 60.0),
+                ("waypoint3_reserved", 60.0),
+                ("waypoint4_filled", 60.0),
+                ("waypoint4_x", 60.0),
+                ("waypoint4_y", 60.0),
+                ("waypoint4_wait_time", 60.0),
+                ("waypoint4_facing_direction", 60.0),
+                ("waypoint4_reserved", 60.0),
+                ("activation_rect_x1", 60.0),
+                ("activation_rect_y1", 60.0),
+                ("activation_rect_x2", 60.0),
+                ("activation_rect_y2", 60.0),
+                ("npc_ref_interaction_mode", 60.0),
+                ("npc_ref_interaction_result", 60.0),
+                ("npc_ref_interaction_range", 60.0),
                 ("npc_ref_dialog_id", 60.0),
-                ("unknown16", 320.0),
+                ("dialogue_face_sprite_id", 60.0),
+                ("move_mode", 60.0),
+                ("start_dialogue_on_arrival", 60.0),
+                ("runtime_target_position_x", 60.0),
+                ("runtime_target_position_y", 60.0),
+                ("arrival_dialogue_id", 60.0),
+                ("freeze_flag", 60.0),
+                ("freeze_counter", 60.0),
             ],
             ExtraObjects => &[
-                ("unknown_1", 60.0),
-                ("unknown_2", 60.0),
-                ("unknown_3", 60.0),
-                ("extra_ref_record_id", 60.0),
-                ("extra_ini_id", 60.0),
-                ("name", 160.0),
+                ("render_state_slot", 60.0),
+                ("render_variant_index", 60.0),
+                ("current_sprite_frame", 60.0),
+                ("map_object_id", 60.0),
+                ("extra_definition_id", 60.0),
+                ("object_name", 160.0),
                 ("object_type", 60.0),
-                ("x_pos", 60.0),
-                ("y_pos", 60.0),
-                ("rotation", 60.0),
-                ("unknown_10", 200.0),
-                ("unknown_11", 60.0),
-                ("unknown_12", 60.0),
-                ("unknown_13", 60.0),
-                ("unknown_14", 60.0),
-                ("unknown_15", 60.0),
-                ("unknown_16", 60.0),
-                ("unknown_17", 60.0),
-                ("unknown_18", 60.0),
-                ("unknown_19", 60.0),
-                ("unknown_20", 60.0),
-                ("unknown_21", 60.0),
-                ("unknown_22", 60.0),
-                ("unknown_23", 320.0),
-                ("unknown_24", 60.0),
-                ("event_ini_id", 60.0),
-                ("message_scr_id", 60.0),
-                ("unknown_27", 60.0),
-                ("unknown_28", 60.0),
-                ("unknown_29", 60.0),
-                ("unknown_30", 200.0),
-                ("unknown_31", 200.0),
-                ("unknown_32", 60.0),
-                ("unknown_33", 60.0),
-                ("unknown_34", 60.0),
-                ("unknown_35", 60.0),
-                ("unknown_36", 60.0),
-                ("unknown_37", 60.0),
-                ("unknown_38", 60.0),
+                ("map_x", 60.0),
+                ("map_y", 60.0),
+                ("direction", 60.0),
+                ("interaction_state", 60.0),
+                ("requires_key", 60.0),
+                ("required_item_and_padding", 60.0),
+                ("required_item2_and_padding", 60.0),
+                ("requirement_range_2_start", 60.0),
+                ("requirement_range_2_end", 60.0),
+                ("requirement_range_3_start", 60.0),
+                ("requirement_range_3_end", 60.0),
+                ("gold_amount", 60.0),
+                ("loot_item_and_padding", 60.0),
+                ("loot_item_count", 60.0),
+                ("additional_loot_1", 60.0),
+                ("additional_loot_1_count", 60.0),
+                ("additional_loot_2", 60.0),
+                ("additional_loot_2_count_and_config", 320.0),
+                ("interaction_event_id", 60.0),
+                ("interaction_message_id", 60.0),
+                ("footprint_width", 60.0),
+                ("footprint_height", 60.0),
+                ("footprint_orientation", 60.0),
+                ("interaction_range", 60.0),
+                ("interaction_range_padding", 200.0),
+                ("is_quest_element", 60.0),
+                ("post_activation_tile_flag", 60.0),
+                ("post_activation_footprint_mode", 60.0),
+                ("preserve_final_sprite_frame", 60.0),
+                ("alternate_render_mode", 60.0),
+                ("activation_effect_id", 60.0),
+                ("activation_effect_reserved", 60.0),
+                ("activation_effect_padding", 60.0),
+                ("active_overlay_enabled", 60.0),
+                ("map_object_active", 60.0),
+                ("interaction_pending", 60.0),
             ],
             Weapon => &[
                 ("name", 160.0),
@@ -293,7 +349,8 @@ impl MapsTableKind {
                 ("padding8", 60.0),
                 ("map_coordinate_x", 60.0),
                 ("map_coordinate_y", 60.0),
-                ("unknown_1", 60.0),
+                ("ground_item_object_id", 60.0),
+                ("ground_item_object_id_padding", 80.0),
             ],
             Heal => &[
                 ("name", 160.0),
@@ -307,11 +364,11 @@ impl MapsTableKind {
                 ("poison_heal", 60.0),
                 ("petrif_heal", 60.0),
                 ("polimorph_heal", 60.0),
-                ("unknown_1", 60.0),
-                ("unknown_2", 60.0),
+                ("reserved_trailer", 80.0),
                 ("map_coordinate_x", 60.0),
                 ("map_coordinate_y", 60.0),
-                ("unknown_3", 60.0),
+                ("ground_item_object_id", 60.0),
+                ("ground_item_object_id_padding", 80.0),
             ],
             Edit => &[
                 ("name", 160.0),
@@ -335,17 +392,19 @@ impl MapsTableKind {
                 ("additional_effect", 60.0),
                 ("map_coordinate_x", 60.0),
                 ("map_coordinate_y", 60.0),
-                ("unknown_4", 60.0),
+                ("ground_item_object_id", 60.0),
+                ("ground_item_object_id_padding", 80.0),
             ],
             Misc => &[
                 ("name", 160.0),
                 ("description", 160.0),
                 ("base_price", 60.0),
-                ("unknown_1", 320.0),
+                ("reserved_bytes", 320.0),
                 ("misc_item_id", 60.0),
                 ("map_coordinate_x", 60.0),
                 ("map_coordinate_y", 60.0),
-                ("unknown_7", 60.0),
+                ("ground_item_object_id", 60.0),
+                ("ground_item_object_id_padding", 80.0),
             ],
             Event => &[
                 ("name", 160.0),
@@ -354,7 +413,8 @@ impl MapsTableKind {
                 ("event_item_id", 60.0),
                 ("map_coordinate_x", 60.0),
                 ("map_coordinate_y", 60.0),
-                ("unknown_1", 60.0),
+                ("ground_item_object_id", 60.0),
+                ("ground_item_object_id_padding", 80.0),
             ],
         };
         defs.iter()
@@ -634,10 +694,8 @@ impl InventoryCategory {
                 ("padding6", 60.0),
                 ("padding7", 60.0),
                 ("padding8", 60.0),
-                ("unknown_1", 60.0),
-                ("unknown_2", 60.0),
-                ("unknown_3", 60.0),
-                ("unknown_4", 60.0),
+                ("item_category", 60.0),
+                ("inventory_instance_id", 90.0),
             ],
             InventoryCategory::Heal => &[
                 ("name", 160.0),
@@ -651,11 +709,10 @@ impl InventoryCategory {
                 ("poison_heal", 60.0),
                 ("petrif_heal", 60.0),
                 ("polimorph_heal", 60.0),
-                ("unknown_1", 60.0),
-                ("item_type_id", 60.0),
-                ("position_index", 60.0),
-                ("unknown_4", 60.0),
-                ("unknown_5", 60.0),
+                ("reserved_definition_byte", 100.0),
+                ("item_category", 70.0),
+                ("inventory_record_index", 100.0),
+                ("reserved_runtime_bytes", 120.0),
             ],
             InventoryCategory::Edit => &[
                 ("name", 160.0),
@@ -678,30 +735,28 @@ impl InventoryCategory {
                 ("unknown_3", 60.0),
                 ("modifies_item", 60.0),
                 ("additional_effect", 60.0),
-                ("item_type_id", 60.0),
-                ("unknown_5", 60.0),
-                ("unknown_6", 60.0),
+                ("item_category", 70.0),
+                ("item_category_padding", 110.0),
+                ("inventory_record_index", 100.0),
             ],
             InventoryCategory::Event => &[
                 ("name", 160.0),
                 ("description", 160.0),
                 ("base_price", 60.0),
                 ("event_item_id", 60.0),
-                ("item_type_id", 60.0),
-                ("unknown_3", 60.0),
-                ("unknown_4", 60.0),
+                ("item_category", 70.0),
+                ("item_category_padding", 110.0),
+                ("inventory_record_index", 100.0),
             ],
             InventoryCategory::Misc => &[
                 ("name", 160.0),
                 ("description", 160.0),
                 ("base_price", 60.0),
-                ("unknown_1", 320.0),
+                ("reserved_definition_bytes", 320.0),
                 ("misc_item_id", 60.0),
-                ("item_type_id", 60.0),
-                ("unknown_4", 60.0),
-                ("unknown_5", 60.0),
-                ("unknown_6", 60.0),
-                ("unknown_7", 60.0),
+                ("item_category", 70.0),
+                ("inventory_record_index", 100.0),
+                ("inventory_instance_id", 100.0),
             ],
         };
         defs.iter()
@@ -745,16 +800,20 @@ impl CharacterTableKind {
     /// `width_px` from the per-table state and `sort` from the active sort.
     pub fn default_columns(&self) -> Vec<TableColumn> {
         let labels: &[&str] = match self {
-            CharacterTableKind::Equipment => &["unknown_a", "unknown_b", "unknown_c"],
+            CharacterTableKind::Equipment => &[
+                "panel_slot_marker",
+                "weapon_catalog_index",
+                "weapon_inventory_instance_id",
+            ],
             CharacterTableKind::BeltPotions => {
-                &["unknown_a", "unknown_b", "unknown_c", "unknown_d"]
+                &["item_category", "item_catalog_index", "icon_x", "icon_y"]
             }
             CharacterTableKind::InventoryPlacement => &[
-                "unknown_a",
-                "unknown_b",
-                "unknown_c",
-                "unknown_d",
-                "unknown_e",
+                "item_category",
+                "item_catalog_index",
+                "icon_x",
+                "icon_y",
+                "item_instance_index",
             ],
         };
         labels
@@ -788,79 +847,31 @@ impl JournalSection {
         vec![
             TableColumn {
                 width_px: 40.0,
-                label: "#".into(),
+                label: "entry_index".into(),
                 sort: None,
                 has_filter: false,
             },
             TableColumn {
                 width_px: 200.0,
-                label: "Name".into(),
+                label: "quest_title".into(),
                 sort: None,
                 has_filter: false,
             },
             TableColumn {
                 width_px: 60.0,
-                label: "unknown_1".into(),
+                label: "quest_id".into(),
                 sort: None,
                 has_filter: false,
             },
             TableColumn {
                 width_px: 60.0,
-                label: "unknown_2".into(),
+                label: "follow_up_quest_id_1".into(),
                 sort: None,
                 has_filter: false,
             },
             TableColumn {
                 width_px: 60.0,
-                label: "unknown_2b".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "unknown_3".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "unknown_3c".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "unknown_4".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "unknown_4d".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "unknown_5".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "quest_scr_id".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "quest_scr_id_progress1".into(),
-                sort: None,
-                has_filter: false,
-            },
-            TableColumn {
-                width_px: 60.0,
-                label: "quest_scr_id_progress2".into(),
+                label: "follow_up_quest_id_2".into(),
                 sort: None,
                 has_filter: false,
             },
@@ -884,20 +895,38 @@ pub fn events_default_columns() -> Vec<TableColumn> {
             has_filter: false,
         },
         TableColumn {
-            width_px: 60.0,
-            label: "unknown_1".into(),
+            width_px: 100.0,
+            label: "required_event_id".into(),
             sort: None,
             has_filter: false,
         },
         TableColumn {
-            width_px: 60.0,
-            label: "unknown_2".into(),
+            width_px: 80.0,
+            label: "event_type".into(),
             sort: None,
             has_filter: false,
         },
         TableColumn {
             width_px: 400.0,
-            label: "script_name".into(),
+            label: "script_filename".into(),
+            sort: None,
+            has_filter: false,
+        },
+        TableColumn {
+            width_px: 100.0,
+            label: "execution_limit".into(),
+            sort: None,
+            has_filter: false,
+        },
+        TableColumn {
+            width_px: 100.0,
+            label: "execution_count".into(),
+            sort: None,
+            has_filter: false,
+        },
+        TableColumn {
+            width_px: 90.0,
+            label: "has_triggered".into(),
             sort: None,
             has_filter: false,
         },
@@ -915,106 +944,168 @@ pub enum InventoryCategory {
 
 pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
-    let mut hex_editors: Vec<RawHexEditorData> = vec![
+    let hex_editors: Vec<RawHexEditorData> = vec![
+        // RawHexEditorData {
+        //     label: "Equipped Equipment".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .equipped_equipment
+        //         .iter()
+        //         .flat_map(|s| {
+        //             let mut b = Vec::with_capacity(9);
+        //             b.push(s.panel_slot_marker);
+        //             b.extend_from_slice(&s.weapon_catalog_index.to_le_bytes());
+        //             b.extend_from_slice(&s.weapon_inventory_instance_id.to_le_bytes());
+        //             b
+        //         })
+        //         .collect::<Vec<_>>(),
+        // },
+        // RawHexEditorData {
+        //     label: "Belt Potions".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .belt_potions
+        //         .iter()
+        //         .flat_map(|s| {
+        //             let mut b = Vec::with_capacity(16);
+        //             b.extend_from_slice(&s.item_category.to_le_bytes());
+        //             b.extend_from_slice(&s.item_catalog_index.to_le_bytes());
+        //             b.extend_from_slice(&s.icon_x.to_le_bytes());
+        //             b.extend_from_slice(&s.icon_y.to_le_bytes());
+        //             b
+        //         })
+        //         .collect(),
+        // },
+        // RawHexEditorData {
+        //     label: "Inventory Placement".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .inventory_placement
+        //         .iter()
+        //         .flat_map(|e| {
+        //             let mut b = Vec::with_capacity(20);
+        //             b.extend_from_slice(&e.unknown_a.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_b.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_c.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_d.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_e.to_le_bytes());
+        //             b
+        //         })
+        //         .collect(),
+        // },
+        // RawHexEditorData {
+        //     label: "Character Stats Header".into(),
+        //     data: {
+        //         let header = &save_file.character;
+        //         let mut bytes = Vec::with_capacity(24);
+        //         bytes.push(header.unknown_a);
+        //         bytes.extend_from_slice(&header.unknown_b.to_le_bytes());
+        //         bytes.extend_from_slice(&header.unknown_block);
+        //         bytes
+        //     },
+        // },
+        // RawHexEditorData {
+        //     label: "character_identity.unknown_00".into(),
+        //     data: save_file.character_identity.unknown_00.clone(),
+        // },
+        // RawHexEditorData {
+        //     label: "character_identity.unknown_02".into(),
+        //     data: save_file.character_identity.unknown_02.clone(),
+        // },
         RawHexEditorData {
-            label: "Equipped Equipment",
-            data: save_file
-                .character_identity
-                .equipped_equipment
-                .iter()
-                .flat_map(|s| {
-                    let mut b = Vec::with_capacity(9);
-                    b.push(s.unknown_a);
-                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
-                    b
-                })
-                .collect::<Vec<_>>(),
+            label: "post_events.shake_active".into(),
+            data: save_file.post_events.shake_active.to_le_bytes().to_vec(),
         },
         RawHexEditorData {
-            label: "Belt Potions",
+            label: "post_events.shake_frames_remaining".into(),
             data: save_file
-                .character_identity
-                .belt_potions
+                .post_events
+                .shake_frames_remaining
+                .to_le_bytes()
+                .to_vec(),
+        },
+        RawHexEditorData {
+            label: "post_events.walk_milestones".into(),
+            data: save_file
+                .post_events
+                .walk_milestones
                 .iter()
-                .flat_map(|s| {
-                    let mut b = Vec::with_capacity(16);
-                    b.extend_from_slice(&s.unknown_a.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_d.to_le_bytes());
-                    b
+                .flat_map(|record| {
+                    let mut bytes = Vec::with_capacity(24);
+                    bytes.extend_from_slice(&record.id.to_le_bytes());
+                    bytes.extend_from_slice(&record.direction.to_le_bytes());
+                    bytes.extend_from_slice(&record.state.to_le_bytes());
+                    bytes.extend_from_slice(&record.walk_type.to_le_bytes());
+                    bytes.extend_from_slice(&record.x.to_le_bytes());
+                    bytes.extend_from_slice(&record.y.to_le_bytes());
+                    bytes
                 })
                 .collect(),
         },
         RawHexEditorData {
-            label: "Inventory Placement",
+            label: "post_events.walk_completions".into(),
             data: save_file
-                .character_identity
-                .inventory_placement
+                .post_events
+                .walk_completions
                 .iter()
-                .flat_map(|e| {
-                    let mut b = Vec::with_capacity(20);
-                    b.extend_from_slice(&e.unknown_a.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_c.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_d.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_e.to_le_bytes());
-                    b
+                .flat_map(|record| {
+                    let mut bytes = Vec::with_capacity(24);
+                    bytes.extend_from_slice(&record.id.to_le_bytes());
+                    bytes.extend_from_slice(&record.direction.to_le_bytes());
+                    bytes.extend_from_slice(&record.diagonal.to_le_bytes());
+                    bytes.extend_from_slice(&record.character_index.to_le_bytes());
+                    bytes.extend_from_slice(&record.x.to_le_bytes());
+                    bytes.extend_from_slice(&record.y.to_le_bytes());
+                    bytes
                 })
                 .collect(),
         },
         RawHexEditorData {
-            label: "Learned Spells",
-            data: save_file.character_identity.learned_spells.spells.clone(),
+            label: "post_events.recruitable_companion_world_presence".into(),
+            data: save_file
+                .post_events
+                .recruitable_companion_world_presence
+                .iter()
+                .flat_map(|flag| flag.to_le_bytes())
+                .collect(),
         },
         RawHexEditorData {
-            label: "Belt Data (before stats) - A",
-            data: save_file.unknown_before_stats_a.clone(),
-        },
-        RawHexEditorData {
-            label: "Belt Data (before stats) - B",
-            data: save_file.unknown_before_stats_b.clone(),
-        },
-        RawHexEditorData {
-            label: "Unknown After Stats",
-            data: save_file.unknown_after_stats.clone(),
-        },
-        RawHexEditorData {
-            label: "Post-Maps unknown remainder",
-            data: save_file.post_maps.unknown_block.clone(),
-        },
-        RawHexEditorData {
-            label: "Post-Events Block A",
-            data: save_file.post_events.block_a.clone(),
-        },
-        RawHexEditorData {
-            label: "Post-Events Records",
-            data: save_file.post_events.records.clone(),
-        },
-        RawHexEditorData {
-            label: "Post-Events Block B",
-            data: save_file.post_events.block_b.clone(),
-        },
-        RawHexEditorData {
-            label: "Identity Unknown Block",
-            data: save_file.character_identity.unknown_block.clone(),
+            label: "post_events.dismissed_companion_progression".into(),
+            data: save_file
+                .post_events
+                .dismissed_companion_progression
+                .iter()
+                .flat_map(|progression| {
+                    [
+                        progression.is_saved,
+                        progression.companion_level,
+                        progression.player_level,
+                    ]
+                })
+                .collect(),
         },
     ];
 
-    if let Some(member) = save_file.character_identity.party_members.first() {
-        hex_editors.push(RawHexEditorData {
-            label: "Party Member (1)",
-            data: member.unknown_1.clone(),
-        })
-    }
-
-    if let Some(member) = save_file.character_identity.party_members.get(1) {
-        hex_editors.push(RawHexEditorData {
-            label: "Party Member (2)",
-            data: member.unknown_1.clone(),
-        })
-    }
+    // for map in &save_file.maps {
+    //     let trailer = &map.extra_objects_trailer;
+    //     // `tail_size` (4 bytes) plus the seven-byte trailer header; the five
+    //     // ground-item sections are exposed separately below.
+    //     let mut data = Vec::with_capacity(4 + 7 + trailer.records.len() * 24);
+    //     data.extend_from_slice(&trailer.tail_size.to_le_bytes());
+    //     data.extend_from_slice(&(trailer.records.len() as u16).to_le_bytes());
+    //     for record in &trailer.records {
+    //         record
+    //             .write(&mut data)
+    //             .expect("writing a trailer record to memory cannot fail");
+    //     }
+    //     data.push(trailer.automatic_placement_active);
+    //     data.extend_from_slice(&trailer.automatic_placement_value.to_le_bytes());
+    //     data.extend_from_slice(&trailer.automatic_placement_global_item_index.to_le_bytes());
+    //     hex_editors.push(RawHexEditorData {
+    //         label: format!("Map {} Extra-Object Trailer", map.map_id),
+    //         data,
+    //     });
+    // }
 
     hex_editors
 }

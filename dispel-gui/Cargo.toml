@@ -1,6 +1,6 @@
 [package]
 name = "dispel-gui"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2024"
 
 [dependencies]
@@ -45,7 +45,7 @@ objc2-foundation = { version = "0.3", features = ["std", "NSString", "NSGeometry
 
 [features]
 default = []
-iced_test = ["dep:iced_test"]
+iced_test = ["dep:iced_test", "iced/tiny-skia"]
 debug = ["iced/hot"]
 
 [dependencies.rusqlite]

@@ -32,7 +32,7 @@ pub struct PreviewEntity {
     /// False when the mapping is speculative (monsters, extras).
     pub confirmed: bool,
     /// Entity DB ID for sprite lookup (monster_db_id for monsters,
-    /// npc_ini_id for NPCs, extra_ini_id for Extra objects).
+    /// npc_ini_id for NPCs, extra_definition_id for Extra objects).
     /// None for draw items (no sprite).
     pub db_id: Option<i32>,
     /// True when the entity is dead (e.g. monster with hp_current == 0).
@@ -64,6 +64,7 @@ pub enum PreviewLayer {
     Npcs,
     Extras,
     DrawItems,
+    SavedViewport,
 }
 
 // ── Preview state ─────────────────────────────────────────────────────────────
@@ -86,6 +87,11 @@ pub struct MapPreviewState {
     pub view: MapViewState,
     /// Precomputed entity marker positions from save file data.
     pub entity_markers: Vec<PreviewEntity>,
+    /// Cached map cells from the save's current isometric viewport. These are
+    /// attached only when this preview is for the save's active map.
+    pub saved_viewport_cells: Vec<dispel_core::MapViewportCell>,
+    /// Whether to highlight the map cells cached by the saved viewport.
+    pub show_saved_viewport: bool,
     /// Game path for the workspace (needed for loading).
     pub game_path: Option<PathBuf>,
     /// The map filename stem (e.g. "cat1") for the current preview.
@@ -112,6 +118,8 @@ impl Default for MapPreviewState {
             diagonal: 0,
             view: MapViewState::default(),
             entity_markers: Vec::new(),
+            saved_viewport_cells: Vec::new(),
+            show_saved_viewport: true,
             game_path: None,
             map_stem: None,
             entity_sprites: Vec::new(),

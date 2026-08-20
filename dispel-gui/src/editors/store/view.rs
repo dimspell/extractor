@@ -203,11 +203,11 @@ fn store_details_pane<'a>(editor: &'a StoreEditorState) -> Element<'a, Message> 
                         .into()
                 ),
                 field_row(
-                    "Unknown №",
-                    text_input("", &editor.edit_some_unknown_number)
+                    "Price Modifier (%)",
+                    text_input("", &editor.edit_price_modifier)
                         .on_input(move |v| Message::store(StoreEditorMessage::FieldChanged(
                             idx,
-                            "some_unknown_number".to_string(),
+                            "price_modifier".to_string(),
                             v
                         )))
                         .padding(6)

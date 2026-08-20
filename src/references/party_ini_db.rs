@@ -28,12 +28,11 @@ use std::path::Path;
 /// +--------------------------------------+
 /// | [Record 1] - 28 bytes               |
 /// | - name: 20 bytes (UTF-8, null-pad) |
-/// | - unknown1: u8                       |
-/// | - unknown2: u8                       |
-/// | - unknown3: u8                       |
-/// | - unknown4: u8                       |
-/// | - unknown5: u16                      |
-/// | - unknown6: u16                      |
+/// | - reserved_0x14: u8                  |
+/// | - class_id: u8                       |
+/// | - starting_level: u8                 |
+/// | - pathfinding_mode: u8               |
+/// | - character_variant: u32             |
 /// +--------------------------------------+
 /// | [Record 2]                           |
 /// | ... (same structure) ...             |
@@ -45,13 +44,16 @@ use std::path::Path;
 /// # Field Categories
 ///
 /// - **Identification**: `name` (20 bytes, UTF-8, null-padded)
-/// - **Unknown Fields**: `unknown1-6` (need investigation)
+/// - **Character setup**: class, starting level, navigation mode, and variant
 ///
 /// # Special Values
 ///
 /// - `name`: 20 bytes max, null-padded (UTF-8)
-/// - `unknown1-4`: u8 fields, observed as 0
-/// - `unknown5-6`: u16 fields, observed as 0
+/// - `class_id`: Shipped values are 21 through 24; this selects class-specific
+///   runtime behavior and titles.
+/// - `pathfinding_mode`: Shipped value is 7; passed to map/path queries.
+/// - `character_variant`: Shipped values are 0 or 1; selects one of two variants
+///   for each class.
 ///
 /// # File Purpose
 ///
@@ -66,18 +68,23 @@ pub struct PartyIniNpc {
     #[extractor(string(encoding = "UTF-8", size = 20))]
     #[translatable(encoding = "WINDOWS_1250", max_bytes = 20)]
     pub name: String,
+    /// Reserved byte at offset `0x14`; zero in every shipped record.
     #[extractor(primitive(type = "u8"))]
-    pub unknown1: u8,
+    pub reserved_0x14: u8,
+    /// Character class identifier. Shipped values are 21–24.
+    /// TODO: Create an enum, which maps: 21 = Knight, 22 = Mage, 23 = Mage, 24 = Warrior.
     #[extractor(primitive(type = "u8"))]
-    pub unknown2: u8,
+    pub class_id: u8,
+    /// Initial level used when the party character is created.
     #[extractor(primitive(type = "u8"))]
-    pub unknown3: u8,
+    pub starting_level: u8,
+    /// Mode passed to the game's map/path queries; likely an eagerness to combat (range).
     #[extractor(primitive(type = "u8"))]
-    pub unknown4: u8,
-    #[extractor(primitive(type = "u16"))]
-    pub unknown5: u16,
-    #[extractor(primitive(type = "u16"))]
-    pub unknown6: u16,
+    pub pathfinding_mode: u8,
+    /// Class-specific variant selector. The game uses values 0 and 1 to choose
+    /// different title and level-up behavior for otherwise matching classes.
+    #[extractor(primitive(type = "u32"))]
+    pub character_variant: u32,
 }
 
 pub fn read_party_ini_db(source_path: &Path) -> std::io::Result<Vec<PartyIniNpc>> {
@@ -92,12 +99,11 @@ pub fn save_party_inis(conn: &mut Connection, npcs: &[PartyIniNpc]) -> DbResult<
             stmt.execute(params![
                 idx as i32,
                 npc.name,
-                npc.unknown1 as i32,
-                npc.unknown2 as i32,
-                npc.unknown3 as i32,
-                npc.unknown4 as i32,
-                npc.unknown5 as i32,
-                npc.unknown6 as i32,
+                npc.reserved_0x14 as i32,
+                npc.class_id as i32,
+                npc.starting_level as i32,
+                npc.pathfinding_mode as i32,
+                npc.character_variant as i64,
             ])?;
         }
     }
@@ -115,7 +121,7 @@ mod tests {
         let b = name.as_bytes();
         let n = b.len().min(19);
         buf[..n].copy_from_slice(&b[..n]);
-        // bytes 20-27 stay zero (unknown1-6)
+        // bytes 20-27 stay zero (configuration fields)
         buf
     }
 
@@ -161,5 +167,28 @@ mod tests {
         let mut out = Vec::new();
         PartyIniNpc::to_writer(&records, &mut out).unwrap();
         assert_eq!(out, data);
+    }
+
+    #[test]
+    fn parse_character_configuration_fields() {
+        let mut data = Vec::with_capacity(224);
+        let mut first = npc_record("Hero");
+        first[20] = 0;
+        first[21] = 23;
+        first[22] = 10;
+        first[23] = 7;
+        first[24..28].copy_from_slice(&1u32.to_le_bytes());
+        data.extend_from_slice(&first);
+        for _ in 1..8 {
+            data.extend_from_slice(&npc_record(""));
+        }
+
+        let mut c = Cursor::new(&data[..]);
+        let records = PartyIniNpc::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(records[0].reserved_0x14, 0);
+        assert_eq!(records[0].class_id, 23);
+        assert_eq!(records[0].starting_level, 10);
+        assert_eq!(records[0].pathfinding_mode, 7);
+        assert_eq!(records[0].character_variant, 1);
     }
 }

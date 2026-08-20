@@ -105,7 +105,7 @@ pub fn build_inspector<'a>(
                                     .size(11)
                                     .width(140.0)
                                     .style(style::subtle_text),
-                                text_input("0", &event_id_val)
+                                text_input("0", event_id_val)
                                     .on_input(move |v| {
                                         Message::map_editor(MapEditorMessage::EntityFieldChanged(
                                             tab_id,

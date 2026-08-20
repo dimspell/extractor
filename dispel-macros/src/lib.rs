@@ -3,6 +3,7 @@ use syn::{DeriveInput, parse_macro_input};
 
 mod binary_record_impl;
 mod extractor_impl;
+mod layout_impl;
 mod localizable_impl;
 mod record_patcher_impl;
 mod text_extractor_impl;
@@ -61,6 +62,13 @@ pub fn derive_binary_record(input: TokenStream) -> TokenStream {
 pub fn derive_extractor(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     extractor_impl::expand(input).into()
+}
+
+/// Generate static metadata for a fixed-size `Extractor` record.
+#[proc_macro_derive(RecordLayout, attributes(extractor))]
+pub fn derive_record_layout(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    layout_impl::derive_record_layout(&input).into()
 }
 
 /// Derive macro that generates an `Extractor` impl for text/CSV files.

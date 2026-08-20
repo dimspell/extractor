@@ -706,11 +706,11 @@ pub fn collect_external_entities(
         if let Ok(data) = MonsterRef::read_file(&p) {
             for m in data {
                 let sprite_path = monster_sprite_map
-                    .get(&m.mon_id)
+                    .get(&m.monster_db_id)
                     .map(|s| resolve("MonsterInGame", s));
                 monsters.push(EntityRenderInfo {
-                    x: m.pos_x,
-                    y: m.pos_y,
+                    x: m.map_x,
+                    y: m.map_y,
                     fallback_color: [220, 50, 50],
                     sprite_path,
                     sequence: 3,
@@ -737,14 +737,14 @@ pub fn collect_external_entities(
                     .map(|(_, x, y)| (*x, *y))
                     .unwrap_or((n.goto1_x, n.goto1_y));
 
-                let dir = i32::from(n.looking_direction);
+                let dir = i32::from(n.waypoint1_facing_direction);
                 let (seq, flip) = if dir > 4 {
                     ((8 - dir) as usize, true)
                 } else {
                     (dir as usize, false)
                 };
                 let sprite_path = npc_sprite_map
-                    .get(&n.npc_id)
+                    .get(&n.npc_ini_id)
                     .map(|s| resolve("NpcInGame", s));
 
                 npcs.push(EntityRenderInfo {
@@ -764,19 +764,20 @@ pub fn collect_external_entities(
         let p = resolve("ExtraInGame", &f);
         if let Ok(data) = ExtraRef::read_file(&p) {
             for e in data {
-                let rotation = e.rotation as i32;
+                let rotation = e.direction as i32;
                 let obj_type = u8::from(e.object_type) as i32;
                 let seq = if obj_type == 0 {
-                    (2 * i32::from(e.closed) + rotation) as usize
+                    // Chests use a separate sprite sequence after opening.
+                    (2 * e.interaction_state + rotation) as usize
                 } else {
                     rotation as usize
                 };
                 let sprite_path = extra_sprite_map
-                    .get(&(e.ext_id as i32))
+                    .get(&(e.extra_definition_id as i32))
                     .map(|s| resolve("ExtraInGame", s));
                 extras.push(EntityRenderInfo {
-                    x: e.x_pos,
-                    y: e.y_pos,
+                    x: e.map_x,
+                    y: e.map_y,
                     fallback_color: [200, 180, 30],
                     sprite_path,
                     sequence: seq,

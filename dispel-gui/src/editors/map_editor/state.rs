@@ -1,8 +1,10 @@
 use super::message::{MapDataHandle, SelectedEntity};
 use crate::components::loading_state::LoadingState;
 pub use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
+use dispel_core::references::dialogue_paragraph::DialogueParagraph;
+use dispel_core::references::dialogue_script::DialogueScript;
 use iced::widget::image::Handle;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 
 const MAX_MAP_HISTORY: usize = 100;
@@ -50,8 +52,68 @@ pub struct MapEditAction {
 /// Loaded dialog data for the NPC dialog preview modal.
 pub struct DialogPreviewState {
     pub npc_index: usize,
-    pub dialog_scripts: Vec<dispel_core::references::dialogue_script::DialogueScript>,
-    pub dialog_paragraphs: Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+    pub dialog_scripts: Vec<DialogueScript>,
+    pub dialog_paragraphs: Vec<DialogueParagraph>,
+}
+
+// ── Interactive conversation state ─────────────────────────────────────────────
+
+/// A single displayed line in the conversation.
+#[derive(Debug, Clone)]
+pub struct ConversationLine {
+    /// "NPC name" or "Player"
+    pub speaker: String,
+    /// Decoded PGP text (`$` → newlines)
+    pub text: String,
+    /// Whether this line was a choice option the player picked
+    pub is_choice: bool,
+    /// Whether this line is locked (event gate not satisfied)
+    pub locked: bool,
+    /// The event ID required to unlock this line (if locked)
+    pub locked_event_id: Option<i32>,
+    /// Whether this is a system/event notification (not a dialog line)
+    pub is_system: bool,
+}
+
+/// One selectable option in a choice dialog.
+#[derive(Debug, Clone)]
+pub struct ChoiceOption {
+    /// Label shown to the user ("A", "B", "C" or text preview)
+    pub label: String,
+    /// DLG node to follow if selected
+    pub target_node_id: i32,
+    /// Event to fire when this choice is taken
+    pub triggered_event_id: i32,
+}
+
+/// State for the interactive conversation display.
+///
+/// Walks the DLG graph sequentially, checking event gates and following
+/// branches, exactly as the game engine would.
+#[derive(Debug, Clone)]
+pub struct ConversationState {
+    /// Index of the NPC being conversed with.
+    pub npc_index: usize,
+    /// NPC display name (for speaker labels).
+    pub npc_name: String,
+    /// All DLG nodes for this map.
+    pub scripts: Vec<DialogueScript>,
+    /// All PGP paragraphs for this map.
+    pub paragraphs: Vec<DialogueParagraph>,
+    /// The NPC's entry dialog_id.
+    pub entry_dialog_id: i32,
+    /// Current DLG node id being displayed.
+    pub current_node_id: Option<i32>,
+    /// Conversation history.
+    pub history: Vec<ConversationLine>,
+    /// Events triggered during this conversation.
+    pub executed_events: HashSet<i32>,
+    /// Available choices (when current node is Choice type).
+    pub choices: Vec<ChoiceOption>,
+    /// Whether waiting for a click to advance (normal dialog).
+    pub waiting_for_advance: bool,
+    /// Conversation finished (no next node).
+    pub finished: bool,
 }
 
 // ── MapDataState ──────────────────────────────────────────────────────────────
@@ -83,7 +145,7 @@ pub struct MapDataState {
     pub npc_sprites: Vec<Option<EntitySpriteHandle>>,
     pub extra_sprites: Vec<Option<EntitySpriteHandle>>,
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
-    /// when the looking_direction field changes.
+    /// when the waypoint1_facing_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// Draw items (item placements from Ref/DRAWITEM.ref) for this map.
     pub draw_items: Vec<dispel_core::DrawItem>,
@@ -159,7 +221,7 @@ impl MapDataState {
         !self.is_saving && !self.is_exporting
     }
 
-    /// Recompute the sprite for NPC at `idx` based on its current `looking_direction`.
+    /// Recompute the sprite for NPC at `idx` from its waypoint 1 facing direction.
     ///
     /// Called after a direction field change so the canvas displays the new
     /// orientation without requiring a full entity reload.
@@ -169,12 +231,12 @@ impl MapDataState {
         let Some(npc) = self.npcs.get(idx) else {
             return;
         };
-        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_id) else {
+        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_ini_id) else {
             return;
         };
 
         // Direction → (sequence_index, flip) — same logic as load_entities().
-        let dir = i32::from(npc.looking_direction);
+        let dir = i32::from(npc.waypoint1_facing_direction);
         let (seq, flip) = if dir > 4 {
             ((8 - dir) as usize, true)
         } else {
@@ -330,9 +392,9 @@ impl MapRenderSource for MapEditorState {
         if idx < monster_count {
             let m = &self.data.monsters[idx];
             Some(EntityRenderData {
-                tile_x: m.pos_x,
-                tile_y: m.pos_y,
-                sort_key: entity_pos(m.pos_x, m.pos_y),
+                tile_x: m.map_x,
+                tile_y: m.map_y,
+                sort_key: entity_pos(m.map_x, m.map_y),
                 sprite: self.data.monster_sprites.get(idx)?.as_ref(),
                 kind: EntityKind::Monster,
                 visible: self.view.show_monsters,
@@ -353,9 +415,9 @@ impl MapRenderSource for MapEditorState {
             let extra_idx = idx - monster_count - npc_count;
             let e = &self.data.extra_refs[extra_idx];
             Some(EntityRenderData {
-                tile_x: e.x_pos,
-                tile_y: e.y_pos,
-                sort_key: entity_pos(e.x_pos, e.y_pos),
+                tile_x: e.map_x,
+                tile_y: e.map_y,
+                sort_key: entity_pos(e.map_x, e.map_y),
                 sprite: self.data.extra_sprites.get(extra_idx)?.as_ref(),
                 kind: EntityKind::Extra,
                 visible: self.view.show_objects,

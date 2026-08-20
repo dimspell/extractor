@@ -616,25 +616,25 @@ impl std::fmt::Display for ExtraObjectType {
     }
 }
 
-/// Visibility types for map objects
+/// Activation-effect indices for interactive map objects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[derive(Default)]
-pub enum VisibilityType {
+pub enum ActivationEffectId {
     #[default]
-    Visible0 = 0,
-    Visible10 = 10,
-    /// Unknown visibility type
+    None = 0,
+    Effect10 = 10,
+    /// An activation-effect index not yet identified.
     Unknown = 255,
 }
 
-impl VisibilityType {
+impl ActivationEffectId {
     /// Convert from a variant name string
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
-            "Visible0" => Some(VisibilityType::Visible0),
-            "Visible10" => Some(VisibilityType::Visible10),
-            "Unknown" => Some(VisibilityType::Unknown),
+            "None" => Some(ActivationEffectId::None),
+            "Effect10" => Some(ActivationEffectId::Effect10),
+            "Unknown" => Some(ActivationEffectId::Unknown),
             _ => None,
         }
     }
@@ -642,9 +642,9 @@ impl VisibilityType {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(VisibilityType::Visible0),
-            10 => Some(VisibilityType::Visible10),
-            _ => Some(VisibilityType::Unknown),
+            0 => Some(ActivationEffectId::None),
+            10 => Some(ActivationEffectId::Effect10),
+            _ => Some(ActivationEffectId::Unknown),
         }
     }
 
@@ -654,26 +654,26 @@ impl VisibilityType {
     }
 }
 
-impl TryFrom<u8> for VisibilityType {
+impl TryFrom<u8> for ActivationEffectId {
     type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        VisibilityType::from_u8(value).ok_or("Invalid visibility type value")
+        ActivationEffectId::from_u8(value).ok_or("Invalid activation effect ID")
     }
 }
 
-impl From<VisibilityType> for u8 {
-    fn from(visibility: VisibilityType) -> Self {
-        visibility.value()
+impl From<ActivationEffectId> for u8 {
+    fn from(effect_id: ActivationEffectId) -> Self {
+        effect_id.value()
     }
 }
 
-impl std::fmt::Display for VisibilityType {
+impl std::fmt::Display for ActivationEffectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VisibilityType::Visible0 => write!(f, "Visible0"),
-            VisibilityType::Visible10 => write!(f, "Visible10"),
-            VisibilityType::Unknown => write!(f, "Unknown"),
+            ActivationEffectId::None => write!(f, "None"),
+            ActivationEffectId::Effect10 => write!(f, "Effect10"),
+            ActivationEffectId::Unknown => write!(f, "Unknown"),
         }
     }
 }
@@ -953,6 +953,90 @@ impl std::fmt::Display for Unknown012 {
 impl From<Unknown012> for i32 {
     fn from(value: Unknown012) -> Self {
         value as i32
+    }
+}
+
+/// NPC movement pattern stored in an NPC placement record.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcMovementMode {
+    #[default]
+    Static = 0,
+    Waypoints = 1,
+    RandomInActivationRect = 2,
+}
+
+impl NpcMovementMode {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Static),
+            1 => Some(Self::Waypoints),
+            2 => Some(Self::RandomInActivationRect),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Static" => Some(Self::Static),
+            "Waypoints" => Some(Self::Waypoints),
+            "RandomInActivationRect" => Some(Self::RandomInActivationRect),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcMovementMode> for i32 {
+    fn from(value: NpcMovementMode) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcMovementMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+/// Selects the NPC's special interaction-result behavior.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcInteractionMode {
+    #[default]
+    Default = 0,
+    RandomResult = 1,
+    ConfiguredThenRandom = 2,
+}
+
+impl NpcInteractionMode {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Default),
+            1 => Some(Self::RandomResult),
+            2 => Some(Self::ConfiguredThenRandom),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Default" => Some(Self::Default),
+            "RandomResult" => Some(Self::RandomResult),
+            "ConfiguredThenRandom" => Some(Self::ConfiguredThenRandom),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcInteractionMode> for i32 {
+    fn from(value: NpcInteractionMode) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcInteractionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -1367,22 +1451,22 @@ impl From<SpecialPatternFlag> for i32 {
     }
 }
 
-/// Healing item flags for restoration effects
+/// Enable flags for individual healing-item effects.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum HealItemFlag {
     /// No effect
     #[default]
     None = 0,
-    /// Full restoration effect
-    FullRestoration = 1,
+    /// The associated healing or cure effect is active.
+    Active = 1,
 }
 
 impl std::fmt::Display for HealItemFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             HealItemFlag::None => write!(f, "None"),
-            HealItemFlag::FullRestoration => write!(f, "Full Restoration"),
+            HealItemFlag::Active => write!(f, "Active"),
         }
     }
 }
@@ -1392,7 +1476,7 @@ impl HealItemFlag {
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(HealItemFlag::None),
-            1 => Some(HealItemFlag::FullRestoration),
+            1 => Some(HealItemFlag::Active),
             _ => None,
         }
     }
@@ -1406,7 +1490,9 @@ impl HealItemFlag {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "None" => Some(HealItemFlag::None),
-            "FullRestoration" | "Full Restoration" => Some(HealItemFlag::FullRestoration),
+            "Active" | "Enabled" | "FullRestoration" | "Full Restoration" => {
+                Some(HealItemFlag::Active)
+            }
             _ => None,
         }
     }
@@ -1428,52 +1514,43 @@ impl From<HealItemFlag> for u8 {
 
 impl From<HealItemFlag> for bool {
     fn from(flag: HealItemFlag) -> Self {
-        flag == HealItemFlag::FullRestoration
+        flag == HealItemFlag::Active
     }
 }
 
 impl From<bool> for HealItemFlag {
     fn from(value: bool) -> Self {
         if value {
-            HealItemFlag::FullRestoration
+            HealItemFlag::Active
         } else {
             HealItemFlag::None
         }
     }
 }
 
-/// Magic school types for spell classification
+/// Magic type classification for spells.
+///
+/// Each spell belongs to one of three types. The player's proficiency in a
+/// type rises as they cast spells of that type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
-pub enum MagicSchool {
-    /// Unknown or unclassified magic school
+pub enum MagicType {
+    /// Normal magic (healing, basic spells)
     #[default]
-    Unknown = 0,
-    /// School 1 (specific type unknown)
-    School1 = 1,
-    /// School 2 (specific type unknown)
-    School2 = 2,
-    /// School 3 (specific type unknown)
-    School3 = 3,
-    /// School 4 (specific type unknown)
-    School4 = 4,
-    /// School 5 (specific type unknown)
-    School5 = 5,
-    /// School 6 (specific type unknown)
-    School6 = 6,
+    Magic = 0,
+    /// Light/Holy magic (protection, buffs)
+    LightMagic = 1,
+    /// Black magic (poison, curses)
+    BlackMagic = 2,
 }
 
-impl MagicSchool {
+impl MagicType {
     /// Convert from u32 with validation
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
-            0 => Some(MagicSchool::Unknown),
-            1 => Some(MagicSchool::School1),
-            2 => Some(MagicSchool::School2),
-            3 => Some(MagicSchool::School3),
-            4 => Some(MagicSchool::School4),
-            5 => Some(MagicSchool::School5),
-            6 => Some(MagicSchool::School6),
+            0 => Some(MagicType::Magic),
+            1 => Some(MagicType::LightMagic),
+            2 => Some(MagicType::BlackMagic),
             _ => None,
         }
     }
@@ -1486,29 +1563,25 @@ impl MagicSchool {
     /// Convert from display name
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
-            "Unknown" => Some(MagicSchool::Unknown),
-            "School1" => Some(MagicSchool::School1),
-            "School2" => Some(MagicSchool::School2),
-            "School3" => Some(MagicSchool::School3),
-            "School4" => Some(MagicSchool::School4),
-            "School5" => Some(MagicSchool::School5),
-            "School6" => Some(MagicSchool::School6),
+            "Magic" => Some(MagicType::Magic),
+            "LightMagic" => Some(MagicType::LightMagic),
+            "BlackMagic" => Some(MagicType::BlackMagic),
             _ => None,
         }
     }
 }
 
-impl TryFrom<u32> for MagicSchool {
+impl TryFrom<u32> for MagicType {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        MagicSchool::from_u32(value).ok_or("Invalid magic school value")
+        MagicType::from_u32(value).ok_or("Invalid magic type value")
     }
 }
 
-impl From<MagicSchool> for u32 {
-    fn from(school: MagicSchool) -> Self {
-        school.value()
+impl From<MagicType> for u32 {
+    fn from(magic_type: MagicType) -> Self {
+        magic_type.value()
     }
 }
 
@@ -1817,52 +1890,6 @@ impl From<PartyRootMapId> for i32 {
     }
 }
 
-/// Ghost face identifiers for party members
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum GhostFaceId {
-    /// No ghost face/unknown
-    #[default]
-    None = 0,
-}
-
-impl GhostFaceId {
-    /// Convert from i32 with validation
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(GhostFaceId::None),
-            _ => None,
-        }
-    }
-
-    /// Get the numeric value
-    pub fn value(&self) -> i32 {
-        *self as i32
-    }
-}
-
-impl std::fmt::Display for GhostFaceId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GhostFaceId::None => write!(f, "None"),
-        }
-    }
-}
-
-impl TryFrom<i32> for GhostFaceId {
-    type Error = &'static str;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        GhostFaceId::from_i32(value).ok_or("Invalid ghost face ID value")
-    }
-}
-
-impl From<GhostFaceId> for i32 {
-    fn from(face_id: GhostFaceId) -> Self {
-        face_id.value()
-    }
-}
-
 /// Product types for store inventory items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -2080,13 +2107,22 @@ mod tests {
     }
 
     #[test]
-    fn test_visibility_type_conversion() {
-        assert_eq!(VisibilityType::from_u8(0), Some(VisibilityType::Visible0));
-        assert_eq!(VisibilityType::from_u8(10), Some(VisibilityType::Visible10));
-        assert_eq!(VisibilityType::from_u8(99), Some(VisibilityType::Unknown));
+    fn test_activation_effect_id_conversion() {
+        assert_eq!(
+            ActivationEffectId::from_u8(0),
+            Some(ActivationEffectId::None)
+        );
+        assert_eq!(
+            ActivationEffectId::from_u8(10),
+            Some(ActivationEffectId::Effect10)
+        );
+        assert_eq!(
+            ActivationEffectId::from_u8(99),
+            Some(ActivationEffectId::Unknown)
+        );
 
-        assert_eq!(u8::from(VisibilityType::Visible10), 10);
-        assert_eq!(VisibilityType::Visible10.value(), 10);
+        assert_eq!(u8::from(ActivationEffectId::Effect10), 10);
+        assert_eq!(ActivationEffectId::Effect10.value(), 10);
     }
 
     #[test]
@@ -2105,31 +2141,29 @@ mod tests {
     #[test]
     fn test_heal_item_flag_conversion() {
         assert_eq!(HealItemFlag::from_u8(0), Some(HealItemFlag::None));
-        assert_eq!(
-            HealItemFlag::from_u8(1),
-            Some(HealItemFlag::FullRestoration)
-        );
+        assert_eq!(HealItemFlag::from_u8(1), Some(HealItemFlag::Active));
         assert_eq!(HealItemFlag::from_u8(99), None);
 
-        assert_eq!(u8::from(HealItemFlag::FullRestoration), 1);
-        assert_eq!(HealItemFlag::FullRestoration.value(), 1);
-        assert!(bool::from(HealItemFlag::FullRestoration));
-        assert_eq!(HealItemFlag::from(true), HealItemFlag::FullRestoration);
+        assert_eq!(u8::from(HealItemFlag::Active), 1);
+        assert_eq!(HealItemFlag::Active.value(), 1);
+        assert!(bool::from(HealItemFlag::Active));
+        assert_eq!(HealItemFlag::from(true), HealItemFlag::Active);
     }
 
     #[test]
-    fn test_magic_school_conversion() {
-        assert_eq!(MagicSchool::from_u32(0), Some(MagicSchool::Unknown));
-        assert_eq!(MagicSchool::from_u32(1), Some(MagicSchool::School1));
-        assert_eq!(MagicSchool::from_u32(2), Some(MagicSchool::School2));
-        assert_eq!(MagicSchool::from_u32(3), Some(MagicSchool::School3));
-        assert_eq!(MagicSchool::from_u32(4), Some(MagicSchool::School4));
-        assert_eq!(MagicSchool::from_u32(5), Some(MagicSchool::School5));
-        assert_eq!(MagicSchool::from_u32(6), Some(MagicSchool::School6));
-        assert_eq!(MagicSchool::from_u32(99), None);
+    fn test_magic_type_conversion() {
+        assert_eq!(MagicType::from_u32(0), Some(MagicType::Magic));
+        assert_eq!(MagicType::from_u32(1), Some(MagicType::LightMagic));
+        assert_eq!(MagicType::from_u32(2), Some(MagicType::BlackMagic));
+        assert_eq!(MagicType::from_u32(3), None);
+        assert_eq!(MagicType::from_u32(99), None);
 
-        assert_eq!(u32::from(MagicSchool::School6), 6);
-        assert_eq!(MagicSchool::School6.value(), 6);
+        assert_eq!(u32::from(MagicType::BlackMagic), 2);
+        assert_eq!(MagicType::BlackMagic.value(), 2);
+        assert_eq!(
+            MagicType::from_name("LightMagic"),
+            Some(MagicType::LightMagic)
+        );
     }
 
     #[test]
@@ -2222,14 +2256,5 @@ mod tests {
 
         assert_eq!(i32::from(NpcLookingDirection::UpLeft), 7);
         assert_eq!(NpcLookingDirection::UpLeft.value(), 7);
-    }
-
-    #[test]
-    fn test_ghost_face_id_conversion() {
-        assert_eq!(GhostFaceId::from_i32(0), Some(GhostFaceId::None));
-        assert_eq!(GhostFaceId::from_i32(99), None);
-
-        assert_eq!(i32::from(GhostFaceId::None), 0);
-        assert_eq!(GhostFaceId::None.value(), 0);
     }
 }

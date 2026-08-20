@@ -8,6 +8,8 @@ pub mod localization;
 pub mod map;
 pub mod modding;
 pub mod references;
+
+pub use references::layout::{FieldDef, FixedRecordLayout, RecordLayout};
 pub mod snf;
 pub mod sprite;
 
@@ -47,8 +49,8 @@ pub use references::{
     party_ref::PartyRef,
     quest_scr::Quest,
     save_file::{
-        CharacterIdentity, CharacterStats, InventoryData, JournalData, JournalEntry,
-        MapSectionData, PostEventsData, PostMapsData, SaveFile,
+        CharacterIdentity, InventoryData, JournalData, JournalEntry, MapSectionData,
+        MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
     },
     store_db::Store,
     wave_ini::WaveIni,

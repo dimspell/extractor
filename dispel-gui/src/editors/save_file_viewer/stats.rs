@@ -12,7 +12,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         None => return container(text("No save file loaded")).into(),
     };
 
-    let s = &sf.character_stats;
+    let s = &sf.character;
 
     scrollable(
         Column::new()

@@ -2,6 +2,21 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use dispel_core::references::dialogue_paragraph::DialogueParagraph;
+use dispel_core::references::dialogue_script::DialogueScript;
+
+/// Async result type for conversation data loading.
+pub type ConversationLoadResult = Result<
+    (
+        usize,
+        String,
+        i32,
+        Vec<DialogueScript>,
+        Vec<DialogueParagraph>,
+    ),
+    String,
+>;
+
 /// Clonable, debuggable handle for the non-Debug `MapData` type.
 #[derive(Clone)]
 pub struct MapDataHandle(pub Arc<dispel_core::map::MapData>);
@@ -74,7 +89,7 @@ pub struct EntityBundle {
     pub npc_ref_path: Option<PathBuf>,
     pub extra_ref_path: Option<PathBuf>,
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
-    /// when the looking_direction field changes.
+    /// when the waypoint1_facing_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// The current map's AllMap.ini ID (for DrawItem filter/save).
     /// `None` if the map isn't listed in AllMap.ini.
@@ -175,6 +190,18 @@ pub enum MapEditorMessage {
     ),
     /// Close the dialog preview modal.
     HideDialogPreview(usize),
+    /// Start an interactive conversation with the selected NPC.
+    StartConversation(usize, usize),
+    /// Advance the conversation (click to continue for normal dialogs).
+    AdvanceConversation(usize),
+    /// Select a choice option in a choice dialog.
+    SelectChoice(usize, usize),
+    /// Reset the conversation to the beginning.
+    ResetConversation(usize),
+    /// Close the conversation display.
+    CloseConversation(usize),
+    /// Async conversation data loaded (when dialog_preview wasn't available).
+    ConversationLoaded(usize, ConversationLoadResult),
     /// Export the map to Tiled TMX format.
     ExportTmx(usize),
     /// Async TMX export completed. Ok carries the output path; Err the error.

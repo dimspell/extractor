@@ -1,132 +1,37 @@
-# PrtLevel.db - Character Progression Database
+# PrtLevel.db
 
-## File Information
-- **Location**: `NpcInGame/PrtLevel.db`
-- **Format**: Binary (Little-Endian)
-- **Record Size**: 36 bytes per level
-- **Total Size**: 5760 bytes (8 NPCs × 20 levels × 36 bytes)
-- **No Header**: Direct data structure
+`NpcInGame/PrtLevel.db` contains eight party-member progression tables, each
+with 20 levels. It has no header: the game reads level `n` of party slot `s`
+at `s * 0x2d0 + (n - 1) * 0x24`.
 
-## File Structure
+Each entry is 36 bytes (`0x24`).
 
-### Overall Structure
-- 8 NPC slots (party size limit)
-- 20 levels per NPC (levels 1-20)
-- 36 bytes per level record
-- Total: 8 × 20 × 36 = 5760 bytes
+| Offset | Size | Type | Field | Meaning |
+|---:|---:|---|---|---|
+| `0x00` | 1 | u8 | `magic_spell_id_1` | First magic-spell ID (`0xff` = absent) |
+| `0x01` | 1 | u8 | `magic_spell_id_2` | Second magic-spell ID |
+| `0x02` | 1 | u8 | `magic_spell_id_3` | Third magic-spell ID |
+| `0x03` | 1 | u8 | `reserved_0x03` | Alignment byte |
+| `0x04` | 4 | u32 | `strength` | Strength |
+| `0x08` | 4 | u32 | `constitution` | Constitution |
+| `0x0c` | 4 | u32 | `wisdom` | Wisdom |
+| `0x10` | 2 | u16 | `health_points` | Maximum HP |
+| `0x12` | 2 | u16 | `mana_points` | Maximum MP |
+| `0x14` | 1 | u8 | `agility` | Agility |
+| `0x15` | 3 | u8 | `reserved_0x15..17` | Reserved bytes |
+| `0x18` | 1 | u8 | `attack` | Attack-related stat |
+| `0x19` | 3 | u8 | `reserved_0x19..1b` | Reserved bytes |
+| `0x1c` | 4 | u32 | `weapon_skill_level` | Party member's shared weapon proficiency |
+| `0x20` | 4 | u32 | `tactical_action_chance` | Percentage threshold for a level-10+ tactical action |
 
-### Level Record Structure (36 bytes)
-- `sentinel`: u32 (4 bytes) - Record marker (typically 0)
-- `strength`: u32 (4 bytes) - Physical damage output
-- `constitution`: u32 (4 bytes) - Health point scaling
-- `wisdom`: u32 (4 bytes) - Mana point scaling
-- `health_points`: u16 (2 bytes) - Base health points
-- `mana_points`: u16 (2 bytes) - Base mana points
-- `agility`: u32 (4 bytes) - Evasion and speed
-- `attack`: u32 (4 bytes) - Combat accuracy
-- `mana_recharge`: u32 (4 bytes) - Mana regeneration rate
-- `defense`: u16 (2 bytes) - Damage resistance
-- `padding`: u16 (2 bytes) - Null byte padding
+The first three bytes were previously misidentified as a sentinel. They are
+magic-spell references copied into runtime state. All
+reserved bytes are preserved verbatim by the parser.
 
-## Stat Growth Patterns
+`weapon_skill_level` is not MP recharge: the game uses it in the same generic
+weapon calculations that select one of the player's weapon-skill levels.
+`tactical_action_chance` is not defence: it is compared to a random value from
+0 to 99 before changing the party member's tactical action state.
 
-### Strength
-- Physical damage output
-- Affects melee attack power
-- Scales with weapon damage
-
-### Constitution
-- Health point scaling
-- Determines maximum HP
-- Affects survivability
-
-### Wisdom
-- Mana point scaling
-- Determines maximum MP
-- Affects spellcasting capacity
-
-### Agility
-- Evasion and speed
-- Affects dodge chance
-- Influences attack speed
-
-### Attack
-- Combat accuracy
-- Affects hit chance
-- Influences critical hit rate
-
-### Defense
-- Damage resistance
-- Reduces incoming damage
-- Affects armor effectiveness
-
-### Mana Recharge
-- Mana regeneration rate
-- Affects MP recovery speed
-- Influences sustained spellcasting
-
-## Level Ranges
-- **Levels 1-20**: Standard progression path
-- Each level adds fixed stat increases
-- Growth curves vary by character class
-- Linear progression within each NPC slot
-
-## Special Values
-- `sentinel = 0`: Standard record marker
-- Fixed 20 levels per NPC
-- 8 NPC slots (party size limit)
-- 5760-byte total file size
-- Null byte padding at end of each record
-
-## File Purpose
-Defines character progression statistics for levels 1-20, used for:
-- Level-up calculations
-- Stat growth and development
-- Character balancing
-- Game difficulty scaling
-- Party composition planning
-
-## Implementation
-- **Rust Module**: `src/references/party_level_db.rs`
-- **Extractor**: `PartyLevelNpc` struct implementing `Extractor` trait
-- **Data Structures**:
-  - `PartyLevelNpc` - NPC progression data
-  - `PartyLevelRecord` - Individual level statistics
-- **Database**: Saved to SQLite via `save_party_levels` function
-
-## Example Usage
-
-### Extract and display progression data:
-```bash
-cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
-```
-
-### Import to database:
-```bash
-cargo run -- database import "fixtures/Dispel"
-```
-
-## Progression System
-- **Linear Growth**: Stats increase predictably with each level
-- **Class Specialization**: Each NPC slot has unique stat priorities
-- **Balanced Design**: Different classes excel in different areas
-- **Level Cap**: Maximum level 20 for all characters
-
-## Related Files
-- `PrtIni.db` - Party initialization data
-- `Npc.ini` - NPC definitions
-- Character sprite files (`.spr`)
-
-## Extractor
-
-An extractor is available in `src/references/party_level_db.rs` to parse this file format.
-
-### How to Run
-
-```bash
-# Extract PrtLevel.db to JSON
-cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
-
-# Import to SQLite database
-cargo run -- database import "fixtures/Dispel/" "database.sqlite"
-```
+DISPEL® is a registered trademark. This project is not affiliated with,
+endorsed by, or sponsored by the trademark owner.

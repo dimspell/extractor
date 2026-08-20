@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS stores
     id                  INTEGER PRIMARY KEY,
     store_name          INTEGER,
     inn_night_cost      INTEGER,
-    some_unknown_number INTEGER,
+    price_modifier INTEGER,
     invitation          TEXT,
     haggle_success      TEXT,
     haggle_fail         TEXT

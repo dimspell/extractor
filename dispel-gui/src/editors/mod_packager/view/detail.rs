@@ -72,7 +72,7 @@ fn placeholder() -> Element<'static, Message> {
 }
 
 fn manifest_form(state: &super::super::state::ModPackagerState) -> Element<'_, Message> {
-    let labelled = |label: &'static str, value: &str, msg: fn(String) -> ModPackagerMessage| {
+    let labelled = |label: &'static str, value: String, msg: fn(String) -> ModPackagerMessage| {
         let input = text_input("", value)
             .on_input(move |v| Message::mod_packager(msg(v)))
             .width(Fill);
@@ -83,20 +83,24 @@ fn manifest_form(state: &super::super::state::ModPackagerState) -> Element<'_, M
 
     column![
         text("Manifest").size(14),
-        labelled("Name", &state.edit_name, ModPackagerMessage::NameChanged),
+        labelled(
+            "Name",
+            state.edit_name.clone(),
+            ModPackagerMessage::NameChanged
+        ),
         labelled(
             "Version",
-            &state.edit_version,
+            state.edit_version.clone(),
             ModPackagerMessage::VersionChanged,
         ),
         labelled(
             "Author",
-            &state.edit_author,
+            state.edit_author.clone(),
             ModPackagerMessage::AuthorChanged,
         ),
         labelled(
             "Description",
-            &state.edit_description,
+            state.edit_description.clone(),
             ModPackagerMessage::DescriptionChanged,
         ),
     ]
