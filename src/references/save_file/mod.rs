@@ -15,7 +15,10 @@ mod writer;
 use super::extractor::Extractor;
 use character::CharacterData;
 pub use character::{CharacterIdentity, CharacterState, LearnedSpells};
-pub use events::{EventRecord, PostEventsData};
+pub use events::{
+    DismissedCompanionProgression, EventRecord, PostEventsData, WalkCompletionRecord,
+    WalkMilestoneRecord,
+};
 pub use game_tmp::{
     DrawItemEditItem, DrawItemEventItem, DrawItemHealItem, DrawItemMiscItem, DrawItemWeaponItem,
     ExtraObjectRecord, ExtraObjectTrailerRecord, MapExtraObjectsTrailer, MapSectionData,

@@ -2,7 +2,9 @@ use super::character::{
     CHARACTER_DATA_SIZE, CharacterData, LEARNED_SPELL_COUNT, LearnedSpells, SPRITE_PATH_COUNT,
     SPRITE_PATH_SIZE, read_sprite_paths, write_sprite_paths,
 };
-use super::events::{EVENT_RECORD_SIZE, PostEventsData, read_events};
+use super::events::{
+    DismissedCompanionProgression, EVENT_RECORD_SIZE, PostEventsData, read_events,
+};
 use super::game_tmp::{EXTRA_OBJECT_TRAILER_RECORD_SIZE, read_maps, write_maps};
 use super::inventory::{INVENTORY_SLOTS_SIZE, InventoryData, InventorySlots};
 use super::journal::{JOURNAL_HEADER_SIZE, JournalData};
@@ -172,6 +174,30 @@ fn test_read_party_member_rejects_truncated_base_record() {
 }
 
 #[test]
+fn test_party_member_snapshot_presence_uses_first_marker_byte() {
+    let mut data = vec![0u8; PartyMember::NAME_SIZE + PartyMember::RUNTIME_STATE_SIZE];
+    let marker_offset = data.len() - 4;
+    data[marker_offset..].copy_from_slice(&0x0000_0100u32.to_le_bytes());
+    let mut reader = Cursor::new(data);
+
+    let member = PartyMember::read_from(&mut reader).unwrap();
+
+    assert!(member.combat_snapshot.is_none());
+    assert_eq!(reader.position(), 321);
+}
+
+#[test]
+fn test_party_member_write_rejects_snapshot_presence_mismatch() {
+    let mut member = PartyMember::default();
+    member.record.combat_snapshot_presence = 1;
+
+    let error = member.write(&mut Vec::new()).unwrap_err();
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    assert!(error.to_string().contains("presence byte"));
+}
+
+#[test]
 fn test_read_events_rejects_truncated_record() {
     let error = read_events(&mut Cursor::new(vec![0; EVENT_RECORD_SIZE - 1])).unwrap_err();
 
@@ -180,32 +206,70 @@ fn test_read_events_rejects_truncated_record() {
 
 #[test]
 fn test_read_post_events_accepts_empty_record_collection() {
-    let mut data = vec![1u8; 12];
-    data.extend_from_slice(&0u32.to_le_bytes());
-    data.extend_from_slice(&[2u8; 56]);
+    // Layout: shake_active (4) + shake_frames_remaining (4) + collA count (4) + collB count (4)
+    // + 8 party-member flags (32) + status block (24).
+    let mut data = Vec::new();
+    data.extend_from_slice(&1u32.to_le_bytes());
+    data.extend_from_slice(&2u32.to_le_bytes());
+    data.extend_from_slice(&0u32.to_le_bytes()); // walk milestones count
+    data.extend_from_slice(&0u32.to_le_bytes()); // walk completions count
+    data.extend_from_slice(&[3u8; 32]); // party-member flags
+    data.extend_from_slice(&[4u8; 24]); // status block
 
     let post_events = PostEventsData::read_from(&mut Cursor::new(data)).unwrap();
 
-    assert_eq!(post_events.block_a, vec![1; 12]);
-    assert!(post_events.records.is_empty());
-    assert_eq!(post_events.block_b, vec![2; 56]);
+    assert_eq!(post_events.shake_active, 1);
+    assert_eq!(post_events.shake_frames_remaining, 2);
+    assert!(post_events.walk_milestones.is_empty());
+    assert!(post_events.walk_completions.is_empty());
+    assert_eq!(
+        post_events.recruitable_companion_world_presence,
+        [0x03030303; 8]
+    );
+    assert_eq!(
+        post_events.dismissed_companion_progression,
+        [DismissedCompanionProgression {
+            is_saved: 4,
+            companion_level: 4,
+            player_level: 4,
+        }; 8]
+    );
 }
 
 #[test]
 fn test_write_post_events_round_trips_empty_record_collection() {
     let post_events = PostEventsData {
-        block_a: vec![1; 12],
-        records: Vec::new(),
-        block_b: vec![2; 56],
+        shake_active: 1,
+        shake_frames_remaining: 2,
+        walk_milestones: Vec::new(),
+        walk_completions: Vec::new(),
+        recruitable_companion_world_presence: [3; 8],
+        dismissed_companion_progression: [DismissedCompanionProgression {
+            is_saved: 4,
+            companion_level: 5,
+            player_level: 6,
+        }; 8],
     };
     let mut output = Vec::new();
 
     post_events.write_to(&mut output).unwrap();
     let parsed = PostEventsData::read_from(&mut Cursor::new(output)).unwrap();
 
-    assert_eq!(parsed.block_a, post_events.block_a);
-    assert_eq!(parsed.records, post_events.records);
-    assert_eq!(parsed.block_b, post_events.block_b);
+    assert_eq!(parsed.shake_active, post_events.shake_active);
+    assert_eq!(
+        parsed.shake_frames_remaining,
+        post_events.shake_frames_remaining
+    );
+    assert_eq!(parsed.walk_milestones, post_events.walk_milestones);
+    assert_eq!(parsed.walk_completions, post_events.walk_completions);
+    assert_eq!(
+        parsed.recruitable_companion_world_presence,
+        post_events.recruitable_companion_world_presence
+    );
+    assert_eq!(
+        parsed.dismissed_companion_progression,
+        post_events.dismissed_companion_progression
+    );
 }
 
 #[test]
@@ -361,23 +425,6 @@ fn test_write_count_validation_rejects_u32_overflow() {
 }
 
 #[test]
-fn test_write_save_file_validates_post_event_blocks_before_output() {
-    let cases = [
-        invalid_save(|save| {
-            save.post_events.block_a.pop();
-        }),
-        invalid_save(|save| save.post_events.records.push(0)),
-        invalid_save(|save| {
-            save.post_events.block_b.pop();
-        }),
-    ];
-
-    for save in cases {
-        assert_preflight_rejection(save, "post-events");
-    }
-}
-
-#[test]
 fn test_write_save_file_reports_section_and_output_offset() {
     let save = valid_save();
     let mut writer = FailAfter::new(10);
@@ -397,9 +444,12 @@ fn valid_save() -> SaveFile {
         },
         events: vec![EventRecord::default(); 2_251],
         post_events: PostEventsData {
-            block_a: vec![0; 12],
-            records: Vec::new(),
-            block_b: vec![0; 56],
+            shake_active: 0,
+            shake_frames_remaining: 0,
+            walk_milestones: Vec::new(),
+            walk_completions: Vec::new(),
+            recruitable_companion_world_presence: [0; 8],
+            dismissed_companion_progression: [DismissedCompanionProgression::default(); 8],
         },
         journal: JournalData {
             main: vec![JournalEntry::default(); 100],

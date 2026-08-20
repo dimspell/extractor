@@ -402,27 +402,32 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
     }
 
     let post_events_start = offset;
+    let post_events_len = 8
+        + (save.post_events.walk_milestones.len() + save.post_events.walk_completions.len())
+            .checked_mul(24)?
+        + 8 * 4
+        + 24;
     push_span(
         &mut spans,
         &mut offset,
         "Post-events data",
         "section",
-        12 + 4 + save.post_events.records.len() + 56,
+        post_events_len,
         0,
     )?;
     let mut nested = post_events_start;
     push_span(
         &mut spans,
         &mut nested,
-        "Post-events block A",
-        "opaque",
-        12,
+        "Post-events field 244",
+        "u32",
+        4,
         0,
     )?;
     push_span(
         &mut spans,
         &mut nested,
-        "Post-events record count",
+        "Post-events field 248",
         "u32",
         4,
         0,
@@ -430,16 +435,31 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
     push_records(
         &mut spans,
         &mut nested,
-        "Post-events record",
+        "Walk milestones",
         24,
-        save.post_events.records.len() / 24,
+        save.post_events.walk_milestones.len(),
+    )?;
+    push_records(
+        &mut spans,
+        &mut nested,
+        "Walk completions",
+        24,
+        save.post_events.walk_completions.len(),
     )?;
     push_span(
         &mut spans,
         &mut nested,
-        "Post-events block B",
-        "opaque",
-        56,
+        "Recruitable companion world presence",
+        "u32[8]",
+        8 * 4,
+        0,
+    )?;
+    push_span(
+        &mut spans,
+        &mut nested,
+        "Dismissed companion progression",
+        "record[8]",
+        24,
         0,
     )?;
     if nested != offset {

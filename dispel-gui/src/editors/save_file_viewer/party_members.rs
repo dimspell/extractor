@@ -286,11 +286,13 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 },
             ))
             .push(label_row(
-                "Active Path Node",
+                "Active Path Nodes",
                 format!(
-                    "{}, {} (base actor state {})",
-                    member.record.active_path_node_x,
-                    member.record.active_path_node_y,
+                    "({}, {}), ({}, {}) (base actor state {})",
+                    member.record.active_path_node_1_x,
+                    member.record.active_path_node_1_y,
+                    member.record.active_path_node_2_x,
+                    member.record.active_path_node_2_y,
                     member.record.base_actor_state
                 ),
             ))
@@ -310,8 +312,8 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 ),
             ))
             .push(label_row(
-                "Combat Snapshot Marker",
-                member.record.combat_snapshot_marker.to_string(),
+                "Combat Snapshot Presence",
+                member.record.combat_snapshot_presence.to_string(),
             ))
             .spacing(3),
     )

@@ -1044,16 +1044,76 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //     data: save_file.character_identity.unknown_02.clone(),
         // },
         RawHexEditorData {
-            label: "post_events.block_a".into(),
-            data: save_file.post_events.block_a.clone(),
+            label: "post_events.shake_active".into(),
+            data: save_file.post_events.shake_active.to_le_bytes().to_vec(),
         },
         RawHexEditorData {
-            label: "post_events.records".into(),
-            data: save_file.post_events.records.clone(),
+            label: "post_events.shake_frames_remaining".into(),
+            data: save_file
+                .post_events
+                .shake_frames_remaining
+                .to_le_bytes()
+                .to_vec(),
         },
         RawHexEditorData {
-            label: "post_events.block_b".into(),
-            data: save_file.post_events.block_b.clone(),
+            label: "post_events.walk_milestones".into(),
+            data: save_file
+                .post_events
+                .walk_milestones
+                .iter()
+                .flat_map(|record| {
+                    let mut bytes = Vec::with_capacity(24);
+                    bytes.extend_from_slice(&record.id.to_le_bytes());
+                    bytes.extend_from_slice(&record.direction.to_le_bytes());
+                    bytes.extend_from_slice(&record.state.to_le_bytes());
+                    bytes.extend_from_slice(&record.walk_type.to_le_bytes());
+                    bytes.extend_from_slice(&record.x.to_le_bytes());
+                    bytes.extend_from_slice(&record.y.to_le_bytes());
+                    bytes
+                })
+                .collect(),
+        },
+        RawHexEditorData {
+            label: "post_events.walk_completions".into(),
+            data: save_file
+                .post_events
+                .walk_completions
+                .iter()
+                .flat_map(|record| {
+                    let mut bytes = Vec::with_capacity(24);
+                    bytes.extend_from_slice(&record.id.to_le_bytes());
+                    bytes.extend_from_slice(&record.direction.to_le_bytes());
+                    bytes.extend_from_slice(&record.diagonal.to_le_bytes());
+                    bytes.extend_from_slice(&record.character_index.to_le_bytes());
+                    bytes.extend_from_slice(&record.x.to_le_bytes());
+                    bytes.extend_from_slice(&record.y.to_le_bytes());
+                    bytes
+                })
+                .collect(),
+        },
+        RawHexEditorData {
+            label: "post_events.recruitable_companion_world_presence".into(),
+            data: save_file
+                .post_events
+                .recruitable_companion_world_presence
+                .iter()
+                .flat_map(|flag| flag.to_le_bytes())
+                .collect(),
+        },
+        RawHexEditorData {
+            label: "post_events.dismissed_companion_progression".into(),
+            data: save_file
+                .post_events
+                .dismissed_companion_progression
+                .iter()
+                .flat_map(|progression| {
+                    [
+                        progression.is_saved,
+                        progression.companion_level,
+                        progression.player_level,
+                    ]
+                })
+                .collect(),
         },
     ];
 

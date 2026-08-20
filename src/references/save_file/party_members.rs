@@ -6,9 +6,13 @@ use std::io::{Read, Write};
 
 /// Fixed 321-byte party-member record as it appears on disk.
 ///
-/// The runtime state contains many unknown bytes between the decoded values.
+/// The runtime state contains preserved bytes between the decoded values.
 /// Keep those gaps in the derived record so `BinaryRecord` still consumes the
 /// exact layout while the public [`PartyMember`] type exposes only named data.
+///
+/// Some preserved ranges contain overlapping four-byte snapshots of packed
+/// runtime fields. They must remain byte-exact even when only one byte has a
+/// known gameplay meaning.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct PartyMemberBinaryRecord {
     /// Maximum health points from the party-level progression record.
@@ -180,23 +184,25 @@ pub struct PartyMemberBinaryRecord {
     pub blocked_path_target_y: i32,
     /// Whether the companion is actively recovering from a blocked path (boolean).
     pub blocked_path_recovery_active: u8,
-    // TODO: Recognise the unknown bytes
-    #[binary_record(size = 4)]
-    pub unknown_209: Vec<u8>,
     /// Whether the companion has been instructed to rejoin the party leader (boolean).
     pub rejoin_leader_requested: u8,
+    /// Preserved bytes from an overlapping runtime-field snapshot.
+    #[binary_record(size = 3)]
+    pub rejoin_leader_requested_overlap: Vec<u8>,
     /// Whether the companion is currently moving to rejoin the party leader (boolean).
     pub rejoin_leader_in_progress: u8,
-    // TODO: Recognise the unknown bytes
-    #[binary_record(size = 5)]
-    pub unknown_215: Vec<u8>,
     /// Whether this companion has earned a level and awaits the level-up sequence (boolean).
     pub level_up_pending: u8,
     // TODO: Recognise the unknown bytes
+    #[binary_record(size = 5)]
+    pub unknown_215: Vec<u8>,
+    /// Whether the level-up animation is currently active (boolean).
+    pub level_up_animation_active: u8,
+    // TODO: Recognise the unknown bytes
     #[binary_record(size = 3)]
     pub unknown_221: Vec<u8>,
-    /// Whether the level-up animation is currently active (boolean.
-    pub level_up_animation_active: u8,
+    /// Preserved runtime byte following the level-up state.
+    pub level_up_runtime_state: u8,
     // TODO: Recognise the unknown bytes
     #[binary_record(size = 3)]
     pub unknown_225: Vec<u8>,
@@ -236,23 +242,24 @@ pub struct PartyMemberBinaryRecord {
     /// Percentage threshold used after level ten to trigger a tactical action.
     pub tactical_action_chance: u32,
     /// X coordinate of the first node in the saved active-path buffer.
-    pub active_path_node_x: u16,
-    // TODO: Recognise the unknown bytes
-    #[binary_record(size = 2)]
-    pub unknown_282: Vec<u8>,
+    pub active_path_node_1_x: u16,
     /// Y coordinate of the first node in the saved active-path buffer.
-    pub active_path_node_y: u16,
-    // TODO: Recognise the unknown bytes
-    #[binary_record(size = 2)]
-    pub unknown_286: Vec<u8>,
+    pub active_path_node_1_y: u16,
+    /// X coordinate of the second node in the saved active-path buffer.
+    pub active_path_node_2_x: u16,
+    /// Y coordinate of the second node in the saved active-path buffer.
+    pub active_path_node_2_y: u16,
     /// Base actor lifecycle state saved alongside the active-path buffer.
     pub base_actor_state: u32,
     /// Current health in the inherited base-actor state.
     pub base_actor_current_health_points: u16,
     /// Maximum health in the inherited base-actor state.
     pub base_actor_maximum_health_points: u16,
-    /// Marker for an optional combat snapshot appended after the base record.
-    pub combat_snapshot_marker: u32,
+    /// Presence word for the optional combat snapshot.
+    ///
+    /// The first byte is `0` when no snapshot follows and nonzero when the
+    /// 48-byte snapshot follows. The remaining bytes are preserved verbatim.
+    pub combat_snapshot_presence: u32,
 }
 
 /// Combat-only snapshot appended to a party-member record.
@@ -327,7 +334,7 @@ impl PartyMemberCombatSnapshot {
 pub struct PartyMember {
     /// Party character display name, stored in a 21-byte Windows-1250 buffer.
     pub name: String,
-    // TODO: Rename the field and document it.
+    /// Serialized companion statistics, AI, movement, and combat state.
     pub record: PartyMemberBinaryRecord,
     /// Combat-only state appended after the base record when present.
     pub combat_snapshot: Option<PartyMemberCombatSnapshot>,
@@ -361,13 +368,13 @@ impl PartyMember {
         // combat-object snapshot. When set, the writer appends twelve
         // four-byte snapshot windows and a four-byte terminator.
         let marker_offset = Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE - 4;
-        let combat_snapshot_marker = u32::from_le_bytes([
+        let combat_snapshot_presence = u32::from_le_bytes([
             base_data[marker_offset],
             base_data[marker_offset + 1],
             base_data[marker_offset + 2],
             base_data[marker_offset + 3],
         ]);
-        let combat_snapshot = if combat_snapshot_marker != 0 {
+        let combat_snapshot = if combat_snapshot_presence.to_le_bytes()[0] != 0 {
             let mut snapshot_data = [0u8; PartyMemberCombatSnapshot::SERIALIZED_SIZE];
             reader.read_exact(&mut snapshot_data)?;
             let terminator = reader.read_u32::<LittleEndian>()?;
@@ -399,6 +406,14 @@ impl PartyMember {
 
     /// Write the original serialized companion-state stream.
     pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let marker_has_snapshot = self.record.combat_snapshot_presence.to_le_bytes()[0] != 0;
+        if marker_has_snapshot != self.combat_snapshot.is_some() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "party-member combat snapshot presence byte does not match the optional snapshot",
+            ));
+        }
+
         let mut name_buf = [0u8; Self::NAME_SIZE];
         let (encoded, _, _) = encoding_rs::WINDOWS_1250.encode(&self.name);
         let len = encoded.len().min(Self::NAME_SIZE);

@@ -1,9 +1,6 @@
 use super::SaveFile;
 use super::character::{LEARNED_SPELL_COUNT, SPRITE_PATH_COUNT, write_sprite_paths};
-use super::events::{
-    EVENT_COUNT, POST_EVENTS_BLOCK_A_SIZE, POST_EVENTS_BLOCK_B_SIZE, POST_EVENTS_RECORD_SIZE,
-    write_events,
-};
+use super::events::{EVENT_COUNT, write_events};
 use super::game_tmp::{
     DRAW_ITEM_EDIT_SIZE, DRAW_ITEM_EVENT_SIZE, DRAW_ITEM_HEAL_SIZE, DRAW_ITEM_MISC_SIZE,
     DRAW_ITEM_WEAPON_SIZE, EXTRA_OBJECT_TRAILER_FIXED_SIZE, EXTRA_OBJECT_TRAILER_RECORD_SIZE,
@@ -210,24 +207,10 @@ fn validate(save: &SaveFile) -> std::io::Result<()> {
             ),
         );
     }
-    if save.post_events.block_a.len() != POST_EVENTS_BLOCK_A_SIZE {
-        return invalid("post-events", "block A must contain 12 bytes");
-    }
-    if !save
-        .post_events
-        .records
-        .len()
-        .is_multiple_of(POST_EVENTS_RECORD_SIZE)
+    if save.post_events.walk_milestones.len() > u32::MAX as usize
+        || save.post_events.walk_completions.len() > u32::MAX as usize
     {
-        return invalid("post-events", "record data length must be divisible by 24");
-    }
-    checked_u32(
-        "post-events",
-        "record count",
-        save.post_events.records.len() / POST_EVENTS_RECORD_SIZE,
-    )?;
-    if save.post_events.block_b.len() != POST_EVENTS_BLOCK_B_SIZE {
-        return invalid("post-events", "block B must contain 56 bytes");
+        return invalid("post-events", "walk record count exceeds u32");
     }
     if save.journal.main.len() != JOURNAL_ENTRIES_PER_SECTION
         || save.journal.side.len() != JOURNAL_ENTRIES_PER_SECTION
