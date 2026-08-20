@@ -14,7 +14,7 @@ mod writer;
 
 use super::extractor::Extractor;
 use character::CharacterData;
-pub use character::{CharacterIdentity, LearnedSpells};
+pub use character::{CharacterIdentity, CharacterState, LearnedSpells};
 pub use events::{EventRecord, PostEventsData};
 pub use game_tmp::{
     DrawItemEditItem, DrawItemEventItem, DrawItemHealItem, DrawItemMiscItem, DrawItemWeaponItem,
@@ -49,6 +49,9 @@ pub struct SaveFile {
     pub character: CharacterData,
     /// Items grouped by inventory category.
     pub inventory: InventoryData,
+    /// Character runtime state (serials, action/movement/teleport state,
+    /// stat bonuses, position).
+    pub character_state: CharacterState,
     /// Character name, class, and spell-bar state.
     pub character_identity: CharacterIdentity,
     /// Equipment, belt, and inventory placement state.

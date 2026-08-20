@@ -1,5 +1,5 @@
 use crate::references::extractor::read_null_terminated_windows_1250;
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
@@ -249,10 +249,306 @@ impl CharacterData {
     }
 }
 
+/// Character runtime state block that precedes the identity block in the
+/// save file.
+///
+/// Holds the per-category inventory serial counters, the scripted-action
+/// state machine, the movement waypoint path, the movement/teleport state,
+/// the class stat bonuses, and the character's map position. The game
+/// persists this block so that in-progress movement, teleports, and
+/// scripted actions survive a save/load cycle.
+///
+/// Layout (all integers little-endian):
+///   `[5 × inventory_item_serial u16]
+///    [current_action_id u32][waypoint_index u32][waypoint_count u32]
+///    [waypoint_data: waypoint_count × 8 bytes]
+///    [move_requested u8][move_destination_x u32][move_destination_y u32]
+///    [movement_blocked u8][teleport_mode u8][teleport_destination_pending u8]
+///    [teleport_execution_pending u8][model_animation_index u16]
+///    [teleport_target_x u32][teleport_target_y u32][teleport_target_value u32]
+///    [stop_after_path_end u8][movement_sub_state u8][character_class u8]
+///    [position_changed u8][global_object_id_counter u32]
+///    [interaction_state u8][interaction_state_paired u8]
+///    [warrior_offense_bonus u8][knight_defense_bonus u8][archer_dodge_rate_bonus u8]
+///    [archer_hit_rate_bonus u8][mage_magic_power_bonus u8]
+///    [action_index u32][pathfinding_scratch_a u32][pathfinding_scratch_b u32]
+///    [reserved_500 u32][action_current_step u32][action_total_steps u32]
+///    [position_x u32][position_y u32]`
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CharacterState {
+    /// Next-slot serial for the Event item category. Each new item in the
+    /// category is stamped with this serial, which is then incremented.
+    /// Kept in sync with the event-item count read from the inventory
+    /// section.
+    pub event_items_serial: u16,
+
+    /// Next-slot serial for the Misc item category.
+    pub misc_items_serial: u16,
+
+    /// Next-slot serial for the Edit item category.
+    pub edit_items_serial: u16,
+
+    /// Next-slot serial for the Weapon item category.
+    pub weapon_items_serial: u16,
+
+    /// Next-slot serial for the Heal item category.
+    pub heal_items_serial: u16,
+
+    /// Current scripted action (0–7), or −1 when idle. Drives scripted
+    /// movement and action sequences.
+    pub current_action_id: u32,
+
+    /// Index of the current waypoint in the path being followed.
+    pub waypoint_index: u32,
+
+    /// Number of waypoints in the path.
+    pub waypoint_count: u32,
+
+    /// Movement waypoint path: `waypoint_count` records of {u16 x, u16 y}
+    /// tile coordinates (8 bytes each).
+    pub waypoint_data: Vec<u8>,
+
+    /// Pending move latch: set when a move to the destination is requested
+    /// and cleared once the move completes.
+    pub move_requested: u8,
+
+    /// Destination tile X of the requested move.
+    pub move_destination_x: u32,
+
+    /// Destination tile Y of the requested move.
+    pub move_destination_y: u32,
+
+    /// Set while movement is blocked (event or cutscene in progress).
+    pub movement_blocked: u8,
+
+    /// Teleport mode selector.
+    pub teleport_mode: u8,
+
+    /// Set when a teleport destination has been queued.
+    pub teleport_destination_pending: u8,
+
+    /// Set when the queued teleport is about to execute.
+    pub teleport_execution_pending: u8,
+
+    /// Index into the model animation table used to render the character.
+    pub model_animation_index: u16,
+
+    /// Teleport target tile X.
+    pub teleport_target_x: u32,
+
+    /// Teleport target tile Y.
+    pub teleport_target_y: u32,
+
+    /// Teleport target value.
+    pub teleport_target_value: u32,
+
+    /// Set to stop the character once the waypoint path is exhausted.
+    pub stop_after_path_end: u8,
+
+    /// Movement sub-state: 0=idle, 1=started, 2=walking, 3=arrived.
+    pub movement_sub_state: u8,
+
+    /// Character class: 1=Paladin, 2=Hero. Derived from the morale
+    /// (good/evil path), the class, and the level.
+    pub character_class: u8,
+
+    /// Latch set when the position changed; used to sync the position to
+    /// the character's map coordinates.
+    pub position_changed: u8,
+
+    /// Monotonic counter of spawned world objects.
+    pub global_object_id_counter: u32,
+
+    /// Current interaction state.
+    pub interaction_state: u8,
+
+    /// Paired interaction state.
+    pub interaction_state_paired: u8,
+
+    /// Offense stat bonus applied to the Warrior class.
+    pub warrior_offense_bonus: u8,
+
+    /// Defense stat bonus applied to the Knight class.
+    pub knight_defense_bonus: u8,
+
+    /// Dodge-rate stat bonus applied to the Archer class.
+    pub archer_dodge_rate_bonus: u8,
+
+    /// Hit-rate stat bonus applied to the Archer class.
+    pub archer_hit_rate_bonus: u8,
+
+    /// Magic-power stat bonus applied to the Mage class.
+    pub mage_magic_power_bonus: u8,
+
+    /// Index of the current action.
+    pub action_index: u32,
+
+    /// Transient pathfinding scratch value.
+    pub pathfinding_scratch_a: u32,
+
+    /// Transient pathfinding scratch value.
+    pub pathfinding_scratch_b: u32,
+
+    /// Reserved. Persisted in the save file but not currently used by the
+    /// game.
+    pub reserved_500: u32,
+
+    /// Current step of the action in progress.
+    pub action_current_step: u32,
+
+    /// Total steps of the action in progress.
+    pub action_total_steps: u32,
+
+    /// Character map position (tile X).
+    pub position_x: u32,
+
+    /// Character map position (tile Y).
+    pub position_y: u32,
+}
+
+impl CharacterState {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let event_items_serial = reader.read_u16::<LittleEndian>()?;
+        let misc_items_serial = reader.read_u16::<LittleEndian>()?;
+        let edit_items_serial = reader.read_u16::<LittleEndian>()?;
+        let weapon_items_serial = reader.read_u16::<LittleEndian>()?;
+        let heal_items_serial = reader.read_u16::<LittleEndian>()?;
+
+        let current_action_id = reader.read_u32::<LittleEndian>()?;
+        let waypoint_index = reader.read_u32::<LittleEndian>()?;
+        let waypoint_count = reader.read_u32::<LittleEndian>()?;
+
+        let mut waypoint_data = vec![0u8; waypoint_count as usize * WAYPOINT_SIZE];
+        reader.read_exact(&mut waypoint_data)?;
+
+        let move_requested = reader.read_u8()?;
+        let move_destination_x = reader.read_u32::<LittleEndian>()?;
+        let move_destination_y = reader.read_u32::<LittleEndian>()?;
+        let movement_blocked = reader.read_u8()?;
+        let teleport_mode = reader.read_u8()?;
+        let teleport_destination_pending = reader.read_u8()?;
+        let teleport_execution_pending = reader.read_u8()?;
+        let model_animation_index = reader.read_u16::<LittleEndian>()?;
+        let teleport_target_x = reader.read_u32::<LittleEndian>()?;
+        let teleport_target_y = reader.read_u32::<LittleEndian>()?;
+        let teleport_target_value = reader.read_u32::<LittleEndian>()?;
+        let stop_after_path_end = reader.read_u8()?;
+        let movement_sub_state = reader.read_u8()?;
+        let character_class = reader.read_u8()?;
+        let position_changed = reader.read_u8()?;
+        let global_object_id_counter = reader.read_u32::<LittleEndian>()?;
+        let interaction_state = reader.read_u8()?;
+        let interaction_state_paired = reader.read_u8()?;
+        let warrior_offense_bonus = reader.read_u8()?;
+        let knight_defense_bonus = reader.read_u8()?;
+        let archer_dodge_rate_bonus = reader.read_u8()?;
+        let archer_hit_rate_bonus = reader.read_u8()?;
+        let mage_magic_power_bonus = reader.read_u8()?;
+        let action_index = reader.read_u32::<LittleEndian>()?;
+        let pathfinding_scratch_a = reader.read_u32::<LittleEndian>()?;
+        let pathfinding_scratch_b = reader.read_u32::<LittleEndian>()?;
+        let reserved_500 = reader.read_u32::<LittleEndian>()?;
+        let action_current_step = reader.read_u32::<LittleEndian>()?;
+        let action_total_steps = reader.read_u32::<LittleEndian>()?;
+        let position_x = reader.read_u32::<LittleEndian>()?;
+        let position_y = reader.read_u32::<LittleEndian>()?;
+
+        Ok(Self {
+            event_items_serial,
+            misc_items_serial,
+            edit_items_serial,
+            weapon_items_serial,
+            heal_items_serial,
+            current_action_id,
+            waypoint_index,
+            waypoint_count,
+            waypoint_data,
+            move_requested,
+            move_destination_x,
+            move_destination_y,
+            movement_blocked,
+            teleport_mode,
+            teleport_destination_pending,
+            teleport_execution_pending,
+            model_animation_index,
+            teleport_target_x,
+            teleport_target_y,
+            teleport_target_value,
+            stop_after_path_end,
+            movement_sub_state,
+            character_class,
+            position_changed,
+            global_object_id_counter,
+            interaction_state,
+            interaction_state_paired,
+            warrior_offense_bonus,
+            knight_defense_bonus,
+            archer_dodge_rate_bonus,
+            archer_hit_rate_bonus,
+            mage_magic_power_bonus,
+            action_index,
+            pathfinding_scratch_a,
+            pathfinding_scratch_b,
+            reserved_500,
+            action_current_step,
+            action_total_steps,
+            position_x,
+            position_y,
+        })
+    }
+
+    pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u16::<LittleEndian>(self.event_items_serial)?;
+        writer.write_u16::<LittleEndian>(self.misc_items_serial)?;
+        writer.write_u16::<LittleEndian>(self.edit_items_serial)?;
+        writer.write_u16::<LittleEndian>(self.weapon_items_serial)?;
+        writer.write_u16::<LittleEndian>(self.heal_items_serial)?;
+
+        writer.write_u32::<LittleEndian>(self.current_action_id)?;
+        writer.write_u32::<LittleEndian>(self.waypoint_index)?;
+        writer.write_u32::<LittleEndian>(self.waypoint_count)?;
+        writer.write_all(&self.waypoint_data)?;
+
+        writer.write_u8(self.move_requested)?;
+        writer.write_u32::<LittleEndian>(self.move_destination_x)?;
+        writer.write_u32::<LittleEndian>(self.move_destination_y)?;
+        writer.write_u8(self.movement_blocked)?;
+        writer.write_u8(self.teleport_mode)?;
+        writer.write_u8(self.teleport_destination_pending)?;
+        writer.write_u8(self.teleport_execution_pending)?;
+        writer.write_u16::<LittleEndian>(self.model_animation_index)?;
+        writer.write_u32::<LittleEndian>(self.teleport_target_x)?;
+        writer.write_u32::<LittleEndian>(self.teleport_target_y)?;
+        writer.write_u32::<LittleEndian>(self.teleport_target_value)?;
+        writer.write_u8(self.stop_after_path_end)?;
+        writer.write_u8(self.movement_sub_state)?;
+        writer.write_u8(self.character_class)?;
+        writer.write_u8(self.position_changed)?;
+        writer.write_u32::<LittleEndian>(self.global_object_id_counter)?;
+        writer.write_u8(self.interaction_state)?;
+        writer.write_u8(self.interaction_state_paired)?;
+        writer.write_u8(self.warrior_offense_bonus)?;
+        writer.write_u8(self.knight_defense_bonus)?;
+        writer.write_u8(self.archer_dodge_rate_bonus)?;
+        writer.write_u8(self.archer_hit_rate_bonus)?;
+        writer.write_u8(self.mage_magic_power_bonus)?;
+        writer.write_u32::<LittleEndian>(self.action_index)?;
+        writer.write_u32::<LittleEndian>(self.pathfinding_scratch_a)?;
+        writer.write_u32::<LittleEndian>(self.pathfinding_scratch_b)?;
+        writer.write_u32::<LittleEndian>(self.reserved_500)?;
+        writer.write_u32::<LittleEndian>(self.action_current_step)?;
+        writer.write_u32::<LittleEndian>(self.action_total_steps)?;
+        writer.write_u32::<LittleEndian>(self.position_x)?;
+        writer.write_u32::<LittleEndian>(self.position_y)?;
+
+        Ok(())
+    }
+}
+
 /// Character identity data (name, class, and persisted spell-bar state).
 ///
-/// Only the trailing 35 bytes of the identity block are retained here
-/// (`player_name` through `selected_spell_ui_index`)
+/// This is the trailing 35 bytes of the identity section. The preceding
+/// runtime-state block is parsed separately as [`CharacterState`].
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct CharacterIdentity {
     /// Player name (11 bytes, null-terminated string).
@@ -270,57 +566,6 @@ pub struct CharacterIdentity {
 
 impl CharacterIdentity {
     pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
-        // Per-category inventory serial counters. Each is the next-slot serial
-        // stamped into the item records of that category (kept in sync with the
-        // item counts read in `parse_inventory_section`).
-        let _event_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
-        let _misc_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
-        let _edit_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
-        let _weapon_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
-        let _heal_items_serial: u16 = reader.read_u16::<LittleEndian>()?;
-
-        // Scripted-action state machine.
-        let _current_action_id: u32 = reader.read_u32::<LittleEndian>()?; // 0-7, -1 = idle
-        let _waypoint_index: u32 = reader.read_u32::<LittleEndian>()?; // current waypoint
-        let waypoint_count: u32 = reader.read_u32::<LittleEndian>()?; // number of waypoints
-
-        // Movement waypoint path: array of {u16 x, u16 y} records.
-        let mut waypoint_data = vec![0u8; waypoint_count as usize * WAYPOINT_SIZE];
-        reader.read_exact(&mut waypoint_data)?;
-
-        // Movement / teleport state.
-        let _move_requested: u8 = reader.read_u8()?; // pending move latch
-        let _move_destination_x: u32 = reader.read_u32::<LittleEndian>()?;
-        let _move_destination_y: u32 = reader.read_u32::<LittleEndian>()?;
-        let _movement_blocked: u8 = reader.read_u8()?; // blocked by event/cutscene
-        let _teleport_mode: u8 = reader.read_u8()?;
-        let _teleport_destination_pending: u8 = reader.read_u8()?;
-        let _teleport_execution_pending: u8 = reader.read_u8()?;
-        let _model_animation_index: u16 = reader.read_u16::<LittleEndian>()?;
-        let mut teleport_target = [0u8; 8]; // {u32 x, u32 y} tile coordinates
-        reader.read_exact(&mut teleport_target)?;
-        let _teleport_target_value: u32 = reader.read_u32::<LittleEndian>()?;
-        let _stop_after_path_end: u8 = reader.read_u8()?;
-        let _movement_sub_state: u8 = reader.read_u8()?; // 0=idle,1=started,2=walking,3=arrived
-        let _character_class: u8 = reader.read_u8()?; // 1=Paladin, 2=Hero (based on morale - good/evil path, the class, and level)
-        let _position_changed: u8 = reader.read_u8()?; // latch: sync position to 0x7c/0x80
-        let _global_object_id_counter: u32 = reader.read_u32::<LittleEndian>()?;
-        let _interaction_state: u8 = reader.read_u8()?;
-        let _interaction_state_paired: u8 = reader.read_u8()?;
-        let _stat_bonus_a: u8 = reader.read_u8()?; // class 1 stat bonus (offense stat bonus for Warrior class)
-        let _stat_bonus_b: u8 = reader.read_u8()?; // class 0 stat bonus (defense stat bonus for Knight class)
-        let _stat_bonus_c: u8 = reader.read_u8()?; // class 2 stat bonus (dodge_rate stat bonus for Archer class)
-        let _stat_bonus_d: u8 = reader.read_u8()?; // class 2 stat bonus (hit_rate stat bonus for Archer class)
-        let _stat_bonus_e: u8 = reader.read_u8()?; // class 3 stat bonus (magic_power stat bonus for the Mage class)
-        let _action_index: u32 = reader.read_u32::<LittleEndian>()?;
-        let _pathfinding_scratch_a: u32 = reader.read_u32::<LittleEndian>()?;
-        let _pathfinding_scratch_b: u32 = reader.read_u32::<LittleEndian>()?;
-        let _reserved_500: u32 = reader.read_u32::<LittleEndian>()?;
-        let _action_current_step: u32 = reader.read_u32::<LittleEndian>()?;
-        let _action_total_steps: u32 = reader.read_u32::<LittleEndian>()?;
-        let mut position = [0u8; 8]; // {u32 x, u32 y}
-        reader.read_exact(&mut position)?;
-
         let mut identity = [0u8; CHARACTER_IDENTITY_SIZE];
         reader.read_exact(&mut identity)?;
         Self::parse(&identity)

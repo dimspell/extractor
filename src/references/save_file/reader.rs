@@ -1,5 +1,7 @@
 use super::SaveFile;
-use super::character::{CharacterData, CharacterIdentity, LearnedSpells, read_sprite_paths};
+use super::character::{
+    CharacterData, CharacterIdentity, CharacterState, LearnedSpells, read_sprite_paths,
+};
 use super::events::{PostEventsData, read_events};
 use super::game_tmp::read_maps;
 use super::inventory::{InventoryData, InventorySlots};
@@ -38,6 +40,7 @@ impl<'a> SaveReader<'a> {
         let sprite_paths = self.section("sprite paths", read_sprite_paths)?;
         let character = self.section("character stats", CharacterData::read_from)?;
         let inventory = self.section("inventory", InventoryData::read_from)?;
+        let character_state = self.section("character state", CharacterState::read_from)?;
         let character_identity =
             self.section("character identity", CharacterIdentity::read_from)?;
         let inventory_slots = self.section("inventory slots", InventorySlots::read_from)?;
@@ -60,6 +63,7 @@ impl<'a> SaveReader<'a> {
             sprite_paths,
             character,
             inventory,
+            character_state,
             character_identity,
             inventory_slots,
             learned_spells,

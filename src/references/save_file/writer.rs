@@ -50,6 +50,9 @@ impl<'a, W: Write> SaveWriter<'a, W> {
             self.save.character.write(output)
         })?;
         self.section("inventory", |output| self.save.inventory.write_to(output))?;
+        self.section("character state", |output| {
+            self.save.character_state.write_to(output)
+        })?;
         self.section("character identity", |output| {
             self.save.character_identity.write(output)
         })?;
