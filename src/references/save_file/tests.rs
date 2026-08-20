@@ -85,6 +85,81 @@ fn test_parse_monster_record_rejects_truncated_input() {
 }
 
 #[test]
+fn test_ground_item_records_decode_trailing_object_id_and_padding() {
+    macro_rules! assert_trailing_id {
+        ($record:ty, $size:expr) => {{
+            let mut bytes = vec![0u8; $size];
+            bytes[$size - 4..].copy_from_slice(&[0x34, 0x12, 0xaa, 0xbb]);
+
+            let parsed = <$record>::parse(&bytes).unwrap();
+
+            assert_eq!(parsed.ground_item_object_id, 0x1234);
+            assert_eq!(parsed.ground_item_object_id_padding, [0xaa, 0xbb]);
+            let mut output = Vec::new();
+            parsed.write(&mut output).unwrap();
+            assert_eq!(output, bytes);
+        }};
+    }
+
+    assert_trailing_id!(super::DrawItemWeaponItem, 296);
+    assert_trailing_id!(super::DrawItemHealItem, 264);
+    assert_trailing_id!(super::DrawItemEditItem, 280);
+    assert_trailing_id!(super::DrawItemMiscItem, 268);
+    assert_trailing_id!(super::DrawItemEventItem, 252);
+}
+
+#[test]
+fn test_npc_record_decodes_path_step_animation_state_at_exact_offsets() {
+    let mut bytes = vec![0u8; 349];
+    bytes[161] = 7;
+    bytes[162] = 3;
+    bytes[174..180].copy_from_slice(&[1, 1, 1, 1, 2, 1]);
+    bytes[184..188].copy_from_slice(&0x1122_3344u32.to_le_bytes());
+    bytes[188..192].copy_from_slice(&0x5566_7788u32.to_le_bytes());
+    bytes[325..329].copy_from_slice(&1u32.to_le_bytes());
+    bytes[337..341].copy_from_slice(&4321u32.to_le_bytes());
+
+    let parsed = super::NpcRecord::parse(&bytes).unwrap();
+
+    assert_eq!(parsed.path_step_direction, 7);
+    assert_eq!(parsed.path_step_animation_frame, 3);
+    assert_eq!(parsed.world_active, 1);
+    assert_eq!(parsed.transient_spawn, 1);
+    assert_eq!(parsed.removed_from_world, 1);
+    assert_eq!(parsed.event_npc_origin, 1);
+    assert_eq!(parsed.current_waypoint_index, 2);
+    assert_eq!(parsed.player_interaction_latched, 1);
+    assert_eq!(parsed.reserved_runtime_90, 0x1122_3344);
+    assert_eq!(parsed.reserved_runtime_94, 0x5566_7788);
+    assert_eq!(parsed.start_dialogue_on_arrival, 1);
+    assert_eq!(parsed.arrival_dialogue_id, 4321);
+    let mut output = Vec::new();
+    parsed.write(&mut output).unwrap();
+    assert_eq!(output, bytes);
+}
+
+#[test]
+fn test_extra_object_decodes_runtime_tail_at_exact_offsets() {
+    let mut bytes = vec![0u8; 200];
+    bytes[184] = 10;
+    bytes[185] = 0xa5;
+    bytes[188..192].copy_from_slice(&1u32.to_le_bytes());
+    bytes[192..196].copy_from_slice(&1u32.to_le_bytes());
+    bytes[196..200].copy_from_slice(&1u32.to_le_bytes());
+
+    let parsed = super::ExtraObjectRecord::parse(&bytes).unwrap();
+
+    assert_eq!(parsed.activation_effect_id, 10);
+    assert_eq!(parsed.activation_effect_reserved, 0xa5);
+    assert_eq!(parsed.active_overlay_enabled, 1);
+    assert_eq!(parsed.map_object_active, 1);
+    assert_eq!(parsed.interaction_pending, 1);
+    let mut output = Vec::new();
+    parsed.write(&mut output).unwrap();
+    assert_eq!(output, bytes);
+}
+
+#[test]
 fn test_read_character_data_rejects_truncated_input() {
     let error =
         CharacterData::read_from(&mut Cursor::new(vec![0; CHARACTER_DATA_SIZE - 1])).unwrap_err();

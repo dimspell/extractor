@@ -149,10 +149,9 @@ pub struct ExtraRef {
     /// Activation-effect index passed to the engine's effect dispatcher.
     #[extractor(enum_from_i32_from_u8(type = "ActivationEffectId"))]
     pub activation_effect_id: ActivationEffectId,
-    /// Flag adjacent to [`Self::activation_effect_id`]; its use was not found in the
-    /// identified interactive-object handlers.
+    /// Reserved flag adjacent to [`Self::activation_effect_id`]. Preserve it verbatim.
     #[extractor(enum_from_i32_from_u8(type = "BooleanFlag"))]
-    pub unresolved_activation_effect_flag: BooleanFlag,
+    pub activation_effect_reserved_flag: BooleanFlag,
     /// Padding following the activation-effect fields.
     #[extractor(primitive(type = "i16"))]
     pub activation_effect_padding: i16,
@@ -243,7 +242,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 extra_ref.preserve_final_sprite_frame, // 46
                 i32::from(extra_ref.alternate_render_mode), // 47
                 u8::from(extra_ref.activation_effect_id), // 48
-                i32::from(extra_ref.unresolved_activation_effect_flag), // 49
+                i32::from(extra_ref.activation_effect_reserved_flag), // 49
                 extra_ref.activation_effect_padding,  // 50
                 i32::from(extra_ref.active_overlay_enabled), // 51
                 i32::from(extra_ref.map_object_active), // 52

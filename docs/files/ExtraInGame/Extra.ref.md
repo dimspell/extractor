@@ -64,7 +64,7 @@ Binary files that define the placement and configuration of interactive objects 
 - preserve_final_sprite_frame: i32 (prevents the terminal sprite frame from being reset after interaction)
 - alternate_render_mode: i32 (selects the alternative object renderer)
 - activation_effect_id: u8 (index passed to the activation-effect dispatcher; observed values 0 and 10)
-- unresolved_activation_effect_flag: u8 (no read found in the identified interactive-object handlers)
+- activation_effect_reserved: u8 (reserved; preserve verbatim)
 - activation_effect_padding: i16 (padding, normally 0)
 - active_overlay_enabled: i32 (enables the active-object overlay render path)
 - map_object_active: i32 (marks the object active in the map-object grid and update loop)
@@ -135,7 +135,7 @@ The intervening 16 bytes vary by object type and remain deliberately opaque.
 | alternate_render_mode | BooleanFlag | Selects the alternate renderer. |
 | active_overlay_enabled | BooleanFlag | Enables the active-object overlay render path. |
 | map_object_active | BooleanFlag | Makes the object participate in the map-object grid and update loop. |
-| unresolved_activation_effect_flag | BooleanFlag | Adjacent to the effect ID; no use was found in the identified handlers. |
+| activation_effect_reserved | u8 | Reserved byte adjacent to the effect ID; preserve verbatim. |
 
 #### Container State
 

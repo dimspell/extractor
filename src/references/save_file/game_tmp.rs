@@ -392,6 +392,7 @@ pub struct NpcRecord {
     /// NPC role or description in Windows-1250 encoding.
     #[binary_record(string(encoding = "WINDOWS-1250", size = 64))]
     pub role_description: String,
+    /// Movement state: 0=idle, 1=following a path, 8=removed from normal movement.
     pub movement_state: u32,
     pub tile_data_entry: u32,
     pub path_progress: u32,
@@ -409,23 +410,34 @@ pub struct NpcRecord {
     pub cell_offset_y: u8,
     /// Persistent NPC index plus 500.
     pub map_npc_index_plus_500: u16,
-    pub runtime_state_78: u8,
-    pub runtime_state_79: u8,
+    /// Active path-step direction: 0=(0,+32), 1=(-32,+16), 2=(-64,0),
+    /// 3=(-32,-16), 4=(0,-32), 5=(+32,-16), 6=(+64,0), 7=(+32,+16),
+    /// and 255=no active path-step animation. Coordinates are screen-space offsets.
+    pub path_step_direction: u8,
+    /// Current animation frame within the active path step. Resets to 0 when the step ends.
+    pub path_step_animation_frame: u8,
     pub path_handle: u32,
     pub path_step_counter: u32,
     /// NPC ID from the NpcRef record.
     pub npc_ini_id: u8,
     pub patrol_waypoint_count: u8,
     pub current_patrol_waypoint_index: u8,
-    pub unknown_runtime_7d: u8,
-    pub unknown_runtime_7e: u8,
-    pub unknown_runtime_7f: u8,
-    pub unknown_runtime_80: u8,
+    /// Whether the NPC currently occupies and renders in the world: 0=inactive, 1=active.
+    pub world_active: u8,
+    /// NPC lifetime: 0=map-defined, 1=created dynamically for the current runtime.
+    pub transient_spawn: u8,
+    /// Persistent removal state: 0=normal, 1=removed from the map.
+    pub removed_from_world: u8,
+    /// NPC source: 0=regular map NPC, 1=event-created NPC.
+    pub event_npc_origin: u8,
     pub current_waypoint_index: u8,
-    pub unknown_runtime_82: u8,
+    /// Player-interaction latch: 0=not interacting, 1=interaction already started.
+    pub player_interaction_latched: u8,
     pub wait_tick_counter: u32,
-    pub unknown_runtime_90: u32,
-    pub unknown_runtime_94: u32,
+    /// Reserved runtime word. It is initialized to zero and preserved in saves.
+    pub reserved_runtime_90: u32,
+    /// Reserved runtime word. It is initialized to zero and preserved in saves.
+    pub reserved_runtime_94: u32,
     /// Party-member slot from NpcRef.
     pub npc_ref_party_member_slot: u8,
     /// Event ID that controls NPC visibility.
@@ -474,10 +486,12 @@ pub struct NpcRecord {
     pub dialogue_face_sprite_id: u8,
     /// Zero is normal movement. One moves to the target.
     pub move_mode: u32,
-    pub unknown_runtime_1ac: u32,
+    /// Arrival action: 0=normal arrival, 1=start the configured dialogue on arrival.
+    pub start_dialogue_on_arrival: u32,
     pub runtime_target_position_x: u32,
     pub runtime_target_position_y: u32,
-    pub unknown_runtime_1b8: u32,
+    /// Dialogue ID used when `start_dialogue_on_arrival` is 1.
+    pub arrival_dialogue_id: u32,
     pub freeze_flag: u32,
     pub freeze_counter: u32,
 }
@@ -549,14 +563,18 @@ pub struct ExtraObjectRecord {
     pub preserve_final_sprite_frame: u32,
     pub alternate_render_mode: u32,
     pub activation_effect_id: u8,
-    pub unresolved_activation_effect_flag: u8,
+    /// Reserved byte adjacent to the activation effect ID. Preserve it verbatim.
+    pub activation_effect_reserved: u8,
     pub activation_effect_padding: i16,
+    /// Active-object overlay: 0=disabled, non-zero=enabled.
     pub active_overlay_enabled: u32,
+    /// Map-grid/update participation: 0=inactive, non-zero=active.
     pub map_object_active: u32,
     /// Pending interaction latch.
     ///
     /// The engine sets this when activation is requested, processes the
     /// object-specific interaction on the next update, then clears it.
+    /// Values: 0=no request, 1=activation requested.
     pub interaction_pending: u32,
 }
 
@@ -620,7 +638,10 @@ pub struct DrawItemMiscItem {
     pub misc_item_id: u32, // 256
     pub map_coordinate_x: u32, // 260 coord-X
     pub map_coordinate_y: u32, // 264 coord-Y
-    pub unknown_7: u32,  // 268
+    /// One-based encoded object ID used by the map's ground-item grid.
+    pub ground_item_object_id: u16,
+    /// Preserved bytes following the ground-item object ID.
+    pub ground_item_object_id_padding: [u8; 2],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -633,7 +654,10 @@ pub struct DrawItemEventItem {
     pub event_item_id: u32,    // 240
     pub map_coordinate_x: u32, // 244
     pub map_coordinate_y: u32, // 248
-    pub unknown_1: u32,        // 252, event id?
+    /// One-based encoded object ID used by the map's ground-item grid.
+    pub ground_item_object_id: u16,
+    /// Preserved bytes following the ground-item object ID.
+    pub ground_item_object_id_padding: [u8; 2],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -663,7 +687,10 @@ pub struct DrawItemEditItem {
     pub additional_effect: i16,       // 268
     pub map_coordinate_x: u32,        // 272
     pub map_coordinate_y: u32,        // 276
-    pub unknown_4: u32,               // 280
+    /// One-based encoded object ID used by the map's ground-item grid.
+    pub ground_item_object_id: u16,
+    /// Preserved bytes following the ground-item object ID.
+    pub ground_item_object_id_padding: [u8; 2],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -686,7 +713,10 @@ pub struct DrawItemHealItem {
     pub unknown_2: u16,          // 252
     pub map_coordinate_x: u32,   // 256
     pub map_coordinate_y: u32,   // 260
-    pub unknown_3: u32,          // 264
+    /// One-based encoded object ID used by the map's ground-item grid.
+    pub ground_item_object_id: u16,
+    /// Preserved bytes following the ground-item object ID.
+    pub ground_item_object_id_padding: [u8; 2],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -722,5 +752,8 @@ pub struct DrawItemWeaponItem {
     pub padding8: i16,         // 284
     pub map_coordinate_x: u32, // 288
     pub map_coordinate_y: u32, // 292
-    pub unknown_1: u32,        // 296
+    /// One-based encoded object ID used by the map's ground-item grid.
+    pub ground_item_object_id: u16,
+    /// Preserved bytes following the ground-item object ID.
+    pub ground_item_object_id_padding: [u8; 2],
 }

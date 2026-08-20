@@ -43,7 +43,7 @@ editable_record_fields!(ExtraRef, {
     { preserve_final_sprite_frame = Integer / "Preserve final sprite frame:" },
     { alternate_render_mode = DispEnum(BooleanFlag, ["True", "False"]) / "Alternate render mode:" },
     { activation_effect_id = Enum(ActivationEffectId, ["None", "Effect10"]) / "Activation effect:" },
-    { unresolved_activation_effect_flag = DispEnum(BooleanFlag, ["True", "False"]) / "Unresolved activation-effect flag:" },
+    { activation_effect_reserved_flag = DispEnum(BooleanFlag, ["True", "False"]) / "Activation-effect reserved flag:" },
     { activation_effect_padding = Integer / "Activation effect padding:" },
     { active_overlay_enabled = DispEnum(BooleanFlag, ["True", "False"]) / "Active overlay enabled:" },
     { map_object_active = DispEnum(BooleanFlag, ["True", "False"]) / "Map object active:" },
