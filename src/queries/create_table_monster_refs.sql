@@ -1,7 +1,7 @@
 CREATE TABLE monster_refs
 (
     file_id         INTEGER NOT NULL,
-    id              INTEGER,
+    "index"              INTEGER,
     placement_id    INTEGER,
     monster_db_id   INTEGER,
     map_x           INTEGER,
@@ -11,15 +11,15 @@ CREATE TABLE monster_refs
     initial_active_flag INTEGER,
     ai_type_override INTEGER,
     event_id_on_kill INTEGER,
-    loot1_item_id   INTEGER,
-    loot1_item_type INTEGER,
-    loot1_item_raw  INTEGER,
-    loot2_item_id   INTEGER,
-    loot2_item_type INTEGER,
-    loot2_item_raw  INTEGER,
-    loot3_item_id   INTEGER,
-    loot3_item_type INTEGER,
-    loot3_item_raw  INTEGER,
+    loot_item_1_id   INTEGER,
+    loot_item_1_type INTEGER,
+    loot_item_1_raw  INTEGER,
+    loot_item_2_id   INTEGER,
+    loot_item_2_type INTEGER,
+    loot_item_2_raw  INTEGER,
+    loot_item_3_id   INTEGER,
+    loot_item_3_type INTEGER,
+    loot_item_3_raw  INTEGER,
     drop_all_loot   INTEGER,
     force_ai_update INTEGER
 );

@@ -223,7 +223,7 @@ fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                 stmt.execute(params![
                     req_id,
                     0,                      // required_event_id
-                    Option::<i32>::None,    // event_type_id
+                    Option::<i32>::None,    // event_type
                     Option::<String>::None, // event_filename
                     0,                      // counter
                 ])?;
@@ -388,7 +388,7 @@ fn import_dialogues_paragraphs(
                     next_id,
                     Option::<i32>::None, // required_event_id
                     Option::<i32>::None, // next_dialog_to_check
-                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_type
                     Option::<i32>::None, // dialog_owner
                     Option::<i32>::None, // dialog_id
                     Option::<i32>::None, // next_dialog_id1
@@ -576,7 +576,7 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                     dialog_id,
                     Option::<i32>::None, // required_event_id
                     Option::<i32>::None, // next_dialog_to_check
-                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_type
                     Option::<i32>::None, // dialog_owner
                     Option::<i32>::None, // dialog_id
                     Option::<i32>::None, // next_dialog_id1

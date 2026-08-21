@@ -539,7 +539,7 @@ fn collect_npcs(
                         nr.goto2_filled, nr.goto2_x, nr.goto2_y,
                         nr.goto3_filled, nr.goto3_x, nr.goto3_y,
                         nr.goto4_filled, nr.goto4_x, nr.goto4_y,
-                        ni.sprite_filename, nr.looking_direction \
+                        ni.sprite_filename, nr.waypoint1_facing_direction \
                  FROM npc_refs nr \
                  LEFT JOIN npc_inis ni ON ni.id = nr.npc_ini_id \
                  WHERE nr.file_path LIKE '%{}'",
@@ -562,7 +562,7 @@ fn collect_npcs(
                         row.get::<_, i32>(11)?,            // goto4_x
                         row.get::<_, i32>(12)?,            // goto4_y
                         row.get::<_, Option<String>>(13)?, // sprite_filename
-                        row.get::<_, i32>(14)?,            // looking_direction
+                        row.get::<_, i32>(14)?,            // waypoint1_facing_direction
                     ))
                 })
             {
@@ -611,9 +611,9 @@ fn collect_extras(
         f = f.replace('\\', "/");
         if let Some(name) = f.split('/').next_back() {
             let q = format!(
-                "SELECT er.x_pos, er.y_pos, e.sprite_filename, er.rotation, er.object_type, er.closed \
+                "SELECT er.map_x, er.map_y, e.sprite_filename, er.direction, er.object_type, er.requires_key \
                  FROM extra_refs er \
-                 LEFT JOIN extras e ON e.id = er.ext_id \
+                 LEFT JOIN extras e ON e.id = er.extra_definition_id \
                  WHERE er.file_path LIKE '%{}'",
                 name
             );
