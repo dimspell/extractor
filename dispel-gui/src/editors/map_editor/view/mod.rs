@@ -209,6 +209,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     MapLayer::DrawItems,
                     Some(state.data.draw_items.len())
                 ),
+                layer_toggle(
+                    "Obj IDs",
+                    state.view.show_object_ids,
+                    tab_id,
+                    MapLayer::ObjectIds,
+                    None
+                ),
             ]
             .spacing(12)
             .padding([6, 16])

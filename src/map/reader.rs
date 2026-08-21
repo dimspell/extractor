@@ -7,9 +7,12 @@
 /// 4. Sprite block – internal embedded sprites (sequence headers)
 /// 5. Sprite info block – placement records for embedded sprites
 /// 6. Tiled objects block – building/object tile stacks
-/// 7. Event block – per-tile event trigger IDs (read from end of file)
-/// 8. Tile & access block – GTL tile IDs + collision flags
-/// 9. Roof block – BTL tile IDs (optional, only if data remains)
+/// 7. Event block – per-tile packed u32 (low 14 bits: event/transition id)
+/// 8. Tile & access block – per-tile packed u32:
+///    bits 0–9 = access field (bit 0 collision, bits 1–9 object slot id),
+///    bits 10–24 = GTL ground-tile index
+/// 9. Access-ref block ("roof") – per-tile packed u32 indexing the second
+///    block's u16 table (low 15 bits = table id)
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::HashMap;
 use std::fs::File;
@@ -173,7 +176,12 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
 }
 
 // --------------------------------------------------------------------------
-// Event block – per-tile event trigger IDs (located near end of file)
+// Event block – per-tile packed u32 (located near end of file)
+//
+// Low 14 bits hold an event/transition id; in-game, hovering such a tile
+// shows a name resolved through the Map.ini/AllMap.ini tables. The binary
+// masks with 0x3fff and treats ids < 70 as valid. High bits carry
+// parameters on some tiles (semantics not fully mapped yet).
 // --------------------------------------------------------------------------
 
 pub fn read_events_block(
@@ -202,32 +210,63 @@ pub fn read_events_block(
 }
 
 // --------------------------------------------------------------------------
-// Tile & access block – GTL tile IDs and collision flags
+// Tile & access block – one packed u32 per tile
+//
+// Bit layout (verified against Dispel_145_wm.exe):
+//   bits 0        – blocked/collision flag
+//   bits 1–9      – map-object slot id (0–511); non-zero marks an
+//                   interactive object dispatched to a subsystem handler
+//   bits 10–24    – GTL ground-tile index: (word >> 10) & 0x7FFF.
+//                   The renderer blits from gtl_base + index * 0x800
+//                   (2048 B = one 32×32 RGB565 tile in the .gtl file).
+//   bits 25–31    – unused (always 0 in shipped maps)
+//
+// The game's `setaccess` script command rewrites exactly bits 0–9,
+// preserving the tile index — the game calls this whole field "access".
+// Shipped maps only use bit 0; bits 1–9 are set at runtime.
 // --------------------------------------------------------------------------
+
+/// Parsed result of `read_tiles_and_access_block`: (gtl_tiles, collisions, object_ids).
+type TileAccessResult = (
+    HashMap<Coords, i32>,
+    HashMap<Coords, bool>,
+    HashMap<Coords, i32>,
+);
 
 pub fn read_tiles_and_access_block(
     reader: &mut BufReader<File>,
     tiled_map_width: i32,
     tiled_map_height: i32,
-) -> Result<(HashMap<Coords, i32>, HashMap<Coords, bool>)> {
+) -> Result<TileAccessResult> {
     let mut gtl_tiles = HashMap::new();
     let mut collisions = HashMap::new();
+    let mut object_ids = HashMap::new();
 
     for y in 0..tiled_map_height {
         for x in 0..tiled_map_width {
             let coords: Coords = (x, y);
             let value = reader.read_i32::<LittleEndian>()?;
-            let gtl_tile_id = value >> 10;
+            let gtl_tile_id = (value >> 10) & 0x7FFF;
             let collision = (value & 0x1) == 1;
+            let object_id = (value >> 1) & 0x1FF;
             gtl_tiles.insert(coords, gtl_tile_id);
             collisions.insert(coords, collision);
+            if object_id != 0 {
+                object_ids.insert(coords, object_id);
+            }
         }
     }
-    Ok((gtl_tiles, collisions))
+    Ok((gtl_tiles, collisions, object_ids))
 }
 
 // --------------------------------------------------------------------------
-// Roof tile block – BTL tile IDs for building roofs
+// Access-ref block ("roof") – one packed u32 per tile
+//
+// Bits 0–14 index the second block's u16 table (the table skipped by
+// `second_block`); the entry's low byte is a boolean consumed by the game's
+// tile-access/occlusion checks (HIDEACCESS / SHOWACCESS debug commands).
+// Bits 15+ are flags (rare — e.g. 7 border tiles in cat1.map). Roof visuals
+// themselves come from the tiled-objects block, not from this grid.
 // --------------------------------------------------------------------------
 
 pub fn read_roof_tiles(
@@ -252,4 +291,76 @@ pub fn read_roof_tiles(
         }
     }
     Ok(btl_tiles)
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_tile_access_round_trip_synthetic_word() {
+        // Encode: gtl=1234, object_id=5, blocked=true
+        let gtl_tile_id: i32 = 1234;
+        let object_id: i32 = 5;
+        let blocked = true;
+        let value = ((gtl_tile_id & 0x7FFF) << 10) | ((object_id & 0x1FF) << 1) | (blocked as i32);
+
+        // Decode
+        let decoded_gtl = (value >> 10) & 0x7FFF;
+        let decoded_blocked = (value & 0x1) == 1;
+        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+
+        assert_eq!(decoded_gtl, 1234, "GTL tile id mismatch");
+        assert_eq!(decoded_object, 5, "Object id mismatch");
+        assert!(decoded_blocked, "Blocked flag mismatch");
+
+        // Re-encode
+        let repacked = ((decoded_gtl & 0x7FFF) << 10)
+            | ((decoded_object & 0x1FF) << 1)
+            | (decoded_blocked as i32);
+        assert_eq!(repacked, value, "Repacked value differs from original");
+    }
+
+    #[test]
+    fn test_tile_access_round_trip_zero_object() {
+        // Shipped file case: object_id=0, high bits 0
+        let gtl_tile_id: i32 = 42;
+        let object_id: i32 = 0;
+        let blocked = false;
+        let value = ((gtl_tile_id & 0x7FFF) << 10) | ((object_id & 0x1FF) << 1) | (blocked as i32);
+
+        let decoded_gtl = (value >> 10) & 0x7FFF;
+        let decoded_blocked = (value & 0x1) == 1;
+        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+
+        assert_eq!(decoded_gtl, 42);
+        assert_eq!(decoded_object, 0);
+        assert!(!decoded_blocked);
+
+        let repacked = ((decoded_gtl & 0x7FFF) << 10)
+            | ((decoded_object & 0x1FF) << 1)
+            | (decoded_blocked as i32);
+        assert_eq!(repacked, value);
+    }
+
+    #[test]
+    fn test_tile_access_round_trip_max_object_and_gtl() {
+        // Max values: gtl=0x7FFF (32767), object_id=0x1FF (511), blocked=true
+        let gtl_tile_id: i32 = 0x7FFF;
+        let object_id: i32 = 0x1FF;
+        let blocked = true;
+        let value = ((gtl_tile_id & 0x7FFF) << 10) | ((object_id & 0x1FF) << 1) | (blocked as i32);
+
+        let decoded_gtl = (value >> 10) & 0x7FFF;
+        let decoded_blocked = (value & 0x1) == 1;
+        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+
+        assert_eq!(decoded_gtl, 0x7FFF);
+        assert_eq!(decoded_object, 0x1FF);
+        assert!(decoded_blocked);
+
+        let repacked = ((decoded_gtl & 0x7FFF) << 10)
+            | ((decoded_object & 0x1FF) << 1)
+            | (decoded_blocked as i32);
+        assert_eq!(repacked, value);
+    }
 }

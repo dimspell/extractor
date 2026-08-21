@@ -56,6 +56,7 @@ fn make_state(
         btl_tiles: HashMap::new(),
         collisions,
         events,
+        object_ids: HashMap::new(),
         tiled_infos: vec![],
         internal_sprites: vec![],
         sprite_blocks: vec![],

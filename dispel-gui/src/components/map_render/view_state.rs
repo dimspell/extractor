@@ -23,6 +23,7 @@ pub struct MapViewState {
     pub show_npc_waypoints: bool,
     pub show_objects: bool,
     pub show_draw_items: bool,
+    pub show_object_ids: bool,
     /// Last known cursor position in canvas-local pixel coordinates.
     /// Set to f32::NAN when the cursor is not over the canvas.
     pub cursor_canvas_x: f32,
@@ -69,6 +70,7 @@ impl Default for MapViewState {
             show_npc_waypoints: false,
             show_objects: true,
             show_draw_items: true,
+            show_object_ids: false,
             cursor_canvas_x: f32::NAN,
             cursor_canvas_y: f32::NAN,
             last_canvas_w: 1200.0,
