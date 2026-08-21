@@ -5,6 +5,7 @@ use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::components::toast;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{
     button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler,
@@ -310,12 +311,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     tmx_btn.on_press(Message::map_editor(MapEditorMessage::ExportTmx(tab_id)));
             }
 
-            let status_text = if let Some(msg) = &state.data.status_msg {
-                text(msg.as_str()).size(10).style(style::subtle_text)
-            } else {
-                text("").size(10).style(style::subtle_text)
-            };
-
             // Folded summary replacing the duplicate Handles/Tiles info cells.
             let summary_text = format!(
                 "{}×{} · {} NPC · {} gtl",
@@ -346,7 +341,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 export_btn,
                 tmx_btn,
                 text(path_label).size(10).style(style::subtle_text),
-                status_text,
                 horizontal_space(),
                 match &hint {
                     Some(h) => Element::new(text(h.clone()).size(10).style(style::subtle_text)),
@@ -555,16 +549,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .into();
 
             // Wrap in dialog preview modal if open
-            if let Some(ref preview) = state.view.dialog_preview {
+            let root: Element<'_, Message> = if let Some(ref preview) = state.view.dialog_preview {
                 modal(
                     base,
                     dialog_preview::view_dialog_preview(state, tab_id, preview),
                     move || Message::map_editor(MapEditorMessage::HideDialogPreview(tab_id)),
                     0.5,
                 )
+                .into()
             } else {
                 base
-            }
+            };
+
+            // Toast notifications overlay (top-right, auto-dismiss).
+            toast::Manager::new(root, &state.data.toasts, move |i| {
+                Message::map_editor(MapEditorMessage::DismissToast(tab_id, i))
+            })
+            .timeout(3)
+            .into()
         }
     }
 }

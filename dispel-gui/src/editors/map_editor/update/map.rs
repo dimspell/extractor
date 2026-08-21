@@ -78,8 +78,11 @@ pub fn toggle_collision_at(
     ty: i32,
 ) -> bool {
     if !state.data.can_mutate_map_data() {
-        state.data.status_msg =
-            Some("Cannot edit collision while save/export is in progress".into());
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Collision",
+            "Cannot edit while save/export is in progress",
+        );
         return false;
     }
     let LoadingState::Loaded(ref mut handle) = state.data.loading_state else {
@@ -97,6 +100,18 @@ pub fn toggle_collision_at(
     });
     state.view.selected_entity = None;
     state.view.overlay_cache.clear();
+    // Replace-in-place: painting a stroke updates one toast, not many.
+    state.data.notify_replace(
+        "Collision",
+        gui_widgets::components::toast::Status::Primary,
+        "Collision",
+        format!(
+            "{} ({},{})",
+            if old { "Unblocked" } else { "Blocked" },
+            tx,
+            ty
+        ),
+    );
     true
 }
 
@@ -110,8 +125,11 @@ pub fn apply_object_id_edit(
     ty: i32,
 ) -> bool {
     if !state.data.can_mutate_map_data() {
-        state.data.status_msg =
-            Some("Cannot edit object IDs while save/export is in progress".into());
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Object ID",
+            "Cannot edit while save/export is in progress",
+        );
         return false;
     }
     let LoadingState::Loaded(ref mut handle) = state.data.loading_state else {
@@ -137,6 +155,18 @@ pub fn apply_object_id_edit(
     state.view.selected_entity = None;
     state.view.overlay_cache.clear();
     state.view.tile_layer_cache.clear();
+    // Replace-in-place: painting a stroke updates one toast, not many.
+    let body = if erase || new == 0 {
+        format!("Erased obj @ ({},{})", tx, ty)
+    } else {
+        format!("Obj {} → ({},{})", new, tx, ty)
+    };
+    state.data.notify_replace(
+        "Object ID",
+        gui_widgets::components::toast::Status::Primary,
+        "Object ID",
+        body,
+    );
     true
 }
 
@@ -236,6 +266,19 @@ pub fn map_loaded(
                 .collect();
             seq_handles.sort_by_key(|s| s.sequence_idx);
             state.data.sprite_sequence_handles = seq_handles;
+
+            let loaded_name = state
+                .data
+                .map_path
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            state.data.notify(
+                gui_widgets::components::toast::Status::Success,
+                "Loaded",
+                loaded_name,
+            );
 
             // Convert decoded internal sprites → Iced Handles.
             state.data.internal_sprite_handles = decoded_sprites
@@ -355,7 +398,11 @@ pub fn tiles_decoded(
     };
     let game_path = app.state.workspace.game_path.clone();
     if game_path.is_none() {
-        state.data.status_msg = Some("No game path set — entity files not loaded".to_string());
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Load",
+            "No game path set — entity files not loaded",
+        );
     }
     Task::perform(
         async move { load_entities(&map_path, game_path) },

@@ -3,6 +3,7 @@ use crate::components::loading_state::LoadingState;
 pub use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
 use dispel_core::references::dialogue_paragraph::DialogueParagraph;
 use dispel_core::references::dialogue_script::DialogueScript;
+use gui_widgets::components::toast::{Status, Toast};
 use iced::widget::image::Handle;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -168,8 +169,8 @@ pub struct MapDataState {
     pub is_saving: bool,
     /// True while an async PNG export is in flight.
     pub is_exporting: bool,
-    /// Last save/export status message for display in the toolbar.
-    pub status_msg: Option<String>,
+    /// Toast notifications (top-right overlay, auto-dismissed).
+    pub toasts: Vec<Toast>,
     /// Sprite export dialog state (None = dialog closed).
     pub sprite_export_dialog: Option<SpriteExportDialogState>,
     /// Object-id brush value for painting (1–511, default 1).
@@ -205,16 +206,67 @@ impl Default for MapDataState {
             dirty: false,
             is_saving: false,
             is_exporting: false,
-            status_msg: None,
+            toasts: Vec::new(),
             sprite_export_dialog: None,
             object_brush: 1,
         }
     }
 }
 
+/// Maximum number of toasts kept on screen.
+const MAX_TOASTS: usize = 4;
+
 impl MapDataState {
     pub fn map_data(&self) -> Option<&MapDataHandle> {
         self.loading_state.data()
+    }
+
+    /// Push a toast notification.
+    ///
+    /// Skips the push when it is identical (title + body) to the LAST toast,
+    /// deduping rapid repeats; caps the list at [`MAX_TOASTS`] by dropping
+    /// the oldest.
+    pub fn notify(&mut self, status: Status, title: impl Into<String>, body: impl Into<String>) {
+        let title = title.into();
+        let body = body.into();
+        if let Some(last) = self.toasts.last()
+            && last.title == title
+            && last.body == body
+        {
+            return;
+        }
+        self.toasts.push(Toast {
+            title,
+            body,
+            status,
+        });
+        if self.toasts.len() > MAX_TOASTS {
+            self.toasts.remove(0);
+        }
+    }
+
+    /// Push a toast, replacing the previous toast of the same `kind` instead
+    /// of stacking. Kinds are matched by title equality, so pass the same
+    /// `kind` and `title` for all events of one class (e.g. `"Collision"`).
+    /// Keeps the stack clean during paint strokes / rapid repeats.
+    pub fn notify_replace(
+        &mut self,
+        kind: &'static str,
+        status: Status,
+        title: impl Into<String>,
+        body: impl Into<String>,
+    ) {
+        let title = title.into();
+        let body = body.into();
+        if let Some(last) = self.toasts.last_mut()
+            && last.title == kind
+        {
+            last.status = status;
+            last.title = title;
+            last.body = body;
+            return;
+        }
+        self.notify(status, title, body);
     }
 
     /// Returns `true` when the `MapDataHandle` Arc is safe to borrow mutably.
@@ -437,5 +489,58 @@ impl MapRenderSource for MapEditorState {
                 visible: self.view.show_draw_items,
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gui_widgets::components::toast::Status;
+
+    #[test]
+    fn test_notify_dedupes_identical_consecutive() {
+        let mut s = MapDataState::default();
+        s.notify(Status::Success, "Saved", "cat1.map");
+        s.notify(Status::Success, "Saved", "cat1.map");
+        assert_eq!(s.toasts.len(), 1, "identical consecutive toast is deduped");
+
+        // Same title but different body → new toast.
+        s.notify(Status::Success, "Saved", "dun04.map");
+        assert_eq!(s.toasts.len(), 2);
+    }
+
+    #[test]
+    fn test_notify_caps_at_four_dropping_oldest() {
+        let mut s = MapDataState::default();
+        for i in 0..6 {
+            s.notify(Status::Primary, "Collision", format!("({i},{i})"));
+        }
+        assert_eq!(s.toasts.len(), 4, "list capped at 4");
+        assert_eq!(s.toasts[0].body, "(2,2)", "oldest toasts dropped first");
+        assert_eq!(s.toasts[3].body, "(5,5)");
+    }
+
+    #[test]
+    fn test_notify_replace_replaces_same_kind_last_toast() {
+        let mut s = MapDataState::default();
+        s.notify_replace("Collision", Status::Primary, "Collision", "(1,1)");
+        s.notify_replace("Collision", Status::Primary, "Collision", "(2,2)");
+        assert_eq!(s.toasts.len(), 1, "same kind replaces instead of stacking");
+        assert_eq!(s.toasts[0].body, "(2,2)");
+
+        // Different kind pushes a new toast.
+        s.notify_replace("Object ID", Status::Primary, "Object ID", "Obj 7 → (3,3)");
+        assert_eq!(s.toasts.len(), 2);
+
+        // Replacing only touches the LAST toast.
+        s.notify_replace(
+            "Object ID",
+            Status::Primary,
+            "Object ID",
+            "Erased obj @ (4,4)",
+        );
+        assert_eq!(s.toasts.len(), 2);
+        assert_eq!(s.toasts[0].body, "(2,2)");
+        assert_eq!(s.toasts[1].body, "Erased obj @ (4,4)");
     }
 }
