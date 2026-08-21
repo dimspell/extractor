@@ -9,9 +9,10 @@ use iced::{
 /// Display an anchored popover panel above sibling content.
 ///
 /// The `trigger` element is laid out normally. When `open` is `true`, the
-/// `panel` element floats directly below the trigger (clamped to the available
-/// bounds). Clicking the trigger calls `on_toggle`; clicking outside the panel
-/// or pressing Escape calls `on_blur`.
+/// `panel` element floats directly below the trigger (clamped to the window,
+/// flipped above if there is no room) via the overlay layer, so it renders
+/// above any sibling widgets. Clicking the trigger calls `on_toggle`; clicking
+/// outside the panel or pressing Escape calls `on_blur`.
 ///
 /// Open/close state is caller-owned (mirroring how consumers drive [`crate::components::modal`]):
 /// render this widget unconditionally and pass the current `open` flag.
@@ -81,36 +82,14 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
+        // Only the trigger participates in layout; the panel is rendered by
+        // the overlay layer (see `overlay`).
         let trigger = self
             .trigger
             .as_widget_mut()
             .layout(&mut tree.children[0], renderer, limits);
-        let size = trigger.size();
 
-        // Lay out the panel; when open, anchor it below the trigger
-        // (left-aligned, clamped to the available bounds).
-        let panel_limits = layout::Limits::new(Size::ZERO, limits.max())
-            .width(Length::Shrink)
-            .height(Length::Shrink);
-        let panel = if self.open {
-            let mut panel =
-                self.panel
-                    .as_widget_mut()
-                    .layout(&mut tree.children[1], renderer, &panel_limits);
-            let panel_size = panel.size();
-            let max = limits.max();
-            let x = trigger
-                .bounds()
-                .x
-                .min((max.width - panel_size.width).max(0.0));
-            panel.move_to_mut(Point::new(x.max(0.0), size.height));
-            panel
-        } else {
-            // Keep the child slot present for state consistency, but empty.
-            layout::Node::new(Size::ZERO)
-        };
-
-        layout::Node::with_children(size, vec![trigger, panel])
+        layout::Node::with_children(trigger.size(), vec![trigger, layout::Node::new(Size::ZERO)])
     }
 
     fn update(
@@ -125,30 +104,16 @@ where
     ) {
         let mut children = layout.children();
         let trigger_layout = children.next().unwrap();
-        let panel_layout = children.next().unwrap();
 
-        match event {
-            Event::Keyboard(keyboard::Event::KeyPressed {
-                key: keyboard::Key::Named(key::Named::Escape),
-                ..
-            }) if self.open => {
-                shell.publish((self.on_blur)());
+        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event {
+            // Toggle only when closed. While open, the overlay owns all
+            // clicks (outside-panel press closes it), so handling the
+            // trigger here too would immediately re-open after a blur.
+            if !self.open && cursor.is_over(trigger_layout.bounds()) {
+                shell.publish((self.on_toggle)());
                 shell.capture_event();
                 return;
             }
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if cursor.is_over(trigger_layout.bounds()) {
-                    shell.publish((self.on_toggle)());
-                    shell.capture_event();
-                    return;
-                }
-                if self.open && !cursor.is_over(panel_layout.bounds()) {
-                    shell.publish((self.on_blur)());
-                    shell.capture_event();
-                    return;
-                }
-            }
-            _ => {}
         }
 
         self.trigger.as_widget_mut().update(
@@ -160,17 +125,6 @@ where
             shell,
             viewport,
         );
-        if self.open {
-            self.panel.as_widget_mut().update(
-                &mut state.children[1],
-                event,
-                panel_layout,
-                cursor,
-                renderer,
-                shell,
-                viewport,
-            );
-        }
     }
 
     fn draw(
@@ -183,9 +137,7 @@ where
         cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
-        let mut children = layout.children();
-        let trigger_layout = children.next().unwrap();
-        let panel_layout = children.next().unwrap();
+        let trigger_layout = layout.children().next().unwrap();
 
         self.trigger.as_widget().draw(
             &state.children[0],
@@ -196,32 +148,6 @@ where
             cursor,
             viewport,
         );
-
-        if self.open {
-            renderer.with_layer(layout.bounds(), |renderer| {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: panel_layout.bounds(),
-                        border: iced::Border {
-                            radius: 4.0.into(),
-                            ..iced::Border::default()
-                        },
-                        shadow: self.shadow,
-                        ..renderer::Quad::default()
-                    },
-                    Color::TRANSPARENT,
-                );
-                self.panel.as_widget().draw(
-                    &state.children[1],
-                    renderer,
-                    theme,
-                    style,
-                    panel_layout,
-                    cursor,
-                    viewport,
-                );
-            });
-        }
     }
 
     fn overlay<'b>(
@@ -232,13 +158,29 @@ where
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<advanced::overlay::Element<'b, Message, Theme, Renderer>> {
-        self.trigger.as_widget_mut().overlay(
-            &mut state.children[0],
-            layout.children().next().unwrap(),
-            renderer,
-            viewport,
-            translation,
-        )
+        let mut children = layout.children();
+        let trigger_layout = children.next().unwrap();
+
+        if !self.open {
+            return self.trigger.as_widget_mut().overlay(
+                &mut state.children[0],
+                trigger_layout,
+                renderer,
+                viewport,
+                translation,
+            );
+        }
+
+        let bounds = trigger_layout.bounds();
+        Some(advanced::overlay::Element::new(Box::new(PopoverOverlay {
+            position: bounds.position() + translation,
+            target_height: bounds.height,
+            viewport: *viewport,
+            tree: &mut state.children[1],
+            panel: &mut self.panel,
+            on_blur: &self.on_blur,
+            shadow: self.shadow,
+        })))
     }
 
     fn mouse_interaction(
@@ -249,27 +191,15 @@ where
         viewport: &Rectangle,
         renderer: &Renderer,
     ) -> mouse::Interaction {
-        let mut children = layout.children();
-        let trigger_layout = children.next().unwrap();
-        let panel_layout = children.next().unwrap();
+        let trigger_layout = layout.children().next().unwrap();
 
-        if self.open && cursor.is_over(panel_layout.bounds()) {
-            self.panel.as_widget().mouse_interaction(
-                &state.children[1],
-                panel_layout,
-                cursor,
-                viewport,
-                renderer,
-            )
-        } else {
-            self.trigger.as_widget().mouse_interaction(
-                &state.children[0],
-                trigger_layout,
-                cursor,
-                viewport,
-                renderer,
-            )
-        }
+        self.trigger.as_widget().mouse_interaction(
+            &state.children[0],
+            trigger_layout,
+            cursor,
+            viewport,
+            renderer,
+        )
     }
 
     fn operate(
@@ -279,9 +209,7 @@ where
         renderer: &Renderer,
         operation: &mut dyn widget::Operation,
     ) {
-        let mut children = layout.children();
-        let trigger_layout = children.next().unwrap();
-        let panel_layout = children.next().unwrap();
+        let trigger_layout = layout.children().next().unwrap();
 
         self.trigger.as_widget_mut().operate(
             &mut state.children[0],
@@ -289,14 +217,151 @@ where
             renderer,
             operation,
         );
-        if self.open {
-            self.panel.as_widget_mut().operate(
-                &mut state.children[1],
-                panel_layout,
-                renderer,
-                operation,
-            );
+    }
+}
+
+/// The floating panel of an open [`Popover`], rendered above all siblings.
+struct PopoverOverlay<'a, 'b, Message, Theme, Renderer> {
+    position: Point,
+    target_height: f32,
+    viewport: Rectangle,
+    tree: &'a mut widget::Tree,
+    panel: &'a mut Element<'b, Message, Theme, Renderer>,
+    on_blur: &'a dyn Fn() -> Message,
+    shadow: Shadow,
+}
+
+impl<Message, Theme, Renderer> advanced::overlay::Overlay<Message, Theme, Renderer>
+    for PopoverOverlay<'_, '_, Message, Theme, Renderer>
+where
+    Renderer: advanced::Renderer,
+{
+    fn layout(&mut self, renderer: &Renderer, bounds: Size) -> layout::Node {
+        let space_below = bounds.height - (self.position.y + self.target_height);
+        let space_above = self.position.y;
+
+        let limits = layout::Limits::new(
+            Size::ZERO,
+            Size::new(
+                (bounds.width - self.position.x).max(0.0),
+                if space_below > space_above {
+                    space_below.max(0.0)
+                } else {
+                    space_above.max(0.0)
+                },
+            ),
+        )
+        .width(Length::Shrink)
+        .height(Length::Shrink);
+
+        let node = self
+            .panel
+            .as_widget_mut()
+            .layout(self.tree, renderer, &limits);
+        let size = node.size();
+
+        // Clamp horizontally so the panel stays inside the window.
+        let x = self.position.x.min((bounds.width - size.width).max(0.0));
+
+        // Prefer below the trigger; flip above when there is no room.
+        let y = if space_below >= space_above || space_below + self.target_height >= size.height {
+            self.position.y + self.target_height
+        } else {
+            (self.position.y - size.height).max(0.0)
+        };
+
+        node.move_to(Point::new(x.max(0.0), y))
+    }
+
+    fn update(
+        &mut self,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        let bounds = layout.bounds();
+
+        match event {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(key::Named::Escape),
+                ..
+            }) => {
+                shell.publish((self.on_blur)());
+                shell.capture_event();
+                return;
+            }
+            // Click anywhere outside the panel (including the trigger)
+            // dismisses it.
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+                if !cursor.is_over(bounds) =>
+            {
+                shell.publish((self.on_blur)());
+                shell.capture_event();
+                return;
+            }
+            _ => {}
         }
+
+        self.panel
+            .as_widget_mut()
+            .update(self.tree, event, layout, cursor, renderer, shell, &bounds);
+    }
+
+    fn draw(
+        &self,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+    ) {
+        let bounds = layout.bounds();
+
+        // Drop shadow behind the panel.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: iced::Border {
+                    radius: 4.0.into(),
+                    ..iced::Border::default()
+                },
+                shadow: self.shadow,
+                ..renderer::Quad::default()
+            },
+            Color::TRANSPARENT,
+        );
+
+        self.panel
+            .as_widget()
+            .draw(self.tree, renderer, theme, style, layout, cursor, &bounds);
+    }
+
+    fn mouse_interaction(
+        &self,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+    ) -> mouse::Interaction {
+        self.panel.as_widget().mouse_interaction(
+            self.tree,
+            layout,
+            cursor,
+            &self.viewport,
+            renderer,
+        )
+    }
+
+    fn operate(
+        &mut self,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn widget::Operation,
+    ) {
+        self.panel
+            .as_widget_mut()
+            .operate(self.tree, layout, renderer, operation);
     }
 }
 
