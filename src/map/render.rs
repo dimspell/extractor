@@ -10,6 +10,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
     Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, convert_map_coords_to_image_coords,
+    tiled_object_sort_key,
 };
 
 use super::model::MapModel;
@@ -183,11 +184,9 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         > = HashMap::new();
 
         let diagonal = data.model.tiled_map_width + data.model.tiled_map_height;
-        let noy = if occlusion {
-            0
-        } else {
-            data.model.map_non_occluded_start_y
-        };
+        // All interlaced sort keys are compared in map-local pixel space
+        // (world Y minus the non-occluded origin), independent of output mode.
+        let noy = data.model.map_non_occluded_start_y;
 
         // Helper: entity sort position (matches GUI's entity_pos)
         let entity_pos = |tx: i32, ty: i32| -> i32 {
@@ -195,7 +194,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         };
 
         enum ItemKind {
-            TiledObject(usize),
+            TiledObject(usize, usize),
             Sprite(usize),
             Monster(usize),
             Npc(usize),
@@ -204,20 +203,25 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         let mut items: Vec<(i32, i32, i32, ItemKind)> = Vec::new();
 
-        // Buildings (type_order=0)
+        // Buildings (type_order=0) — one item per stack tile so entities
+        // interleave at per-tile depth (see tiled_object_sort_key). Keys are
+        // map-local, matching entity_pos below.
         if toggles.show_buildings {
             for (i, info) in data.tiled_infos.iter().enumerate() {
-                let pos = info.y + info.ids.len() as i32 * TILE_HEIGHT as i32 + noy;
-                items.push((pos, 0, i as i32, ItemKind::TiledObject(i)));
+                for level in 0..info.ids.len() {
+                    let pos = tiled_object_sort_key(info.y, level);
+                    items.push((pos, 0, info.x, ItemKind::TiledObject(i, level)));
+                }
             }
         }
 
-        // Internal sprites (type_order=1)
+        // Internal sprites (type_order=1) — key is map-local
+        // (sprite_bottom_right_y == sprite_y + height).
         if toggles.show_internal_sprites {
             for (i, block) in data.sprite_blocks.iter().enumerate() {
                 if block.sprite_id < data.internal_sprites.len() {
                     let h = data.internal_sprites[block.sprite_id].frame_infos[0].height;
-                    items.push((block.sprite_y + h + noy, 1, 0, ItemKind::Sprite(i)));
+                    items.push((block.sprite_y + h, 1, block.sprite_x, ItemKind::Sprite(i)));
                 }
             }
         }
@@ -245,18 +249,19 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         for (_, _, _, item) in &items {
             match item {
-                ItemKind::TiledObject(i) => {
+                ItemKind::TiledObject(i, level) => {
                     let info = &data.tiled_infos[*i];
-                    for (j, &btl_id) in info.ids.iter().enumerate() {
-                        if btl_id <= 0 {
-                            continue;
-                        }
-                        let btl_tile_idx = btl_id.unsigned_abs() as usize;
-                        if let Some(tile) = btl_tileset.get(btl_tile_idx) {
-                            let x = info.x + offset_x;
-                            let y = info.y + (j as i32 * TILE_HEIGHT as i32) + offset_y;
-                            plot_tile(&mut imgbuf, tile.colors, x, y);
-                        }
+                    let Some(&btl_id) = info.ids.get(*level) else {
+                        continue;
+                    };
+                    if btl_id <= 0 {
+                        continue;
+                    }
+                    let btl_tile_idx = btl_id.unsigned_abs() as usize;
+                    if let Some(tile) = btl_tileset.get(btl_tile_idx) {
+                        let x = info.x + offset_x;
+                        let y = info.y + (*level as i32 * TILE_HEIGHT as i32) + offset_y;
+                        plot_tile(&mut imgbuf, tile.colors, x, y);
                     }
                 }
                 ItemKind::Sprite(i) => {
@@ -447,7 +452,7 @@ pub fn plot_objects(
 ) -> Result<()> {
     enum Kind {
         Sprite(usize),
-        TiledObject(usize),
+        TiledObject { obj: usize, level: usize },
     }
     struct Item {
         ground_y: i32,
@@ -464,11 +469,14 @@ pub fn plot_objects(
             kind: Kind::Sprite(i),
         });
     }
+    // Per-tile depth (see tiled_object_sort_key) — consistent with render_map.
     for (i, info) in params.tiled_info.iter().enumerate() {
-        items.push(Item {
-            ground_y: info.y + (info.ids.len() as i32 * TILE_HEIGHT as i32),
-            kind: Kind::TiledObject(i),
-        });
+        for level in 0..info.ids.len() {
+            items.push(Item {
+                ground_y: tiled_object_sort_key(info.y, level),
+                kind: Kind::TiledObject { obj: i, level },
+            });
+        }
     }
     items.sort_by_key(|it| it.ground_y);
 
@@ -482,33 +490,24 @@ pub fn plot_objects(
                 params.offset_x,
                 params.offset_y,
             )?,
-            Kind::TiledObject(i) => plot_single_tiled_object(
-                imgbuf,
-                &params.tiled_info[i],
-                params.btl_tileset,
-                params.offset_x,
-                params.offset_y,
-            ),
+            Kind::TiledObject { obj, level } => {
+                let tiled_info = &params.tiled_info[obj];
+                let Some(&btl_id) = tiled_info.ids.get(level) else {
+                    continue;
+                };
+                if btl_id <= 0 {
+                    continue;
+                }
+                let btl_tile_idx = btl_id.unsigned_abs() as usize;
+                if let Some(tile) = params.btl_tileset.get(btl_tile_idx) {
+                    let x = tiled_info.x + params.offset_x;
+                    let y = tiled_info.y + (level as i32 * TILE_HEIGHT as i32) + params.offset_y;
+                    plot_tile(imgbuf, tile.colors, x, y);
+                }
+            }
         }
     }
     Ok(())
-}
-
-fn plot_single_tiled_object(
-    imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    tiled_info: &TiledObjectInfo,
-    btl_tileset: &[Tile],
-    offset_x: i32,
-    offset_y: i32,
-) {
-    for (i, btl_id) in tiled_info.ids.iter().enumerate() {
-        let btl_tile_idx = btl_id.unsigned_abs() as usize;
-        if let Some(tile) = btl_tileset.get(btl_tile_idx) {
-            let x = tiled_info.x + offset_x;
-            let y = tiled_info.y + (i as i32 * TILE_HEIGHT as i32) + offset_y;
-            plot_tile(imgbuf, tile.colors, x, y);
-        }
-    }
 }
 
 fn plot_single_sprite(

@@ -87,7 +87,7 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                     let noy_f = noy as f32;
 
                     enum Item {
-                        TiledObject(usize),
+                        TiledObject { obj: usize, level: usize },
                         Sprite(usize),
                         Entity(usize),
                     }
@@ -95,9 +95,14 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                     let mut items: Vec<(i32, i32, i32, Item)> = Vec::new();
 
                     if view.show_buildings {
+                        // One item per stack tile: per-tile depth lets entities
+                        // interleave with tall buildings.
                         for (i, info) in map_data.tiled_infos.iter().enumerate() {
-                            let pos = info.y + info.ids.len() as i32 * TILE_H as i32;
-                            items.push((pos, 0, i as i32, Item::TiledObject(i)));
+                            for level in 0..info.ids.len() {
+                                let pos =
+                                    dispel_core::map::types::tiled_object_sort_key(info.y, level);
+                                items.push((pos, 0, info.x, Item::TiledObject { obj: i, level }));
+                            }
                         }
                     }
 
@@ -121,31 +126,31 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
 
                     for (_, _, _, item) in &items {
                         match item {
-                            Item::TiledObject(obj_i) => {
-                                let info = &map_data.tiled_infos[*obj_i];
-                                let base_x = (info.x as f32 + nox_f) * zoom + pan_x;
-                                let base_y = (info.y as f32 + noy_f) * zoom + pan_y;
+                            Item::TiledObject { obj, level } => {
+                                let info = &map_data.tiled_infos[*obj];
+                                let Some(&btl_id) = info.ids.get(*level) else {
+                                    continue;
+                                };
+                                if btl_id <= 0 {
+                                    continue;
+                                }
+                                let handle_id = btl_id.unsigned_abs() as i32;
+                                let Some(handle) = self.state.btl_handles().get(&handle_id) else {
+                                    continue;
+                                };
+                                let px = (info.x as f32 + nox_f) * zoom + pan_x;
+                                let py = (info.y as f32 + noy_f) * zoom
+                                    + pan_y
+                                    + *level as f32 * TILE_H * zoom;
                                 let w = TILE_W * zoom;
                                 let h = TILE_H * zoom;
-                                for (i, &btl_id) in info.ids.iter().enumerate() {
-                                    if btl_id <= 0 {
-                                        continue;
-                                    }
-                                    let handle_id = btl_id.unsigned_abs() as i32;
-                                    let Some(handle) = self.state.btl_handles().get(&handle_id)
-                                    else {
-                                        continue;
-                                    };
-                                    let px = base_x;
-                                    let py = base_y + i as f32 * h;
-                                    if !is_visible(px, py, w, h, bounds) {
-                                        continue;
-                                    }
-                                    frame.draw_image(
-                                        Rectangle::new(Point::new(px, py), Size::new(w, h)),
-                                        CoreImage::new(handle.clone()),
-                                    );
+                                if !is_visible(px, py, w, h, bounds) {
+                                    continue;
                                 }
+                                frame.draw_image(
+                                    Rectangle::new(Point::new(px, py), Size::new(w, h)),
+                                    CoreImage::new(handle.clone()),
+                                );
                             }
                             Item::Sprite(i) => {
                                 let spr = &self.state.internal_sprite_handles()[*i];
