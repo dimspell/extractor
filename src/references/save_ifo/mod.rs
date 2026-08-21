@@ -1,5 +1,9 @@
 // Save-slot metadata index extraction and serialization for Dispel RPG.
 
+pub mod swap;
+
+pub use swap::{SavTail, SlotSummary, summarize_slots, swap_slots};
+
 use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
@@ -13,20 +17,33 @@ pub const SLOT_COUNT: usize = 6;
 /// Metadata index for the six save slots (`0.sav` … `5.sav`).
 ///
 /// Reads file: `Save.ifo` (game root directory)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SaveIfo {
     /// Per-slot metadata; always exactly [`SLOT_COUNT`] entries.
     pub slots: Vec<SaveSlotInfo>,
-    /// Game version; observed value 1.4.
+    /// The game version as a float, e.g. 1.30.
     pub game_version: f32,
     /// Key of this session's payload inside the `game.tmp` append-log.
     pub game_tmp_key: u32,
     /// Map/world id that was active when the game was last saved.
     pub map_id: u32,
-    /// Unknown; observed zero. Reset by the game when starting a new game.
-    pub unknown: u32,
+    /// Reserved word; observed zero in all known files.
+    pub reserved: u32,
     /// Element counts snapshotted for traversing `game.tmp` payloads.
     pub payload_counts: [u32; 4],
+}
+
+impl Default for SaveIfo {
+    fn default() -> Self {
+        Self {
+            slots: vec![SaveSlotInfo::default(); SLOT_COUNT],
+            game_version: 0.0,
+            game_tmp_key: 0,
+            map_id: 0,
+            reserved: 0,
+            payload_counts: [0; 4],
+        }
+    }
 }
 
 /// Metadata for a single save slot.
@@ -87,7 +104,7 @@ impl SaveIfo {
         let game_version = cursor.read_f32::<LittleEndian>()?;
         let game_tmp_key = cursor.read_u32::<LittleEndian>()?;
         let map_id = cursor.read_u32::<LittleEndian>()?;
-        let unknown = cursor.read_u32::<LittleEndian>()?;
+        let reserved = cursor.read_u32::<LittleEndian>()?;
         let mut payload_counts = [0u32; 4];
         for count in payload_counts.iter_mut() {
             *count = cursor.read_u32::<LittleEndian>()?;
@@ -109,7 +126,7 @@ impl SaveIfo {
             game_version,
             game_tmp_key,
             map_id,
-            unknown,
+            reserved,
             payload_counts,
         })
     }
@@ -137,7 +154,7 @@ impl SaveIfo {
         writer.write_f32::<LittleEndian>(self.game_version)?;
         writer.write_u32::<LittleEndian>(self.game_tmp_key)?;
         writer.write_u32::<LittleEndian>(self.map_id)?;
-        writer.write_u32::<LittleEndian>(self.unknown)?;
+        writer.write_u32::<LittleEndian>(self.reserved)?;
         for count in &self.payload_counts {
             writer.write_u32::<LittleEndian>(*count)?;
         }
@@ -160,5 +177,23 @@ impl Extractor for SaveIfo {
             ));
         }
         records[0].write_to(writer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Both known-good fixtures must round-trip byte-for-byte.
+    #[test]
+    fn fixtures_round_trip_byte_for_byte() {
+        for rel in ["fixtures/Dispel/Save.ifo", "fixtures/kr-save/Save.ifo"] {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(rel);
+            let original = std::fs::read(&path).unwrap_or_else(|e| panic!("{rel}: {e}"));
+            let parsed = SaveIfo::parse(&original).unwrap_or_else(|e| panic!("{rel}: {e}"));
+            let mut out = Vec::new();
+            parsed.write_to(&mut out).unwrap();
+            assert_eq!(out, original, "{rel} did not round-trip");
+        }
     }
 }

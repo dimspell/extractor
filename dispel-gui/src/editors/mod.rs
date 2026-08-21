@@ -39,6 +39,7 @@ pub mod party_level_db;
 pub mod party_ref;
 pub mod quest_scr;
 pub mod save_file_viewer;
+pub mod save_ifo;
 pub mod snf_editor;
 pub mod sprite_editor;
 pub mod store;

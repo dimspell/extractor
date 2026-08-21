@@ -70,6 +70,9 @@ fn save_task_for_editor(
         // Custom editors with Save support
         EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
         EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
+        EditorType::SaveIfoEditor => {
+            Message::save_ifo(crate::editors::save_ifo::SaveIfoEditorMessage::Save)
+        }
 
         // Sprite editor
         EditorType::SpriteViewer => {

@@ -39,6 +39,7 @@ define_message_ext! {
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
     hex_editor:      HexEditor(hexedit::HexEditorMessage),
     save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
+    save_ifo:        SaveIfo(crate::editors::save_ifo::SaveIfoEditorMessage),
 }
 
 /// Extension trait for building nested editor messages.

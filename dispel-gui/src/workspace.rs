@@ -49,6 +49,8 @@ pub enum EditorType {
     LocalizationManager,
     /// Read-only viewer for Dispel .sav save files.
     SaveFileViewer,
+    /// Save-slot manager for `Save.ifo`: swap slots and edit global tail fields.
+    SaveIfoEditor,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -92,6 +94,7 @@ impl EditorType {
             "snf" => EditorType::SnfEditor,
             "map" => EditorType::MapEditor,
             "sav" => EditorType::SaveFileViewer,
+            "ifo" => EditorType::SaveIfoEditor,
             _ => EditorType::HexEditor,
         }
     }
