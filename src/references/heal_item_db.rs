@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::references::enums::HealItemFlag;
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 
 /// HealItem.db - Consumable Healing Items
 ///
@@ -76,7 +76,16 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// amounts and cure capabilities. Used for potions,
 /// scrolls, and other consumable healing items.
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 252)]
 #[patcher(filename = "HealItem.db")]

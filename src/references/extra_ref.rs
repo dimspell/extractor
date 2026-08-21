@@ -4,7 +4,7 @@ use crate::references::enums::{
     ActivationEffectId, BooleanFlag, ExtraObjectType, InventoryItem, ItemTypeId, SmallRange0to3,
 };
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,16 @@ use serde::{Deserialize, Serialize};
 ///
 /// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
 #[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 184)]
 #[patcher(extension = "ref", stem_prefix = "ext")]
