@@ -196,6 +196,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     }
                     MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
                     MapLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
+                    MapLayer::ObjectIds => state.view.show_object_ids = !state.view.show_object_ids,
                 }
                 // Tile canvas renders entities and tile layers; overlay renders
                 // collisions and events — clear both caches.

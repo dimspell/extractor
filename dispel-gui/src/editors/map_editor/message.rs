@@ -235,6 +235,7 @@ pub enum MapLayer {
     NpcWaypoints,
     Objects,
     DrawItems,
+    ObjectIds,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

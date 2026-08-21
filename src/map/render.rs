@@ -175,8 +175,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     // ── Pass 2: Interleaved objects + entities ───────────────────────────
     // All depth-relevant items (buildings, internal sprites, monsters, NPCs,
     // extras) are collected into one list, sorted by Y-depth with type
-    // tiebreaker, then rendered together — matching the DispelTools
-    // IInterlacedOrderObject / IInterlacedOrderObjectComparer approach.
+    // tiebreaker, then rendered together.
     {
         let mut sprite_cache: HashMap<
             PathBuf,
@@ -194,7 +193,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         };
 
         enum ItemKind {
-            TiledObject(usize, usize),
+            TiledObject(usize),
             Sprite(usize),
             Monster(usize),
             Npc(usize),
@@ -203,15 +202,12 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         let mut items: Vec<(i32, i32, i32, ItemKind)> = Vec::new();
 
-        // Buildings (type_order=0) — one item per stack tile so entities
-        // interleave at per-tile depth (see tiled_object_sort_key). Keys are
-        // map-local, matching entity_pos below.
+        // Buildings (type_order=0) — single units ordered by their stack bottom.
+        // Keys are map-local, matching entity_pos below.
         if toggles.show_buildings {
             for (i, info) in data.tiled_infos.iter().enumerate() {
-                for level in 0..info.ids.len() {
-                    let pos = tiled_object_sort_key(info.y, level);
-                    items.push((pos, 0, info.x, ItemKind::TiledObject(i, level)));
-                }
+                let pos = tiled_object_sort_key(info.y, info.ids.len());
+                items.push((pos, 0, info.x, ItemKind::TiledObject(i)));
             }
         }
 
@@ -252,19 +248,18 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         for (_, _, _, item) in &items {
             match item {
-                ItemKind::TiledObject(i, level) => {
+                ItemKind::TiledObject(i) => {
                     let info = &data.tiled_infos[*i];
-                    let Some(&btl_id) = info.ids.get(*level) else {
-                        continue;
-                    };
-                    if btl_id <= 0 {
-                        continue;
-                    }
-                    let btl_tile_idx = btl_id.unsigned_abs() as usize;
-                    if let Some(tile) = btl_tileset.get(btl_tile_idx) {
-                        let x = info.x + offset_x;
-                        let y = info.y + (*level as i32 * TILE_HEIGHT as i32) + offset_y;
-                        plot_tile(&mut imgbuf, tile.colors, x, y);
+                    for (j, &btl_id) in info.ids.iter().enumerate() {
+                        if btl_id <= 0 {
+                            continue;
+                        }
+                        let btl_tile_idx = btl_id.unsigned_abs() as usize;
+                        if let Some(tile) = btl_tileset.get(btl_tile_idx) {
+                            let x = info.x + offset_x;
+                            let y = info.y + (j as i32 * TILE_HEIGHT as i32) + offset_y;
+                            plot_tile(&mut imgbuf, tile.colors, x, y);
+                        }
                     }
                 }
                 ItemKind::Sprite(i) => {
@@ -455,7 +450,7 @@ pub fn plot_objects(
 ) -> Result<()> {
     enum Kind {
         Sprite(usize),
-        TiledObject { obj: usize, level: usize },
+        TiledObject(usize),
     }
     struct Item {
         ground_y: i32,
@@ -472,14 +467,13 @@ pub fn plot_objects(
             kind: Kind::Sprite(i),
         });
     }
-    // Per-tile depth (see tiled_object_sort_key) — consistent with render_map.
+    // Whole-stack bottom key (see tiled_object_sort_key) — consistent with
+    // render_map.
     for (i, info) in params.tiled_info.iter().enumerate() {
-        for level in 0..info.ids.len() {
-            items.push(Item {
-                ground_y: tiled_object_sort_key(info.y, level),
-                kind: Kind::TiledObject { obj: i, level },
-            });
-        }
+        items.push(Item {
+            ground_y: tiled_object_sort_key(info.y, info.ids.len()),
+            kind: Kind::TiledObject(i),
+        });
     }
     items.sort_by_key(|it| it.ground_y);
 
@@ -493,19 +487,18 @@ pub fn plot_objects(
                 params.offset_x,
                 params.offset_y,
             )?,
-            Kind::TiledObject { obj, level } => {
-                let tiled_info = &params.tiled_info[obj];
-                let Some(&btl_id) = tiled_info.ids.get(level) else {
-                    continue;
-                };
-                if btl_id <= 0 {
-                    continue;
-                }
-                let btl_tile_idx = btl_id.unsigned_abs() as usize;
-                if let Some(tile) = params.btl_tileset.get(btl_tile_idx) {
-                    let x = tiled_info.x + params.offset_x;
-                    let y = tiled_info.y + (level as i32 * TILE_HEIGHT as i32) + params.offset_y;
-                    plot_tile(imgbuf, tile.colors, x, y);
+            Kind::TiledObject(i) => {
+                let tiled_info = &params.tiled_info[i];
+                for (j, &btl_id) in tiled_info.ids.iter().enumerate() {
+                    if btl_id <= 0 {
+                        continue;
+                    }
+                    let btl_tile_idx = btl_id.unsigned_abs() as usize;
+                    if let Some(tile) = params.btl_tileset.get(btl_tile_idx) {
+                        let x = tiled_info.x + params.offset_x;
+                        let y = tiled_info.y + (j as i32 * TILE_HEIGHT as i32) + params.offset_y;
+                        plot_tile(imgbuf, tile.colors, x, y);
+                    }
                 }
             }
         }

@@ -138,6 +138,7 @@ pub struct MapData {
     pub btl_tiles: HashMap<Coords, i32>,
     pub collisions: HashMap<Coords, bool>,
     pub events: HashMap<Coords, EventBlock>,
+    pub object_ids: HashMap<Coords, i32>,
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
@@ -152,6 +153,7 @@ pub struct MapDataJson {
     pub btl_tiles: Vec<TileEntryJson>,
     pub collisions: Vec<CollisionEntryJson>,
     pub events: Vec<EventEntryJson>,
+    pub object_ids: Vec<TileEntryJson>,
     pub tiled_objects: Vec<TiledObjectJson>,
     pub sprites: Vec<SpritePlacementJson>,
     pub internal_sprites: Vec<InternalSpriteJson>,
@@ -263,6 +265,11 @@ impl MapData {
                     y,
                     event_id: event.event_id,
                 })
+                .collect(),
+            object_ids: self
+                .object_ids
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
                 .collect(),
             tiled_objects: self
                 .tiled_infos
@@ -378,7 +385,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     reader.seek(SeekFrom::End(skip))?;
 
     let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
-    let (gtl_tiles, collisions) =
+    let (gtl_tiles, collisions, object_ids) =
         read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
@@ -404,6 +411,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         btl_tiles,
         collisions,
         events,
+        object_ids,
         tiled_infos,
         internal_sprites,
         sprite_blocks,

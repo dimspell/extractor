@@ -53,7 +53,9 @@ pub fn write_map_to_path(path: &Path, data: &MapData) -> io::Result<()> {
 
             let gtl_id = data.gtl_tiles.get(&coords).copied().unwrap_or(0);
             let collision = data.collisions.get(&coords).copied().unwrap_or(false);
-            let packed = (gtl_id << 10) | (if collision { 1 } else { 0 });
+            let object_id = data.object_ids.get(&coords).copied().unwrap_or(0);
+            let packed =
+                ((gtl_id & 0x7FFF) << 10) | ((object_id & 0x1FF) << 1) | (collision as i32);
             bytes[base..base + 4].copy_from_slice(&(packed as i32).to_le_bytes());
         }
     }
@@ -120,6 +122,10 @@ mod tests {
             "Collisions differ"
         );
         assert_eq!(original.btl_tiles, reloaded.btl_tiles, "BTL tiles differ");
+        assert_eq!(
+            original.object_ids, reloaded.object_ids,
+            "Object IDs differ"
+        );
         for y in 0..h {
             for x in 0..w {
                 let o_ev = original.events.get(&(x, y));
@@ -189,6 +195,7 @@ mod tests {
             btl_tiles: HashMap::new(),
             collisions: HashMap::new(),
             events: HashMap::new(),
+            object_ids: HashMap::new(),
             tiled_infos: Vec::new(),
             internal_sprites: Vec::new(),
             sprite_blocks: Vec::new(),

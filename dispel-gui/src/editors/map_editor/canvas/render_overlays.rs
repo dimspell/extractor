@@ -131,6 +131,50 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                         }
                     }
 
+                    // Object ID overlay — cyan diamond + label for non-zero object slots
+                    if self.state.view.show_object_ids {
+                        for (&(tx, ty), &obj_id) in &map_data.object_ids {
+                            if obj_id == 0 {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            let w = TILE_W * zoom;
+                            let h = TILE_H * zoom;
+                            if !is_visible(px, py, w, h, bounds) {
+                                continue;
+                            }
+                            let cx = px + w * 0.5;
+                            let cy = py + h * 0.5;
+                            let dx = w * 0.5;
+                            let dy = h * 0.5;
+                            frame.fill(
+                                &canvas::Path::new(|b| {
+                                    b.move_to(Point::new(cx, cy - dy));
+                                    b.line_to(Point::new(cx + dx, cy));
+                                    b.line_to(Point::new(cx, cy + dy));
+                                    b.line_to(Point::new(cx - dx, cy));
+                                    b.close();
+                                }),
+                                Color::from_rgba(0.1, 0.7, 0.8, 0.3),
+                            );
+                            let label_size = (10.0 * zoom).max(6.0);
+                            frame.fill_text(CanvasText {
+                                content: obj_id.to_string(),
+                                position: Point::new(cx, cy - 10.0 * zoom),
+                                color: Color::WHITE,
+                                size: iced::Pixels(label_size),
+                                font: Font::MONOSPACE,
+                                align_x: TextAlignment::Center,
+                                align_y: alignment::Vertical::Bottom,
+                                shaping: iced::widget::text::Shaping::Basic,
+                                line_height: iced::widget::text::LineHeight::default(),
+                                max_width: f32::INFINITY,
+                                ellipsis: iced::widget::text::Ellipsis::None,
+                                wrapping: iced::widget::text::Wrapping::None,
+                            });
+                        }
+                    }
+
                     // Draw items overlay (coloured diamond + item_id label)
                     if self.state.view.show_draw_items {
                         for di in &self.state.data.draw_items {
@@ -433,8 +477,31 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 )
             });
             let label = format!("X: {}  Y: {}", tile_x, tile_y);
+            // Build a compact tile-context readout from map data.
+            let context_label = {
+                let mut parts = Vec::new();
+                if let Some(&gtl) = map_data.gtl_tiles.get(&(tile_x, tile_y)) {
+                    parts.push(format!("gtl {}", gtl));
+                }
+                if map_data
+                    .collisions
+                    .get(&(tile_x, tile_y))
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    parts.push("blocked".into());
+                }
+                if let Some(&obj) = map_data.object_ids.get(&(tile_x, tile_y)) {
+                    parts.push(format!("obj {}", obj));
+                }
+                if parts.is_empty() {
+                    label.clone()
+                } else {
+                    format!("{} · {}", label, parts.join(" · "))
+                }
+            };
             cursor_frame.fill_text(CanvasText {
-                content: label.clone(),
+                content: context_label.clone(),
                 position: Point::new(11.5, 11.5),
                 color: Color::from_rgba(0.0, 0.0, 0.0, 0.75),
                 size: iced::Pixels(13.0),
@@ -448,7 +515,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 wrapping: iced::widget::text::Wrapping::None,
             });
             cursor_frame.fill_text(CanvasText {
-                content: label,
+                content: context_label,
                 position: Point::new(10.0, 10.0),
                 color: Color::WHITE,
                 size: iced::Pixels(13.0),
