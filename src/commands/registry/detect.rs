@@ -49,6 +49,7 @@ pub static FILE_TYPES: LazyLock<Vec<FileType>> = LazyLock::new(|| {
         entries::make_sprite(),
         // Save files
         entries::make_save_file(),
+        entries::make_save_ifo(),
     ]
 });
 

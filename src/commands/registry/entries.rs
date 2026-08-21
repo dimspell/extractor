@@ -421,6 +421,19 @@ pub(crate) fn make_btl() -> FileType {
     }
 }
 
+pub(crate) fn make_save_ifo() -> FileType {
+    FileType {
+        key: "save_ifo",
+        name: "Save.ifo",
+        description: "Save-slot metadata index (timestamps and occupancy for 0.sav..5.sav)",
+        extensions: &[".ifo"],
+        detect_kind: DetectKind::Db(&["Save.ifo"]),
+        extract_fn: extract_as::<dispel_core::references::save_ifo::SaveIfo>,
+        patch_fn: patch_as::<dispel_core::references::save_ifo::SaveIfo>,
+        validate_fn: None,
+    }
+}
+
 pub(crate) fn make_sprite() -> FileType {
     FileType {
         key: "sprite",
