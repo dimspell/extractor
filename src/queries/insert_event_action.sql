@@ -1,6 +1,6 @@
 INSERT OR REPLACE INTO event_actions(event_id,
                    action_order,
-                   action_prefix,
+                   prefix,
                    function_name,
                    parameters,
                    raw_content)

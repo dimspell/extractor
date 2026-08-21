@@ -3,5 +3,5 @@ INSERT OR REPLACE INTO maps(id,
                  map_name,
                  pgp_filename,
                  dlg_filename,
-                 is_light)
+                 lighting)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)

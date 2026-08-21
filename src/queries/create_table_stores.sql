@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS stores
 (
-    id                  INTEGER PRIMARY KEY,
+    "index"                  INTEGER PRIMARY KEY,
     store_name          INTEGER,
     inn_night_cost      INTEGER,
     price_modifier INTEGER,

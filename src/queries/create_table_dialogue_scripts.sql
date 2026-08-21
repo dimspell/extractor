@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS dialogue_scripts(
     id INTEGER NOT NULL,
     required_event_id INTEGER,
     next_dialog_to_check INTEGER,
-    dialog_type_id INTEGER,
+    dialog_type INTEGER,
     dialog_owner INTEGER,
     dialog_id INTEGER,
     next_dialog_id1 INTEGER,

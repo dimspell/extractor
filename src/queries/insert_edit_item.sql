@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO edit_items(id,
+INSERT OR REPLACE INTO edit_items("index",
                        name,
                        description,
                        base_price,
