@@ -356,6 +356,20 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::SelectTool(tab_id, tool) => map::select_tool(app, tab_id, tool),
 
+        MapEditorMessage::ToggleLayersPopover(tab_id) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.layers_popover_open = !state.view.layers_popover_open;
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::CloseLayersPopover(tab_id) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.layers_popover_open = false;
+            }
+            Task::none()
+        }
+
         MapEditorMessage::SetObjectBrushMode(tab_id, mode) => {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.object_brush_mode = mode;

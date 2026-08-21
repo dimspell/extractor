@@ -212,6 +212,10 @@ pub enum MapEditorMessage {
     SelectTool(usize, MapTool),
     /// Set how the object-id brush is applied (Paint / Erase).
     SetObjectBrushMode(usize, ObjectBrushMode),
+    /// Toggle the layers dropdown popover open/closed.
+    ToggleLayersPopover(usize),
+    /// Close the layers dropdown popover.
+    CloseLayersPopover(usize),
 }
 
 /// Which entity or tile is currently selected in the map editor inspector.

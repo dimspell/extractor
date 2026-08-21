@@ -89,7 +89,7 @@ pub struct ChoiceOption {
 /// State for the interactive conversation display.
 ///
 /// Walks the DLG graph sequentially, checking event gates and following
-/// branches, exactly as the game engine would.
+/// branches.
 #[derive(Debug, Clone)]
 pub struct ConversationState {
     /// Index of the NPC being conversed with.

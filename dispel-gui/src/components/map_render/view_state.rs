@@ -39,6 +39,8 @@ pub struct MapViewState {
     pub active_tool: MapTool,
     /// How the object-id brush is applied when the ObjectId tool clicks a tile.
     pub object_brush_mode: ObjectBrushMode,
+    /// Whether the layers dropdown popover is open.
+    pub layers_popover_open: bool,
     /// Selected sprite sequence index in the Sprites browser.
     pub selected_sprite_sequence: Option<usize>,
     /// Currently selected entity in the inspector panel.
@@ -83,6 +85,7 @@ impl Default for MapViewState {
             view_mode: MapViewMode::Map,
             active_tool: MapTool::Pan,
             object_brush_mode: ObjectBrushMode::Paint,
+            layers_popover_open: false,
             selected_sprite_sequence: None,
             selected_entity: None,
             tile_layer_cache: canvas::Cache::new(),
