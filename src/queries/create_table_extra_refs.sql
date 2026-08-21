@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS extra_refs
 (
-    file_id   INTEGER NOT NULL REFERENCES extra_ref_files(id),
+    file_id   INTEGER NOT NULL,
     id                       INTEGER,
     number_in_file           INTEGER,
-    ext_id                   INTEGER REFERENCES extras(id) ON DELETE SET NULL,
+    ext_id                   INTEGER,
     name                     TEXT,
     object_type              INTEGER,
     x_pos                    INTEGER,
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS extra_refs
     unknown12                INTEGER,
     unknown13                INTEGER,
     unknown14                BLOB,
-    event_id                 INTEGER REFERENCES events(event_id) ON DELETE SET NULL,
-    message_id               INTEGER REFERENCES messages(id) ON DELETE SET NULL,
+    event_id                 INTEGER,
+    message_id               INTEGER,
     unknown15                INTEGER,
     unknown16                INTEGER,
     unknown17                INTEGER,

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS dialogue_scripts(
-    dialog_file_id INTEGER NOT NULL REFERENCES dialogue_script_files(id),
+    dialog_file_id INTEGER NOT NULL,
     id INTEGER NOT NULL,
     required_event_id INTEGER,
     next_dialog_to_check INTEGER,
@@ -9,11 +9,6 @@ CREATE TABLE IF NOT EXISTS dialogue_scripts(
     next_dialog_id1 INTEGER,
     next_dialog_id2 INTEGER,
     next_dialog_id3 INTEGER,
-    triggered_event_id INTEGER REFERENCES events(event_id),
-    PRIMARY KEY (dialog_file_id, id),
-    FOREIGN KEY (required_event_id) REFERENCES events(event_id),
-    FOREIGN KEY (dialog_file_id, dialog_id) REFERENCES dialogue_paragraphs(file_id, id),
-    FOREIGN KEY (dialog_file_id, next_dialog_id1) REFERENCES dialogue_scripts(dialog_file_id, id),
-    FOREIGN KEY (dialog_file_id, next_dialog_id2) REFERENCES dialogue_scripts(dialog_file_id, id),
-    FOREIGN KEY (dialog_file_id, next_dialog_id3) REFERENCES dialogue_scripts(dialog_file_id, id)
+    triggered_event_id INTEGER,
+    PRIMARY KEY (dialog_file_id, id)
 )

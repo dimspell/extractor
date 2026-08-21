@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS sprite_sequences (
-    sprite_file_id INTEGER NOT NULL REFERENCES sprite_files(id),
+    sprite_file_id INTEGER NOT NULL,
     sequence_index INTEGER NOT NULL,
     frame_count INTEGER NOT NULL,
     first_frame_width INTEGER NOT NULL,
