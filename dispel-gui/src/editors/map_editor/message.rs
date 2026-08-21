@@ -206,6 +206,8 @@ pub enum MapEditorMessage {
     ExportTmx(usize),
     /// Async TMX export completed. Ok carries the output path; Err the error.
     TmxExportComplete(usize, Result<String, String>),
+    /// Set the object-id brush value for painting (1–511).
+    SetObjectBrush(usize, i32),
 }
 
 /// Which entity or tile is currently selected in the map editor inspector.
@@ -220,6 +222,8 @@ pub enum SelectedEntity {
     CollisionTile(i32, i32),
     /// An event tile coordinate — carries (tx, ty).
     EventTile(i32, i32),
+    /// An object-id tile coordinate — carries (tx, ty).
+    ObjectIdTile(i32, i32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

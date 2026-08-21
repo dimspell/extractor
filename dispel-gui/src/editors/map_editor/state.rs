@@ -172,6 +172,8 @@ pub struct MapDataState {
     pub status_msg: Option<String>,
     /// Sprite export dialog state (None = dialog closed).
     pub sprite_export_dialog: Option<SpriteExportDialogState>,
+    /// Object-id brush value for painting (1–511, default 1).
+    pub object_brush: i32,
 }
 
 impl Default for MapDataState {
@@ -205,6 +207,7 @@ impl Default for MapDataState {
             is_exporting: false,
             status_msg: None,
             sprite_export_dialog: None,
+            object_brush: 1,
         }
     }
 }

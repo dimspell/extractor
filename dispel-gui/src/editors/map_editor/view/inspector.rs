@@ -176,6 +176,28 @@ pub fn build_inspector<'a>(
             };
             ("Event Inspector", 240.0, body)
         }
+        SelectedEntity::ObjectIdTile(tx, ty) => {
+            let body = if let Some(map_handle) = state.map_data() {
+                let map_data = &map_handle.0;
+                let current_id = map_data.object_ids.get(&(tx, ty)).copied().unwrap_or(0);
+                column![
+                    text(format!("Object ID at ({}, {})", tx, ty)).size(12),
+                    horizontal_rule(1),
+                    row![
+                        text("object_id").size(11).width(140.0).style(style::subtle_text),
+                        text(current_id.to_string()).size(11),
+                    ]
+                    .spacing(6)
+                    .align_y(iced::Alignment::Center),
+                    text("Use the brush toolbar to paint object IDs.").size(11).style(style::subtle_text),
+                ]
+                .spacing(8)
+                .into()
+            } else {
+                text("Map data not loaded").size(11).into()
+            };
+            ("Object ID Inspector", 240.0, body)
+        }
     };
 
     let header = row![
