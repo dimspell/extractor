@@ -218,17 +218,70 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .spacing(8)
             .align_y(iced::Alignment::Center);
 
-            let layer_row = row![
+            // ── Layers dropdown (popover) ─────────────────────────────────
+            let layer_visibility = [
+                state.view.show_ground,
+                state.view.show_buildings,
+                state.view.show_roofs,
+                state.view.show_internal_sprites,
+                state.view.show_collisions,
+                state.view.show_events,
+                state.view.show_monsters,
+                state.view.show_npcs,
+                state.view.show_npc_waypoints,
+                state.view.show_objects,
+                state.view.show_draw_items,
+                state.view.show_object_ids,
+            ];
+            let visible_layers = layer_visibility.iter().filter(|&&v| v).count();
+            let total_layers = layer_visibility.len();
+
+            let layers_trigger = button(
+                row![
+                    text("LAYERS").size(11),
+                    text("▾").size(10).style(style::subtle_text),
+                    text(format!("· {}/{}", visible_layers, total_layers))
+                        .size(10)
+                        .style(style::subtle_text),
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center),
+            )
+            .padding([3, 10])
+            .on_press(Message::map_editor(MapEditorMessage::ToggleLayersPopover(
+                tab_id,
+            )))
+            .style(if state.view.layers_popover_open {
+                style::active_chip
+            } else {
+                style::chip
+            });
+
+            let layers_panel = container(column![
+                segment_label("Terrain"),
                 terrain_segment,
-                rule(),
+                h_rule(),
+                segment_label("Overlays"),
                 overlay_segment,
-                rule(),
+                h_rule(),
+                segment_label("Entities"),
                 entity_segment,
-                tile_status,
-            ]
-            .spacing(12)
-            .padding([6, 16])
-            .align_y(iced::Alignment::Center);
+            ])
+            .padding(10)
+            .style(style::panel_container);
+
+            let layers_popover: Element<'_, Message> = gui_widgets::components::popover::popover(
+                layers_trigger,
+                layers_panel,
+                state.view.layers_popover_open,
+                move || Message::map_editor(MapEditorMessage::ToggleLayersPopover(tab_id)),
+                move || Message::map_editor(MapEditorMessage::CloseLayersPopover(tab_id)),
+            );
+
+            let layer_row = row![layers_popover, tile_status]
+                .spacing(12)
+                .padding([6, 16])
+                .align_y(iced::Alignment::Center);
 
             // ── Action buttons row ─────────────────────────────────────────
             let can_undo = !state.data.undo_stack.is_empty();
@@ -593,6 +646,20 @@ fn segment_label(label: &'static str) -> Element<'static, Message> {
     text(label.to_string())
         .size(10)
         .style(style::subtle_text)
+        .into()
+}
+
+/// Thin horizontal separator between layer groups inside the popover panel.
+fn h_rule() -> Element<'static, Message> {
+    container(text(""))
+        .width(Fill)
+        .height(iced::Length::Fixed(1.0))
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color::from_rgba(
+                0.6, 0.55, 0.45, 0.4,
+            ))),
+            ..container::Style::default()
+        })
         .into()
 }
 
