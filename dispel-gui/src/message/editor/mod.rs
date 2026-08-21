@@ -33,6 +33,7 @@ use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::editors::party_ref::PartyRefEditorMessage;
 use crate::editors::quest_scr::QuestScrEditorMessage;
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::editors::save_ifo::SaveIfoEditorMessage;
 use crate::editors::snf_editor::SnfEditorMessage;
 use crate::editors::sprite_editor::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
@@ -80,5 +81,6 @@ pub enum EditorMessage {
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
     SaveFileViewer(SaveFileViewerMessage),
+    SaveIfo(SaveIfoEditorMessage),
     HexEditor(HexEditorMessage),
 }

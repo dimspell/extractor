@@ -82,6 +82,7 @@ define_update_dispatch! {
     (Localization, localization_manager),
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
+    (SaveIfo, save_ifo),
 }
 
 define_view_dispatch! {
@@ -122,6 +123,7 @@ define_view_dispatch! {
     (LocalizationManager, localization_manager),
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
+    (SaveIfoEditor, save_ifo),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game
@@ -169,6 +171,9 @@ pub fn load_catalog_task(et: EditorType) -> Option<iced::Task<Message>> {
         StoreEditor => Some(iced::Task::done(Message::store(
             crate::editors::store::StoreEditorMessage::LoadCatalog,
         ))),
+        SaveIfoEditor => Some(iced::Task::done(Message::save_ifo(
+            crate::editors::save_ifo::SaveIfoEditorMessage::LoadCatalog,
+        ))),
         PartyLevelDbEditor => Some(iced::Task::done(Message::party_level_db(
             crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
         ))),
@@ -198,6 +203,7 @@ pub fn spreadsheet_nav_msg(
         EventItemEditor => Message::event_item(event_item::EventItemEditorMessage::Spreadsheet(sm)),
         MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
         StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
+        SaveIfoEditor => return None, // SaveIfo editor has a custom layout, no generic spreadsheet
         NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
         NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
         MonsterRefEditor => {

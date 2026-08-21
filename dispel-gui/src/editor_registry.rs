@@ -22,6 +22,7 @@ use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
 use crate::editors::save_file_viewer::SaveFileViewerState;
+use crate::editors::save_ifo::SaveIfoEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
@@ -74,6 +75,7 @@ pub struct EditorRegistry {
     pub event_scr_editor: Box<EventScriptEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
+    pub save_ifo_editor: Box<SaveIfoEditorState>,
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
@@ -115,6 +117,7 @@ macro_rules! undo_redo_dispatch {
 
             // Custom-layout editor (undo/redo without lookups)
             EditorType::StoreEditor => $self.store_editor.$action(),
+            EditorType::SaveIfoEditor => $self.save_ifo_editor.$action(),
 
             // Sprite editor — uses its own snapshot-based undo/redo
             EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
@@ -327,6 +330,7 @@ impl EditorRegistry {
             EditorType::PartyRefEditor => Some(self.party_ref_editor.edit_history()),
             EditorType::PartyIniEditor => Some(self.party_ini_editor.edit_history()),
             EditorType::StoreEditor => Some(self.store_editor.edit_history()),
+            EditorType::SaveIfoEditor => Some(self.save_ifo_editor.edit_history()),
 
             // Tab-based editors — need a HashMap lookup
             EditorType::MonsterRefEditor => self
@@ -404,6 +408,7 @@ impl EditorRegistry {
         *self.wave_ini_editor = Default::default();
         *self.chdata_editor = Default::default();
         *self.event_scr_editor = Default::default();
+        *self.save_ifo_editor = Default::default();
 
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();
