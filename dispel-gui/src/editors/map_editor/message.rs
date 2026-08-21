@@ -152,8 +152,8 @@ pub enum MapEditorMessage {
     ExportImage(usize),
     /// Async export completed. Ok carries the output path; Err the error.
     ExportComplete(usize, Result<String, String>),
-    /// Clear the status message (auto-dismiss after a delay).
-    ClearStatus(usize),
+    /// Dismiss the toast at `index` (close button or timeout).
+    DismissToast(usize, usize),
     /// Switch between Map and Sprites view modes.
     SwitchViewMode(usize, MapViewMode),
     /// Select a sprite sequence in the browser (None = deselect).

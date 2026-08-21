@@ -86,8 +86,11 @@ pub fn field_changed(
         }
         SelectedEntity::EventTile(tx, ty) => {
             if !state.data.can_mutate_map_data() {
-                state.data.status_msg =
-                    Some("Cannot edit events while save/export is in progress".into());
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Warning,
+                    "Event",
+                    "Cannot edit while save/export is in progress",
+                );
                 entity_mutated = false;
             } else if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                 let map_data = Arc::get_mut(&mut handle.0)
