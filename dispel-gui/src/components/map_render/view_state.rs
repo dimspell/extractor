@@ -1,4 +1,4 @@
-use crate::editors::map_editor::message::{MapViewMode, SelectedEntity};
+use crate::editors::map_editor::message::{MapTool, MapViewMode, ObjectBrushMode, SelectedEntity};
 use iced::widget::canvas;
 
 /// Viewport, layer-visibility, and cursor state for the map canvas.
@@ -34,6 +34,11 @@ pub struct MapViewState {
     pub last_canvas_h: f32,
     /// Which top-level view is shown (map canvas or sprite browser).
     pub view_mode: MapViewMode,
+    /// Active editing tool. Editing a layer requires selecting its tool;
+    /// layer visibility alone no longer enables editing.
+    pub active_tool: MapTool,
+    /// How the object-id brush is applied when the ObjectId tool clicks a tile.
+    pub object_brush_mode: ObjectBrushMode,
     /// Selected sprite sequence index in the Sprites browser.
     pub selected_sprite_sequence: Option<usize>,
     /// Currently selected entity in the inspector panel.
@@ -76,6 +81,8 @@ impl Default for MapViewState {
             last_canvas_w: 1200.0,
             last_canvas_h: 800.0,
             view_mode: MapViewMode::Map,
+            active_tool: MapTool::Pan,
+            object_brush_mode: ObjectBrushMode::Paint,
             selected_sprite_sequence: None,
             selected_entity: None,
             tile_layer_cache: canvas::Cache::new(),

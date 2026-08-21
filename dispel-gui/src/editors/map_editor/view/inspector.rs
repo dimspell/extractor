@@ -184,12 +184,17 @@ pub fn build_inspector<'a>(
                     text(format!("Object ID at ({}, {})", tx, ty)).size(12),
                     horizontal_rule(1),
                     row![
-                        text("object_id").size(11).width(140.0).style(style::subtle_text),
+                        text("object_id")
+                            .size(11)
+                            .width(140.0)
+                            .style(style::subtle_text),
                         text(current_id.to_string()).size(11),
                     ]
                     .spacing(6)
                     .align_y(iced::Alignment::Center),
-                    text("Use the brush toolbar to paint object IDs.").size(11).style(style::subtle_text),
+                    text("Use the brush toolbar to paint object IDs.")
+                        .size(11)
+                        .style(style::subtle_text),
                 ]
                 .spacing(8)
                 .into()

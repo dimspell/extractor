@@ -1,12 +1,14 @@
 use super::canvas::{MapCanvasOverlaysLayer, MapCanvasTilesLayer};
-use super::message::{MapEditorMessage, MapLayer, MapViewMode};
+use super::message::{MapEditorMessage, MapLayer, MapTool, MapViewMode, ObjectBrushMode};
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler};
+use iced::widget::{
+    button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler,
+};
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
@@ -94,14 +96,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 info_cell("GTL", &gtl_count.to_string()),
                 info_cell("BTL", &btl_count.to_string()),
                 info_cell(
-                    "Handles",
-                    &format!(
-                        "{}/{}",
-                        state.data.gtl_handles.len(),
-                        state.data.btl_handles.len()
-                    )
-                ),
-                info_cell(
                     "Entities",
                     &format!(
                         "{}M {}N {}O {}D",
@@ -111,43 +105,19 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         state.data.draw_items.len()
                     )
                 ),
-                info_cell(
-                    "Tiles",
-                    &format!(
-                        "{} GTL + {} BTL loaded",
-                        state.data.gtl_handles.len(),
-                        state.data.btl_handles.len()
-                    )
-                ),
             ]
             .spacing(16)
             .padding([8, 16]);
 
-            // ── Layer toggles ─────────────────────────────────────────────
+            // ── Layer toggles, grouped into three segments ────────────────
             let tile_status = if state.data.tiles_ready {
                 text("").size(10).style(style::subtle_text)
             } else {
                 text("Decoding tiles…").size(10).style(style::subtle_text)
             };
 
-            let obj_id_brush: Element<'_, Message> = {
-                let brush_str = state.data.object_brush.to_string();
-                row![
-                    text("Brush:").size(10).style(style::subtle_text),
-                    text_input("1", brush_str)
-                        .width(iced::Length::Fixed(48.0))
-                        .on_input(move |v: String| {
-                            let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
-                            Message::map_editor(MapEditorMessage::SetObjectBrush(tab_id, val))
-                        }),
-                ]
-                .spacing(4)
-                .align_y(iced::Alignment::Center)
-                .into()
-            };
-
-            let layer_row = row![
-                text("Layers:").size(11).style(style::subtle_text),
+            let terrain_segment = row![
+                segment_label("Terrain"),
                 layer_toggle(
                     "Ground",
                     state.view.show_ground,
@@ -156,7 +126,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
-                    "Buildings",
+                    "Bldg",
                     state.view.show_buildings,
                     tab_id,
                     MapLayer::Buildings,
@@ -176,6 +146,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     MapLayer::InternalSprites,
                     None
                 ),
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center);
+
+            let overlay_segment = row![
+                segment_label("Overlays"),
                 layer_toggle(
                     "Collisions",
                     state.view.show_collisions,
@@ -191,21 +167,34 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
-                    "Monsters",
+                    "Obj IDs",
+                    state.view.show_object_ids,
+                    tab_id,
+                    MapLayer::ObjectIds,
+                    None
+                ),
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center);
+
+            let entity_segment = row![
+                segment_label("Entities"),
+                layer_toggle(
+                    "Mon",
                     state.view.show_monsters,
                     tab_id,
                     MapLayer::Monsters,
                     Some(state.data.monsters.len())
                 ),
                 layer_toggle(
-                    "NPCs",
+                    "NPC",
                     state.view.show_npcs,
                     tab_id,
                     MapLayer::Npcs,
                     Some(state.data.npcs.len())
                 ),
                 layer_toggle(
-                    "Waypoints",
+                    "Wpts",
                     state.view.show_npc_waypoints,
                     tab_id,
                     MapLayer::NpcWaypoints,
@@ -225,14 +214,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     MapLayer::DrawItems,
                     Some(state.data.draw_items.len())
                 ),
-                layer_toggle(
-                    "Obj IDs",
-                    state.view.show_object_ids,
-                    tab_id,
-                    MapLayer::ObjectIds,
-                    None
-                ),
-                obj_id_brush,
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center);
+
+            let layer_row = row![
+                terrain_segment,
+                rule(),
+                overlay_segment,
+                rule(),
+                entity_segment,
+                tile_status,
             ]
             .spacing(12)
             .padding([6, 16])
@@ -301,6 +293,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 text("").size(10).style(style::subtle_text)
             };
 
+            // Folded summary replacing the duplicate Handles/Tiles info cells.
+            let summary_text = format!(
+                "{}×{} · {} NPC · {} gtl",
+                model.tiled_map_width,
+                model.tiled_map_height,
+                state.data.npcs.len(),
+                state.data.gtl_handles.len()
+            );
+
             let action_row = row![
                 save_btn,
                 undo_btn,
@@ -308,10 +309,120 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 export_btn,
                 tmx_btn,
                 status_text,
+                horizontal_space(),
+                text(summary_text).size(10).style(style::subtle_text),
             ]
             .spacing(6)
             .padding([4, 16])
             .align_y(iced::Alignment::Center);
+
+            // ── Tools row ────────────────────────────────────────────────────
+            let tool_chip = |label: &'static str, tool: MapTool| {
+                button(text(label).size(11))
+                    .on_press(Message::map_editor(MapEditorMessage::SelectTool(
+                        tab_id, tool,
+                    )))
+                    .padding([3, 10])
+                    .style(if state.view.active_tool == tool {
+                        style::active_chip
+                    } else {
+                        style::chip
+                    })
+            };
+
+            let tools_row = row![
+                text("Tools:").size(11).style(style::subtle_text),
+                tool_chip("Pan", MapTool::Pan),
+                tool_chip("Collide", MapTool::Collision),
+                tool_chip("Obj ID", MapTool::ObjectId),
+                tool_chip("Event", MapTool::EventInspect),
+            ]
+            .spacing(4)
+            .padding([6, 16])
+            .align_y(iced::Alignment::Center);
+
+            // ── Contextual object-id brush options (Obj ID tool only) ─────
+            let obj_brush_options: Element<'_, Message> = if state.view.active_tool
+                == MapTool::ObjectId
+            {
+                let mode_chip = |label: &'static str, mode: ObjectBrushMode| {
+                    button(text(label).size(11))
+                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrushMode(
+                            tab_id, mode,
+                        )))
+                        .padding([3, 8])
+                        .style(if state.view.object_brush_mode == mode {
+                            style::active_chip
+                        } else {
+                            style::chip
+                        })
+                };
+                let brush = state.data.object_brush;
+                let preset_chip = |n: i32| {
+                    button(text(n.to_string()).size(11))
+                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                            tab_id, n,
+                        )))
+                        .padding([3, 8])
+                        .style(style::chip)
+                };
+                let brush_str = brush.to_string();
+                row![
+                    mode_chip("Paint", ObjectBrushMode::Paint),
+                    mode_chip("Erase", ObjectBrushMode::Erase),
+                    rule(),
+                    button(text("−").size(12))
+                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                            tab_id,
+                            brush - 1
+                        )))
+                        .padding([3, 8])
+                        .style(style::chip),
+                    container(
+                        text_input("1", brush_str)
+                            .width(iced::Length::Fixed(48.0))
+                            .on_input(move |v: String| {
+                                let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
+                                Message::map_editor(MapEditorMessage::SetObjectBrush(tab_id, val))
+                            }),
+                    )
+                    .padding([2, 4])
+                    .style(style::info_card),
+                    button(text("+").size(12))
+                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                            tab_id,
+                            brush + 1
+                        )))
+                        .padding([3, 8])
+                        .style(style::chip),
+                    text("Presets:").size(10).style(style::subtle_text),
+                    preset_chip(1),
+                    preset_chip(2),
+                    preset_chip(3),
+                    preset_chip(5),
+                    preset_chip(10),
+                ]
+                .spacing(4)
+                .padding([0, 16])
+                .align_y(iced::Alignment::Center)
+                .into()
+            } else {
+                Element::new(horizontal_space())
+            };
+
+            // Hint line describing what a click currently does.
+            let hint: String = match state.view.active_tool {
+                MapTool::Pan => "Click: select entity · drag: pan".into(),
+                MapTool::Collision => "Click tile: block/unblock".into(),
+                MapTool::ObjectId => match state.view.object_brush_mode {
+                    ObjectBrushMode::Paint => {
+                        format!("Click: paint obj {}", state.data.object_brush)
+                    }
+                    ObjectBrushMode::Erase => "Click: erase any value".into(),
+                },
+                MapTool::EventInspect => "Click tile: inspect event".into(),
+            };
+            let hint_row = row![text(hint).size(10).style(style::subtle_text)].padding([0, 16]);
 
             let mode_tab_row = row![
                 button(text("Map").size(11))
@@ -344,9 +455,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 column![
                     row![mode_tab_row, action_row].spacing(0),
                     row![info_row].spacing(0),
-                    row![layer_row, tile_status]
-                        .spacing(16)
-                        .align_y(iced::Alignment::Center),
+                    tools_row,
+                    obj_brush_options,
+                    hint_row,
+                    row![layer_row].spacing(0).align_y(iced::Alignment::Center),
                 ]
                 .spacing(0),
             )
@@ -447,6 +559,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+use iced::widget::space::Space;
+
+/// Fill remaining horizontal space (pushes following widgets right).
+fn horizontal_space() -> Space {
+    Space::new().width(Fill)
+}
+
 fn info_cell<'a>(label: &'static str, value: &str) -> Element<'a, Message> {
     column![
         text(label).size(10).style(style::subtle_text),
@@ -454,6 +573,27 @@ fn info_cell<'a>(label: &'static str, value: &str) -> Element<'a, Message> {
     ]
     .spacing(2)
     .into()
+}
+
+/// Thin vertical separator between layer-toggle segments.
+fn rule() -> Element<'static, Message> {
+    container(text(""))
+        .width(iced::Length::Fixed(1.0))
+        .height(iced::Length::Fixed(16.0))
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color::from_rgba(
+                0.6, 0.55, 0.45, 0.4,
+            ))),
+            ..container::Style::default()
+        })
+        .into()
+}
+
+fn segment_label(label: &'static str) -> Element<'static, Message> {
+    text(label.to_string())
+        .size(10)
+        .style(style::subtle_text)
+        .into()
 }
 
 fn layer_toggle(
@@ -464,7 +604,7 @@ fn layer_toggle(
     count: Option<usize>,
 ) -> Element<'static, Message> {
     let label_str: String = match count {
-        Some(n) => format!("{} ({})", label, n),
+        Some(n) => format!("{}({})", label, n),
         None => label.to_string(),
     };
     toggler(is_on)
