@@ -116,8 +116,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 text("Decoding tiles…").size(10).style(style::subtle_text)
             };
 
-            let terrain_segment = row![
-                segment_label("Terrain"),
+            // Vertical toggle groups for the popover panel. Group headers live
+            // in the panel itself (exactly one per group).
+            let terrain_group = column![
                 layer_toggle(
                     "Ground",
                     state.view.show_ground,
@@ -126,7 +127,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
-                    "Bldg",
+                    "Buildings",
                     state.view.show_buildings,
                     tab_id,
                     MapLayer::Buildings,
@@ -147,11 +148,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
             ]
-            .spacing(8)
-            .align_y(iced::Alignment::Center);
+            .spacing(6);
 
-            let overlay_segment = row![
-                segment_label("Overlays"),
+            let overlay_group = column![
                 layer_toggle(
                     "Collisions",
                     state.view.show_collisions,
@@ -167,34 +166,32 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
-                    "Obj IDs",
+                    "Object IDs",
                     state.view.show_object_ids,
                     tab_id,
                     MapLayer::ObjectIds,
                     None
                 ),
             ]
-            .spacing(8)
-            .align_y(iced::Alignment::Center);
+            .spacing(6);
 
-            let entity_segment = row![
-                segment_label("Entities"),
+            let entity_group = column![
                 layer_toggle(
-                    "Mon",
+                    "Monsters",
                     state.view.show_monsters,
                     tab_id,
                     MapLayer::Monsters,
                     Some(state.data.monsters.len())
                 ),
                 layer_toggle(
-                    "NPC",
+                    "NPCs",
                     state.view.show_npcs,
                     tab_id,
                     MapLayer::Npcs,
                     Some(state.data.npcs.len())
                 ),
                 layer_toggle(
-                    "Wpts",
+                    "Waypoints",
                     state.view.show_npc_waypoints,
                     tab_id,
                     MapLayer::NpcWaypoints,
@@ -215,8 +212,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     Some(state.data.draw_items.len())
                 ),
             ]
-            .spacing(8)
-            .align_y(iced::Alignment::Center);
+            .spacing(6);
 
             // ── Layers dropdown (popover) ─────────────────────────────────
             let layer_visibility = [
@@ -257,17 +253,21 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 style::chip
             });
 
-            let layers_panel = container(column![
-                segment_label("Terrain"),
-                terrain_segment,
-                h_rule(),
-                segment_label("Overlays"),
-                overlay_segment,
-                h_rule(),
-                segment_label("Entities"),
-                entity_segment,
-            ])
-            .padding(10)
+            let layers_panel = container(
+                column![
+                    segment_label("Terrain"),
+                    terrain_group,
+                    h_rule(),
+                    segment_label("Overlays"),
+                    overlay_group,
+                    h_rule(),
+                    segment_label("Entities"),
+                    entity_group,
+                ]
+                .spacing(12),
+            )
+            .padding(14)
+            .width(iced::Length::Fixed(200.0))
             .style(style::panel_container);
 
             let layers_popover: Element<'_, Message> = gui_widgets::components::popover::popover(
@@ -671,7 +671,7 @@ fn layer_toggle(
     count: Option<usize>,
 ) -> Element<'static, Message> {
     let label_str: String = match count {
-        Some(n) => format!("{}({})", label, n),
+        Some(n) => format!("{} ({})", label, n),
         None => label.to_string(),
     };
     toggler(is_on)
