@@ -52,6 +52,7 @@ pub use references::{
         CharacterIdentity, InventoryData, JournalData, JournalEntry, MapSectionData,
         MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
     },
+    save_ifo::{SaveIfo, SaveSlotInfo},
     store_db::Store,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,
