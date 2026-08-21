@@ -249,19 +249,23 @@ pub fn save_complete(
         match result {
             Ok(msg) => {
                 state.data.dirty = false;
-                state.data.status_msg = Some(msg);
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Success,
+                    "Saved",
+                    msg,
+                );
             }
             Err(e) => {
-                state.data.status_msg = Some(format!("Save failed: {e}"));
+                state
+                    .data
+                    .notify(gui_widgets::components::toast::Status::Danger, "Error", e);
             }
         }
     }
     if success {
         super::set_tab_modified(app, tab_id, false);
-        super::dismiss_status_after(tab_id)
-    } else {
-        Task::none()
     }
+    Task::none()
 }
 
 pub fn map_saved(app: &mut App, tab_id: usize, result: Result<String, String>) -> Task<Message> {
@@ -271,19 +275,23 @@ pub fn map_saved(app: &mut App, tab_id: usize, result: Result<String, String>) -
         match result {
             Ok(msg) => {
                 state.data.dirty = false;
-                state.data.status_msg = Some(msg);
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Success,
+                    "Saved",
+                    msg,
+                );
             }
             Err(e) => {
-                state.data.status_msg = Some(format!("Save failed: {e}"));
+                state
+                    .data
+                    .notify(gui_widgets::components::toast::Status::Danger, "Error", e);
             }
         }
     }
     if success {
         super::set_tab_modified(app, tab_id, false);
-        super::dismiss_status_after(tab_id)
-    } else {
-        Task::none()
     }
+    Task::none()
 }
 
 pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
@@ -378,19 +386,24 @@ pub fn export_complete(
     tab_id: usize,
     result: Result<String, String>,
 ) -> Task<Message> {
-    let success = result.is_ok();
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.is_exporting = false;
-        state.data.status_msg = Some(match result {
-            Ok(msg) => msg,
-            Err(e) => format!("Export failed: {e}"),
-        });
+        match result {
+            Ok(msg) => {
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Success,
+                    "Export",
+                    msg,
+                );
+            }
+            Err(e) => {
+                state
+                    .data
+                    .notify(gui_widgets::components::toast::Status::Danger, "Error", e);
+            }
+        }
     }
-    if success {
-        super::dismiss_status_after(tab_id)
-    } else {
-        Task::none()
-    }
+    Task::none()
 }
 
 #[cfg(test)]

@@ -75,8 +75,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         LoadingState::Loaded(map_handle) => {
             let map_data = &map_handle.0;
             let model = &map_data.model;
-            let gtl_count = map_data.gtl_tiles.len();
-            let btl_count = map_data.btl_tiles.len();
 
             let path_label = state
                 .data
@@ -86,35 +84,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
 
-            // ── Info row ─────────────────────────────────────────────────
-            let info_row = row![
-                info_cell("File", &path_label),
-                info_cell(
-                    "Tiles (W×H)",
-                    &format!("{}×{}", model.tiled_map_width, model.tiled_map_height)
-                ),
-                info_cell("GTL", &gtl_count.to_string()),
-                info_cell("BTL", &btl_count.to_string()),
-                info_cell(
-                    "Entities",
-                    &format!(
-                        "{}M {}N {}O {}D",
-                        state.data.monsters.len(),
-                        state.data.npcs.len(),
-                        state.data.extra_refs.len(),
-                        state.data.draw_items.len()
-                    )
-                ),
-            ]
-            .spacing(16)
-            .padding([8, 16]);
-
             // ── Layer toggles, grouped into three segments ────────────────
-            let tile_status = if state.data.tiles_ready {
-                text("").size(10).style(style::subtle_text)
-            } else {
-                text("Decoding tiles…").size(10).style(style::subtle_text)
-            };
 
             // Vertical toggle groups for the popover panel. Group headers live
             // in the panel itself (exactly one per group).
@@ -278,12 +248,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 move || Message::map_editor(MapEditorMessage::CloseLayersPopover(tab_id)),
             );
 
-            let layer_row = row![layers_popover, tile_status]
-                .spacing(12)
-                .padding([6, 16])
-                .align_y(iced::Alignment::Center);
-
-            // ── Action buttons row ─────────────────────────────────────────
+            // ── Action buttons (Row B) ────────────────────────────────────
             let can_undo = !state.data.undo_stack.is_empty();
             let can_redo = !state.data.redo_stack.is_empty();
             let save_label = if state.data.is_saving {
@@ -299,12 +264,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     save_btn.on_press(Message::map_editor(MapEditorMessage::SaveMap(tab_id)));
             }
 
+            // Icon + label undo/redo — icons alone are anti-UX.
             let mut undo_btn = button(
                 row![
                     text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
-                    text(" Undo").size(11),
+                    text("Undo").size(11),
                 ]
-                .spacing(2),
+                .spacing(4),
             )
             .padding([3, 8]);
             if can_undo {
@@ -313,10 +279,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
             let mut redo_btn = button(
                 row![
-                    text("Redo ").size(11),
                     text(icon_char(Icon::Redo2)).font(LUCIDE_FONT).size(11),
+                    text("Redo").size(11),
                 ]
-                .spacing(2),
+                .spacing(4),
             )
             .padding([3, 8]);
             if can_redo {
@@ -328,13 +294,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
             } else {
                 "Export PNG"
             };
-            let mut export_btn = button(text(export_label).size(11)).padding([3, 8]);
+            let mut export_btn = button(text(export_label).size(11))
+                .padding([3, 8])
+                .accessible_label("Export map as PNG");
             if !state.data.is_exporting {
                 export_btn =
                     export_btn.on_press(Message::map_editor(MapEditorMessage::ExportImage(tab_id)));
             }
 
-            let mut tmx_btn = button(text("Export TMX…").size(11)).padding([3, 8]);
+            let mut tmx_btn = button(text("Export TMX").size(11))
+                .padding([3, 8])
+                .accessible_label("Export map as TMX");
             if !state.data.is_exporting {
                 tmx_btn =
                     tmx_btn.on_press(Message::map_editor(MapEditorMessage::ExportTmx(tab_id)));
@@ -355,27 +325,58 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 state.data.gtl_handles.len()
             );
 
-            let action_row = row![
+            // Per-tool click hint. Hidden for Pan (default tool needs no help
+            // text); always visible for editing tools.
+            let hint: Option<String> = match state.view.active_tool {
+                MapTool::Pan => None,
+                MapTool::Collision => Some("Click tile: block/unblock".into()),
+                MapTool::ObjectId => Some(match state.view.object_brush_mode {
+                    ObjectBrushMode::Paint => {
+                        format!("Click: paint obj {}", state.data.object_brush)
+                    }
+                    ObjectBrushMode::Erase => "Click: erase any value".into(),
+                }),
+                MapTool::EventInspect => Some("Click tile: inspect event".into()),
+            };
+
+            let actions_row = row![
                 save_btn,
                 undo_btn,
                 redo_btn,
                 export_btn,
                 tmx_btn,
+                text(path_label).size(10).style(style::subtle_text),
                 status_text,
                 horizontal_space(),
-                text(summary_text).size(10).style(style::subtle_text),
+                match &hint {
+                    Some(h) => Element::new(text(h.clone()).size(10).style(style::subtle_text)),
+                    None => Element::new(horizontal_space()),
+                },
             ]
             .spacing(6)
             .padding([4, 16])
             .align_y(iced::Alignment::Center);
 
-            // ── Tools row ────────────────────────────────────────────────────
+            // ── Row A: context row ────────────────────────────────────────
+            let mode_chip = |label: &'static str, mode: MapViewMode| {
+                button(text(label).size(11))
+                    .on_press(Message::map_editor(MapEditorMessage::SwitchViewMode(
+                        tab_id, mode,
+                    )))
+                    .padding([3, 8])
+                    .style(if state.view.view_mode == mode {
+                        style::active_chip
+                    } else {
+                        style::chip
+                    })
+            };
+
             let tool_chip = |label: &'static str, tool: MapTool| {
                 button(text(label).size(11))
                     .on_press(Message::map_editor(MapEditorMessage::SelectTool(
                         tab_id, tool,
                     )))
-                    .padding([3, 10])
+                    .padding([3, 8])
                     .style(if state.view.active_tool == tool {
                         style::active_chip
                     } else {
@@ -383,141 +384,99 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     })
             };
 
-            let tools_row = row![
-                text("Tools:").size(11).style(style::subtle_text),
-                tool_chip("Pan", MapTool::Pan),
-                tool_chip("Collide", MapTool::Collision),
-                tool_chip("Obj ID", MapTool::ObjectId),
-                tool_chip("Event", MapTool::EventInspect),
-            ]
-            .spacing(4)
-            .padding([6, 16])
-            .align_y(iced::Alignment::Center);
-
-            // ── Contextual object-id brush options (Obj ID tool only) ─────
-            let obj_brush_options: Element<'_, Message> = if state.view.active_tool
-                == MapTool::ObjectId
-            {
-                let mode_chip = |label: &'static str, mode: ObjectBrushMode| {
-                    button(text(label).size(11))
-                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrushMode(
-                            tab_id, mode,
-                        )))
-                        .padding([3, 8])
-                        .style(if state.view.object_brush_mode == mode {
-                            style::active_chip
-                        } else {
-                            style::chip
-                        })
-                };
-                let brush = state.data.object_brush;
-                let preset_chip = |n: i32| {
-                    button(text(n.to_string()).size(11))
-                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
-                            tab_id, n,
-                        )))
-                        .padding([3, 8])
-                        .style(style::chip)
-                };
-                let brush_str = brush.to_string();
-                row![
-                    mode_chip("Paint", ObjectBrushMode::Paint),
-                    mode_chip("Erase", ObjectBrushMode::Erase),
-                    rule(),
-                    button(text("−").size(12))
-                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
-                            tab_id,
-                            brush - 1
-                        )))
-                        .padding([3, 8])
-                        .style(style::chip),
-                    container(
-                        text_input("1", brush_str)
-                            .width(iced::Length::Fixed(48.0))
-                            .on_input(move |v: String| {
-                                let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
-                                Message::map_editor(MapEditorMessage::SetObjectBrush(tab_id, val))
-                            }),
+            // Contextual object-id brush options — inline in Row A, only when
+            // the Obj ID tool is active.
+            let brush_slot: Option<Element<'_, Message>> =
+                if state.view.active_tool == MapTool::ObjectId {
+                    let mode_chip = |label: &'static str, mode: ObjectBrushMode| {
+                        button(text(label).size(11))
+                            .on_press(Message::map_editor(MapEditorMessage::SetObjectBrushMode(
+                                tab_id, mode,
+                            )))
+                            .padding([3, 6])
+                            .style(if state.view.object_brush_mode == mode {
+                                style::active_chip
+                            } else {
+                                style::chip
+                            })
+                    };
+                    let brush = state.data.object_brush;
+                    let preset_chip = |n: i32| {
+                        button(text(n.to_string()).size(11))
+                            .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                tab_id, n,
+                            )))
+                            .padding([3, 5])
+                            .style(style::chip)
+                    };
+                    let brush_str = brush.to_string();
+                    Some(
+                        row![
+                            rule(),
+                            mode_chip("Paint", ObjectBrushMode::Paint),
+                            mode_chip("Erase", ObjectBrushMode::Erase),
+                            rule(),
+                            button(text("−").size(12))
+                                .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                    tab_id,
+                                    brush - 1
+                                )))
+                                .padding([3, 6])
+                                .style(style::chip),
+                            container(
+                                text_input("1", brush_str)
+                                    .width(iced::Length::Fixed(44.0))
+                                    .on_input(move |v: String| {
+                                        let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
+                                        Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                            tab_id, val,
+                                        ))
+                                    }),
+                            )
+                            .padding([2, 4])
+                            .style(style::info_card),
+                            button(text("+").size(12))
+                                .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                    tab_id,
+                                    brush + 1
+                                )))
+                                .padding([3, 6])
+                                .style(style::chip),
+                            preset_chip(1),
+                            preset_chip(2),
+                            preset_chip(3),
+                            preset_chip(5),
+                            preset_chip(10),
+                        ]
+                        .spacing(3)
+                        .align_y(iced::Alignment::Center)
+                        .into(),
                     )
-                    .padding([2, 4])
-                    .style(style::info_card),
-                    button(text("+").size(12))
-                        .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
-                            tab_id,
-                            brush + 1
-                        )))
-                        .padding([3, 8])
-                        .style(style::chip),
-                    text("Presets:").size(10).style(style::subtle_text),
-                    preset_chip(1),
-                    preset_chip(2),
-                    preset_chip(3),
-                    preset_chip(5),
-                    preset_chip(10),
-                ]
-                .spacing(4)
-                .padding([0, 16])
-                .align_y(iced::Alignment::Center)
-                .into()
-            } else {
-                Element::new(horizontal_space())
-            };
+                } else {
+                    None
+                };
 
-            // Hint line describing what a click currently does.
-            let hint: String = match state.view.active_tool {
-                MapTool::Pan => "Click: select entity · drag: pan".into(),
-                MapTool::Collision => "Click tile: block/unblock".into(),
-                MapTool::ObjectId => match state.view.object_brush_mode {
-                    ObjectBrushMode::Paint => {
-                        format!("Click: paint obj {}", state.data.object_brush)
-                    }
-                    ObjectBrushMode::Erase => "Click: erase any value".into(),
-                },
-                MapTool::EventInspect => "Click tile: inspect event".into(),
-            };
-            let hint_row = row![text(hint).size(10).style(style::subtle_text)].padding([0, 16]);
+            let mut context_row = row![].spacing(6).padding([4, 16]);
+            context_row = context_row
+                .push(mode_chip("Map", MapViewMode::Map))
+                .push(mode_chip("Sprites", MapViewMode::Sprites))
+                .push(rule())
+                .push(tool_chip("Pan", MapTool::Pan))
+                .push(tool_chip("Collide", MapTool::Collision))
+                .push(tool_chip("Obj ID", MapTool::ObjectId))
+                .push(tool_chip("Event", MapTool::EventInspect));
+            if let Some(slot) = brush_slot {
+                context_row = context_row.push(slot);
+            }
+            context_row = context_row
+                .push(horizontal_space())
+                .push(text(summary_text).size(10).style(style::subtle_text))
+                .push(layers_popover);
 
-            let mode_tab_row = row![
-                button(text("Map").size(11))
-                    .on_press(Message::map_editor(MapEditorMessage::SwitchViewMode(
-                        tab_id,
-                        MapViewMode::Map
-                    )))
-                    .padding([3, 10])
-                    .style(if state.view.view_mode == MapViewMode::Map {
-                        style::active_chip
-                    } else {
-                        style::chip
-                    }),
-                button(text("Sprites").size(11))
-                    .on_press(Message::map_editor(MapEditorMessage::SwitchViewMode(
-                        tab_id,
-                        MapViewMode::Sprites
-                    )))
-                    .padding([3, 10])
-                    .style(if state.view.view_mode == MapViewMode::Sprites {
-                        style::active_chip
-                    } else {
-                        style::chip
-                    }),
-            ]
-            .spacing(4)
-            .padding([6, 16]);
-
-            let toolbar = container(
-                column![
-                    row![mode_tab_row, action_row].spacing(0),
-                    row![info_row].spacing(0),
-                    tools_row,
-                    obj_brush_options,
-                    hint_row,
-                    row![layer_row].spacing(0).align_y(iced::Alignment::Center),
-                ]
-                .spacing(0),
-            )
-            .width(Fill)
-            .style(style::toolbar_container)
-            .accessible_label("Map editor toolbar");
+            let toolbar = container(column![context_row, actions_row].spacing(0))
+                .width(Fill)
+                .style(style::toolbar_container)
+                .accessible_label("Map editor toolbar");
 
             // ── Canvas for tile layers, sprites (images) ───────────────────────
             let tiles_canvas = canvas(MapCanvasTilesLayer { state })
@@ -617,15 +576,6 @@ use iced::widget::space::Space;
 /// Fill remaining horizontal space (pushes following widgets right).
 fn horizontal_space() -> Space {
     Space::new().width(Fill)
-}
-
-fn info_cell<'a>(label: &'static str, value: &str) -> Element<'a, Message> {
-    column![
-        text(label).size(10).style(style::subtle_text),
-        text(value.to_string()).size(11),
-    ]
-    .spacing(2)
-    .into()
 }
 
 /// Thin vertical separator between layer-toggle segments.
