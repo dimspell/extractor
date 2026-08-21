@@ -6,7 +6,7 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, toggler};
+use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler};
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
@@ -130,6 +130,22 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 text("Decoding tiles…").size(10).style(style::subtle_text)
             };
 
+            let obj_id_brush: Element<'_, Message> = {
+                let brush_str = state.data.object_brush.to_string();
+                row![
+                    text("Brush:").size(10).style(style::subtle_text),
+                    text_input("1", brush_str)
+                        .width(iced::Length::Fixed(48.0))
+                        .on_input(move |v: String| {
+                            let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
+                            Message::map_editor(MapEditorMessage::SetObjectBrush(tab_id, val))
+                        }),
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center)
+                .into()
+            };
+
             let layer_row = row![
                 text("Layers:").size(11).style(style::subtle_text),
                 layer_toggle(
@@ -216,6 +232,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     MapLayer::ObjectIds,
                     None
                 ),
+                obj_id_brush,
             ]
             .spacing(12)
             .padding([6, 16])

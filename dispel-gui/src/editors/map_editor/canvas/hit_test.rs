@@ -107,19 +107,45 @@ fn find_hovered_event_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(
     Some((tile_x, tile_y))
 }
 
-/// Find what's under the cursor, with priority: entity > collision tile > event tile.
+/// Find the object-id tile under the cursor (if any).  Returns `(tx, ty)`.
+fn find_hovered_object_id_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(i32, i32)> {
+    let map_handle = state.map_data()?;
+    let model = &map_handle.0.model;
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+
+    let (tile_x, tile_y) = screen_to_tile(
+        cx,
+        cy,
+        diagonal,
+        state.view.pan_x,
+        state.view.pan_y,
+        state.view.zoom,
+        model.tiled_map_width,
+        model.tiled_map_height,
+    )?;
+
+    Some((tile_x, tile_y))
+}
+
+/// Find what's under the cursor, with priority: entity > object-id tile > collision tile > event tile.
 pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<SelectedEntity> {
     // 1. Try entities (existing logic)
     if let Some(entity) = find_hovered_entity_impl(state, cx, cy) {
         return Some(entity);
     }
-    // 2. Try collision tiles (only when collision layer is visible)
+    // 2. Try object-id tiles (only when object-ids layer is visible)
+    if state.view.show_object_ids
+        && let Some((tx, ty)) = find_hovered_object_id_tile(state, cx, cy)
+    {
+        return Some(SelectedEntity::ObjectIdTile(tx, ty));
+    }
+    // 3. Try collision tiles (only when collision layer is visible)
     if state.view.show_collisions
         && let Some((tx, ty)) = find_hovered_collision_tile(state, cx, cy)
     {
         return Some(SelectedEntity::CollisionTile(tx, ty));
     }
-    // 3. Try event tiles (only when event layer is visible)
+    // 4. Try event tiles (only when event layer is visible)
     if state.view.show_events
         && let Some((tx, ty)) = find_hovered_event_tile(state, cx, cy)
     {
@@ -138,7 +164,9 @@ pub fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, 
         }),
         SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.map_x, e.map_y)),
         SelectedEntity::DrawItem(i) => state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord)),
-        SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
+        SelectedEntity::CollisionTile(tx, ty)
+        | SelectedEntity::EventTile(tx, ty)
+        | SelectedEntity::ObjectIdTile(tx, ty) => Some((tx, ty)),
     }
 }
 

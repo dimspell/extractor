@@ -243,6 +243,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     Some(SelectedEntity::EventTile(tx, ty)) => {
                         format!("Event tile ({},{}) detected!", tx, ty)
                     }
+                    Some(SelectedEntity::ObjectIdTile(tx, ty)) => {
+                        format!("Object ID tile ({},{}) detected!", tx, ty)
+                    }
                     Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
                     Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
                     Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
@@ -274,6 +277,36 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                             });
                             state.view.selected_entity = None;
                             state.view.overlay_cache.clear();
+                            set_tab_modified(app, tab_id, true);
+                        }
+                    }
+                    Some(SelectedEntity::ObjectIdTile(tx, ty)) => {
+                        if !state.data.can_mutate_map_data() {
+                            state.data.status_msg = Some(
+                                "Cannot edit object IDs while save/export is in progress".into(),
+                            );
+                        } else if let LoadingState::Loaded(ref mut handle) =
+                            state.data.loading_state
+                        {
+                            let brush = state.data.object_brush.clamp(1, 511);
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let old = map_data.object_ids.get(&(tx, ty)).copied().unwrap_or(0);
+                            let new = if old == brush { 0 } else { brush };
+                            if new == 0 {
+                                map_data.object_ids.remove(&(tx, ty));
+                            } else {
+                                map_data.object_ids.insert((tx, ty), new);
+                            }
+                            state.push_undo(MapEditAction {
+                                entity: SelectedEntity::ObjectIdTile(tx, ty),
+                                field: "object_id".into(),
+                                old_value: old.to_string(),
+                                new_value: new.to_string(),
+                            });
+                            state.view.selected_entity = None;
+                            state.view.overlay_cache.clear();
+                            state.view.tile_layer_cache.clear();
                             set_tab_modified(app, tab_id, true);
                         }
                     }
@@ -341,6 +374,13 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 }
                 state.view.tile_layer_cache.clear();
                 state.view.overlay_cache.clear();
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::SetObjectBrush(tab_id, value) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.data.object_brush = value.clamp(1, 511);
             }
             Task::none()
         }

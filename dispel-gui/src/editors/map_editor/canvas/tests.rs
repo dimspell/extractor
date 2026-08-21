@@ -820,3 +820,98 @@ fn test_diamond_path_creates_valid_path() {
     // Canvas Path is opaque — just ensure it doesn't panic and has the right type.
     let _ = path; // (lint guard)
 }
+
+// ── ObjectIdTile hit-testing ──────────────────────────────────────────────────
+
+#[test]
+fn test_hovered_element_object_id_tile_when_visible() {
+    let mut state = make_state(
+        50,
+        50,
+        vec![],
+        vec![],
+        vec![],
+        vec![],
+        HashMap::new(),
+        HashMap::new(),
+    );
+    state.view.show_object_ids = true;
+    // Insert object_id into the loaded MapData.
+    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 42);
+    }
+
+    let (cx, cy) = tile_centre_canvas(&state, 10, 10);
+    assert_eq!(
+        find_hovered_element(&state, cx, cy),
+        Some(SelectedEntity::ObjectIdTile(10, 10)),
+    );
+}
+
+#[test]
+fn test_hovered_element_object_id_tile_not_when_hidden() {
+    let mut state = make_state(
+        50,
+        50,
+        vec![],
+        vec![],
+        vec![],
+        vec![],
+        HashMap::new(),
+        HashMap::new(),
+    );
+    state.view.show_object_ids = false;
+    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 42);
+    }
+
+    let (cx, cy) = tile_centre_canvas(&state, 10, 10);
+    // When show_object_ids is false, should return None (no other layer visible).
+    assert_eq!(find_hovered_element(&state, cx, cy), None);
+}
+
+#[test]
+fn test_hovered_element_object_id_tile_has_priority_over_collision() {
+    let mut collisions = HashMap::new();
+    collisions.insert((10, 10), true);
+    let mut state = make_state(
+        50,
+        50,
+        vec![],
+        vec![],
+        vec![],
+        vec![],
+        collisions,
+        HashMap::new(),
+    );
+    state.view.show_object_ids = true;
+    state.view.show_collisions = true;
+    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 7);
+    }
+
+    let (cx, cy) = tile_centre_canvas(&state, 10, 10);
+    // Object IDs have priority over collisions.
+    assert_eq!(
+        find_hovered_element(&state, cx, cy),
+        Some(SelectedEntity::ObjectIdTile(10, 10)),
+    );
+}
+
+#[test]
+fn test_entity_tile_object_id_tile() {
+    let state = make_state(
+        50,
+        50,
+        vec![],
+        vec![],
+        vec![],
+        vec![],
+        HashMap::new(),
+        HashMap::new(),
+    );
+    assert_eq!(
+        entity_tile(SelectedEntity::ObjectIdTile(5, 9), &state),
+        Some((5, 9)),
+    );
+}
