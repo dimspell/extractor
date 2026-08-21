@@ -1,4 +1,7 @@
-# Monster.ini Documentation
+# Monster.ini
+
+> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
+> owner.
 
 ## File Information
 
@@ -11,7 +14,6 @@ Text file that defines monster visual appearances and animation sequences for th
 **Location**: `Monster.ini`
 **Encoding**: WINDOWS-1250 (Central European character encoding)
 **Format**: CSV (Comma-Separated Values) with comments
-**Total Entries**: 37 monster definitions
 
 ### Format Specification
 
@@ -26,22 +28,23 @@ id,name,sprite_filename,attack_seq,hit_seq,death_seq,walk_seq,cast_seq
 
 ### Field Definitions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | i32 | Unique monster visual type identifier (0-36) |
-| name | string | Monster display name or "null" |
-| sprite_filename | string | SPR filename or "null" for no sprite |
-| attack_seq | i32 | Animation sequence ID for attacking |
-| hit_seq | i32 | Animation sequence ID for taking damage |
-| death_seq | i32 | Animation sequence ID for dying |
-| walk_seq | i32 | Animation sequence ID for walking |
-| cast_seq | i32 | Animation sequence ID for spellcasting |
+| Field           | Type   | Description                             |
+|-----------------|--------|-----------------------------------------|
+| id              | i32    | Unique monster visual type identifier   |
+| name            | string | Monster display name or "null"          |
+| sprite_filename | string | SPR filename or "null" for no sprite    |
+| attack_seq      | i32    | Animation sequence ID for attacking     |
+| hit_seq         | i32    | Animation sequence ID for taking damage |
+| death_seq       | i32    | Animation sequence ID for dying         |
+| walk_seq        | i32    | Animation sequence ID for walking       |
+| cast_seq        | i32    | Animation sequence ID for spellcasting  |
 
 ### Animation System
 
 The file maps monster types to animation sequences that reference frame indices in SPR files:
 
 **Animation Sequence IDs:**
+
 - **0**: No animation (unused sequence)
 - **1-N**: Frame sequence numbers in SPR file
 - **-1**: Special/alternative animation sequence
@@ -56,20 +59,20 @@ The file organizes monsters into logical groups based on the comment header:
 ```
 
 **Example Monsters:**
-- Goblin and variants
-- Orc
-- Goblin King
-- Bandit
 
+- ID 0: Default/null entry (no monster)
+- IDs 1+: Various monster types with sprites and animations
 
 ### Animation Sequence Details
 
 **Combat Animations:**
+
 - `attack_seq`: Attacking/offensive animations
 - `hit_seq`: Damage/taking hit animations
 - `death_seq`: Death/dying animations
 
 **Movement Animations:**
+
 - `walk_seq`: Walking/movement animations
 - `cast_seq`: Spellcasting/magic animations
 
@@ -98,16 +101,19 @@ The file organizes monsters into logical groups based on the comment header:
 ### Technical Details
 
 **Encoding**: WINDOWS-1250 (Central European)
+
 - Supports Polish characters in comments and names
 - Requires proper encoding handling for reading/writing
 
 **File Processing**:
+
 - Comments (lines starting with ";") are ignored
 - Empty lines are skipped
 - CSV format with comma delimiter
 - "null" literal used for missing name/sprite fields
 
 **Database Integration**:
+
 - Processed by `MonsterIni` struct in the codebase
 - Stored in database with all field mappings
 - Linked to monster placement files (mondun*.ref, monmap*.ref)
@@ -138,49 +144,12 @@ pub struct MonsterIni {
 4. **Movement System**: Applies walking animations during navigation
 5. **Magic System**: Triggers casting animations for spellcasters
 
-### Monster Types Analysis
-
-**Basic Statistics:**
-- **Total Monsters**: 37 unique types
-- **ID Range**: 0-36 (ID 0 = default/null entry)
-- **Animation Coverage**: All monsters have complete animation sets
-- **Special Animations**: Some monsters use -1 for special sequences
-
-**Animation Patterns:**
-- Most monsters follow consistent animation sequence numbering
-- Boss/elite monsters may have unique animation patterns
-- Animal companions use simpler animation sets
-
-### File Characteristics
-
-- **Entry Count**: 37 monster definitions
-- **ID System**: Sequential with some thematic grouping
-- **Comment Structure**: Polish field descriptions
-- **Encoding**: WINDOWS-1250 for Central European characters
-- **Format**: Strict CSV with consistent field order
-
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
 - Comments are in Polish (WINDOWS-1250 encoding)
 - Animation sequences link to SPR file frame indices
 - Integrated with monster placement and combat systems
-- **No copyrighted game content** is reproduced or distributed
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary artwork. All references to monster types are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any SPR files or game artwork
-- Focuses on **technical organization and animation systems**
-- Uses **generic examples** of monster structures
-- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

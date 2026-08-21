@@ -1,112 +1,78 @@
-# cat1.gtl - Dispel Game Tileset File Format
+# DISPEL® Ground Tile Layer (`.gtl`)
 
-## File Information
-- **Location**: `Map/*.gtl` and `Map/*.btl` files
-- **Format**: Binary tileset
-- **Tile Size**: 32×32 pixels
-- **Color Format**: RGB565 (2 bytes per pixel)
-- **Tile Data Size**: 2048 bytes per tile (32×32×2)
+Raw tileset binary used for terrain, paths, and natural features. The format is identical to `.btl`; only the semantic
+role differs.
 
-## File Structure
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
 
-### No Header
-- Direct sequence of tile data
-- No metadata or header information
-- Tiles are stored sequentially
+## Quick Facts
 
-### Tile Structure (2048 bytes)
-- `pixel_data`: 1024 × RGB565 pixels (32×32 grid)
-- Each pixel: 2 bytes in RGB565 format
+| Property      | Value                           |
+|---------------|---------------------------------|
+| Location      | `Map/*.gtl`                     |
+| Header        | None                            |
+| Tile size     | 32×32 px, RGB565                |
+| Tile data     | 2048 bytes per tile (32×32 × 2) |
+| Rendered size | 62×32 px isometric diamond      |
+| Transparency  | RGB(0,0,0) = transparent        |
 
-### RGB565 Color Format
-- **5 bits**: Red channel (0-31)
-- **6 bits**: Green channel (0-63)
-- **5 bits**: Blue channel (0-31)
-- **Storage**: u16 format `0xRRRRRGGGGGGBBBBB`
+## File Layout
 
-## File Types
+No header. The file is a contiguous sequence of 32×32 pixel tiles in RGB565 (little-endian u16) format. Tile count =
+`file_size / 2048`.
 
-### .GTL Files (Ground Tile Layer)
-- Terrain tiles
-- Paths and roads
-- Natural features (grass, water, rocks)
-- Base landscape elements
-
-### .BTL Files (Building Tile Layer)
-- Structures and buildings
-- Roofs and architectural elements
-- Man-made objects
-- Decorative elements
-
-## Isometric Properties
-- **Rendered Width**: 62 pixels
-- **Rendered Height**: 32 pixels
-- **Shape**: Diamond-shaped mask for isometric projection
-- **Transparency**: RGB(0,0,0) treated as transparent
-
-## Color Conversion
-The RGB565 format is converted to RGB888 during extraction:
-- 5-bit red → 8-bit red (scaled 0-31 to 0-255)
-- 6-bit green → 8-bit green (scaled 0-63 to 0-255)
-- 5-bit blue → 8-bit blue (scaled 0-31 to 0-255)
-
-## File Size Calculation
 ```
-Total tiles = file_size / 2048
+┌──────────────────────┐
+│ TILE #0              │
+│   pixels: u16 × 1024 │  RGB565, little-endian
+├──────────────────────┤
+│ TILE #1              │
+│   pixels: u16 × 1024 │
+├──────────────────────┤
+│ ...                  │
+├──────────────────────┤
+│ TILE #N              │
+│   pixels: u16 × 1024 │
+└──────────────────────┘
 ```
+
+## RGB565 → RGB888 Conversion
+
+```
+red   = bits 11–15 of pixel   → scale 0–31  to 0–255
+green = bits 5–10 of pixel    → scale 0–63  to 0–255
+blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
+```
+
+## Isometric Rendering
+
+Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
+seamlessly. RGB (0,0,0) pixels are treated as transparent, allowing terrain tiles to layer with sprites and building
+tiles.
+
+## Relationship to `.map` Files
+
+Each tile in a `.map` file's Tile & Access block encodes a GTL index in bits 10–24 of the packed u32. The renderer blits
+from
+`gtl_base + index × 2048` (one 32×32 RGB565 tile).
 
 ## Related Files
-- `*.map` - Map files that reference these tilesets
-- `*.btl` - Building/roof tileset files
 
-## Tileset Files
-- **Main maps**: `map1.gtl`, `map2.gtl`, `map3.gtl`
-- **Catacombs**: `cat1.gtl`, `cat2.gtl`, `cat3.gtl`, `catp.gtl`
-- **Dungeons**: `dun01.gtl` through `dun25.gtl`, `final.gtl`
+| File    | Role                                                  |
+|---------|-------------------------------------------------------|
+| `*.btl` | Building tileset (same binary format, structure role) |
+| `*.map` | Map files that reference GTL tile IDs                 |
 
 ## Implementation
-- **Rust Module**: `src/map/tileset.rs`
-- **Extractor**: `extract` function
-- **Renderer**: `plot_tileset_map` function
-- **Tile Structure**: `Tile` struct with color data
 
-## Example Usage
-
-### Extract tiles to individual PNGs:
-```bash
-cargo run -- map tiles "fixtures/Dispel/Map/cat1.gtl" --output "out/cat1-gtl"
-```
-
-### Generate tileset atlas:
-```bash
-cargo run -- map atlas "fixtures/Dispel/Map/cat1.gtl" cat1.gtl.png
-```
-
-### Render map using tileset:
-```bash
-cargo run -- map render \
-  --map "fixtures/Dispel/Map/cat1.map" \
-  --btl "fixtures/Dispel/Map/cat1.btl" \
-  --gtl "fixtures/Dispel/Map/cat1.gtl" \
-  --output cat1.png
-```
-
-## Diamond Mask
-The `create_mask` function generates a diamond-shaped mask for proper isometric tile rendering, creating the characteristic diamond shape of isometric tiles.
-
-## Transparency Handling
-RGB(0,0,0) pixels are treated as transparent during rendering, allowing for proper layering of tiles and sprites.
-
-## Extractor
-
-An extractor is available in `src/map/tileset.rs` to parse this file format.
-
-### How to Run
+- Parser: `extract()` in `src/map/tileset.rs`
+- Atlas: `plot_tileset_map()` in `src/map/tileset.rs`
 
 ```bash
-# Extract tiles to individual PNGs
-cargo run -- map tiles "fixtures/Dispel/Map/cat1.gtl" --output "out/cat1-gtl"
+# Extract ground tiles to individual PNGs
+cargo run -- map tiles "path/to/file.gtl" --output "out/gtl-tiles"
 
-# Generate tileset atlas
-cargo run -- map atlas "fixtures/Dispel/Map/cat1.gtl" cat1.gtl.png
+# Generate ground tileset atlas
+cargo run -- map atlas "path/to/file.gtl" gtl-atlas.png
 ```
