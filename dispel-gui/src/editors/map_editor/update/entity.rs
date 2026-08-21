@@ -513,8 +513,7 @@ mod tests {
             internal_sprites: vec![],
             sprite_blocks: vec![],
         };
-        state.data.loading_state =
-            LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));
+        state.data.loading_state = LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));
 
         app.state
             .workspace

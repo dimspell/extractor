@@ -838,7 +838,10 @@ fn test_hovered_element_object_id_tile_when_visible() {
     state.view.show_object_ids = true;
     // Insert object_id into the loaded MapData.
     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 42);
+        Arc::get_mut(&mut handle.0)
+            .unwrap()
+            .object_ids
+            .insert((10, 10), 42);
     }
 
     let (cx, cy) = tile_centre_canvas(&state, 10, 10);
@@ -862,7 +865,10 @@ fn test_hovered_element_object_id_tile_not_when_hidden() {
     );
     state.view.show_object_ids = false;
     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 42);
+        Arc::get_mut(&mut handle.0)
+            .unwrap()
+            .object_ids
+            .insert((10, 10), 42);
     }
 
     let (cx, cy) = tile_centre_canvas(&state, 10, 10);
@@ -887,7 +893,10 @@ fn test_hovered_element_object_id_tile_has_priority_over_collision() {
     state.view.show_object_ids = true;
     state.view.show_collisions = true;
     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-        Arc::get_mut(&mut handle.0).unwrap().object_ids.insert((10, 10), 7);
+        Arc::get_mut(&mut handle.0)
+            .unwrap()
+            .object_ids
+            .insert((10, 10), 7);
     }
 
     let (cx, cy) = tile_centre_canvas(&state, 10, 10);

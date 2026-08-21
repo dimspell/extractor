@@ -127,7 +127,36 @@ fn find_hovered_object_id_tile(state: &MapEditorState, cx: f32, cy: f32) -> Opti
     Some((tile_x, tile_y))
 }
 
+/// Entity-only hit test for the Pan tool (selection never mutates).
+pub fn find_entity_at(state: &MapEditorState, cx: f32, cy: f32) -> Option<SelectedEntity> {
+    find_hovered_entity_impl(state, cx, cy)
+}
+
+/// Resolve the raw tile under the cursor via the standard screen_to_tile path,
+/// regardless of layer visibility or entities under the cursor. Used by the
+/// editing tools (Collision / ObjectId / EventInspect).
+pub fn find_tile_at(state: &MapEditorState, cx: f32, cy: f32) -> Option<(i32, i32)> {
+    let map_handle = state.map_data()?;
+    let model = &map_handle.0.model;
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+
+    screen_to_tile(
+        cx,
+        cy,
+        diagonal,
+        state.view.pan_x,
+        state.view.pan_y,
+        state.view.zoom,
+        model.tiled_map_width,
+        model.tiled_map_height,
+    )
+}
+
 /// Find what's under the cursor, with priority: entity > object-id tile > collision tile > event tile.
+///
+/// Legacy priority chain, kept for the Pan tool's hover/status reporting and
+/// existing tests. Editing tools should use `find_tile_at` instead so that
+/// visibility of a layer doesn't gate editability.
 pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<SelectedEntity> {
     // 1. Try entities (existing logic)
     if let Some(entity) = find_hovered_entity_impl(state, cx, cy) {

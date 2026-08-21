@@ -1,10 +1,8 @@
 use crate::app::App;
-use crate::components::loading_state::LoadingState;
-use crate::editors::map_editor::canvas::find_hovered_element;
-use crate::editors::map_editor::{MapEditAction, MapEditorMessage, MapLayer, SelectedEntity};
+use crate::editors::map_editor::canvas::{find_hovered_element, find_tile_at};
+use crate::editors::map_editor::{MapEditorMessage, MapLayer, MapTool, SelectedEntity};
 use crate::message::{Message, MessageExt};
 use iced::Task;
-use std::sync::Arc;
 
 mod conversation;
 mod dialog;
@@ -198,6 +196,14 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     MapLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
                     MapLayer::ObjectIds => state.view.show_object_ids = !state.view.show_object_ids,
                 }
+                // Hiding the layer that owns the active editing tool makes that
+                // tool meaningless — reset to Pan.
+                if let Some(owner) = state.view.active_tool.owning_layer()
+                    && owner == layer
+                    && !map::layer_visible(&state.view, layer)
+                {
+                    state.view.active_tool = MapTool::Pan;
+                }
                 // Tile canvas renders entities and tile layers; overlay renders
                 // collisions and events — clear both caches.
                 state.view.tile_layer_cache.clear();
@@ -233,86 +239,56 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::CanvasClicked(tab_id, cx, cy) => {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-                // Use find_hovered_element which also detects collision and event
-                // tiles.
-                let clicked = find_hovered_element(state, cx, cy);
-                state.data.status_msg = Some(match clicked {
-                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
-                        format!("Collision tile ({},{}) detected!", tx, ty)
-                    }
-                    Some(SelectedEntity::EventTile(tx, ty)) => {
-                        format!("Event tile ({},{}) detected!", tx, ty)
-                    }
-                    Some(SelectedEntity::ObjectIdTile(tx, ty)) => {
-                        format!("Object ID tile ({},{}) detected!", tx, ty)
-                    }
-                    Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
-                    Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
-                    Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
-                    Some(SelectedEntity::DrawItem(i)) => {
-                        format!("Draw item {} detected", i)
-                    }
-                    None => {
-                        format!("Clicked at ({:.0},{:.0}) — no tile detected", cx, cy)
-                    }
-                });
-                match clicked {
-                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
-                        if !state.data.can_mutate_map_data() {
-                            state.data.status_msg = Some(
-                                "Cannot edit collision while save/export is in progress".into(),
-                            );
-                        } else if let LoadingState::Loaded(ref mut handle) =
-                            state.data.loading_state
-                        {
-                            let map_data = Arc::get_mut(&mut handle.0)
-                                .expect("MapData Arc has unexpected shared reference");
-                            let old = map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
-                            map_data.collisions.insert((tx, ty), !old);
-                            state.push_undo(MapEditAction {
-                                entity: SelectedEntity::CollisionTile(tx, ty),
-                                field: "collision".into(),
-                                old_value: old.to_string(),
-                                new_value: (!old).to_string(),
-                            });
-                            state.view.selected_entity = None;
-                            state.view.overlay_cache.clear();
-                            set_tab_modified(app, tab_id, true);
-                        }
-                    }
-                    Some(SelectedEntity::ObjectIdTile(tx, ty)) => {
-                        if !state.data.can_mutate_map_data() {
-                            state.data.status_msg = Some(
-                                "Cannot edit object IDs while save/export is in progress".into(),
-                            );
-                        } else if let LoadingState::Loaded(ref mut handle) =
-                            state.data.loading_state
-                        {
-                            let brush = state.data.object_brush.clamp(1, 511);
-                            let map_data = Arc::get_mut(&mut handle.0)
-                                .expect("MapData Arc has unexpected shared reference");
-                            let old = map_data.object_ids.get(&(tx, ty)).copied().unwrap_or(0);
-                            let new = if old == brush { 0 } else { brush };
-                            if new == 0 {
-                                map_data.object_ids.remove(&(tx, ty));
-                            } else {
-                                map_data.object_ids.insert((tx, ty), new);
+                // Tool routing comes FIRST: the active tool decides what a
+                // click means. Layer visibility no longer gates editing.
+                match state.view.active_tool {
+                    MapTool::Pan => {
+                        // Selection only — never mutates.
+                        let clicked = find_hovered_element(state, cx, cy);
+                        state.data.status_msg = Some(match &clicked {
+                            Some(SelectedEntity::CollisionTile(tx, ty)) => {
+                                format!("Collision tile ({},{}) detected!", tx, ty)
                             }
-                            state.push_undo(MapEditAction {
-                                entity: SelectedEntity::ObjectIdTile(tx, ty),
-                                field: "object_id".into(),
-                                old_value: old.to_string(),
-                                new_value: new.to_string(),
-                            });
-                            state.view.selected_entity = None;
-                            state.view.overlay_cache.clear();
-                            state.view.tile_layer_cache.clear();
-                            set_tab_modified(app, tab_id, true);
-                        }
-                    }
-                    _ => {
+                            Some(SelectedEntity::EventTile(tx, ty)) => {
+                                format!("Event tile ({},{}) detected!", tx, ty)
+                            }
+                            Some(SelectedEntity::ObjectIdTile(tx, ty)) => {
+                                format!("Object ID tile ({},{}) detected!", tx, ty)
+                            }
+                            Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
+                            Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
+                            Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
+                            Some(SelectedEntity::DrawItem(i)) => {
+                                format!("Draw item {} detected", i)
+                            }
+                            None => {
+                                format!("Clicked at ({:.0},{:.0}) — no tile detected", cx, cy)
+                            }
+                        });
                         state.view.selected_entity = clicked;
                         state.view.overlay_cache.clear();
+                    }
+                    MapTool::Collision => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy)
+                            && map::toggle_collision_at(state, tx, ty)
+                        {
+                            set_tab_modified(app, tab_id, true);
+                        }
+                    }
+                    MapTool::ObjectId => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy)
+                            && map::apply_object_id_edit(state, tx, ty)
+                        {
+                            set_tab_modified(app, tab_id, true);
+                        }
+                    }
+                    MapTool::EventInspect => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy) {
+                            state.data.status_msg =
+                                Some(format!("Event tile ({},{}) — inspecting", tx, ty));
+                            state.view.selected_entity = Some(SelectedEntity::EventTile(tx, ty));
+                            state.view.overlay_cache.clear();
+                        }
                     }
                 }
             }
@@ -374,6 +350,15 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 }
                 state.view.tile_layer_cache.clear();
                 state.view.overlay_cache.clear();
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::SelectTool(tab_id, tool) => map::select_tool(app, tab_id, tool),
+
+        MapEditorMessage::SetObjectBrushMode(tab_id, mode) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.object_brush_mode = mode;
             }
             Task::none()
         }
