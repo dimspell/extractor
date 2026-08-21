@@ -159,15 +159,14 @@ impl PostEventsData {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct WalkMilestoneRecord {
     /// Event id. `400`; `10`/`100`/`200`/`300` when the
-    /// walk-freshness counter is active; ascending global counter in shipped
-    /// saves (53, 66, 73, ...).
+    /// walk-freshness counter is active; ascending global counter across saves.
     pub id: u32,
     /// Walk direction (animation-step direction, 0-7).
     pub direction: u32,
     /// Character movement state (`0`=idle, `1`=walking).
     pub state: u32,
     /// Walk-type flag. `0` (which duplicates `direction`
-    /// into this slot); `1` in shipped saves.
+    /// into this slot); observed as `1`.
     pub walk_type: u32,
     /// X coordinate.
     pub x: u32,
@@ -180,15 +179,14 @@ pub struct WalkMilestoneRecord {
 /// The record is created when the active path reaches its completion point.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct WalkCompletionRecord {
-    /// Event id. `2000`; ascending global counter in
-    /// shipped saves (684, 775, 828, ...).
+    /// Event id. `2000`; ascending global counter across saves.
     pub id: u32,
     /// Normalized walk direction (0-3; walk directions 4-7 map to 0-3).
     pub direction: u32,
     /// Diagonal flag: `1` when the walk direction is diagonal.
     pub diagonal: u32,
-    /// Character index (`0` for party members; `0`-`2` in
-    /// shipped saves).
+    /// Character index (`0` for party members; `0`-`2`
+    /// observed).
     pub character_index: u32,
     /// X coordinate.
     pub x: u32,

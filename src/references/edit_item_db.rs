@@ -72,9 +72,9 @@ use dispel_macros::RecordPatcher;
 ///
 /// - `modifies_item`: Enum controlling if item mutates behavior
 /// - `additional_effect`: Enum for procedural elemental modifiers (mana drain, fire, etc.)
-/// - `runtime_item_id`: Stored as zero in the shipped database; overwritten with the zero-based
-///   record index by the game loader and used to identify this item definition at runtime.
-/// - `reserved_byte`: Always zero in shipped data; no runtime access was identified.
+/// - `runtime_item_id`: Stored as zero in known files; overwritten with the zero-based
+///   record index at load time and used to identify this item definition.
+/// - `reserved_byte`: Always zero by default; no reader accesses it.
 ///
 /// # File Purpose
 ///
@@ -101,7 +101,7 @@ pub struct EditItem {
     /// Economic valuation offset.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
-    /// Runtime database index assigned by the game loader.
+    /// Runtime database index assigned at load time.
     ///
     /// The on-disk database leaves this word as zero. The game overwrites it after loading and
     /// uses it to identify this definition in inventory and equipment records.
@@ -144,7 +144,7 @@ pub struct EditItem {
     /// Resistance to modification by edit items. Negative values make an item easier to modify.
     #[extractor(primitive(type = "i16"))]
     pub modification_resistance: i16,
-    /// Reserved byte. Always zero in shipped data; no runtime use was identified.
+    /// Reserved byte. Always zero by default; purpose unknown.
     #[extractor(primitive(type = "u8"))]
     pub reserved_byte: u8,
     /// Flag specifying if behavior mutates.

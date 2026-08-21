@@ -55,10 +55,10 @@ pub struct Extra {
     pub sprite_filename: Option<String>,
     /// Selects the sprite frame used after the object is activated.
     ///
-    /// The game copies this value into every placement using this definition.
+    /// Every placement using this definition carries a copy of this value.
     /// For object interaction handlers 5, 6, and 8, a value greater than `1`
     /// selects activated sprite frame `1`; `0` and `1` select frame `0` on
-    /// that path. Shipped definitions use `0`, `1`, and `2`, so this is not a
+    /// that path. Observed definitions use `0`, `1`, and `2`, so this is not a
     /// boolean or a quest flag.
     #[extractor(field = 2)]
     pub activation_sprite_frame_mode: i32,

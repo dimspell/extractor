@@ -56,9 +56,9 @@ use serde::{Deserialize, Serialize};
 /// +--------------------------------------+
 /// ```
 ///
-/// # Reverse-engineered behavior
+/// # Observed behavior
 ///
-/// The combat code reads `base_damage`, `base_success_rate`, `mana_cost`,
+/// Combat calculations consume `base_damage`, `base_success_rate`, `mana_cost`,
 /// `range`, `cast_duration`, `magic_type`, `animation_set_id`, and
 /// `effect_visual_id`. Effective mana cost is reduced by the caster's
 /// magic-school skill, with a minimum of 5; effective success chance also
@@ -99,11 +99,11 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub mana_cost: u32,
 
-    /// Reserved word at record offset `0x14`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x14`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x14: u32,
 
-    /// Reserved word at record offset `0x18`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x18`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x18: u32,
 
@@ -116,7 +116,7 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub range: u32,
 
-    /// Reserved word at record offset `0x24`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x24`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x24: u32,
 
@@ -142,7 +142,7 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub effect_modifier: u32,
 
-    /// Reserved word at record offset `0x3c`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x3c`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x3c: u32,
 
