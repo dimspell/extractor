@@ -17,8 +17,8 @@ pub const SLOT_COUNT: usize = 6;
 pub struct SaveIfo {
     /// Per-slot metadata; always exactly [`SLOT_COUNT`] entries.
     pub slots: Vec<SaveSlotInfo>,
-    /// Unknown float; written as constant 1.4 before every save.
-    pub unknown_float: f32,
+    /// Game version; observed value 1.4.
+    pub game_version: f32,
     /// Key of this session's payload inside the `game.tmp` append-log.
     pub game_tmp_key: u32,
     /// Map/world id that was active when the game was last saved.
@@ -84,7 +84,7 @@ impl SaveIfo {
             });
         }
 
-        let unknown_float = cursor.read_f32::<LittleEndian>()?;
+        let game_version = cursor.read_f32::<LittleEndian>()?;
         let game_tmp_key = cursor.read_u32::<LittleEndian>()?;
         let map_id = cursor.read_u32::<LittleEndian>()?;
         let unknown = cursor.read_u32::<LittleEndian>()?;
@@ -106,7 +106,7 @@ impl SaveIfo {
 
         Ok(SaveIfo {
             slots,
-            unknown_float,
+            game_version,
             game_tmp_key,
             map_id,
             unknown,
@@ -134,7 +134,7 @@ impl SaveIfo {
             writer.write_u32::<LittleEndian>(slot.minute)?;
             writer.write_all(&slot.flags)?;
         }
-        writer.write_f32::<LittleEndian>(self.unknown_float)?;
+        writer.write_f32::<LittleEndian>(self.game_version)?;
         writer.write_u32::<LittleEndian>(self.game_tmp_key)?;
         writer.write_u32::<LittleEndian>(self.map_id)?;
         writer.write_u32::<LittleEndian>(self.unknown)?;

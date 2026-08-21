@@ -31,7 +31,7 @@ from the `game.tmp` append-log.
 
 | Off | Type | Meaning                                                                                          |
 |-----|------|--------------------------------------------------------------------------------------------------|
-| 192 | f32  | unknown float — written as constant 1.4 before every save                                        |
+| 192 | f32  | game version — written as 1.4 before every save                                                  |
 | 196 | u32  | `game.tmp` journal key identifying the current session's payload                                 |
 | 200 | u32  | map/world id active at save time                                                                 |
 | 204 | u32  | unknown; zero by default                                                                         |
