@@ -5,7 +5,7 @@ use crate::references::enums::{
     NpcMovementMode,
 };
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +16,17 @@ use serde::{Deserialize, Serialize};
 /// copies the waypoint block, activation rectangle, movement mode, and
 /// interaction fields directly into the NPC runtime object. See
 /// `docs/files/NpcInGame/NpcMapFiles.ref.md` for the complete offset table.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
+)]
 #[extractor(property_item_size = 672)]
 #[patcher(extension = "ref", stem_prefix = "npc")]
 pub struct NPC {

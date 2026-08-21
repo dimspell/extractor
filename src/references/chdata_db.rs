@@ -1,13 +1,13 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, RecordPatcher};
+use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
 use serde::{Deserialize, Serialize};
 
 /// Stores information about the initial attributes during character creation.
 ///
 /// Reads file: `CharacterInGame/ChData.db`
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher, RecordLayout)]
 #[extractor(counter_size = 0, property_item_size = 84)]
 #[patcher(filename = "ChData.db")]
 pub struct ChData {

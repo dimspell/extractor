@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{MagicSpellFlag, MagicType, SpellTargetType};
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, RecordPatcher};
+use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 /// Defines all magic spells with costs, effects, targeting,
 /// and visual properties. Used for spell casting system,
 /// magic combat, and spell learning mechanics.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher, RecordLayout)]
 #[extractor(property_item_size = 88, counter_size = 0)]
 #[patcher(filename = "Magic.db")]
 pub struct MagicSpell {

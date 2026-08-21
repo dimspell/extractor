@@ -4,7 +4,7 @@ use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 
 /// MiscItem.db - Miscellaneous Items
 ///
@@ -44,7 +44,16 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// +--------------------------------------+
 /// ```
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 256)]
 #[patcher(filename = "MiscItem.db")]

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -89,7 +89,16 @@ use serde::{Deserialize, Serialize};
 /// requirements, and durability. Used for equipment
 /// system, character progression, and combat mechanics.
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Localizable,
+    Extractor,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 284)]
 #[patcher(filename = "WeaponItem.db")]
