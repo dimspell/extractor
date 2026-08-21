@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result};
 pub fn initialize_database(conn: &Connection) -> Result<()> {
     // Optimization and safety PRAGMAs
     conn.execute_batch(
-        "PRAGMA foreign_keys = ON;
+        "PRAGMA foreign_keys = OFF;
          PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
          PRAGMA cache_size = -64000;
