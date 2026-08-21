@@ -37,21 +37,61 @@ pub fn internal_sprite_sort_key(bottom_right_y: i32) -> i32 {
 }
 
 /// An event trigger attached to a tile on the map.
+///
+/// Stored in the file as one packed u32 (the first of the three end grids).
+/// Decode it through the accessors instead of masking by hand:
+///
+/// ```text
+/// bits  0-13  event/transition id (low 14 bits; ids < 70 are
+///             valid and resolve to a name via Map.ini / AllMap.ini)
+/// bits 14-21  unmapped
+/// bit  22     "tile marked / entity occupies" — monster chase logic
+///             treats marked tiles as blocked
+/// bits 23-31  unmapped parameters
+/// ```
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct EventBlock {
     pub x: i32,
     pub y: i32,
-    pub _unknown_value: i16,
-    pub event_id: i16,
+    /// The tile's packed u32 exactly as stored in the file.
+    pub word: u32,
+}
+
+impl EventBlock {
+    /// Event/transition id — bits 0–13 of [`Self::word`].
+    pub fn event_id(&self) -> u16 {
+        (self.word & 0x3FFF) as u16
+    }
+
+    /// Overwrite the event id (bits 0–13), preserving every other bit.
+    pub fn set_event_id(&mut self, id: u16) {
+        self.word = (self.word & !0x3FFF) | (u32::from(id) & 0x3FFF);
+    }
+
+    /// Word bit 22 (`0x0040_0000`): the tile is marked/occupied by an entity.
+    /// Movement code makes chasing monsters give up when their
+    /// target stands on such a tile.
+    pub fn is_tile_marked(&self) -> bool {
+        self.word & 0x0040_0000 != 0
+    }
 }
 
 /// Placement record for a sprite embedded directly in the map file.
+///
+/// On-disk this is `[sprite_id] + frame-0 record`; the frame record is
+/// 24 bytes = bounding box `{left, top, right, bottom}` in *map pixel
+/// coordinates* followed by a duplicated `{x, y}` anchor. Verified against
+/// fixtures: `right - left == frame0.width` and `bottom - top ==
+/// frame0.height` for every placement in cat1/map1.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct SpriteInfoBlock {
     pub sprite_id: usize,
+    /// Left edge of the sprite's bounding box in map pixels (duplicated on disk).
     pub sprite_x: i32,
+    /// Top edge of the sprite's bounding box in map pixels (duplicated on disk).
     pub sprite_y: i32,
-    /// Bottom-right Y pixel (occluded space) — used as the Y-sort key for interlaced rendering.
+    /// Bottom edge of the sprite's bounding box (= top + frame height).
+    /// Y-sort key for interlaced rendering.
     pub sprite_bottom_right_y: i32,
 }
 

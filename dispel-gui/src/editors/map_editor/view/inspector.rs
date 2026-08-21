@@ -93,7 +93,7 @@ pub fn build_inspector<'a>(
                 if let Some(event) = map_data.events.get(&(tx, ty)) {
                     let x_str = event.x.to_string();
                     let y_str = event.y.to_string();
-                    let event_id_val = event.event_id.to_string();
+                    let event_id_val = event.event_id().to_string();
 
                     container(
                         column![

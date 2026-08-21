@@ -47,7 +47,7 @@ pub fn field_changed(
         SelectedEntity::EventTile(tx, ty) => state
             .map_data()
             .and_then(|h| h.0.events.get(&(tx, ty)))
-            .map(|e| e.event_id.to_string())
+            .map(|e| e.event_id().to_string())
             .unwrap_or_default(),
         SelectedEntity::CollisionTile(_, _) => String::new(),
         SelectedEntity::ObjectIdTile(_, _) => String::new(),
@@ -95,10 +95,9 @@ pub fn field_changed(
                 let ev = map_data.events.entry((tx, ty)).or_insert(EventBlock {
                     x: tx,
                     y: ty,
-                    _unknown_value: 0,
-                    event_id: 0,
+                    word: 0,
                 });
-                ev.event_id = value.parse::<i16>().unwrap_or(0);
+                ev.set_event_id(value.parse::<i16>().unwrap_or(0) as u16);
             } else {
                 entity_mutated = false;
             }
@@ -202,10 +201,9 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                             .or_insert(dispel_core::map::EventBlock {
                                 x: tx,
                                 y: ty,
-                                _unknown_value: 0,
-                                event_id: 0,
+                                word: 0,
                             });
-                    ev.event_id = val;
+                    ev.set_event_id(val as u16);
                 }
             }
             SelectedEntity::ObjectIdTile(tx, ty) => {
@@ -294,7 +292,7 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                         .expect("MapData Arc has unexpected shared reference");
                     let val = action.new_value.parse::<i16>().unwrap_or(0);
                     if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
-                        ev.event_id = val;
+                        ev.set_event_id(val as u16);
                     }
                 }
             }
@@ -506,6 +504,7 @@ mod tests {
             model,
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),
+            access_ref_words: HashMap::new(),
             collisions: HashMap::new(),
             events: HashMap::new(),
             object_ids,
