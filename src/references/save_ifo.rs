@@ -17,7 +17,7 @@ pub const SLOT_COUNT: usize = 6;
 pub struct SaveIfo {
     /// Per-slot metadata; always exactly [`SLOT_COUNT`] entries.
     pub slots: Vec<SaveSlotInfo>,
-    /// Unknown float; the game writes the constant 1.4 before every save.
+    /// Unknown float; written as constant 1.4 before every save.
     pub unknown_float: f32,
     /// Key of this session's payload inside the `game.tmp` append-log.
     pub game_tmp_key: u32,

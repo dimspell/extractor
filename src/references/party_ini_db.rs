@@ -49,10 +49,10 @@ use std::path::Path;
 /// # Special Values
 ///
 /// - `name`: 20 bytes max, null-padded (UTF-8)
-/// - `class_id`: Shipped values are 21 through 24; this selects class-specific
+/// - `class_id`: Observed values are 21 through 24; this selects class-specific
 ///   runtime behavior and titles.
-/// - `pathfinding_mode`: Shipped value is 7; passed to map/path queries.
-/// - `character_variant`: Shipped values are 0 or 1; selects one of two variants
+/// - `pathfinding_mode`: Observed value is 7; passed to map/path queries.
+/// - `character_variant`: Observed values are 0 or 1; selects one of two variants
 ///   for each class.
 ///
 /// # File Purpose
@@ -68,10 +68,10 @@ pub struct PartyIniNpc {
     #[extractor(string(encoding = "UTF-8", size = 20))]
     #[translatable(encoding = "WINDOWS_1250", max_bytes = 20)]
     pub name: String,
-    /// Reserved byte at offset `0x14`; zero in every shipped record.
+    /// Reserved byte at offset `0x14`; zero by default.
     #[extractor(primitive(type = "u8"))]
     pub reserved_0x14: u8,
-    /// Character class identifier. Shipped values are 21–24.
+    /// Character class identifier. Observed values are 21–24.
     /// TODO: Create an enum, which maps: 21 = Knight, 22 = Mage, 23 = Mage, 24 = Warrior.
     #[extractor(primitive(type = "u8"))]
     pub class_id: u8,
