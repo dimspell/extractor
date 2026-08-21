@@ -1,13 +1,13 @@
 CREATE TABLE npc_refs
 (
-    file_id                 INTEGER NOT NULL REFERENCES npc_ref_files(id),
+    file_id                 INTEGER NOT NULL,
     row_id                  INTEGER,
     file_record_id          INTEGER,
-    npc_ini_id              INTEGER REFERENCES npc_inis(id) ON DELETE SET NULL,
+    npc_ini_id              INTEGER,
     name                    TEXT,
     role_description        TEXT,
     party_member_slot       INTEGER,
-    show_on_event           INTEGER REFERENCES events(event_id) ON DELETE SET NULL,
+    show_on_event           INTEGER,
     movement_mode           INTEGER,
     goto1_filled            INTEGER,
     goto2_filled            INTEGER,
@@ -42,8 +42,7 @@ CREATE TABLE npc_refs
     interaction_result_item_type INTEGER,
     interaction_result_raw  INTEGER,
     interaction_range_offset INTEGER,
-    dialog_file_id          INTEGER NOT NULL REFERENCES dialogue_script_files(id),
+    dialog_file_id          INTEGER NOT NULL,
     dialog_id               INTEGER,
-    dialogue_face_sprite_id INTEGER,
-    FOREIGN KEY (dialog_file_id, dialog_id) REFERENCES dialogue_scripts(dialog_file_id, id)
+    dialogue_face_sprite_id INTEGER
 );

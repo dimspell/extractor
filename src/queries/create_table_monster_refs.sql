@@ -1,9 +1,9 @@
 CREATE TABLE monster_refs
 (
-    file_id         INTEGER NOT NULL REFERENCES monster_ref_files(id),
+    file_id         INTEGER NOT NULL,
     id              INTEGER,
     placement_id    INTEGER,
-    monster_db_id   INTEGER REFERENCES monster_inis(id) ON DELETE SET NULL,
+    monster_db_id   INTEGER,
     map_x           INTEGER,
     map_y           INTEGER,
     initial_patrol_countdown INTEGER,
