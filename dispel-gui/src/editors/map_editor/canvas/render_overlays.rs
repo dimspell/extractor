@@ -99,7 +99,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                     // Event overlay
                     if self.state.view.show_events {
                         for (&(tx, ty), event) in &map_data.events {
-                            if event.event_id == 0 {
+                            if event.event_id() == 0 {
                                 continue;
                             }
                             let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
@@ -115,7 +115,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             );
                             let label_size = (11.0 * zoom).max(6.0);
                             frame.fill_text(CanvasText {
-                                content: event.event_id.to_string(),
+                                content: event.event_id().to_string(),
                                 position: Point::new(ecx, ecy - 10.0 * zoom),
                                 color: Color::WHITE,
                                 size: iced::Pixels(label_size),

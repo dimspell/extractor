@@ -28,13 +28,19 @@
 // | FIRST BLOCK (variable)      |
 // | - Count (i32)               |
 // | - Data: (count-1)*8 bytes   |
-// |  (count-1 records of 2×i32, |
-// |   purpose unknown, skipped) |
+// |  (count-1 records of 2×i32; |
+// |   value2 = linear tile index|
+// |   into the three end grids, |
+// |   used by tiled-object     |
+// |   rendering)               |
 // +------------------------------+
 // | SECOND BLOCK (variable)      |
 // | - Size (i32)                 |
-// | - Data: size*2               |
-// |  (unknown purpose, skipped)  |
+// | - Data: size*2 (u16 table)   |
+// |  (lookup table for the end-  |
+// |   grid BTL overlay refs:     |
+// |  hi byte = draw-enable flag, |
+// |  lo byte = transparency mode)|
 // +------------------------------+
 // | SPRITE BLOCK                 |
 // | - Sprite count (i32)         |
@@ -48,33 +54,40 @@
 // | - Placement count (i32)      |
 // | For each placement:         |
 // |   - Sprite ID (i32)         |
-// |   - Position data           |
-// |   - Frame count             |
+// |   - Frame-0 bbox in map px  |
+// |     {left, top, right,      |
+// |      bottom} + dup {x, y}   |
+// |   - (frame_count-1)*24 bytes|
 // +------------------------------+
 // | TILED OBJECTS BLOCK         |
 // | - Bundle count (i32)        |
 // | For each bundle:            |
 // |   - 264 bytes metadata      |
-// |   - Coordinates (x,y)      |
-// |   - Tile stack IDs         |
+// |   - Control words + params  |
+// |   - Anchor (x,y) map px     |
+// |   - BTL tile stack IDs      |
 // |   - Building definition    |
 // +------------------------------+
 // | ... (file continues) ...    |
 // +------------------------------+
-// | EVENT BLOCK (near end)      |
-// | For each tile (width×height):|
-// |   - Event ID (i16)          |
-// |   - Unknown (i16)           |
+// | EVENT GRID (near end)       |
+// | For each tile: packed u32   |
+// |   bits 0-13  event id       |
+// |   bit  22    tile marked    |
+// |   remainder  unmapped       |
 // +------------------------------+
-// | TILE & ACCESS BLOCK         |
-// | For each tile (width×height):|
-// |   - GTL tile ID (i32)      |
-// |   - Collision flag         |
+// | TILE & ACCESS GRID          |
+// | For each tile: packed u32   |
+// |   bit 0     collision       |
+// |   bits 1-9  object slot id  |
+// |   bits 10-24 GTL tile index |
 // +------------------------------+
-// | ROOF TILE BLOCK (optional)   |
-// | For each tile (width×height):|
-// |   - BTL tile ID (i16)      |
-// |   - Flags (i16)            |
+// | ACCESS-REF GRID ("roof")    |
+// | For each tile: packed u32   |
+// |   bits 0-14  overlay id →   |
+// |              second block   |
+// |   bits 15-29 shadow level   |
+// |   bits 30-31 light flags    |
 // +------------------------------+
 //
 // COORDINATE SYSTEM:
@@ -84,7 +97,7 @@
 // - Offsets: TILE_HORIZONTAL_OFFSET_HALF=32, TILE_HEIGHT_HALF=16
 //
 // FILE SIZE CALCULATION:
-// Total size = header + blocks + (width×height×(2+4+2)) + optional roof data
+// Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
 pub mod database;
 pub mod model;
@@ -123,8 +136,8 @@ use serde::{Deserialize, Serialize};
 type IoResult<T> = std::io::Result<T>;
 
 use reader::{
-    first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
-    sprite_block, sprite_info_block, tiled_objects_block,
+    read_events_block, read_roof_tiles, read_tiles_and_access_block, skip_overlay_id_table,
+    skip_tiled_object_refs, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
 
@@ -136,6 +149,10 @@ pub struct MapData {
     pub model: MapModel,
     pub gtl_tiles: HashMap<Coords, i32>,
     pub btl_tiles: HashMap<Coords, i32>,
+    /// Raw packed u32 words of the access-ref grid ("roof" block), preserved
+    /// so saving keeps shadow levels and light flags intact. Overlay refs are
+    /// patched from `btl_tiles` on write.
+    pub access_ref_words: HashMap<Coords, u32>,
     pub collisions: HashMap<Coords, bool>,
     pub events: HashMap<Coords, EventBlock>,
     pub object_ids: HashMap<Coords, i32>,
@@ -263,7 +280,7 @@ impl MapData {
                 .map(|(&(x, y), event)| EventEntryJson {
                     x,
                     y,
-                    event_id: event.event_id,
+                    event_id: event.event_id() as i16,
                 })
                 .collect(),
             object_ids: self
@@ -336,13 +353,14 @@ impl MapData {
 /// # Parsing Process
 /// The function reads these blocks in order:
 /// 1. Map model header to determine dimensions
-/// 2. Unknown blocks (skipped)
+/// 2. Object-ref records + overlay-id table (skipped; see
+///    `reader::skip_tiled_object_refs` / `reader::skip_overlay_id_table`)
 /// 3. Sprite block with embedded animation sequences
-/// 4. Sprite placement information
+/// 4. Sprite placement information (frame bounding boxes in map pixels)
 /// 5. Tiled objects (building definitions)
-/// 6. Event triggers (read from end of file)
-/// 7. Ground tiles and collision data
-/// 8. Optional roof/building tiles
+/// 6. Event grid (packed u32 per tile, read from end of file)
+/// 7. Tile & access grid (GTL index + access bits per tile)
+/// 8. Access-ref grid (BTL overlay ref + shadow level per tile)
 ///
 /// The parser handles the isometric coordinate system and converts tile coordinates
 /// to the internal (x,y) format used throughout the codebase.
@@ -359,8 +377,8 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_map_width = map_model.tiled_map_width;
     let tiled_map_height = map_model.tiled_map_height;
 
-    first_block(reader)?;
-    second_block(reader)?;
+    skip_tiled_object_refs(reader)?;
+    skip_overlay_id_table(reader)?;
 
     let internal_sprites = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
@@ -389,18 +407,22 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
+    let mut access_ref_words = HashMap::new();
     let current_pos = reader.stream_position()?;
     let remaining_bytes = file_len - current_pos;
     let expected_roof_size = (tiled_map_width * tiled_map_height * 4) as u64;
 
-    // Only read roof tiles if we have exactly the expected amount of data remaining
+    // Only read the access-ref grid if we have exactly the expected amount of
+    // data remaining
     if remaining_bytes >= expected_roof_size {
-        btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        let (refs, words) = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        btl_tiles = refs;
+        access_ref_words = words;
     } else if remaining_bytes > 0 {
-        // If there are remaining bytes but not enough for a full roof block,
+        // If there are remaining bytes but not enough for a full grid,
         // this might indicate a different file structure or corruption
         eprintln!(
-            "Warning: Found {} bytes after tile blocks, expected {} for roof tiles. Skipping.",
+            "Warning: Found {} bytes after tile blocks, expected {} for the access-ref grid. Skipping.",
             remaining_bytes, expected_roof_size
         );
     }
@@ -409,6 +431,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         model: map_model,
         gtl_tiles,
         btl_tiles,
+        access_ref_words,
         collisions,
         events,
         object_ids,
@@ -448,13 +471,13 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 /// # Map File Structure
 /// The .MAP file format consists of these main blocks:
 /// 1. Header: Map dimensions in chunks (25-tile units)
-/// 2. Unknown blocks: Skipped during processing
+/// 2. Object-ref records + overlay-id table: skipped during processing
 /// 3. Sprite block: Embedded sprite sequences and metadata
-/// 4. Sprite info: Position data for placed sprites
+/// 4. Sprite info: Frame bounding boxes for placed sprites
 /// 5. Tiled objects: Building definitions using stacked tiles
-/// 6. Event block: Per-tile event trigger IDs
-/// 7. Tile & access: Ground tiles with collision flags
-/// 8. Roof tiles: Optional building/roof tile layer
+/// 6. Event grid: Packed u32 per tile (event id + flags)
+/// 7. Tile & access: Packed u32 per tile (GTL index + access bits)
+/// 8. Access-ref grid: BTL overlay refs and shadow levels per tile
 ///
 /// Coordinates use an isometric system where each tile is 32×32 pixels,
 /// with special offsets for proper isometric rendering.
@@ -683,7 +706,7 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                 let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
                 let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
                 let collision = collisions.get(&coords).cloned().unwrap_or(false);
-                let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+                let event_id = events.get(&coords).map(|e| e.event_id()).unwrap_or(0);
 
                 if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
                     continue;

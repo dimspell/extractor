@@ -18,16 +18,18 @@ The `src/map/` module handles parsing, rendering, and database operations for th
 
 ### Module Files
 
-| File               | Lines | Purpose                                                            |
-|--------------------|-------|--------------------------------------------------------------------|
-| `mod.rs`           | 546   | Public API, top-level `.MAP` parser, CLI commands, DB import       |
-| `types.rs`         | 39    | Coordinate types, constants, data structs                          |
-| `model.rs`         | 72    | Map geometry computation from chunk dimensions                     |
-| `reader.rs`        | 246   | Binary block readers for each `.MAP` section                       |
-| `render.rs`        | 460   | Isometric rendering pipeline (ground → objects → roofs)            |
-| `tileset.rs`       | 418   | `.GTL`/`.BTL` tileset extraction and atlas generation              |
-| `database.rs`      | 512   | Render from SQLite + external entity (NPC/monster/extra) rendering |
-| `sprite_loader.rs` | 137   | `.SPR` file frame loading and sprite plotting                      |
+| File               | Purpose                                                            |
+|--------------------|--------------------------------------------------------------------|
+| `mod.rs`           | Public API, top-level `.MAP` parser, CLI commands, DB import       |
+| `types.rs`         | Coordinate types, constants, data structs                          |
+| `model.rs`         | Map geometry computation from chunk dimensions                     |
+| `reader.rs`        | Binary block readers for each `.MAP` section                       |
+| `writer.rs`        | `.MAP` binary writer (round-trip serialization)                    |
+| `tmx.rs`           | TMX (Tiled) map export                                             |
+| `render.rs`        | Isometric rendering pipeline (ground → objects → roofs)            |
+| `tileset.rs`       | `.GTL`/`.BTL` tileset extraction and atlas generation              |
+| `database.rs`      | Render from SQLite + external entity (NPC/monster/extra) rendering |
+| `sprite_loader.rs` | `.SPR` file frame loading and sprite plotting                      |
 
 ---
 
@@ -41,70 +43,82 @@ tiles, collision data, and optional roof tiles.
 #### Structure
 
 ```
-+-----------------------------------+
-| HEADER (8 bytes)                  |
-|   tiled_map_chunk_width:  i32     |  ← number of 25×25 chunks on X axis
-|   tiled_map_chunk_height: i32     |  ← number of 25×25 chunks on Y axis
-+-----------------------------------+
-| FIRST BLOCK (unknown, skipped)    |
-|   multiplier: i32                 |
-|   size:       i32                 |
-|   data:       multiplier*size*4   |  ← skip this many bytes
-+-----------------------------------+
-| SECOND BLOCK (unknown, skipped)   |
-|   size: i32                       |
-|   data: size*2                    |  ← skip this many bytes
-+-----------------------------------+
-| SPRITE BLOCK                      |
-|   sprite_count: i32               |
-|   For each sprite:                |
-|     image_stamp:    i32           |  ← 6 or 9 (determines data layout)
-|     metadata:       264 bytes     |  ← unknown purpose
-|     sequence_info:  variable      |  ← frame count, positions, pixel data
-|     padding:        1904 or 2996  |  ← depends on image_stamp
-+-----------------------------------+
-| SPRITE INFO BLOCK                 |
-|   placement_count: i32            |
-|   For each placement:             |
-|     sprite_id:          i32       |  ← index into sprite block
-|     unknown:            i32 × 2   |
-|     bottom_right_x:     i32       |
-|     bottom_right_y:     i32       |
-|     sprite_x:           i32       |  ← pixel X position on map
-|     sprite_y:           i32       |  ← pixel Y position on map
-|     frame_skip_data:    variable  |  ← (frame_count-1) × 6 × 4 bytes
-+-----------------------------------+
-| TILED OBJECTS BLOCK               |
-|   bundles_count: i32              |
-|   number1:       i32              |
-|   For each bundle:                |
-|     metadata:  264 bytes          |
-|     s8, s0_1, s1, s0_2: i32 × 4  |
-|     v1..v4:       i32 × 4         |
-|     x:            i32             |  ← tile X coordinate
-|     y:            i32             |  ← tile Y coordinate
-|     v7, v8:       i32 × 2         |
-|     c1, c2, c3:   i32 × 3         |  ← counts for various data sections
-|     tile_ids:     i16 × c3        |  ← BTL tile IDs stacked vertically
-|     padding:      84 bytes        |
-|     extra_data:   (c1+c2+c3) × 4  |
-|   Sentinel alignment (20 bytes scan for the byte value 1)
-+-----------------------------------+
-| EVENT BLOCK (read from end)       |
-|   For each tile (width × height): |
-|     event_id:      i16            |  ← event trigger ID
-|     unknown_value: i16            |
-+-----------------------------------+
-| TILE & ACCESS BLOCK               |
-|   For each tile (width × height): |
-|     packed_value: i32             |  ← bits 10..31 = GTL tile ID
-|                                   |  ← bit 0 = collision flag
-+-----------------------------------+
-| ROOF TILE BLOCK (optional)        |
-|   For each tile (width × height): |
-|     btl_tile_id: i16              |  ← BTL tile ID (0 = none)
-|     some_flag:   i16              |  ← unknown flag
-+-----------------------------------+
++-----------------------------------------------+
+| HEADER (12 bytes)                             |
+|   chunk_width:   i32  ← number of 25×25 chunks on X |
+|   chunk_height:  i32  ← number of 25×25 chunks on Y |
+|   border_count:  i32  ← always 2              |
++-----------------------------------------------+
+| OBJECT-REF RECORDS (skipped by the parser)    |
+|   count: i32                                  |
+|   records: (count-1) × {value1, value2} i32   |
+|     value2 = linear tile index into the three |
+|     end grids (y × stride + x)                |
++-----------------------------------------------+
+| OVERLAY-ID TABLE (skipped by the parser)      |
+|   size: i32                                   |
+|   entries: size × u16                         |
+|     {low byte: transparency mode,             |
+|      high byte: draw-enable}                  |
+|     indexed by the Access-Ref grid's refs     |
++-----------------------------------------------+
+| SPRITE BLOCK                                  |
+|   sprite_count: i32                           |
+|   For each sprite:                            |
+|     image_stamp:    i32     ← 6 or 9          |
+|     metadata:       264 bytes                 |
+|     sequence_info:  variable                  |
+|     pixel_data:     1904 or 2996 bytes        |
++-----------------------------------------------+
+| SPRITE INFO BLOCK                             |
+|   placement_count: i32                        |
+|   For each placement:                         |
+|     sprite_id:        i32                     |
+|     frame-0 record (24 bytes):                |
+|       bbox_left, bbox_top,                    |
+|       bbox_right, bbox_bottom  i32 × 4        |
+|       ← bounding box in map-local pixels;     |
+|         right-left = frame width,             |
+|         bottom-top = frame height;            |
+|         bottom is the Y-sort key              |
+|     anchor_x, anchor_y         i32 × 2        |
+|       ← duplicate left/top in shipped maps    |
+|     remaining frames: (frame_count-1) × 24 B  |
++-----------------------------------------------+
+| TILED OBJECTS BLOCK (buildings)               |
+|   bundles_count:      i32                     |
+|   sub_record_count:   i32                     |
+|   For each bundle:                            |
+|     metadata:            264 bytes            |
+|     control_0..3:        i32 × 4  ← (8,0,1,0) |
+|     param_0..3:          i32 × 4  ← unmapped  |
+|     anchor_x, anchor_y:  i32     ← map px     |
+|     param_4..5:          i32 × 2  ← unmapped  |
+|     extra_count_a/b:     i32 × 2              |
+|     tile_stack_len:      i32                  |
+|     tile_ids:            i16 × tile_stack_len |
+|       ← BTL tiles stacked top → bottom        |
+|     trailing: 84 bytes + (counts sum) × 4     |
+|   Sentinel alignment (20-byte scan for byte 1)|
++-----------------------------------------------+
+| EVENT GRID (end of file)                      |
+|   For each tile: packed u32                   |
+|     bits 0-13  event id (ids < 70 valid)      |
+|     bit  22    tile marked / entity occupies  |
+|     remainder  unmapped                       |
++-----------------------------------------------+
+| TILE & ACCESS GRID                            |
+|   For each tile: packed u32                   |
+|     bit 0      collision                      |
+|     bits 1-9   object slot id                 |
+|     bits 10-24 GTL ground-tile index          |
++-----------------------------------------------+
+| ACCESS-REF GRID ("roof")                      |
+|   For each tile: packed u32                   |
+|     bits 0-14  overlay ref → overlay table    |
+|     bits 15-29 shadow level (0-199)           |
+|     bits 30-31 light-source flags             |
++-----------------------------------------------+
 ```
 
 #### Computed Dimensions
@@ -837,21 +851,21 @@ The following JSON schema describes the structure for exporting `.MAP` file data
 |--------------|-------|--------------------------|--------------------------------------------------------|
 | 0            | 4     | `chunk_width`            | i32 LE                                                 |
 | 4            | 4     | `chunk_height`           | i32 LE                                                 |
-| 8            | 4     | `first_block_multiplier` | i32 LE                                                 |
-| 12           | 4     | `first_block_size`       | i32 LE                                                 |
-| 16           | var   | `first_block_data`       | Skip `multiplier * size * 4` bytes                     |
-| var          | 4     | `second_block_size`      | i32 LE                                                 |
-| var          | var   | `second_block_data`      | Skip `size * 2` bytes                                  |
+| 8            | 4     | `border_count`           | i32 LE (always 2)                                      |
+| 12           | 4     | `object_ref_count`       | i32 LE                                                 |
+| 16           | var   | `object_ref_records`     | Skip `(count − 1) × 8` bytes; each record's `value2` is a linear tile index into the end grids |
+| var          | 4     | `overlay_table_size`     | i32 LE                                                 |
+| var          | var   | `overlay_table`          | `size × 2` bytes; u16 entries `{transparency, draw_enable}` indexed by Access-Ref ids |
 | var          | 4     | `sprite_count`           | i32 LE                                                 |
 | var          | var   | `sprite entries`         | Each: stamp(4) + meta(264) + sequence_info + padding   |
 | var          | 4     | `sprite_placement_count` | i32 LE                                                 |
-| var          | var   | `sprite placements`      | Each: 7×i32 + variable frame skip                      |
+| var          | var   | `sprite placements`      | Each: sprite_id(4) + frame-0 bbox {left,top,right,bottom} + dup anchor {x,y}, then `(frame_count − 1) × 24` bytes |
 | var          | 4     | `tiled_object_count`     | i32 LE                                                 |
-| var          | 4     | `tiled_object_number1`   | i32 LE                                                 |
-| var          | var   | `tiled objects`          | Each: 264 + 8×i32 + 3×i32 + c3×i16 + 84 + (c1+c2+c3)×4 |
-| EOF-(w×h×12) | w×h×4 | `event blocks`           | Each: event_id(i16) + unknown(i16)                     |
-| EOF-(w×h×8)  | w×h×4 | `tile & access`          | Each: packed_value(i32)                                |
-| EOF-(w×h×4)  | w×h×4 | `roof tiles`             | Each: btl_id(i16) + flag(i16)                          |
+| var          | 4     | `tiled_object_subrecords`| i32 LE                                                 |
+| var          | var   | `tiled objects`          | Each: 264 + control(4×i32) + params(6×i32) + anchor(x,y) + counts(3×i32) + tile_stack(c3×i16) + 84 + (c1+c2+c3)×4 |
+| EOF-(w×h×12) | w×h×4 | `event grid`             | Each packed u32: low 14 bits = event id, high half = flags (bit 22 = tile marked) |
+| EOF-(w×h×8)  | w×h×4 | `tile & access`          | Each packed u32: bit 0 collision, bits 1–9 object slot, bits 10–24 GTL tile index |
+| EOF-(w×h×4)  | w×h×4 | `access-ref ("roof")`    | Each packed u32: bits 0–14 overlay id → overlay_table, bits 15–29 shadow level 0–199, bits 30–31 light flags |
 
 Where `w = tiled_map_width`, `h = tiled_map_height`.
 
@@ -876,6 +890,6 @@ When `game_path` is not provided or sprite files are missing, entities are rende
 3. **Tiled object sentinel** — the end of the tiled objects block is detected by scanning 20 bytes backwards for the
    byte value 1
 4. **Roof block is optional** — only parsed if remaining file size is sufficient
-5. **Collision flag** is extracted from bit 0 of the packed tile value; tile ID is bits 10–31
+5. **Collision flag** is extracted from bit 0 of the packed tile value; tile index is bits 10–24
 6. **All integers are little-endian**
 7. **Sprite sequences** in the map file are self-contained — pixel data is embedded directly, not referenced externally

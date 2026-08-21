@@ -54,6 +54,7 @@ fn make_state(
         model,
         gtl_tiles: HashMap::new(),
         btl_tiles: HashMap::new(),
+        access_ref_words: HashMap::new(),
         collisions,
         events,
         object_ids: HashMap::new(),
@@ -632,8 +633,7 @@ fn test_hovered_element_entity_over_event() {
         EventBlock {
             x: 10,
             y: 10,
-            _unknown_value: 0,
-            event_id: 1,
+            word: 1,
         },
     );
     let state = make_state(
@@ -693,8 +693,7 @@ fn test_hovered_element_event_when_no_entity_or_collision() {
         EventBlock {
             x: 15,
             y: 25,
-            _unknown_value: 0,
-            event_id: 42,
+            word: 42,
         },
     );
     let state = make_state(
@@ -741,8 +740,7 @@ fn test_hovered_element_respects_layer_visibility() {
         EventBlock {
             x: 3,
             y: 4,
-            _unknown_value: 0,
-            event_id: 99,
+            word: 99,
         },
     );
     let state = make_state(

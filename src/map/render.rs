@@ -594,7 +594,7 @@ pub fn plot_roofs(
 // --------------------------------------------------------------------------
 
 /// Loads all external entity data (monsters, NPCs, extras, draw items) for the
-/// given map from the game files.
+/// given map from the game data files.
 pub fn collect_external_entities(
     map_id: &str,
     game_path: &Path,
@@ -1132,13 +1132,11 @@ fn plot_events_overlay(
         for x in start_x..=end_x {
             let y = x + diff;
             let coords: Coords = (x, y);
-            let event = events.get(&coords).copied().unwrap_or(EventBlock {
-                x,
-                y,
-                _unknown_value: 0,
-                event_id: 0,
-            });
-            if event.event_id == 0 {
+            let event = events
+                .get(&coords)
+                .copied()
+                .unwrap_or(EventBlock { x, y, word: 0 });
+            if event.event_id() == 0 {
                 continue;
             }
             let (mut px, mut py) = convert_map_coords_to_image_coords(x, y, diagonal);
@@ -1155,7 +1153,7 @@ fn plot_events_overlay(
                 imgbuf,
                 cx,
                 cy - 8,
-                event.event_id as i32,
+                event.event_id() as i32,
                 [255, 255, 255],
                 3,
             );

@@ -24,24 +24,33 @@ use crate::sprite::SequenceInfo;
 use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo};
 
 // --------------------------------------------------------------------------
-// Unknown blocks (skipped on read, not persisted)
+// Skipped blocks (parsed by the format but not persisted in MapData)
 // --------------------------------------------------------------------------
 
-/// First block: `count` (i32) followed by `(count - 1)` records of 2 × i32 each.
+/// Tiled-object ref records: `count` (i32) followed by `(count - 1)` records
+/// of 2 × i32 each (`value1`, `value2`).
+///
+/// `value2` is a linear tile index (`y * stride + x`) into the three end
+/// grids — tiled-object rendering and access checks resolve tiles
+/// through it.
 ///
 /// Verified against cat1/cat3/dun01/map1/catp fixtures: skipping `(count-1)*8`
-/// lands exactly on the second block's size field (974, 3783, 1419, 6643, 353),
-/// while `count*8` lands on `0x01010101` garbage. The previous
-/// `multiplier*size*4` skip only worked by coincidence
-/// (`8 + 2*count*4 == 16 + (count-1)*8`).
-pub fn first_block(reader: &mut BufReader<File>) -> Result<()> {
+/// lands exactly on the overlay table's size field, while `count*8` lands on
+/// `0x01010101` garbage. The previous `multiplier*size*4` skip only worked by
+/// coincidence (`8 + 2*count*4 == 16 + (count-1)*8`).
+pub fn skip_tiled_object_refs(reader: &mut BufReader<File>) -> Result<()> {
     let count = reader.read_i32::<LittleEndian>()?;
     let skip: i64 = ((count - 1) * 8).into();
     reader.seek(SeekFrom::Current(skip))?;
     Ok(())
 }
 
-pub fn second_block(reader: &mut BufReader<File>) -> Result<()> {
+/// Overlay-id lookup table: `size` (i32) followed by `size` u16 entries.
+///
+/// Indexed by the Access-Ref grid's low 15 bits. Each entry packs
+/// `{low byte: transparency mode, high byte: draw-enable}` for the BTL
+/// overlay tile with that id.
+pub fn skip_overlay_id_table(reader: &mut BufReader<File>) -> Result<()> {
     let size = reader.read_i32::<LittleEndian>()?;
     let skip: i64 = (size * 2).into();
     reader.seek(SeekFrom::Current(skip))?;
@@ -94,12 +103,17 @@ pub fn sprite_info_block(
 
     for _ in 0..count {
         let sprite_id = reader.read_i32::<LittleEndian>()?;
-        reader.read_i32::<LittleEndian>()?; // unknown
-        reader.read_i32::<LittleEndian>()?; // unknown
-        let _sprite_bottom_right_x = reader.read_i32::<LittleEndian>()?;
+        // Frame-0 record (24 bytes): bbox {left, top, right, bottom} in map
+        // pixels + duplicated anchor. left/top are re-read as x/y below;
+        // right is unused (== left + frame width).
+        let _bbox_left = reader.read_i32::<LittleEndian>()?;
+        let _bbox_top = reader.read_i32::<LittleEndian>()?;
+        let _bbox_right = reader.read_i32::<LittleEndian>()?;
         let sprite_bottom_right_y = reader.read_i32::<LittleEndian>()?;
         let sprite_x = reader.read_i32::<LittleEndian>()?;
         let sprite_y = reader.read_i32::<LittleEndian>()?;
+        // In known maps left==sprite_x and top==sprite_y; they are stored
+        // in separate per-frame arrays so they may diverge in mods.
 
         let sprite_id: usize = sprite_id.try_into().unwrap_or(0);
         let skip = (sprites[sprite_id].frame_count - 1) * 6 * 4;
@@ -116,44 +130,63 @@ pub fn sprite_info_block(
 }
 
 // --------------------------------------------------------------------------
-// Tiled objects block – buildings/objects composed of BTL tile stacks
+// Tiled objects block – building definitions composed of BTL tile stacks
+//
+// Each bundle is a building placed on the map. The file parser reads, per
+// bundle: a sub-record count, then per sub-record {i32 stamp, 260-byte name/
+// metadata block, item count, items}; each item carries seven i32 fields plus
+// a u16 array (tile-stack ids) and an optional byte array when the item's
+// first i32 == 1. The Rust reader below flattens this byte stream with an
+// empirically fitted layout that round-trips all known maps.
 // --------------------------------------------------------------------------
 
 pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObjectInfo>> {
     let bundles_count = reader.read_i32::<LittleEndian>()?;
-    let _number1 = reader.read_i32::<LittleEndian>()?;
+    // Sub-record count inside the bundle: sub-records of {stamp, 260-byte
+    // metadata, items} follow at this point.
+    let _sub_record_count = reader.read_i32::<LittleEndian>()?;
 
     let mut infos: Vec<TiledObjectInfo> = Vec::with_capacity(bundles_count.unsigned_abs() as usize);
     for _ in 0..bundles_count {
+        // 264 bytes: stamp i32 + metadata block (building name/definition).
         reader.seek(SeekFrom::Current(264))?;
 
-        let _s8 = reader.read_i32::<LittleEndian>()?;
-        let _s0_1 = reader.read_i32::<LittleEndian>()?;
-        let _s1 = reader.read_i32::<LittleEndian>()?;
-        let _s0_2 = reader.read_i32::<LittleEndian>()?;
+        // Control words — always observed as (8, 0, 1, 0) in known maps.
+        let _control_0 = reader.read_i32::<LittleEndian>()?;
+        let _control_1 = reader.read_i32::<LittleEndian>()?;
+        let _control_2 = reader.read_i32::<LittleEndian>()?;
+        let _control_3 = reader.read_i32::<LittleEndian>()?;
 
-        let _v1 = reader.read_i32::<LittleEndian>()?;
-        let _v2 = reader.read_i32::<LittleEndian>()?;
-        let _v3 = reader.read_i32::<LittleEndian>()?;
-        let _v4 = reader.read_i32::<LittleEndian>()?;
+        // Unmapped parameters preceding the stack anchor.
+        let _param_0 = reader.read_i32::<LittleEndian>()?;
+        let _param_1 = reader.read_i32::<LittleEndian>()?;
+        let _param_2 = reader.read_i32::<LittleEndian>()?;
+        let _param_3 = reader.read_i32::<LittleEndian>()?;
+
+        // Anchor of the building stack in map-local pixel coordinates.
         let x = reader.read_i32::<LittleEndian>()?;
         let y = reader.read_i32::<LittleEndian>()?;
-        let _v7 = reader.read_i32::<LittleEndian>()?;
-        let _v8 = reader.read_i32::<LittleEndian>()?;
 
-        let c1 = reader.read_i32::<LittleEndian>()?;
-        let c2 = reader.read_i32::<LittleEndian>()?;
-        let c3 = reader.read_i32::<LittleEndian>()?;
+        // Unmapped parameters following the anchor.
+        let _param_4 = reader.read_i32::<LittleEndian>()?;
+        let _param_5 = reader.read_i32::<LittleEndian>()?;
 
+        // Trailing counts. Only `tile_stack_len` BTL tile ids follow here;
+        // the other two counts gate data covered by the skip below.
+        let extra_count_a = reader.read_i32::<LittleEndian>()?;
+        let extra_count_b = reader.read_i32::<LittleEndian>()?;
+        let tile_stack_len = reader.read_i32::<LittleEndian>()?;
+
+        // BTL tile stack for this building, top → bottom.
         let mut ids: Vec<i16> = vec![];
-        for _ in 0..c3 {
+        for _ in 0..tile_stack_len {
             ids.push(reader.read_i16::<LittleEndian>()?);
         }
 
         infos.push(TiledObjectInfo { ids, x, y });
 
         reader.seek(SeekFrom::Current(84))?;
-        let skip: i64 = ((c1 + c2 + c3) * 4).into();
+        let skip: i64 = ((extra_count_a + extra_count_b + tile_stack_len) * 4).into();
         reader.seek(SeekFrom::Current(skip))?;
     }
 
@@ -179,9 +212,10 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
 // Event block – per-tile packed u32 (located near end of file)
 //
 // Low 14 bits hold an event/transition id; in-game, hovering such a tile
-// shows a name resolved through the Map.ini/AllMap.ini tables. The binary
-// masks with 0x3fff and treats ids < 70 as valid. High bits carry
-// parameters on some tiles (semantics not fully mapped yet).
+// shows a name resolved through the Map.ini/AllMap.ini tables (ids < 70 are
+// treated as valid). Bit 22 of the word ("tile marked / entity occupies")
+// monster chase logic treats marked tiles as blocked; see
+// [`EventBlock::is_tile_marked`].
 // --------------------------------------------------------------------------
 
 pub fn read_events_block(
@@ -193,17 +227,9 @@ pub fn read_events_block(
 
     for y in 0..tiled_map_height {
         for x in 0..tiled_map_width {
-            let event_id = reader.read_i16::<LittleEndian>()?;
-            let unknown_value = reader.read_i16::<LittleEndian>()?;
-            blocks.insert(
-                (x, y),
-                EventBlock {
-                    x,
-                    y,
-                    event_id,
-                    _unknown_value: unknown_value,
-                },
-            );
+            // One packed u32 per tile; see [`EventBlock`] for the bit layout.
+            let word = reader.read_u32::<LittleEndian>()?;
+            blocks.insert((x, y), EventBlock { x, y, word });
         }
     }
     Ok(blocks)
@@ -212,18 +238,18 @@ pub fn read_events_block(
 // --------------------------------------------------------------------------
 // Tile & access block – one packed u32 per tile
 //
-// Bit layout (verified against Dispel_145_wm.exe):
+// Bit layout (verified against known game data):
 //   bits 0        – blocked/collision flag
 //   bits 1–9      – map-object slot id (0–511); non-zero marks an
 //                   interactive object dispatched to a subsystem handler
 //   bits 10–24    – GTL ground-tile index: (word >> 10) & 0x7FFF.
 //                   The renderer blits from gtl_base + index * 0x800
 //                   (2048 B = one 32×32 RGB565 tile in the .gtl file).
-//   bits 25–31    – unused (always 0 in shipped maps)
+//   bits 25–31    – unused (always 0 in known maps)
 //
-// The game's `setaccess` script command rewrites exactly bits 0–9,
-// preserving the tile index — the game calls this whole field "access".
-// Shipped maps only use bit 0; bits 1–9 are set at runtime.
+// Access-modifying script commands rewrite exactly bits 0–9,
+// preserving the tile index — this whole field is called "access".
+// Known maps only use bit 0; bits 1–9 are set at runtime.
 // --------------------------------------------------------------------------
 
 /// Parsed result of `read_tiles_and_access_block`: (gtl_tiles, collisions, object_ids).
@@ -260,37 +286,48 @@ pub fn read_tiles_and_access_block(
 }
 
 // --------------------------------------------------------------------------
-// Access-ref block ("roof") – one packed u32 per tile
+// Access-ref grid ("roof") – one packed u32 per tile
 //
-// Bits 0–14 index the second block's u16 table (the table skipped by
-// `second_block`); the entry's low byte is a boolean consumed by the game's
-// tile-access/occlusion checks (HIDEACCESS / SHOWACCESS debug commands).
-// Bits 15+ are flags (rare — e.g. 7 border tiles in cat1.map). Roof visuals
-// themselves come from the tiled-objects block, not from this grid.
+//   bits 0–14   BTL overlay ref → indexes the u16 table read by
+//               `skip_overlay_id_table` ({lo byte: transparency mode,
+//               hi byte: draw-enable}); pixels at btl_base + id * 0x800
+//   bit 15      bleeds into the signed-i16 view of the ref (negative ⇒ skip)
+//   bits 15–29  shadow/darkness level (0–199), per-pixel fade applied by
+//               the shadow renderer
+//   bits 30–31  light-source flags (entities' light raises the level, max wins)
 // --------------------------------------------------------------------------
 
+/// Returns `(btl_overlay_refs, raw_words)` — the parsed overlay refs plus the
+/// untouched packed words so the writer can preserve shadow/light bits.
 pub fn read_roof_tiles(
     reader: &mut BufReader<File>,
     tiled_map_width: i32,
     tiled_map_height: i32,
-) -> Result<HashMap<Coords, i32>> {
+) -> Result<(HashMap<Coords, i32>, HashMap<Coords, u32>)> {
     let mut btl_tiles = HashMap::new();
+    let mut access_ref_words = HashMap::new();
 
     for y in 0..tiled_map_height {
         for x in 0..tiled_map_width {
-            let btl_tile_id = reader.read_i16::<LittleEndian>()?;
-            let some_flag = reader.read_i16::<LittleEndian>()?;
+            let word = reader.read_u32::<LittleEndian>()?;
             let coords: Coords = (x, y);
+            access_ref_words.insert(coords, word);
 
+            // Signed-i16 view of the ref, matching the original parser: a ref
+            // with bit 15 set reads as negative and is skipped.
+            let btl_tile_id = (word & 0xFFFF) as u16 as i16;
+            let shadow_and_flags = (word >> 16) as u16 as i16;
             if btl_tile_id > 0 {
-                if some_flag > 0 {
-                    println!("ReadRoofTiles TODO: {btl_tile_id:?} {some_flag}");
+                if shadow_and_flags != 0 {
+                    println!(
+                        "ReadRoofTiles: overlay tile {btl_tile_id} with shadow/flags {shadow_and_flags:#06x}"
+                    );
                 }
-                btl_tiles.insert(coords, btl_tile_id.into());
+                btl_tiles.insert(coords, i32::from(btl_tile_id));
             }
         }
     }
-    Ok(btl_tiles)
+    Ok((btl_tiles, access_ref_words))
 }
 
 #[cfg(test)]
@@ -322,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_tile_access_round_trip_zero_object() {
-        // Shipped file case: object_id=0, high bits 0
+        // Known-file case: object_id=0, high bits 0
         let gtl_tile_id: i32 = 42;
         let object_id: i32 = 0;
         let blocked = false;

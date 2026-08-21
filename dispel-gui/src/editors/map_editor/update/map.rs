@@ -936,6 +936,7 @@ mod tests {
             model,
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),
+            access_ref_words: HashMap::new(),
             collisions: HashMap::new(),
             events: HashMap::new(),
             object_ids,

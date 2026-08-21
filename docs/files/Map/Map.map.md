@@ -60,7 +60,8 @@ records: (count − 1) × 8 bytes   -- each record: value1: i32, value2: i32
 ```
 
 Skipping `(count − 1) × 8` lands exactly on the next block's size field, verified against the cat1/cat3/dun01/map1/catp
-fixtures. The pairs appear unused by our tools; they are kept here for format completeness only.
+fixtures. In-game, each record's second i32 (`value2`) is a **linear tile index** (`y × stride + x`) into the three
+end grids — the game's tiled-object renderer and access checks resolve tiles through it.
 
 ### Second Block *(u16 lookup table)*
 
@@ -69,8 +70,10 @@ size: i32
 data: size × 2 bytes             -- table of u16 entries
 ```
 
-Not dead data: the Access-Ref block indexes into this table, and each entry's low byte acts as a boolean flag consumed
-by occlusion/access checks. All non-zero ids observed fall inside the table bounds.
+Not dead data: the Access-Ref block indexes into this table. Each u16 entry is
+`{low byte: transparency mode (0 = opaque copy, 1 = skip transparent pixels),
+high byte: draw-enable flag}`. All non-zero ids observed fall inside the table
+bounds.
 
 ### Sprite Block *(embedded sprites)*
 
@@ -93,15 +96,20 @@ rather than tile grid.
 placement_count: i32
 for each placement:
     sprite_id: i32               -- index into the Sprite Block
-    unknown: 2 × i32
-    bottom_right_x: i32          -- Y-sort anchor (see below)
-    bottom_right_y: i32
-    x: i32                       -- top-left placement, map-local pixels
-    y: i32
+    bbox_left: i32               -- frame bounding box in map-local pixels
+    bbox_top: i32
+    bbox_right: i32              -- == left + frame width
+    bottom_right_y: i32          -- == top + frame height (Y-sort key)
+    x: i32                       -- duplicates bbox_left
+    y: i32                       -- duplicates bbox_top
     frame_skip: (frame_count − 1) × 6 × 4 bytes
 ```
 
-`bottom_right_y` equals `y + sprite_height` and serves as the depth key for interlaced rendering.
+The seven i32s after `sprite_id` are actually **frame 0 of a per-frame record**
+(24 bytes each: `{left, top, right, bottom}` box + duplicated `{x, y}` anchor;
+the game stores them in separate per-frame arrays so they can diverge).
+Verified against cat1/map1: `right − left` and `bottom − top` equal the frame's
+pixel `width × height` exactly. Placements Y-sort by `bottom`.
 
 ### Tiled Objects Block *(buildings)*
 
@@ -130,11 +138,15 @@ Negative ids occur and are skipped when drawing.
 One record per tile, row-major:
 
 ```
-event_id: i16                    -- low 14 bits hold the id (ids < 70 are
-                                   considered valid; resolvable through the
-                                   Map.ini / AllMap.ini tables)
-unknown: i16                     -- parameters/flags, semantics TBD
+event_id: i16                    -- low half of a packed u32; low 14 bits hold
+                                   the id (ids < 70 are considered valid;
+                                   resolvable through Map.ini / AllMap.ini)
+flags: i16                       -- high half: parameter/flag bits
 ```
+
+In the packed u32, bit 22 acts as a "tile marked / entity occupied" flag (see
+`EventBlock::is_tile_marked` in `src/map/mod.rs`); the remaining high bits are
+unmapped parameters.
 
 ### Tile & Access Block
 
@@ -160,11 +172,21 @@ One record per tile, row-major:
 
 ```
 ref_id: i16                      -- bits 0–14: index into the Second Block table
-flag: i16                        -- rarely non-zero (a handful of border tiles)
+shadow_and_flags: i16            -- bits 15–29 of the u32: shadow level 0–199;
+                                   bits 30–31: light-source flags
 ```
 
-Despite the historical name, this grid drives **occlusion/access**, not visuals — roof pixels come from the Tiled
-Objects block. Each referenced table entry's low byte is a boolean flag used by occlusion checks.
+This grid packs **two layers** in one u32:
+
+1. **BTL overlay ref** (bits 0–14): when the referenced Second Block entry has
+   its *high* byte set, the game blits BTL pixels from
+   `btl_base + ref_id × 2048` (entry *low* byte selects transparent vs opaque
+   blit). So the Second Block is `{transparency, draw_enable}` per overlay id.
+2. **Shadow/fog level** (bits 15–29): 0–199 darkness applied per tile via a
+   fade table; entities carrying light raise the value (max wins).
+
+Bit 15 of the word bleeds into the signed `ref_id` i16, which is why readers
+skip negative ids.
 
 ---
 
