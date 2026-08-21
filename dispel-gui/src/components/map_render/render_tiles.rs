@@ -108,17 +108,31 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
 
                     if view.show_internal_sprites {
                         for (i, spr) in self.state.internal_sprite_handles().iter().enumerate() {
-                            items.push((spr.sort_y, 1, 0, Item::Sprite(i)));
+                            // Half-tile window: props lose near-ties to
+                            // characters sitting/standing on them (see
+                            // internal_sprite_sort_key).
+                            items.push((
+                                dispel_core::map::types::internal_sprite_sort_key(spr.sort_y),
+                                1,
+                                spr.x as i32,
+                                Item::Sprite(i),
+                            ));
                         }
                     }
 
-                    // External entity sort key
+                    // External entity sort key — kind rung breaks ties between
+                    // entities sharing a tile (NPC must draw over an Extra).
                     for i in 0..self.state.entity_count() {
                         if let Some(ed) = self.state.entity_data(i) {
                             if !ed.visible {
                                 continue;
                             }
-                            items.push((ed.sort_key, 2, ed.tile_x, Item::Entity(i)));
+                            items.push((
+                                ed.sort_key,
+                                ed.kind.type_order(),
+                                ed.tile_x,
+                                Item::Entity(i),
+                            ));
                         }
                     }
 

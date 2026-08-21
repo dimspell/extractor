@@ -29,6 +29,13 @@ pub fn tiled_object_sort_key(anchor_y: i32, stack_index: usize) -> i32 {
     anchor_y + stack_index as i32 * tile_h + tile_h
 }
 
+/// Y-sort key for an internal map sprite (chair, throne, statue…) in the
+/// interlaced pass: the file's `sprite_bottom_right_y` minus a half-tile
+/// window.
+pub fn internal_sprite_sort_key(bottom_right_y: i32) -> i32 {
+    bottom_right_y - TILE_HEIGHT_HALF
+}
+
 /// An event trigger attached to a tile on the map.
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct EventBlock {

@@ -10,7 +10,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
     Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, convert_map_coords_to_image_coords,
-    tiled_object_sort_key,
+    internal_sprite_sort_key, tiled_object_sort_key,
 };
 
 use super::model::MapModel;
@@ -216,26 +216,29 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         }
 
         // Internal sprites (type_order=1) — key is map-local
-        // (sprite_bottom_right_y == sprite_y + height).
+        // (sprite_bottom_right_y == sprite_y + height), minus the half-tile
+        // window so characters sitting on props draw over them.
         if toggles.show_internal_sprites {
             for (i, block) in data.sprite_blocks.iter().enumerate() {
                 if block.sprite_id < data.internal_sprites.len() {
                     let h = data.internal_sprites[block.sprite_id].frame_infos[0].height;
-                    items.push((block.sprite_y + h, 1, block.sprite_x, ItemKind::Sprite(i)));
+                    let pos = internal_sprite_sort_key(block.sprite_y + h);
+                    items.push((pos, 1, block.sprite_x, ItemKind::Sprite(i)));
                 }
             }
         }
 
-        // External entities (type_order=2)
+        // External entities (type_order rungs shared with the GUI interlaced
+        // pass: Extra=2 < DrawItem=3 < Monster=4 < Npc=5).
         if let Some(ref ext) = external {
             if toggles.show_monsters {
                 for (i, m) in ext.monsters.iter().enumerate() {
-                    items.push((entity_pos(m.x, m.y), 2, m.x, ItemKind::Monster(i)));
+                    items.push((entity_pos(m.x, m.y), 4, m.x, ItemKind::Monster(i)));
                 }
             }
             if toggles.show_npcs {
                 for (i, n) in ext.npcs.iter().enumerate() {
-                    items.push((entity_pos(n.x, n.y), 2, n.x, ItemKind::Npc(i)));
+                    items.push((entity_pos(n.x, n.y), 5, n.x, ItemKind::Npc(i)));
                 }
             }
             if toggles.show_objects {
