@@ -1,19 +1,21 @@
-# Store.db Documentation
+# Store.db
+
+> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
+> owner.
 
 ## File Information
 
 ### Overview
 
-Binary database file that defines shops and inns with inventories, prices, merchant dialogue, and economic behavior for the game's commerce system.
+Binary database file that defines shops and inns with inventories, prices, merchant dialogue, and economic behavior for
+the game's commerce system.
 
 ### File Structure
 
 **Location**: `CharacterInGame/STORE.DB`
 **Encoding**: Binary (Little-Endian)
-**Text Encoding**: WINDOWS-1250
-**Header**: 4-byte record count
-**Record Size**: 948 bytes
-**Total Records**: Variable (determined by header)
+**Text Encoding**: WINDOWS-1250 **Header**: 4-byte record count **Record Size**: 948 bytes **Total Records**: Variable
+(determined by header)
 
 ### Binary Format
 
@@ -37,27 +39,29 @@ Binary database file that defines shops and inns with inventories, prices, merch
 
 ### Field Definitions
 
-| Field | Size | Type | Description |
-|-------|------|------|-------------|
-| index | N/A | i32 | Record index (assigned during parsing) |
-| store_name | 32 | string | Shop/Inn name (WINDOWS-1250 encoded) |
-| inn_night_cost | 4 | i32 | Night cost (>0 = inn, 0 = shop) |
-| price_modifier | 2 | i16 | Percentage applied to item prices (shops only) |
-| products | 60 | array | Product list (shops only, up to 15 slots) |
-| padding | 82 | bytes | Always zero (shops) |
-| invitation | 512 | string | Merchant greeting (WINDOWS-1250) |
-| haggle_success | 128 | string | Successful haggle response |
-| haggle_fail | 128 | string | Failed haggle response |
+| Field          | Size | Type   | Description                                    |
+|----------------|------|--------|------------------------------------------------|
+| index          | N/A  | i32    | Record index (assigned during parsing)         |
+| store_name     | 32   | string | Shop/Inn name (WINDOWS-1250 encoded)           |
+| inn_night_cost | 4    | i32    | Night cost (>0 = inn, 0 = shop)                |
+| price_modifier | 2    | i16    | Percentage applied to item prices (shops only) |
+| products       | 60   | array  | Product list (shops only, up to 15 slots)      |
+| padding        | 82   | bytes  | Always zero (shops)                            |
+| invitation     | 512  | string | Merchant greeting (WINDOWS-1250)               |
+| haggle_success | 128  | string | Successful haggle response                     |
+| haggle_fail    | 128  | string | Failed haggle response                         |
 
 ### Store Types
 
 **Inn (inn_night_cost > 0):**
+
 - No products (144 bytes padding)
 - Provides rest/healing services
 - Nightly accommodation cost
 - Dialogue for innkeeper
 
 **Shop (inn_night_cost = 0):**
+
 - Product inventory (up to 15 items)
 - Sells goods and equipment
 - Price modifier affects economy
@@ -66,15 +70,17 @@ Binary database file that defines shops and inns with inventories, prices, merch
 ### Product Structure
 
 **ProductType Enum:**
+
 - **1**: Weapon - Weapons and armor
 - **2**: Healing - Healing items (potions, etc.)
 - **3**: EditItem - Editable/modifiable equipment
 - **4**: MiscItem - Miscellaneous items
 
 **Product Format:**
+
 - `(type: i16, item_id: i16)` per slot (4 bytes each)
 - Terminated by `type = 0`
-- Max 15 products per shop (the game iterates `iVar4 < 0xf`)
+- Max 15 products per shop
 - Slot index is the display order
 
 ### Price Modifier & Pricing Formulas
@@ -134,6 +140,7 @@ Offset | Size | Field | Description
 ### Example Structures
 
 **Inn Record:**
+
 ```
 name: "Tavern Name" (32 bytes)
 inn_night_cost: 50 (i32)
@@ -144,6 +151,7 @@ haggle_fail: "That's my best price!" (128 bytes)
 ```
 
 **Shop Record:**
+
 ```
 name: "Weapon Shop" (32 bytes)
 inn_night_cost: 0 (i32)

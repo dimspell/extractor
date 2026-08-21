@@ -1,24 +1,23 @@
 # DISPEL® Map File Format (`.map`)
 
-All game maps — overworld (`map1.map`…), catacombs (`cat1.map`…, `catp.map`),
-and dungeons (`dun01.map`…, `final.map`) — share this binary format. A `.map`
-file contains everything needed to render a map: dimensions, embedded sprites
-(thrones, statues, decor), building stacks, and three per-tile grids (events,
-ground tiles, occlusion).
+All game maps — overworld (`map1.map`…), catacombs (`cat1.map`…, `catp.map`), and dungeons (`dun01.map`…, `final.map`) —
+share this binary format. A `.map`
+file contains everything needed to render a map: dimensions, embedded sprites (thrones, statues, decor), building
+stacks, and three per-tile grids (events, ground tiles, occlusion).
 
 > DISPEL® is a registered trademark. This project is not affiliated with,
 > endorsed by, or sponsored by the trademark owner.
 
 ## Quick Facts
 
-| Property | Value |
-|---|---|
-| Location | `Map/*.map` |
-| Endianness | Little-endian throughout |
-| Grid unit | Tile, stored row-major (`y` outer, `x` inner) |
-| Source tile | 32×32 px, RGB565 (2048 bytes) |
-| Rendered tile | 62×32 px isometric diamond |
-| Chunk | 25×25 tiles (dimensions are stored in chunks) |
+| Property      | Value                                         |
+|---------------|-----------------------------------------------|
+| Location      | `Map/*.map`                                   |
+| Endianness    | Little-endian throughout                      |
+| Grid unit     | Tile, stored row-major (`y` outer, `x` inner) |
+| Source tile   | 32×32 px, RGB565 (2048 bytes)                 |
+| Rendered tile | 62×32 px isometric diamond                    |
+| Chunk         | 25×25 tiles (dimensions are stored in chunks) |
 
 ## File Layout
 
@@ -47,11 +46,11 @@ entries each, so a reader can seek to them from the end of the file.
 
 ### Header (12 bytes)
 
-| Field | Type | Meaning |
-|---|---|---|
-| `width_in_chunks` | i32 | Map width in 25-tile chunks |
-| `height_in_chunks` | i32 | Map height in 25-tile chunks |
-| `border_count` | i32 | Border chunk count (always 2) |
+| Field              | Type | Meaning                       |
+|--------------------|------|-------------------------------|
+| `width_in_chunks`  | i32  | Map width in 25-tile chunks   |
+| `height_in_chunks` | i32  | Map height in 25-tile chunks  |
+| `border_count`     | i32  | Border chunk count (always 2) |
 
 ### First Block *(unused)*
 
@@ -60,9 +59,8 @@ count: i32
 records: (count − 1) × 8 bytes   -- each record: value1: i32, value2: i32
 ```
 
-Skipping `(count − 1) × 8` lands exactly on the next block's size field,
-verified against the cat1/cat3/dun01/map1/catp fixtures. The pairs appear
-unused by our tools; they are kept here for format completeness only.
+Skipping `(count − 1) × 8` lands exactly on the next block's size field, verified against the cat1/cat3/dun01/map1/catp
+fixtures. The pairs appear unused by our tools; they are kept here for format completeness only.
 
 ### Second Block *(u16 lookup table)*
 
@@ -71,9 +69,8 @@ size: i32
 data: size × 2 bytes             -- table of u16 entries
 ```
 
-Not dead data: the Access-Ref block indexes into this table, and each
-entry's low byte acts as a boolean flag consumed by occlusion/access checks.
-All non-zero ids observed in shipped maps fall inside the table bounds.
+Not dead data: the Access-Ref block indexes into this table, and each entry's low byte acts as a boolean flag consumed
+by occlusion/access checks. All non-zero ids observed fall inside the table bounds.
 
 ### Sprite Block *(embedded sprites)*
 
@@ -87,8 +84,8 @@ for each sprite:
                                     6 → 1904 bytes, 9 → 2996 bytes
 ```
 
-Any other `image_stamp` is a parse error. Sprites here are thrones, statues,
-decor — anything placed by pixel coordinate rather than tile grid.
+Any other `image_stamp` is a parse error. Sprites here are thrones, statues, decor — anything placed by pixel coordinate
+rather than tile grid.
 
 ### Sprite Info Block *(placements)*
 
@@ -104,8 +101,7 @@ for each placement:
     frame_skip: (frame_count − 1) × 6 × 4 bytes
 ```
 
-`bottom_right_y` equals `y + sprite_height` and serves as the depth key for
-interlaced rendering.
+`bottom_right_y` equals `y + sprite_height` and serves as the depth key for interlaced rendering.
 
 ### Tiled Objects Block *(buildings)*
 
@@ -126,9 +122,8 @@ for each bundle:
 <end sentinel alignment>         -- see tiled_objects_block() in reader.rs
 ```
 
-Each bundle is one building: its `tile_ids` stack is drawn downward from the
-anchor, one 62×32 diamond per entry. Negative ids occur and are skipped when
-drawing.
+Each bundle is one building: its `tile_ids` stack is drawn downward from the anchor, one 62×32 diamond per entry.
+Negative ids occur and are skipped when drawing.
 
 ### Event Block
 
@@ -143,23 +138,21 @@ unknown: i16                     -- parameters/flags, semantics TBD
 
 ### Tile & Access Block
 
-One packed u32 per tile, row-major (bit layout verified against shipped
-map data):
+One packed u32 per tile, row-major (bit layout verified against shipped map data):
 
-| Bits | Meaning |
-|---|---|
-| 0 | Collision flag (tile blocked) |
-| 1–9 | Object slot id (0–511); non-zero marks an interactive object |
-| 10–24 | GTL ground-tile index — `(word >> 10) & 0x7FFF` |
-| 25–31 | Unused (always 0 in shipped maps) |
+| Bits  | Meaning                                                      |
+|-------|--------------------------------------------------------------|
+| 0     | Collision flag (tile blocked)                                |
+| 1–9   | Object slot id (0–511); non-zero marks an interactive object |
+| 10–24 | GTL ground-tile index — bits 10–24 of the word               |
+| 25–31 | Unused (always 0) |
 
 The index points straight into the `.gtl` pixel data: the renderer blits from
-`gtl_base + index × 2048` (one 32×32 RGB565 tile). Across observed maps the
-maximum index matches the `.gtl` tile capacity minus one.
+`gtl_base + index × 2048` (one 32×32 RGB565 tile). Across observed maps the maximum index matches the `.gtl` tile
+capacity minus one.
 
-Bits 0–9 together form one access field that can be rewritten without
-touching the tile index. Shipped maps only ever use bit 0; bits 1–9 are
-written at runtime.
+Bits 0–9 together form one access field that can be rewritten without touching the tile index. Maps only ever
+use bit 0; bits 1–9 are written at runtime.
 
 ### Access-Ref Block *(a.k.a. "roof" block)*
 
@@ -170,9 +163,8 @@ ref_id: i16                      -- bits 0–14: index into the Second Block tab
 flag: i16                        -- rarely non-zero (a handful of border tiles)
 ```
 
-Despite the historical name, this grid drives **occlusion/access**, not
-visuals — roof pixels come from the Tiled Objects block. Each referenced
-table entry's low byte is a boolean flag used by occlusion checks.
+Despite the historical name, this grid drives **occlusion/access**, not visuals — roof pixels come from the Tiled
+Objects block. Each referenced table entry's low byte is a boolean flag used by occlusion checks.
 
 ---
 
@@ -185,12 +177,11 @@ pixel_x = (x + y) × 32
 pixel_y = (y − x) × 16 + (map_diagonal / 2) × 16
 ```
 
-where `map_diagonal = tiled_width + tiled_height`. Moving `+1` in `x` steps
-up-left on screen (−32, −16); moving `+1` in `y` steps down-right (+32, +16).
+where `map_diagonal = tiled_width + tiled_height`. Moving `+1` in `x` steps up-left on screen (−32, −16); moving `+1` in
+`y` steps down-right (+32, +16).
 
 Sprite and building placements inside the file are **map-local**: subtract
-`map_non_occluded_start_x/y` (computed in `src/map/model.rs`) to convert to
-world pixels.
+`map_non_occluded_start_x/y` (computed in `src/map/model.rs`) to convert to world pixels.
 
 ## File Size Calculation
 
@@ -201,12 +192,12 @@ total      = header + variable blocks + fixed_tail
 
 ## Related Files
 
-| File | Role |
-|---|---|
-| `*.gtl` | Ground tileset (raw 32×32 RGB565 tiles, no header) |
-| `*.btl` | Building/roof tileset (same raw format) |
-| `AllMap.ini` / `Map.ini` | Map metadata, per-map monster/NPC/extra ref files |
-| `Mon*/Npc*/Ext*.ref` | External entities placed on the map |
+| File                     | Role                                               |
+|--------------------------|----------------------------------------------------|
+| `*.gtl`                  | Ground tileset (raw 32×32 RGB565 tiles, no header) |
+| `*.btl`                  | Building/roof tileset (same raw format)            |
+| `AllMap.ini` / `Map.ini` | Map metadata, per-map monster/NPC/extra ref files  |
+| `Mon*/Npc*/Ext*.ref`     | External entities placed on the map                |
 
 ## Implementation & Usage
 

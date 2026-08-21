@@ -1,125 +1,80 @@
-# cat1.btl - Dispel Game Building Tile Layer Format
+# DISPEL® Building Tile Layer (`.btl`)
 
-## File Information
-- **Location**: `Map/*.btl` files
-- **Format**: Binary tileset (same as .GTL)
-- **Tile Size**: 32×32 pixels
-- **Color Format**: RGB565 (2 bytes per pixel)
-- **Tile Data Size**: 2048 bytes per tile (32×32×2)
+Raw tileset binary used for structures, roofs, and architectural elements. The format is identical to `.gtl`; only the
+semantic role differs.
 
-## File Structure
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
 
-### No Header
-- Direct sequence of tile data
-- No metadata or header information
-- Tiles are stored sequentially
+## Quick Facts
 
-### Tile Structure (2048 bytes)
-- `pixel_data`: 1024 × RGB565 pixels (32×32 grid)
-- Each pixel: 2 bytes in RGB565 format
+| Property      | Value                           |
+|---------------|---------------------------------|
+| Location      | `Map/*.btl`                     |
+| Header        | None                            |
+| Tile size     | 32×32 px, RGB565                |
+| Tile data     | 2048 bytes per tile (32×32 × 2) |
+| Rendered size | 62×32 px isometric diamond      |
+| Transparency  | RGB(0,0,0) = transparent        |
 
-### RGB565 Color Format
-- **5 bits**: Red channel (0-31)
-- **6 bits**: Green channel (0-63)
-- **5 bits**: Blue channel (0-31)
-- **Storage**: u16 format `0xRRRRRGGGGGGBBBBB`
+## File Layout
 
-## File Purpose
+No header. The file is a contiguous sequence of 32×32 pixel tiles in RGB565 (little-endian u16) format. Tile count =
+`file_size / 2048`.
 
-### .BTL Files (Building Tile Layer)
-- Structures and buildings
-- Roofs and architectural elements
-- Man-made objects
-- Decorative elements
-- Walls, doors, windows
-- Interior furniture and fixtures
-
-## Isometric Properties
-- **Rendered Width**: 62 pixels
-- **Rendered Height**: 32 pixels
-- **Shape**: Diamond-shaped mask for isometric projection
-- **Transparency**: RGB(0,0,0) treated as transparent
-
-## Color Conversion
-The RGB565 format is converted to RGB888 during extraction:
-- 5-bit red → 8-bit red (scaled 0-31 to 0-255)
-- 6-bit green → 8-bit green (scaled 0-63 to 0-255)
-- 5-bit blue → 8-bit blue (scaled 0-31 to 0-255)
-
-## File Size Calculation
 ```
-Total tiles = file_size / 2048
+┌──────────────────────┐
+│ TILE #0              │
+│   pixels: u16 × 1024 │  RGB565, little-endian
+├──────────────────────┤
+│ TILE #1              │
+│   pixels: u16 × 1024 │
+├──────────────────────┤
+│ ...                  │
+├──────────────────────┤
+│ TILE #N              │
+│   pixels: u16 × 1024 │
+└──────────────────────┘
 ```
+
+## RGB565 → RGB888 Conversion
+
+```
+red   = bits 11–15 of pixel   → scale 0–31  to 0–255
+green = bits 5–10 of pixel    → scale 0–63  to 0–255
+blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
+```
+
+## Isometric Rendering
+
+Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
+seamlessly. RGB (0,0,0) pixels are treated as transparent, allowing building tiles to layer over terrain.
+
+## Relationship to `.map` Files
+
+A `.map` file references BTL tile IDs in two places:
+
+- **Tiled Objects block** — building stacks drawn from anchor points
+- **Access-Ref block** — occlusion/access lookup per tile
+
+BTL tile IDs inside the Tiled Objects block are stacked bottom-to-top; negative IDs are skipped during rendering.
 
 ## Related Files
-- `*.map` - Map files that reference these tilesets
-- `*.gtl` - Ground tileset files
 
-## Building Tile Files
-- **Main maps**: `map1.btl`, `map2.btl`, `map3.btl`
-- **Catacombs**: `cat1.btl`, `cat2.btl`, `cat3.btl`, `catp.btl`
-- **Dungeons**: `dun01.btl` through `dun25.btl`, `final.btl`
+| File    | Role                                              |
+|---------|---------------------------------------------------|
+| `*.gtl` | Ground tileset (same binary format, terrain role) |
+| `*.map` | Map files that reference BTL tile IDs             |
 
 ## Implementation
-- **Rust Module**: `src/map/tileset.rs`
-- **Extractor**: `extract` function (same as .GTL)
-- **Renderer**: `plot_tileset_map` function
-- **Tile Structure**: `Tile` struct with color data
 
-## Example Usage
-
-### Extract building tiles to individual PNGs:
-```bash
-cargo run -- map tiles "fixtures/Dispel/Map/cat1.btl" --output "out/cat1-btl"
-```
-
-### Generate building tileset atlas:
-```bash
-cargo run -- map atlas "fixtures/Dispel/Map/cat1.btl" cat1.btl.png
-```
-
-### Render map using building tiles:
-```bash
-cargo run -- map render \
-  --map "fixtures/Dispel/Map/cat1.map" \
-  --btl "fixtures/Dispel/Map/cat1.btl" \
-  --gtl "fixtures/Dispel/Map/cat1.gtl" \
-  --output cat1.png
-```
-
-## Building Construction
-Buildings in Dispel are constructed using stacked BTL tiles:
-- Multiple tiles stacked vertically to create walls
-- Different tile patterns for different building types
-- Roof tiles placed on top of wall stacks
-- Doors and windows as special tile types
-
-## Diamond Mask
-The `create_mask` function generates a diamond-shaped mask for proper isometric tile rendering, creating the characteristic diamond shape of isometric tiles.
-
-## Transparency Handling
-RGB(0,0,0) pixels are treated as transparent during rendering, allowing for proper layering of building tiles and creating complex structures.
-
-## Comparison with GTL Files
-
-| Feature        | BTL Files | GTL Files |
-|--------------|----------|----------|
-| **Purpose**   | Buildings, structures | Terrain, natural features |
-| **Content**   | Walls, roofs, doors | Grass, water, paths |
-| **Layer**     | Above ground | Ground level |
-| **Usage**     | Stacked for 3D effect | Single layer |
-| **Examples**  | Houses, castles | Grass, dirt, water |
-
-## Extractor
-
-An extractor is available in `src/map/tileset.rs` to parse this file format.
-
-### How to Run
+- Parser: `extract()` in `src/map/tileset.rs`
+- Atlas: `plot_tileset_map()` in `src/map/tileset.rs`
 
 ```bash
 # Extract building tiles to individual PNGs
-cargo run -- map tiles "fixtures/Dispel/Map/cat1.btl" --output "out/cat1-btl"
+cargo run -- map tiles "path/to/file.btl" --output "out/btl-tiles"
 
 # Generate building tileset atlas
-cargo run -- map atlas "fixtures/Dispel/Map/cat1.btl" cat1.btl.png
+cargo run -- map atlas "path/to/file.btl" btl-atlas.png
 ```

@@ -1,17 +1,20 @@
 # Event.ini Documentation
 
+> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
+> owner.
+
 ## File Information
 
 ### Overview
 
-Text file that defines event scripts with execution conditions, prerequisites, and repetition limits for the game's event system.
+Text file that defines event scripts with execution conditions, prerequisites, and repetition limits for the game's
+event system.
 
 ### File Structure
 
 **Location**: `Event.ini`
 **Encoding**: EUC-KR (Korean character encoding)
 **Format**: CSV (Comma-Separated Values) with comments
-**Total Entries**: 2,251 event mappings
 
 ### Format Specification
 
@@ -26,13 +29,13 @@ event_id,required_event_id,event_type,script_filename,counter
 
 ### Field Definitions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| event_id | i32 | Unique event identifier (0-2250+) |
-| required_event_id | i32 | Prerequisite event ID that must be completed first |
-| event_type | i32 | Execution condition type (0-8) |
-| script_filename | string | Script filename or "null" for no script |
-| counter | i32 | Execution limit (0 = unlimited, N = max executions) |
+| Field             | Type   | Description                                         |
+|-------------------|--------|-----------------------------------------------------|
+| event_id          | i32    | Unique event identifier                             |
+| required_event_id | i32    | Prerequisite event ID that must be completed first  |
+| event_type        | i32    | Execution condition type (0-8)                      |
+| script_filename   | string | Script filename or "null" for no script             |
+| counter           | i32    | Execution limit (0 = unlimited, N = max executions) |
 
 ### Event Type System
 
@@ -55,12 +58,14 @@ The file includes a detailed comment header explaining the event type system:
 ### Event Type Details
 
 **Unconditional Execution (Types 0, 1, 2):**
+
 - Execute regardless of previous event status
 - Type 0: Execute once
 - Type 1: Execute N times (uses counter)
 - Type 2: Execute unconditionally
 
 **Conditional Execution (Types 3-8):**
+
 - Execution depends on previous event status
 - Types 3-5: Execute when previous event unsatisfied
 - Types 6-8: Execute when previous event satisfied
@@ -92,97 +97,50 @@ The file includes a detailed comment header explaining the event type system:
 ### Technical Details
 
 **Encoding**: EUC-KR (Extended Unix Code Korea)
+
 - Supports Korean characters in comments
 - Requires proper encoding handling for reading/writing
 
 **File Processing**:
+
 - Comments (lines starting with ";") are ignored
 - Empty lines are skipped
 - CSV format with comma delimiter
 - "null" literal used for missing script filenames
 
-**Database Integration**:
-- Processed by `Event` struct in the codebase
-- Uses `EventType` enum for type-safe event types
+### Database Integration
+
+- Processed by the `Event` struct in `src/references/event_ini.rs`
+- Uses the `EventType` enum from `src/references/enums.rs` for type-safe event types
 - Stored in database with all field mappings
 - Referenced by other game systems (NPC, Extra objects)
-
-### Event Type Enum
-
-The codebase defines a type-safe enum for event types:
-
-```rust
-pub enum EventType {
-    ExecuteOnce,           // Type 0
-    ExecuteNTimes,         // Type 1
-    ExecuteUnconditionally, // Type 2
-    ExecuteOnceIfFailed,   // Type 3
-    ExecuteNTimesIfFailed, // Type 4
-    ContinueIfFailed,      // Type 5
-    ExecuteOnceIfSucceeded, // Type 6
-    ExecuteNTimesIfSucceeded, // Type 7
-    ContinueIfSucceeded,  // Type 8
-    Unknown,               // Fallback
-}
-```
-
-### Usage in Game
-
-1. **Event System Initialization**: Game loads event mappings from Event.ini
-2. **Quest Progression**: Events trigger based on completion status
-3. **Script Execution**: Runs associated SCR files when conditions met
-4. **State Management**: Tracks event completion with counters
-5. **Prerequisite Checking**: Validates previous event requirements
 
 ### Event Chaining
 
 The system supports complex event sequences:
+
 - **Linear Progression**: Event A → Event B → Event C
 - **Conditional Branching**: Different paths based on success/failure
 - **Parallel Events**: Multiple independent event chains
 - **Repeating Events**: Limited or unlimited execution cycles
 
-### File Characteristics
-
-- **Entry Count**: 2,251 event mappings
-- **ID Range**: 0-2250+ (some gaps in sequence)
-- **Comment Organization**: Logical grouping by function
-- **Encoding**: EUC-KR with Korean comments
-- **Format**: Strict CSV structure
-
 ### Notes
 
-- File uses Windows-style line endings (\r\n)
-- Comments provide detailed explanations in Korean
+- File uses Windows-style line endings (`\r\n`)
+- Comments provide detailed explanations
 - Event system forms core of game progression mechanics
 - Integrated with multiple game subsystems
-- **No copyrighted game content** is reproduced or distributed
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, script files, or proprietary assets. All references to event systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any script files or game content
-- Focuses on **technical organization and event system design**
-- Uses **generic examples** of event structures
-- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 
-An extractor is available in `src/references/event_ini.rs` to parse this file format.
+The file is parsed by the `Event` struct in `src/references/event_ini.rs`, which implements the `Extractor` trait.
 
 ### How to Run
 
 ```bash
 # Extract Event.ini to JSON
-cargo run -- extract -i "fixtures/Dispel/Event.ini"
+cargo run -- extract -i "Event.ini"
 
 # Import to SQLite database
-cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+cargo run -- database import "path/to/Dispel/" "database.sqlite"
 ```
