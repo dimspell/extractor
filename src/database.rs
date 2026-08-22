@@ -14,6 +14,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     )?;
 
     let tables = vec![
+        "ch_datas",
         "dialogue_paragraphs",
         "dialogue_script_files",
         "dialogue_scripts",
@@ -111,6 +112,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_sprite_frames.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_sprite_sequences.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_event_actions.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_chdata.sql"))?;
 
     // Re-enable foreign key enforcement now that the schema is rebuilt.
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
