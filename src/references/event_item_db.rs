@@ -103,7 +103,13 @@ pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Res
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;
         for item in event_items {
-            stmt.execute(params![item.id, item.name, item.description, item.padding])?;
+            stmt.execute(params![
+                item.id,
+                item.name,
+                item.description,
+                item.base_price,
+                item.padding
+            ])?;
         }
     }
     tx.commit()?;

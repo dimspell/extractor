@@ -2,6 +2,7 @@ use super::Command;
 use crate::cli::DatabaseCommands;
 use dispel_core::database::initialize_database;
 use dispel_core::references::all_map_ini::save_maps;
+use dispel_core::references::chdata_db::save_chdatas;
 use dispel_core::references::dialogue_paragraph::save_dialogue_paragraphs;
 use dispel_core::references::dialogue_script::save_dialogs;
 use dispel_core::references::draw_item::save_draw_items;
@@ -458,6 +459,12 @@ fn import_databases(main_path: &Path, conn: &mut Connection) -> Result<(), Box<d
     let magic_spells =
         dispel_core::references::magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
     save_magic_spells(conn, &magic_spells)?;
+
+    println!("Saving ch_datas...");
+    let chdatas = dispel_core::references::chdata_db::read_chdata(
+        &main_path.join("CharacterInGame/ChData.db"),
+    )?;
+    save_chdatas(conn, &chdatas)?;
 
     // Monsters must be saved after magic_spells because
     // known_spell_slot1/2/3 REFERENCES magic_spells(id).

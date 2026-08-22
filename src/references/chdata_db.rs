@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Stores information about the initial attributes during character creation.
@@ -90,6 +91,42 @@ pub struct ChData {
 
 pub fn read_chdata(source_path: &Path) -> std::io::Result<Vec<ChData>> {
     ChData::read_file(source_path)
+}
+
+pub fn save_chdatas(conn: &mut Connection, records: &[ChData]) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_chdata.sql"))?;
+        for record in records {
+            stmt.execute(params![
+                record.unused_name,
+                record.warrior_strength,
+                record.warrior_constitution,
+                record.warrior_wisdom,
+                record.warrior_agility,
+                record.knight_strength,
+                record.knight_constitution,
+                record.knight_wisdom,
+                record.knight_agility,
+                record.archer_strength,
+                record.archer_constitution,
+                record.archer_wisdom,
+                record.archer_agility,
+                record.mage_strength,
+                record.mage_constitution,
+                record.mage_wisdom,
+                record.mage_agility,
+                record.reserved_stat,
+                record.warrior_offense_bonus,
+                record.knight_defense_bonus,
+                record.archer_dodge_bonus,
+                record.archer_hit_bonus,
+                record.mage_magic_power_bonus,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }
 
 #[cfg(test)]

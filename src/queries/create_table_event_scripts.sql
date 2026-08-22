@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS event_scripts
     map_content         TEXT,
     chr_content         TEXT,
     npc_content         TEXT,
+    spr_content         TEXT,
     wav_content         TEXT
 )
