@@ -40,6 +40,7 @@ define_message_ext! {
     hex_editor:      HexEditor(hexedit::HexEditorMessage),
     save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
     save_ifo:        SaveIfo(crate::editors::save_ifo::SaveIfoEditorMessage),
+    fog_data:        FogData(crate::editors::fog_data::FogDataMessage),
 }
 
 /// Extension trait for building nested editor messages.

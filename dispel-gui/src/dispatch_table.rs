@@ -1,6 +1,6 @@
 //! Generated editor dispatch table.
 //!
-//! Collapses the 37-arm message dispatch and the 35-arm view dispatch
+//! Collapses the 39-arm message dispatch and the 38-arm view dispatch
 //! into a single macro declaration. Two editors are handled specially
 //! outside this table:
 //! - `DbViewer` — no EditorMessage variant; view is `App::view_db_viewer()`
@@ -83,6 +83,7 @@ define_update_dispatch! {
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
     (SaveIfo, save_ifo),
+    (FogData, fog_data),
 }
 
 define_view_dispatch! {
@@ -124,6 +125,7 @@ define_view_dispatch! {
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
     (SaveIfoEditor, save_ifo),
+    (FogDataEditor, fog_data),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game

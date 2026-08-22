@@ -20,6 +20,7 @@ pub mod event_npc_ref;
 pub mod event_scr;
 pub mod extra_ini;
 pub mod extra_ref;
+pub mod fog_data;
 pub mod heal_item;
 pub mod hex_wrapper;
 pub mod localization_manager;

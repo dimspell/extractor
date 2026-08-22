@@ -249,6 +249,7 @@ pub enum MapLayer {
     Ground,
     Buildings,
     Roofs,
+    Shadows,
     InternalSprites,
     Collisions,
     Events,

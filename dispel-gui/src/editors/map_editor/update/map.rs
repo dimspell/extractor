@@ -25,6 +25,7 @@ pub fn layer_visible(view: &MapViewState, layer: MapLayer) -> bool {
         MapLayer::Ground => view.show_ground,
         MapLayer::Buildings => view.show_buildings,
         MapLayer::Roofs => view.show_roofs,
+        MapLayer::Shadows => view.show_shadows,
         MapLayer::InternalSprites => view.show_internal_sprites,
         MapLayer::Collisions => view.show_collisions,
         MapLayer::Events => view.show_events,
@@ -42,6 +43,7 @@ fn set_layer_visible(view: &mut MapViewState, layer: MapLayer, visible: bool) {
         MapLayer::Ground => view.show_ground = visible,
         MapLayer::Buildings => view.show_buildings = visible,
         MapLayer::Roofs => view.show_roofs = visible,
+        MapLayer::Shadows => view.show_shadows = visible,
         MapLayer::InternalSprites => view.show_internal_sprites = visible,
         MapLayer::Collisions => view.show_collisions = visible,
         MapLayer::Events => view.show_events = visible,
@@ -292,6 +294,22 @@ pub fn map_loaded(
                     height: s.height,
                 })
                 .collect();
+
+            // Load the shadow/lighting fade tables for Dark maps (no-op for
+            // Light maps or when no game path is configured).
+            let game_path = app.state.workspace.game_path.clone();
+            let map_stem = state
+                .data
+                .map_path
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .map(|s| s.to_string_lossy().to_string());
+            state.data.shadow_fog = match (game_path, map_stem) {
+                (Some(gp), Some(stem)) => {
+                    dispel_core::map::render::load_fog_if_dark(&gp, &stem).map(std::sync::Arc::new)
+                }
+                _ => None,
+            };
 
             state.data.loading_state = LoadingState::Loaded(handle);
             state.view.tile_layer_cache.clear();
@@ -980,6 +998,7 @@ mod tests {
             occluded_map_in_pixels_height: 8 * 32,
         };
         let map_data = MapData {
+            overlay_modes: Vec::new(),
             model,
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),

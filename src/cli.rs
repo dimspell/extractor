@@ -233,6 +233,10 @@ pub enum MapCommands {
         /// Disable roof (BTL) tile layer
         #[arg(long)]
         no_roofs: bool,
+        /// Disable the shadow/lighting pass (fog-of-war darkening on maps
+        /// flagged Dark in AllMap.ini)
+        #[arg(long)]
+        no_shadows: bool,
         /// Disable internal sprites (embedded in .map file)
         #[arg(long)]
         no_internal_sprites: bool,
@@ -247,9 +251,6 @@ pub enum MapCommands {
         no_objects: bool,
 
         // Canvas mode
-        /// Render the full map canvas instead of the occluded viewport (reveals all edges)
-        #[arg(long)]
-        full_map: bool,
         /// Output RGBA PNG with alpha channel (black background pixels become transparent)
         #[arg(long)]
         transparent: bool,

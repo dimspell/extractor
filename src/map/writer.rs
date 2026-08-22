@@ -191,6 +191,7 @@ mod tests {
             },
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),
+            overlay_modes: Vec::new(),
             access_ref_words: HashMap::new(),
             collisions: HashMap::new(),
             events: HashMap::new(),

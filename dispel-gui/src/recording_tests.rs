@@ -1128,3 +1128,135 @@ fn party_level_db_no_recording_when_no_npc_selected() {
         "party_level_db should NOT record when no NPC selected"
     );
 }
+
+// ============================================================================
+// fog_data — whole-file recorder (save-time `record_file_replace`)
+// ============================================================================
+
+/// Fixture fade-table path, or `None` when fixtures are absent.
+fn fixture_fogdata_path() -> Option<PathBuf> {
+    let p = PathBuf::from("../fixtures/Dispel/ExtraInGame/fogdata.dat");
+    p.exists().then_some(p)
+}
+
+#[test]
+fn fog_data_editor_records_file_replace_on_save_when_session_active() {
+    use crate::editors::fog_data::{self, FogDataEditorState};
+    use dispel_core::map::fogdata::MAX_FACTOR;
+    use dispel_core::modding::{ModManifest, Workspace as ModWorkspace};
+
+    let Some(fixture) = fixture_fogdata_path() else {
+        eprintln!("Skipping: fixtures not found");
+        return;
+    };
+
+    // Temp mod workspace + temp "game dir" holding a copy of the fixture.
+    let base = std::env::temp_dir().join(format!(
+        "dispel-fog-rec-{}-{}",
+        std::process::id(),
+        fixture.file_name().map(|n| n.len()).unwrap_or(0)
+    ));
+    let ws_root = base.join("ws");
+    let game_dir = base.join("game");
+    std::fs::create_dir_all(game_dir.join("ExtraInGame")).expect("game dir created");
+    let fog_path = game_dir.join("ExtraInGame/fogdata.dat");
+    std::fs::copy(&fixture, &fog_path).expect("fixture copied");
+
+    let ws = ModWorkspace::open(ws_root.clone()).expect("workspace opened");
+    let slug = ws
+        .create_mod(ModManifest::new("fog recording test"))
+        .expect("mod created");
+
+    // Load the copy and dirty it with one edit.
+    let mut state = FogDataEditorState::load_from_path(&fog_path);
+    assert!(state.error.is_none(), "fixture must parse cleanly");
+    assert!(state.paint_factor(0, MAX_FACTOR), "edit applied");
+
+    // Save through the real async path with recording params wired up,
+    // mirroring what `FogDataMessage::Save` dispatches.
+    let params = fog_data::RecordingParams {
+        workspace_root: ws_root.clone(),
+        game_path: game_dir.clone(),
+        mod_slug: slug.clone(),
+        relative_path: "ExtraInGame/fogdata.dat".into(),
+    };
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let outcome = rt.block_on(fog_data::save_fog_data(
+        fog_path.clone(),
+        state.fog.clone(),
+        Some(params),
+    ));
+
+    let (status, recording_error) = outcome.expect("save succeeded");
+    assert!(
+        status.contains("Saved"),
+        "status reports the save: {status}"
+    );
+    assert!(
+        recording_error.is_none(),
+        "recording must succeed: {recording_error:?}"
+    );
+
+    // The changelog must now contain a recorded change for fogdata.dat.
+    let pkg = ws.read_mod(&slug).expect("mod readable");
+    assert!(
+        !pkg.changes.is_empty(),
+        "save recorded a change into the mod changelog"
+    );
+    assert!(
+        pkg.changes
+            .actions()
+            .iter()
+            .any(|a| a.file_path == "ExtraInGame/fogdata.dat"),
+        "recorded action targets fogdata.dat"
+    );
+
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn fog_data_editor_save_without_session_writes_file_only() {
+    use crate::editors::fog_data::{self, FogDataEditorState};
+    use dispel_core::map::fogdata::MAX_FACTOR;
+
+    let Some(fixture) = fixture_fogdata_path() else {
+        eprintln!("Skipping: fixtures not found");
+        return;
+    };
+
+    let base = std::env::temp_dir().join(format!("dispel-fog-norec-{}", std::process::id()));
+    let game_dir = base.join("game");
+    std::fs::create_dir_all(game_dir.join("ExtraInGame")).expect("game dir created");
+    let fog_path = game_dir.join("ExtraInGame/fogdata.dat");
+    std::fs::copy(&fixture, &fog_path).expect("fixture copied");
+
+    let mut state = FogDataEditorState::load_from_path(&fog_path);
+    assert!(state.paint_factor(1, MAX_FACTOR), "edit applied");
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let outcome = rt.block_on(fog_data::save_fog_data(
+        fog_path.clone(),
+        state.fog.clone(),
+        None, // no recording session active
+    ));
+    let (status, recording_error) = outcome.expect("save succeeded");
+    assert!(status.contains("Saved"));
+    assert!(recording_error.is_none());
+    // No session → no recording side effects; only the file write happened.
+    let mut round_trip = std::env::temp_dir().join("dispel-fog-norec-check.dat");
+    state
+        .fog
+        .as_ref()
+        .unwrap()
+        .save_file(&round_trip)
+        .expect("re-encode ok");
+    assert_eq!(
+        std::fs::read(&fog_path).unwrap(),
+        std::fs::read(&round_trip).unwrap(),
+        "edited table persisted to disk"
+    );
+    let _ = std::fs::remove_file(&round_trip);
+    round_trip.pop();
+
+    let _ = std::fs::remove_dir_all(&base);
+}

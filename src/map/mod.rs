@@ -100,6 +100,7 @@
 // Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
 pub mod database;
+pub mod fogdata;
 pub mod model;
 pub mod reader;
 pub mod render;
@@ -136,7 +137,7 @@ use serde::{Deserialize, Serialize};
 type IoResult<T> = std::io::Result<T>;
 
 use reader::{
-    read_events_block, read_roof_tiles, read_tiles_and_access_block, skip_overlay_id_table,
+    read_events_block, read_overlay_id_table, read_roof_tiles, read_tiles_and_access_block,
     skip_tiled_object_refs, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
@@ -149,6 +150,9 @@ pub struct MapData {
     pub model: MapModel,
     pub gtl_tiles: HashMap<Coords, i32>,
     pub btl_tiles: HashMap<Coords, i32>,
+    /// Per-overlay-id `{lo: transparency mode, hi: draw-enable}` table from
+    /// the map file; drives roof rendering (see `render::plot_roofs`).
+    pub overlay_modes: Vec<u16>,
     /// Raw packed u32 words of the access-ref grid ("roof" block), preserved
     /// so saving keeps shadow levels and light flags intact. Overlay refs are
     /// patched from `btl_tiles` on write.
@@ -244,6 +248,22 @@ pub struct SpriteFrameJson {
 }
 
 impl MapData {
+    /// Iterate tiles carrying a light level, yielding `(coords, level)` with
+    /// levels in `1..=199`.
+    ///
+    /// The level lives in bits 15–29 of the tile's access-ref word and
+    /// selects a brightness pattern from `ExtraInGame/fogdata.dat` (higher
+    /// levels are generally brighter, not darker). Level 0 tiles are skipped
+    /// here — on maps flagged Dark in AllMap.ini they render fully black;
+    /// see [`render::plot_shadows`]. Levels ≥ 200 fall outside the lighting
+    /// pass and are skipped as well.
+    pub fn shadow_levels(&self) -> impl Iterator<Item = (Coords, u8)> + '_ {
+        self.access_ref_words.iter().filter_map(|(&coords, &word)| {
+            let level = (word >> 15) & 0x7FFF;
+            (level != 0 && level < 200).then_some((coords, level as u8))
+        })
+    }
+
     /// Convert MapData to JSON-serializable format.
     pub fn to_json(&self) -> MapDataJson {
         MapDataJson {
@@ -378,7 +398,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_map_height = map_model.tiled_map_height;
 
     skip_tiled_object_refs(reader)?;
-    skip_overlay_id_table(reader)?;
+    let overlay_modes = read_overlay_id_table(reader)?;
 
     let internal_sprites = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
@@ -418,6 +438,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         let (refs, words) = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
         btl_tiles = refs;
         access_ref_words = words;
+        let _ = &overlay_modes;
     } else if remaining_bytes > 0 {
         // If there are remaining bytes but not enough for a full grid,
         // this might indicate a different file structure or corruption
@@ -431,6 +452,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         model: map_model,
         gtl_tiles,
         btl_tiles,
+        overlay_modes,
         access_ref_words,
         collisions,
         events,
@@ -511,7 +533,6 @@ pub fn extract(
         reader: &mut reader,
         output_path,
         data: &map_data,
-        occlusion: !toggles.full_map,
         gtl_tileset: &gtl_tileset,
         btl_tileset: &btl_tileset,
         map_id,
@@ -853,4 +874,43 @@ pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) 
     )?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod shadow_tests {
+    use super::*;
+
+    #[test]
+    fn test_shadow_levels_decodes_bits_15_to_29() {
+        let mut data = MapData {
+            model: MapModel::default(),
+            gtl_tiles: HashMap::new(),
+            btl_tiles: HashMap::new(),
+            overlay_modes: Vec::new(),
+            access_ref_words: HashMap::new(),
+            collisions: HashMap::new(),
+            events: HashMap::new(),
+            object_ids: HashMap::new(),
+            tiled_infos: Vec::new(),
+            internal_sprites: Vec::new(),
+            sprite_blocks: Vec::new(),
+        };
+
+        // No shadows yet
+        assert_eq!(data.shadow_levels().count(), 0);
+
+        // Overlay ref 5 with shadow level 100, plus light-flag bits set high
+        data.access_ref_words
+            .insert((1, 0), (100 << 15) | 5 | 0xC000_0000);
+        // Level 0 → not yielded
+        data.access_ref_words.insert((2, 0), 7);
+        // Level 200 → not a darkness level, skipped
+        data.access_ref_words.insert((3, 0), 200 << 15);
+        // Level 199 → maximum valid darkness
+        data.access_ref_words.insert((4, 0), 199 << 15);
+
+        let mut levels: Vec<(Coords, u8)> = data.shadow_levels().collect();
+        levels.sort();
+        assert_eq!(levels, vec![((1, 0), 100), ((4, 0), 199)]);
+    }
 }

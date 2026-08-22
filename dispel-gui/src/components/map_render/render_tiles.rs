@@ -112,7 +112,7 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                             items.push((
                                 dispel_core::map::types::internal_sprite_sort_key(spr.sort_y),
                                 1,
-                                spr.x as i32,
+                                spr.x,
                                 Item::Sprite(i),
                             ));
                         }
@@ -246,6 +246,28 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                         bounds,
                     );
                 }
+
+                // ── Shadow/lighting pass (observed behavior) ─────────────────────
+                // On Dark maps, level-0 tiles black out and lit tiles fade
+                // through the fogdata.dat tables. Drawn after world pixels;
+                // entities on the overlay canvas above stay fully visible,
+                // like the player character. The GUI fades all channels
+                // uniformly (canvas has no per-channel multiply); the CLI
+                // renderer is the pixel-exact reference.
+                if view.show_shadows
+                    && let Some(fog) = self.state.shadow_data()
+                {
+                    draw_shadow_layer(
+                        frame,
+                        &map_data.access_ref_words,
+                        fog,
+                        diagonal,
+                        pan_x,
+                        pan_y,
+                        zoom,
+                        bounds,
+                    );
+                }
             });
 
         vec![geometry]
@@ -261,6 +283,81 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
             mouse::Interaction::Grab
         } else {
             mouse::Interaction::Idle
+        }
+    }
+}
+
+// ── Shadow/lighting pass ─────────────────────────────────────────────────────
+
+/// Draws the observed per-tile lighting pass over the world pixels.
+///
+/// Level-0 tiles (fog of war) black out; tiles with a light level fade
+/// through the fogdata tables, one factor byte per 2×1-pixel pair walking
+/// the span mask. The GUI fades all channels uniformly via alpha (canvas
+/// has no per-channel multiply) — the CLI renderer is the pixel-exact
+/// reference.
+#[allow(clippy::too_many_arguments)]
+fn draw_shadow_layer(
+    frame: &mut canvas::Frame,
+    words: &std::collections::HashMap<(i32, i32), u32>,
+    fog: &dispel_core::map::render::FogData,
+    diagonal: i32,
+    pan_x: f32,
+    pan_y: f32,
+    zoom: f32,
+    bounds: Rectangle,
+) {
+    use dispel_core::map::render::SHADOW_SPANS;
+
+    let tile_w = TILE_W * zoom;
+    let tile_h = TILE_H * zoom;
+    let pair_w = 2.0 * zoom;
+    let row_h = zoom;
+
+    for (&(tx, ty), &word) in words {
+        let level = (word >> 15) & 0x7FFF;
+        if level >= 200 {
+            continue;
+        }
+
+        let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+        if !is_visible(px, py, tile_w, tile_h, bounds) {
+            continue;
+        }
+
+        if level == 0 {
+            // Fog of war: solid black diamond covering the tile.
+            let cx = px + tile_w * 0.5;
+            let cy = py + tile_h * 0.5;
+            let hw = tile_w * 0.5;
+            let hh = tile_h * 0.5;
+            let path = canvas::Path::new(|b| {
+                b.move_to(Point::new(cx, cy - hh));
+                b.line_to(Point::new(cx + hw, cy));
+                b.line_to(Point::new(cx, cy + hh));
+                b.line_to(Point::new(cx - hw, cy));
+                b.close();
+            });
+            frame.fill(&path, Color::BLACK);
+            continue;
+        }
+
+        // Lit tile: one overlay rect per pixel pair, alpha = 1 − f/32.
+        let mut pair = 0usize;
+        for (row, &(start, width)) in SHADOW_SPANS.iter().enumerate() {
+            let y = py + row as f32 * row_h;
+            for p in 0..(width / 2) {
+                let x = px + (start + p * 2) as f32 * zoom;
+                if is_visible(x, y, pair_w, row_h, bounds) {
+                    let f = f32::from(fog.factor(level, pair)) / 32.0;
+                    frame.fill_rectangle(
+                        Point::new(x, y),
+                        Size::new(pair_w, row_h),
+                        Color::from_rgba(0.0, 0.0, 0.0, 1.0 - f),
+                    );
+                }
+                pair += 1;
+            }
         }
     }
 }

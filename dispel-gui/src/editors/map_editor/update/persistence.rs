@@ -360,7 +360,6 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
                 reader: &mut reader,
                 output_path: &output_path,
                 data: &map_data,
-                occlusion: false,
                 gtl_tileset: &gtl_tiles,
                 btl_tileset: &btl_tiles,
                 map_id: &map_id,
