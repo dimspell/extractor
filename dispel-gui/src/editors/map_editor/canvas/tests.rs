@@ -51,6 +51,7 @@ fn make_state(
     };
 
     let map_data = MapData {
+        overlay_modes: Vec::new(),
         model,
         gtl_tiles: HashMap::new(),
         btl_tiles: HashMap::new(),

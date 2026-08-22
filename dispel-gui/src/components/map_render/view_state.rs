@@ -15,6 +15,8 @@ pub struct MapViewState {
     pub show_ground: bool,
     pub show_buildings: bool,
     pub show_roofs: bool,
+    /// Observed shadow/lighting pass (fog-of-war on Dark maps).
+    pub show_shadows: bool,
     pub show_internal_sprites: bool,
     pub show_collisions: bool,
     pub show_events: bool,
@@ -69,6 +71,7 @@ impl Default for MapViewState {
             show_ground: true,
             show_buildings: true,
             show_roofs: true,
+            show_shadows: true,
             show_internal_sprites: true,
             show_collisions: false,
             show_events: false,

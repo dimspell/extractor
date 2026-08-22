@@ -46,6 +46,7 @@ mod crosscheck {
             EditorType::ModPackager,
             EditorType::LocalizationManager,
             EditorType::HexEditor,
+            EditorType::FogDataEditor,
             EditorType::Unknown,
         ]
     }

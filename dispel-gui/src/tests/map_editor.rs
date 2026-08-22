@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod map_editor_entity_tests {
     use crate::app::App;
+    use crate::components::map_render::traits::MapRenderSource;
     use crate::editors::map_editor;
+    use crate::editors::map_editor::message::MapLayer;
     use crate::editors::map_editor::{
         MapEditAction, MapEditorMessage, MapEditorState, SelectedEntity,
     };
@@ -591,6 +593,110 @@ mod map_editor_entity_tests {
         assert_eq!(
             app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
             "first redo: 100 → 150"
+        );
+    }
+
+    // ── Shadow/lighting layer ──────────────────────────────────────────────
+
+    /// Fixture game directory (same convention as update/map.rs tests).
+    fn fixture_game_path() -> Option<PathBuf> {
+        let p = PathBuf::from("../fixtures/Dispel");
+        p.exists().then_some(p)
+    }
+
+    #[test]
+    fn shadows_layer_defaults_visible() {
+        let state = MapEditorState::default();
+        assert!(
+            state.view.show_shadows,
+            "shadow pass enabled by default, matching observed behavior"
+        );
+    }
+
+    #[test]
+    fn layer_toggle_shadows_flips_visibility_and_back() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+        let before = app.state.editors.map_editors[&tab_id].view.show_shadows;
+
+        let task = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::Shadows),
+            &mut app,
+        );
+        assert_eq!(task.units(), 0);
+        let after = app.state.editors.map_editors[&tab_id].view.show_shadows;
+        assert_ne!(before, after, "LayerToggled(Shadows) flips visibility");
+
+        // Toggling again restores the original state.
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::Shadows),
+            &mut app,
+        );
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id].view.show_shadows, before,
+            "second toggle restores original visibility"
+        );
+    }
+
+    #[test]
+    fn light_map_loads_no_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        // cat1 is flagged Light (0) in AllMap.ini → no lighting pass
+        // is applied there.
+        assert!(
+            dispel_core::map::render::load_fog_if_dark(&gp, "cat1").is_none(),
+            "Light maps must not load shadow data"
+        );
+    }
+
+    #[test]
+    fn dark_map_loads_fog_data_with_known_factors() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        // final is flagged Dark (1) in AllMap.ini.
+        let fog = dispel_core::map::render::load_fog_if_dark(&gp, "final")
+            .expect("Dark map must load fogdata.dat");
+        // Known values from the shipped ExtraInGame/fogdata.dat: level 1 is
+        // uniformly near-black (f=2), level 65 fully bright (f=31).
+        assert_eq!(fog.factor(1, 0), 2);
+        assert_eq!(fog.factor(65, 256), 31);
+    }
+
+    #[test]
+    fn unknown_map_loads_no_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        assert!(
+            dispel_core::map::render::load_fog_if_dark(&gp, "not_a_map").is_none(),
+            "maps missing from AllMap.ini get no shadow pass"
+        );
+    }
+
+    #[test]
+    fn map_render_source_exposes_loaded_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+
+        let mut state = MapEditorState::default();
+        assert!(
+            state.shadow_data().is_none(),
+            "no shadow data before a Dark map is loaded"
+        );
+
+        let fog = dispel_core::map::render::FogData::load(&gp).expect("fixture fogdata.dat loads");
+        state.data.shadow_fog = Some(std::sync::Arc::new(fog));
+        assert!(
+            state.shadow_data().is_some(),
+            "MapRenderSource::shadow_data surfaces loaded tables to the canvas"
         );
     }
 }

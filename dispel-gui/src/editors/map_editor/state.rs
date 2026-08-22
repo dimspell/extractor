@@ -165,6 +165,9 @@ pub struct MapDataState {
     pub redo_stack: VecDeque<MapEditAction>,
     /// True when there are unsaved entity changes.
     pub dirty: bool,
+    /// Lighting fade tables for the observed shadow pass. Loaded only
+    /// when this map is flagged Dark in AllMap.ini and a game path is set.
+    pub shadow_fog: Option<std::sync::Arc<dispel_core::map::render::FogData>>,
     /// True while an async entity save is in flight.
     pub is_saving: bool,
     /// True while an async PNG export is in flight.
@@ -204,6 +207,7 @@ impl Default for MapDataState {
             undo_stack: VecDeque::new(),
             redo_stack: VecDeque::new(),
             dirty: false,
+            shadow_fog: None,
             is_saving: false,
             is_exporting: false,
             toasts: Vec::new(),
@@ -411,6 +415,10 @@ impl MapRenderSource for MapEditorState {
 
     fn tiles_ready(&self) -> bool {
         self.data.tiles_ready
+    }
+
+    fn shadow_data(&self) -> Option<&std::sync::Arc<dispel_core::map::render::FogData>> {
+        self.data.shadow_fog.as_ref()
     }
 
     fn view(&self) -> &MapViewState {

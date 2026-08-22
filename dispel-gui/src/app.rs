@@ -1,6 +1,7 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -311,6 +312,17 @@ impl App {
                         .snf_editors
                         .entry(tab_id)
                         .or_insert_with(|| SnfEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
+            EditorType::FogDataEditor => {
+                // 63 KB file — synchronous parse, same as the sprite editor.
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .fog_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| FogDataEditorState::load_from_path(path));
                 }
                 Task::none()
             }

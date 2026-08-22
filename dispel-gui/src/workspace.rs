@@ -51,6 +51,9 @@ pub enum EditorType {
     SaveFileViewer,
     /// Save-slot manager for `Save.ifo`: swap slots and edit global tail fields.
     SaveIfoEditor,
+    /// Editor for `ExtraInGame/fogdata.dat` — map-lighting fade tables
+    /// (123 levels × 512 brightness factors).
+    FogDataEditor,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -132,6 +135,8 @@ impl EditorType {
             // .scr files (exact stems only; "event*" prefix handled separately)
             m.insert(("scr", "quest"), EditorType::QuestScrEditor);
             m.insert(("scr", "message"), EditorType::MessageScrEditor);
+            // .dat files (exact stems only)
+            m.insert(("dat", "fogdata"), EditorType::FogDataEditor);
             m
         })
     }
@@ -183,10 +188,12 @@ impl EditorType {
         !matches!(
             self,
             EditorType::EventScrEditor
-                | EditorType::MonsterEditor
+                |             EditorType::MonsterEditor
                 | EditorType::MonsterIniEditor
                 | EditorType::NpcIniEditor
+                // Snapshot-based undo (own stacks, no EditHistory component)
                 | EditorType::SpriteViewer
+                | EditorType::FogDataEditor
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor

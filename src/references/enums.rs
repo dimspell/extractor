@@ -196,9 +196,9 @@ impl From<bool> for PropertyFlag {
 #[repr(i32)]
 #[derive(Default)]
 pub enum MapLighting {
-    /// Dark map (interior, dungeon)
+    /// Light map (exterior, daytime) — no lighting pass applied
     Light = 0,
-    /// Light map (exterior, daytime)
+    /// Dark map (interior, dungeon) — the lighting pass darkens tiles
     #[default]
     Dark = 1,
 }

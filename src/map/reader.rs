@@ -50,11 +50,17 @@ pub fn skip_tiled_object_refs(reader: &mut BufReader<File>) -> Result<()> {
 /// Indexed by the Access-Ref grid's low 15 bits. Each entry packs
 /// `{low byte: transparency mode, high byte: draw-enable}` for the BTL
 /// overlay tile with that id.
-pub fn skip_overlay_id_table(reader: &mut BufReader<File>) -> Result<()> {
+///
+/// Semantics: a high byte of 0 hides the overlay entirely; a low byte of 0
+/// blits the tile diamond opaquely, any other value blits it skipping black
+/// (0,0,0) pixels.
+pub fn read_overlay_id_table(reader: &mut BufReader<File>) -> Result<Vec<u16>> {
     let size = reader.read_i32::<LittleEndian>()?;
-    let skip: i64 = (size * 2).into();
-    reader.seek(SeekFrom::Current(skip))?;
-    Ok(())
+    let mut table = Vec::with_capacity(size as usize);
+    for _ in 0..size {
+        table.push(reader.read_u16::<LittleEndian>()?);
+    }
+    Ok(table)
 }
 
 // --------------------------------------------------------------------------
@@ -211,8 +217,8 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
 // --------------------------------------------------------------------------
 // Event block – per-tile packed u32 (located near end of file)
 //
-// Low 14 bits hold an event/transition id; in-game, hovering such a tile
-// shows a name resolved through the Map.ini/AllMap.ini tables (ids < 70 are
+// Low 14 bits hold an event/transition id; observed behavior: hovering such
+// a tile shows a name resolved through the Map.ini/AllMap.ini tables (ids < 70 are
 // treated as valid). Bit 22 of the word ("tile marked / entity occupies")
 // monster chase logic treats marked tiles as blocked; see
 // [`EventBlock::is_tile_marked`].
@@ -292,8 +298,9 @@ pub fn read_tiles_and_access_block(
 //               `skip_overlay_id_table` ({lo byte: transparency mode,
 //               hi byte: draw-enable}); pixels at btl_base + id * 0x800
 //   bit 15      bleeds into the signed-i16 view of the ref (negative ⇒ skip)
-//   bits 15–29  shadow/darkness level (0–199), per-pixel fade applied by
-//               the shadow renderer
+//   bits 15–29  light level (0–199) selecting a brightness pattern from
+//               ExtraInGame/fogdata.dat; applied by the shadow renderer on
+//               maps flagged Dark in AllMap.ini (level 0 → blacked out)
 //   bits 30–31  light-source flags (entities' light raises the level, max wins)
 // --------------------------------------------------------------------------
 
@@ -313,17 +320,11 @@ pub fn read_roof_tiles(
             let coords: Coords = (x, y);
             access_ref_words.insert(coords, word);
 
-            // Signed-i16 view of the ref, matching the original parser: a ref
-            // with bit 15 set reads as negative and is skipped.
-            let btl_tile_id = (word & 0xFFFF) as u16 as i16;
-            let shadow_and_flags = (word >> 16) as u16 as i16;
+            // Overlay ref in bits 0–14. Bit 15 belongs to the shadow level,
+            // NOT the ref — mask it off instead of sign-dropping.
+            let btl_tile_id = (word & 0x7FFF) as i32;
             if btl_tile_id > 0 {
-                if shadow_and_flags != 0 {
-                    println!(
-                        "ReadRoofTiles: overlay tile {btl_tile_id} with shadow/flags {shadow_and_flags:#06x}"
-                    );
-                }
-                btl_tiles.insert(coords, i32::from(btl_tile_id));
+                btl_tiles.insert(coords, btl_tile_id);
             }
         }
     }
@@ -344,7 +345,7 @@ mod tests {
         // Decode
         let decoded_gtl = (value >> 10) & 0x7FFF;
         let decoded_blocked = (value & 0x1) == 1;
-        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+        let decoded_object = (value >> 1) & 0x1FF;
 
         assert_eq!(decoded_gtl, 1234, "GTL tile id mismatch");
         assert_eq!(decoded_object, 5, "Object id mismatch");
@@ -367,7 +368,7 @@ mod tests {
 
         let decoded_gtl = (value >> 10) & 0x7FFF;
         let decoded_blocked = (value & 0x1) == 1;
-        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+        let decoded_object = (value >> 1) & 0x1FF;
 
         assert_eq!(decoded_gtl, 42);
         assert_eq!(decoded_object, 0);
@@ -389,7 +390,7 @@ mod tests {
 
         let decoded_gtl = (value >> 10) & 0x7FFF;
         let decoded_blocked = (value & 0x1) == 1;
-        let decoded_object = ((value >> 1) & 0x1FF) as i32;
+        let decoded_object = (value >> 1) & 0x1FF;
 
         assert_eq!(decoded_gtl, 0x7FFF);
         assert_eq!(decoded_object, 0x1FF);

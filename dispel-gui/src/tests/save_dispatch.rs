@@ -70,6 +70,7 @@ mod save_dispatch_tests {
             EditorType::ModPackager,
             EditorType::LocalizationManager,
             EditorType::HexEditor,
+            EditorType::FogDataEditor,
             EditorType::Unknown,
         ]
     }

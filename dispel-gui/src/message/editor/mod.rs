@@ -15,6 +15,7 @@ use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
 use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
+use crate::editors::fog_data::FogDataMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::editors::magic::MagicEditorMessage;
@@ -82,5 +83,6 @@ pub enum EditorMessage {
     Localization(LocalizationMessage),
     SaveFileViewer(SaveFileViewerMessage),
     SaveIfo(SaveIfoEditorMessage),
+    FogData(FogDataMessage),
     HexEditor(HexEditorMessage),
 }

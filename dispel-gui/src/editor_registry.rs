@@ -12,6 +12,7 @@ use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -83,6 +84,7 @@ pub struct EditorRegistry {
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
+    pub fog_editors: HashMap<usize, FogDataEditorState>,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -123,6 +125,16 @@ macro_rules! undo_redo_dispatch {
             EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
                 viewer.$action();
                 String::new() // no status message needed
+            }),
+
+            // Fog data editor — snapshot-based undo/redo; reports whether the
+            // operation did anything so the status bar can say "Nothing to undo".
+            EditorType::FogDataEditor => $self.fog_editors.get_mut(&$tab_id).and_then(|editor| {
+                if editor.$action() {
+                    Some(String::new())
+                } else {
+                    None
+                }
             }),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
@@ -177,6 +189,7 @@ impl EditorRegistry {
         self.map_editors.remove(&tab_id);
         self.hex_editors.remove(&tab_id);
         self.save_file_viewers.remove(&tab_id);
+        self.fog_editors.remove(&tab_id);
     }
 
     /// Clear editors for every tab.  Use when the workspace is about to lose
@@ -198,6 +211,7 @@ impl EditorRegistry {
         self.map_editors.clear();
         self.hex_editors.clear();
         self.save_file_viewers.clear();
+        self.fog_editors.clear();
     }
 
     /// Stop SNF audio playback on every open SNF editor.
@@ -384,6 +398,7 @@ impl EditorRegistry {
         self.snf_editors.clear();
         self.hex_editors.clear();
         self.save_file_viewers.clear();
+        self.fog_editors.clear();
 
         // Boxed editors — reset to default
         *self.weapon_editor = Default::default();

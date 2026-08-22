@@ -226,6 +226,42 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
     }
 }
 
+/// Same diamond-masked blit as [`plot_tile`], but writes black (0,0,0)
+/// pixels too. The overlay id's mode entry picks per tile between this and
+/// the black-skipping variant.
+pub fn plot_tile_opaque(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
+    let img_w = imgbuf.width() as i32;
+    let img_h = imgbuf.height() as i32;
+
+    if dest_x + TILE_WIDTH as i32 <= 0
+        || dest_x >= img_w
+        || dest_y + TILE_HEIGHT as i32 <= 0
+        || dest_y >= img_h
+    {
+        return;
+    }
+
+    let mask = create_mask();
+    let mut i = 0;
+    for (y, row) in mask.iter().enumerate() {
+        for x in 0..row[1] {
+            let pixel: Color = colors[i];
+            i += 1;
+
+            let final_x = dest_x + x + row[0];
+            let final_y = dest_y + y as i32;
+
+            if final_x >= 0 && final_x < img_w && final_y >= 0 && final_y < img_h {
+                imgbuf.put_pixel(
+                    final_x as u32,
+                    final_y as u32,
+                    Rgb([pixel.r, pixel.g, pixel.b]),
+                );
+            }
+        }
+    }
+}
+
 /// Generates a tileset atlas image containing all tiles in a grid
 ///
 /// # Arguments

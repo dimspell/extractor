@@ -79,6 +79,11 @@ fn save_task_for_editor(
             Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
         }
 
+        // Fog data editor (per-tab Save carries the tab id)
+        EditorType::FogDataEditor => {
+            Message::fog_data(crate::editors::fog_data::FogDataMessage::Save(tab_id))
+        }
+
         // Map editor uses SaveEntities with tab_id
         EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
 

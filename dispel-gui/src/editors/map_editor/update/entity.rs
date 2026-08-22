@@ -504,6 +504,7 @@ mod tests {
         let mut object_ids = HashMap::new();
         object_ids.insert((10, 10), 42);
         let map_data = MapData {
+            overlay_modes: Vec::new(),
             model,
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),

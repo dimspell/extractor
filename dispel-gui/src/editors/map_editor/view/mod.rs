@@ -112,6 +112,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
+                    "Shadows",
+                    state.view.show_shadows,
+                    tab_id,
+                    MapLayer::Shadows,
+                    None
+                ),
+                layer_toggle(
                     "Sprites",
                     state.view.show_internal_sprites,
                     tab_id,
@@ -556,7 +563,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     move || Message::map_editor(MapEditorMessage::HideDialogPreview(tab_id)),
                     0.5,
                 )
-                .into()
             } else {
                 base
             };

@@ -37,6 +37,7 @@ files form a complex interconnected database that drives the game's mechanics, v
 - **Eventnpc.ref** (NpcInGame/): Event-triggered NPC definitions
 - **NpcMapFiles.ref** (NpcInGame/): NPC placements with waypoints
 - **Extra.ref** (ExtraInGame/): Interactive object placements
+- **fogdata.dat** (ExtraInGame/): Map lighting fade tables, consumed by the map renderer/editor (see [ExtraInGame/fogdata.dat.md](ExtraInGame/fogdata.dat.md))
 - **MondunMonmap.ref** (MonsterInGame/): Monster placements on maps
 
 ### Script Files (SCR/DLG/PGP)

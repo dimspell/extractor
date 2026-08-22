@@ -30,6 +30,31 @@ impl EntityKind {
     }
 }
 
+pub struct EntityRenderData<'a> {
+    pub tile_x: i32,
+    pub tile_y: i32,
+    pub sort_key: i32,
+    pub sprite: Option<&'a EntitySpriteHandle>,
+    pub kind: EntityKind,
+    pub visible: bool,
+}
+
+pub trait MapRenderSource {
+    /// Lighting fade tables for the shadow pass; `None` disables shadows.
+    fn shadow_data(&self) -> Option<&std::sync::Arc<dispel_core::map::render::FogData>> {
+        None
+    }
+
+    fn map_data(&self) -> Option<&MapDataHandle>;
+    fn gtl_handles(&self) -> &HashMap<i32, Handle>;
+    fn btl_handles(&self) -> &HashMap<i32, Handle>;
+    fn tiles_ready(&self) -> bool;
+    fn view(&self) -> &MapViewState;
+    fn internal_sprite_handles(&self) -> &[InternalSpriteHandle];
+    fn entity_count(&self) -> usize;
+    fn entity_data(&self, idx: usize) -> Option<EntityRenderData<'_>>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::EntityKind;
@@ -66,24 +91,4 @@ mod tests {
         // Entities stay above buildings (0) and internal sprites (1).
         assert!(order[0].type_order() > 1);
     }
-}
-
-pub struct EntityRenderData<'a> {
-    pub tile_x: i32,
-    pub tile_y: i32,
-    pub sort_key: i32,
-    pub sprite: Option<&'a EntitySpriteHandle>,
-    pub kind: EntityKind,
-    pub visible: bool,
-}
-
-pub trait MapRenderSource {
-    fn map_data(&self) -> Option<&MapDataHandle>;
-    fn gtl_handles(&self) -> &HashMap<i32, Handle>;
-    fn btl_handles(&self) -> &HashMap<i32, Handle>;
-    fn tiles_ready(&self) -> bool;
-    fn view(&self) -> &MapViewState;
-    fn internal_sprite_handles(&self) -> &[InternalSpriteHandle];
-    fn entity_count(&self) -> usize;
-    fn entity_data(&self, idx: usize) -> Option<EntityRenderData<'_>>;
 }
