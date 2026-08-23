@@ -269,34 +269,6 @@ pub enum MapCommands {
         #[arg(long)]
         npc_waypoints: bool,
     },
-    /// Render a map from SQLite database
-    #[command(
-        about = "Render map from database",
-        long_about = "Renders a map image using tile data from SQLite database and atlas PNG files."
-    )]
-    FromDb {
-        /// Path to the SQLite database file
-        #[arg(short, long, default_value = "database.sqlite")]
-        database: String,
-        /// Map ID to render (e.g., "cat1")
-        #[arg(short, long)]
-        map_id: String,
-        /// Path to the ground tileset atlas PNG
-        #[arg(long)]
-        gtl_atlas: String,
-        /// Path to the building/roof tileset atlas PNG
-        #[arg(long)]
-        btl_atlas: String,
-        /// Number of tiles per row in the atlas (default: 48)
-        #[arg(long, default_value = "48")]
-        atlas_columns: u32,
-        /// Path to save the output PNG
-        #[arg(short, long)]
-        output: String,
-        /// Path to the Dispel game directory (enables sprite rendering for NPCs, monsters, extras)
-        #[arg(long)]
-        game_path: Option<String>,
-    },
     /// Import a map file into SQLite database
     #[command(
         about = "Import map to database",

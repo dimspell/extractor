@@ -7,9 +7,8 @@
 //  model.rs        – MapModel struct and geometry parser (read_map_model)
 //  reader.rs       – Binary block readers for the native .map file format
 //  render.rs       – Isometric rendering pipeline (ground / objects / roofs,
-//                    sprite on bitmap, atlas tile blitter)
+//                    sprite on bitmap)
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
-//  database.rs     – render_from_database + entity overlay helpers
 //  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
 
 // ===========================================================================
@@ -99,7 +98,6 @@
 // FILE SIZE CALCULATION:
 // Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
-pub mod database;
 pub mod fogdata;
 pub mod model;
 pub mod reader;
@@ -111,7 +109,6 @@ pub mod types;
 pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
-pub use database::render_from_database;
 pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
@@ -566,7 +563,7 @@ pub fn extract(
 /// - Pixel data for each animation frame
 ///
 /// Sprites are extracted with their original animation sequences preserved,
-/// allowing for proper reconstruction of in-game animations.
+/// allowing for proper reconstruction of the observed animations.
 pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
