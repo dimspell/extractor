@@ -341,7 +341,6 @@ struct LoadedSpriteFrame {
 |--------------------------------------------------------------------------------------|-------------------------------------|
 | `extract(map, btl, gtl, output, save_sprites)`                                       | Render `.MAP` + tilesets to PNG     |
 | `extract_sprites(map, output_dir)`                                                   | Extract embedded sprites to PNGs    |
-| `render_from_database(db, map_id, gtl_atlas, btl_atlas, columns, output, game_path)` | Render map from SQLite + atlas PNGs |
 
 ### Database
 
@@ -359,7 +358,6 @@ struct LoadedSpriteFrame {
 | Function                                             | Description                                     |
 |------------------------------------------------------|-------------------------------------------------|
 | `convert_map_coords_to_image_coords(x, y, diagonal)` | Convert tile coords to pixel coords             |
-| `plot_atlas_tile(params)`                            | Blit tile from atlas with alpha blending        |
 | `plot_entity_sprite(dest, sprite, x, y, flip)`       | Plot sprite frame with optional horizontal flip |
 
 ---
@@ -372,16 +370,6 @@ struct LoadedSpriteFrame {
 1. plot_base()     — Ground tiles (GTL) with event/collision coloring
 2. plot_objects()  — Sprites + tiled objects, sorted by ground_y for proper depth
 3. plot_roofs()    — Roof/building tiles (BTL)
-```
-
-### Pass Order (from `database.rs` — render_from_database)
-
-```
-1. Ground tiles    — GTL tiles from atlas PNG
-2. Objects         — Stacked BTL tiles from atlas, sorted by ground_y
-3. Roofs           — BTL roof tiles from atlas
-4. External entities — NPCs (green), monsters (red), extras (blue)
-                     — Real sprites if game_path provided, else colored markers
 ```
 
 ### Depth Sorting

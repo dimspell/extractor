@@ -1,7 +1,6 @@
 use super::Command;
 use crate::cli::MapCommands;
 use dispel_core::map;
-use dispel_core::map::database::RenderConfig;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -79,28 +78,6 @@ impl Command for MapCommand {
                     },
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;
-                Ok(())
-            }
-            MapCommands::FromDb {
-                database,
-                map_id,
-                gtl_atlas,
-                btl_atlas,
-                atlas_columns,
-                output,
-                game_path,
-            } => {
-                eprintln!("Rendering map from database...");
-                map::render_from_database(RenderConfig {
-                    database_path: Path::new(database),
-                    map_id,
-                    gtl_atlas_path: Path::new(gtl_atlas),
-                    btl_atlas_path: Path::new(btl_atlas),
-                    atlas_columns: *atlas_columns,
-                    output_path: Path::new(output),
-                    game_path: game_path.as_deref().map(Path::new),
-                })
-                .map_err(|e| format!("ERROR: could not render map from database: {e}"))?;
                 Ok(())
             }
             MapCommands::ToDb { database, map } => {

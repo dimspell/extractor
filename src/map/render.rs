@@ -1359,74 +1359,6 @@ fn plot_npc_waypoints_overlay(
     }
 }
 
-// --------------------------------------------------------------------------
-// Atlas tile blitter (used by render_from_database)
-// --------------------------------------------------------------------------
-
-pub struct AtlasTileParams<'a> {
-    pub dest: &'a mut image::RgbaImage,
-    pub atlas: &'a image::DynamicImage,
-    pub src_x: u32,
-    pub src_y: u32,
-    pub tile_w: u32,
-    pub tile_h: u32,
-    pub dest_x: i32,
-    pub dest_y: i32,
-}
-
-/// Copies a tile from a pre-built atlas image onto the destination buffer,
-/// with per-pixel alpha blending support.
-pub fn plot_atlas_tile(params: AtlasTileParams) {
-    use image::GenericImageView;
-
-    let dest_x = if params.dest_x < 0 || params.dest_y < 0 {
-        return;
-    } else {
-        params.dest_x as u32
-    };
-    let dest_y = params.dest_y as u32;
-
-    if dest_x + params.tile_w > params.dest.width()
-        || dest_y + params.tile_h > params.dest.height()
-        || params.src_x + params.tile_w > params.atlas.width()
-        || params.src_y + params.tile_h > params.atlas.height()
-    {
-        return;
-    }
-
-    for py in 0..params.tile_h {
-        for px in 0..params.tile_w {
-            let pixel = params.atlas.get_pixel(params.src_x + px, params.src_y + py);
-            let alpha = pixel[3];
-            if alpha == 0 {
-                continue;
-            }
-            if alpha == 255 {
-                params.dest.put_pixel(dest_x + px, dest_y + py, pixel);
-            } else {
-                let existing = *params.dest.get_pixel(dest_x + px, dest_y + py);
-                let blend = |src: u8, dst: u8, a: u8| -> u8 {
-                    ((src as u32 * a as u32 + dst as u32 * (255 - a as u32)) / 255) as u8
-                };
-                params.dest.put_pixel(
-                    dest_x + px,
-                    dest_y + py,
-                    image::Rgba([
-                        blend(pixel[0], existing[0], alpha),
-                        blend(pixel[1], existing[1], alpha),
-                        blend(pixel[2], existing[2], alpha),
-                        255,
-                    ]),
-                );
-            }
-        }
-    }
-}
-
-// --------------------------------------------------------------------------
-// Tests
-// --------------------------------------------------------------------------
-
 #[test]
 fn rgb16_565_produce_color_test() {
     let color = rgb16_565_produce_color(0);
@@ -1463,30 +1395,6 @@ fn rgb16_565_white() {
     assert_eq!(color.r, 248);
     assert_eq!(color.g, 252);
     assert_eq!(color.b, 248);
-}
-
-#[test]
-fn plot_atlas_tile_params() {
-    use image::{ImageBuffer, Rgba, RgbaImage};
-
-    let mut dest: RgbaImage = ImageBuffer::new(100, 100);
-    let atlas: image::DynamicImage =
-        image::DynamicImage::ImageRgba8(ImageBuffer::from_pixel(64, 64, Rgba([255, 0, 0, 255])));
-
-    plot_atlas_tile(AtlasTileParams {
-        dest: &mut dest,
-        atlas: &atlas,
-        src_x: 0,
-        src_y: 0,
-        tile_w: 32,
-        tile_h: 32,
-        dest_x: 10,
-        dest_y: 10,
-    });
-
-    let pixel = dest.get_pixel(10, 10);
-    assert_eq!(pixel[0], 255);
-    assert_eq!(pixel[3], 255);
 }
 
 #[test]
