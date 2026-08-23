@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS event_items
 (
     id          INTEGER,
-    name        STRING,
-    description STRING,
+    name        TEXT,
+    description TEXT,
     base_price  INTEGER,
-    padding     BLOB
+    padding     INTEGER
 )
