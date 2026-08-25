@@ -125,6 +125,13 @@ pub struct TiledObjectMetadata {
     /// Trailing counts gating data covered by the post-stack skip.
     pub extra_count_a: i32,
     pub extra_count_b: i32,
+    /// The fixed 84-byte trailer after the tile stack (unmapped; retained
+    /// verbatim for lossless DB export).
+    pub trailing_fixed: Vec<u8>,
+    /// The variable trailer of `(extra_count_a + extra_count_b +
+    /// tile_stack_len) * 4` bytes after the fixed trailer (unmapped; retained
+    /// verbatim).
+    pub trailing_variable: Vec<u8>,
 }
 
 /// A building/object made up of stacked BTL tileset tiles.

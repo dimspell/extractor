@@ -14,5 +14,7 @@ CREATE TABLE IF NOT EXISTS map_object_metadata (
     param_5 INTEGER NOT NULL,
     extra_count_a INTEGER NOT NULL,
     extra_count_b INTEGER NOT NULL,
+    trailing_fixed BLOB NOT NULL,
+    trailing_variable BLOB NOT NULL,
     PRIMARY KEY (map_id, object_index)
 );
