@@ -249,6 +249,10 @@ pub enum MapCommands {
         /// Disable external objects (extras) rendering
         #[arg(long)]
         no_objects: bool,
+        /// Animation frame index for internal sprites (default 0; clamped to
+        /// each sequence's last frame)
+        #[arg(long)]
+        frame: Option<usize>,
 
         // Canvas mode
         /// Output RGBA PNG with alpha channel (black background pixels become transparent)
