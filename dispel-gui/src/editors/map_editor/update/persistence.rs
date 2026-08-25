@@ -365,6 +365,7 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
                 map_id: &map_id,
                 game_path: game_path.as_deref(),
                 toggles: Default::default(),
+                lights: &[],
             })
             .map_err(|e| format!("Render failed: {e}"))?;
 

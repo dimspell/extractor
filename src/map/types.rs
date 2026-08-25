@@ -93,6 +93,38 @@ pub struct SpriteInfoBlock {
     /// Bottom edge of the sprite's bounding box (= top + frame height).
     /// Y-sort key for interlaced rendering.
     pub sprite_bottom_right_y: i32,
+    /// Left edge of the frame-0 bounding box in map pixels (raw disk value;
+    /// duplicates `sprite_x` in known maps).
+    pub bbox_left: i32,
+    /// Top edge of the frame-0 bounding box in map pixels (duplicates `sprite_y`).
+    pub bbox_top: i32,
+    /// Right edge of the frame-0 bounding box (== left + frame width).
+    pub bbox_right: i32,
+}
+
+/// Retained per-bundle metadata from the tiled objects block, preserved so the
+/// DB export is lossless. The 264-byte bundle header is stored verbatim
+/// (its first i32 is a stamp); control words, unmapped parameters and trailing
+/// counts are captured as named fields.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TiledObjectMetadata {
+    /// The raw 264-byte bundle header, first i32 stamp included verbatim.
+    pub metadata_blob: Vec<u8>,
+    /// Control words — always observed as `(8, 0, 1, 0)` in known maps.
+    pub control_0: i32,
+    pub control_1: i32,
+    pub control_2: i32,
+    pub control_3: i32,
+    /// Unmapped parameters preceding/following the stack anchor.
+    pub param_0: i32,
+    pub param_1: i32,
+    pub param_2: i32,
+    pub param_3: i32,
+    pub param_4: i32,
+    pub param_5: i32,
+    /// Trailing counts gating data covered by the post-stack skip.
+    pub extra_count_a: i32,
+    pub extra_count_b: i32,
 }
 
 /// A building/object made up of stacked BTL tileset tiles.

@@ -30,12 +30,17 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "extra_refs",
         "extra_ref_files",
         "extras",
+        "fog_factors",
         "heal_items",
         "magic_spells",
         "map_inis",
         "map_metadata",
+        "map_object_metadata",
+        "map_object_refs",
         "map_objects",
+        "map_overlay_modes",
         "map_sprite_frames",
+        "map_sprite_sequences",
         "map_sprites",
         "map_tiles",
         "maps",
@@ -71,6 +76,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extras.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_fog_factors.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extra_ref_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extra_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_weapons.sql"))?;
@@ -100,6 +106,12 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprite_frames.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_overlay_modes.sql"))?;
+    conn.execute_batch(include_str!(
+        "queries/create_table_map_sprite_sequences.sql"
+    ))?;
+    conn.execute_batch(include_str!("queries/create_table_map_object_refs.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_object_metadata.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_paragraphs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
