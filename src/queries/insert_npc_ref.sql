@@ -1,5 +1,5 @@
 INSERT OR REPLACE INTO npc_refs(file_id,
-                     "index",
+                     id,
                      file_record_id,
                      npc_ini_id,
                      name,

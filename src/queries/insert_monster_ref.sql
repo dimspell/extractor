@@ -1,5 +1,5 @@
 INSERT OR REPLACE INTO monster_refs(file_id,
-                          "index",
+                          id,
                           placement_id,
                          monster_db_id,
                          map_x,

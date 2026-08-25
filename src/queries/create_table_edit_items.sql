@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS edit_items
 (
-    "index"                    INTEGER,
+    id                    INTEGER,
     name                  TEXT,
     description           TEXT,
     base_price            INTEGER,
