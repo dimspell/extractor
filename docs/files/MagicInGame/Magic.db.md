@@ -29,7 +29,7 @@ All fields are little-endian `u32`; the record ID is its zero-based position.
 |     44 | `animation_data_index`                           | Index into the animation data table, resolved to a pointer after file load                                                                          |
 |  48–56 | `effect_value`, `effect_type`, `effect_modifier` | Effect configuration; exact semantics are not yet established                                                                                       |
 |     60 | `reserved_0x3c`                                  | Reserved word; zero by default                                                                                                                      |
-|     64 | `magic_type`                                     | Magic type (0=Magic, 1=LightMagic, 2=BlackMagic) — selects which character magic-skill attribute drives damage, success, and mana-cost calculations |
+|     64 | `magic_type`                                     | Magic type (0=Magic, 1=HolyMagic, 2=DarkMagic) — selects which character magic-skill attribute drives damage, success, and mana-cost calculations |
 |     68 | `target_animation_blends_with_background`        | `0`=Off, `1`=On — uses blended rendering for the target animation instead of direct blitting                                                        |
 |     72 | `animation_set_id`                               | Cast-animation set                                                                                                                                  |
 |     76 | `effect_visual_id`                               | Visual/projectile mapping selected when casting                                                                                                     |

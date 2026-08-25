@@ -146,7 +146,7 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x3c: u32,
 
-    /// Magic type (Magic=0, LightMagic=1, BlackMagic=2) — selects which character
+    /// Magic type (Magic=0, HolyMagic=1, DarkMagic=2) — selects which character
     /// magic-skill attribute drives damage, success, and mana-cost calculations.
     #[extractor(enum_from_u32(type = "MagicType"))]
     pub magic_type: MagicType,
@@ -248,7 +248,7 @@ mod tests {
             1,  // effect_type
             0,  // effect_modifier
             0,  // reserved_0x3c
-            1,  // magic_type (LightMagic)
+            1,  // magic_type (HolyMagic)
             0,  // target_animation_blends_with_background
             1,  // animation_set_id
             2,  // effect_visual_id
@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(spells[0].enabled, MagicSpellFlag::Enabled);
         assert_eq!(spells[0].base_damage, 20);
         assert_eq!(spells[0].mana_cost, 50);
-        assert_eq!(spells[0].magic_type, MagicType::LightMagic);
+        assert_eq!(spells[0].magic_type, MagicType::HolyMagic);
         assert_eq!(spells[0].targeting_mode, SpellTargetType::Single);
     }
 
