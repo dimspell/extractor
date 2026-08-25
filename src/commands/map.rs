@@ -47,6 +47,7 @@ impl Command for MapCommand {
                 no_monsters,
                 no_npcs,
                 no_objects,
+                frame,
                 transparent,
                 collisions,
                 events,
@@ -75,6 +76,7 @@ impl Command for MapCommand {
                         show_events: *events,
                         show_draw_items: *draw_items,
                         show_npc_waypoints: *npc_waypoints,
+                        sprite_frame: *frame,
                     },
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;

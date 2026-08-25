@@ -535,6 +535,7 @@ pub fn extract(
         map_id,
         game_path,
         toggles,
+        lights: &[],
     })
 }
 
@@ -911,3 +912,6 @@ mod shadow_tests {
         assert_eq!(levels, vec![((1, 0), 100), ((4, 0), 199)]);
     }
 }
+
+#[cfg(test)]
+mod render_placement_tests;
