@@ -109,6 +109,7 @@ pub mod types;
 pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
+pub use self::fogdata::{FogData, save_to_db as save_fog_to_db};
 pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
@@ -134,10 +135,11 @@ use serde::{Deserialize, Serialize};
 type IoResult<T> = std::io::Result<T>;
 
 use reader::{
-    read_events_block, read_overlay_id_table, read_roof_tiles, read_tiles_and_access_block,
-    skip_tiled_object_refs, sprite_block, sprite_info_block, tiled_objects_block,
+    read_events_block, read_overlay_id_table, read_roof_tiles, read_tiled_object_refs,
+    read_tiles_and_access_block, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
+use types::TiledObjectMetadata;
 
 // --------------------------------------------------------------------------
 // MapData – the in-memory representation of a parsed .map file
@@ -160,6 +162,14 @@ pub struct MapData {
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
+    /// Image stamp per embedded sprite (6 or 9), parallel to
+    /// `internal_sprites` — same length, same order.
+    pub internal_sprite_stamps: Vec<i32>,
+    /// First-block tiled-object ref records `(value0, value1)` in file order.
+    pub tiled_object_refs: Vec<(i32, i32)>,
+    /// Per-bundle retained metadata, parallel to `tiled_infos` — same length,
+    /// same order.
+    pub tiled_object_metadata: Vec<TiledObjectMetadata>,
 }
 
 /// JSON-serializable representation of map data.
@@ -394,12 +404,14 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_map_width = map_model.tiled_map_width;
     let tiled_map_height = map_model.tiled_map_height;
 
-    skip_tiled_object_refs(reader)?;
+    // First-block refs are now read (previously skipped) — see
+    // `reader::read_tiled_object_refs`.
+    let tiled_object_refs = read_tiled_object_refs(reader)?;
     let overlay_modes = read_overlay_id_table(reader)?;
 
-    let internal_sprites = sprite_block(reader)?;
+    let (internal_sprites, internal_sprite_stamps) = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
-    let tiled_infos = tiled_objects_block(reader)?;
+    let (tiled_infos, tiled_object_metadata) = tiled_objects_block(reader)?;
 
     // Event and tile blocks live at the end of the file
     // Calculate expected size for the three end blocks
@@ -457,6 +469,9 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         tiled_infos,
         internal_sprites,
         sprite_blocks,
+        internal_sprite_stamps,
+        tiled_object_refs,
+        tiled_object_metadata,
     })
 }
 
@@ -670,6 +685,8 @@ pub fn save_to_db(
         btl_tiles: &data.btl_tiles,
         collisions: &data.collisions,
         events: &data.events,
+        access_ref_words: &data.access_ref_words,
+        object_ids: &data.object_ids,
         width: data.model.tiled_map_width,
         height: data.model.tiled_map_height,
     })?;
@@ -682,6 +699,14 @@ pub fn save_to_db(
 
     save_map_metadata(conn, map_id, &data.model)?;
 
+    save_map_overlay_modes(conn, map_id, &data.overlay_modes)?;
+
+    save_map_sprite_sequences(conn, map_id, &data.internal_sprites)?;
+
+    save_map_object_refs(conn, map_id, &data.tiled_object_refs)?;
+
+    save_map_object_metadata(conn, map_id, &data.tiled_infos, &data.tiled_object_metadata)?;
+
     Ok(())
 }
 
@@ -692,6 +717,8 @@ pub struct SaveMapTilesParams<'a> {
     pub btl_tiles: &'a HashMap<Coords, i32>,
     pub collisions: &'a HashMap<Coords, bool>,
     pub events: &'a HashMap<Coords, EventBlock>,
+    pub access_ref_words: &'a HashMap<Coords, u32>,
+    pub object_ids: &'a HashMap<Coords, i32>,
     pub width: i32,
     pub height: i32,
 }
@@ -703,6 +730,8 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
     let btl_tiles = params.btl_tiles;
     let collisions = params.collisions;
     let events = params.events;
+    let access_ref_words = params.access_ref_words;
+    let object_ids = params.object_ids;
     let width = params.width;
     let height = params.height;
 
@@ -727,9 +756,21 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                 let collision = collisions.get(&coords).cloned().unwrap_or(false);
                 let event_id = events.get(&coords).map(|e| e.event_id()).unwrap_or(0);
 
-                if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
-                    continue;
-                }
+                // Dense grid: every (x, y) is written so access/shadow data of
+                // otherwise "empty" tiles survives the round-trip.
+                let event_word = events
+                    .get(&coords)
+                    .map(|e| e.word as i64)
+                    .unwrap_or_default();
+                let marked = events
+                    .get(&coords)
+                    .map(|e| e.is_tile_marked())
+                    .unwrap_or_default();
+                let object_id = object_ids.get(&coords).copied();
+                let raw_ref = access_ref_words.get(&coords).copied().unwrap_or(0);
+                let shadow_level = ((raw_ref >> 15) & 0x7FFF) as i64;
+                let light_flags = ((raw_ref >> 30) & 0x3) as i64;
+                let access_ref_word = raw_ref as i64;
 
                 stmt.execute(params![
                     map_id,
@@ -739,6 +780,12 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                     btl_id,
                     collision,
                     event_id as i32,
+                    event_word,
+                    marked,
+                    object_id,
+                    shadow_level,
+                    light_flags,
+                    access_ref_word,
                 ])?;
             }
         }
@@ -788,6 +835,10 @@ pub fn save_map_sprites(
                 block.sprite_x,
                 block.sprite_y,
                 block.sprite_id as i32,
+                block.sprite_bottom_right_y,
+                block.bbox_left,
+                block.bbox_top,
+                block.bbox_right,
             ])?;
         }
     }
@@ -847,6 +898,8 @@ pub fn save_map_sprite_frames(
                     frame.height,
                     frame.origin_x,
                     frame.origin_y,
+                    frame.size_bytes,
+                    frame.image_start_position as i64,
                 ])?;
             }
         }
@@ -874,6 +927,109 @@ pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) 
     Ok(())
 }
 
+/// Persists the overlay-id lookup table: one row per u16 entry, with the
+/// low byte decoded as transparency mode and the high byte as draw-enable.
+pub fn save_map_overlay_modes(
+    conn: &mut Connection,
+    map_id: &str,
+    overlay_modes: &[u16],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_overlay_mode.sql"))?;
+        for (index, &raw) in overlay_modes.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                index as i32,
+                raw as i32,
+                (raw & 0xFF) as i32,
+                (raw >> 8) as i32,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists sequence-level info for each embedded internal sprite
+/// (file offsets + frame count).
+pub fn save_map_sprite_sequences(
+    conn: &mut Connection,
+    map_id: &str,
+    internal_sprites: &[SequenceInfo],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_sequence.sql"))?;
+        for (seq_idx, seq) in internal_sprites.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                seq_idx as i32,
+                seq.sequence_start_position as i64,
+                seq.sequence_end_position as i64,
+                seq.frame_count,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists the first-block tiled-object ref records in file order.
+pub fn save_map_object_refs(
+    conn: &mut Connection,
+    map_id: &str,
+    refs: &[(i32, i32)],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_ref.sql"))?;
+        for (ref_index, &(value0, value1)) in refs.iter().enumerate() {
+            stmt.execute(params![map_id, ref_index as i32, value0, value1])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists per-bundle retained metadata from the tiled objects block.
+///
+/// Defensive guard: if `metadata.len() != tiled_infos.len()` (should not
+/// happen — both come from one parse pass), whatever exists is still written
+/// indexed positionally and the export continues.
+pub fn save_map_object_metadata(
+    conn: &mut Connection,
+    map_id: &str,
+    _tiled_infos: &[TiledObjectInfo],
+    metadata: &[TiledObjectMetadata],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_metadata.sql"))?;
+        for (obj_idx, meta) in metadata.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                obj_idx as i32,
+                meta.metadata_blob,
+                meta.control_0,
+                meta.control_1,
+                meta.control_2,
+                meta.control_3,
+                meta.param_0,
+                meta.param_1,
+                meta.param_2,
+                meta.param_3,
+                meta.param_4,
+                meta.param_5,
+                meta.extra_count_a,
+                meta.extra_count_b,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod shadow_tests {
     use super::*;
@@ -892,6 +1048,9 @@ mod shadow_tests {
             tiled_infos: Vec::new(),
             internal_sprites: Vec::new(),
             sprite_blocks: Vec::new(),
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_object_metadata: Vec::new(),
         };
 
         // No shadows yet
@@ -915,3 +1074,286 @@ mod shadow_tests {
 
 #[cfg(test)]
 mod render_placement_tests;
+
+#[cfg(test)]
+mod db_export_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    const CAT1_MAP: &str = "fixtures/Dispel/Map/cat1.map";
+
+    fn parse_fixture() -> (MapData, BufReader<File>) {
+        let file = File::open(CAT1_MAP).expect("cat1.map fixture must exist");
+        let mut reader = BufReader::new(file);
+        let data = read_map_data(&mut reader).expect("parsing cat1.map");
+        // Rewind to start so save_map_sprite_frames can re-read pixel data.
+        reader.seek(SeekFrom::Start(0)).unwrap();
+        (data, reader)
+    }
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch(include_str!("../queries/create_table_map_tiles.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_objects.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_sprites.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_sprite_frames.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_metadata.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_overlay_modes.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_sprite_sequences.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_object_refs.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_object_metadata.sql"
+        ))
+        .unwrap();
+        conn
+    }
+
+    fn count(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |row| row.get(0)).unwrap()
+    }
+
+    #[test]
+    fn test_db_export_overlay_modes_match_parsed_table() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_overlay_modes"),
+            data.overlay_modes.len() as i64
+        );
+
+        // Spot-check: decoded lo/hi bytes must match the raw u16.
+        for idx in [
+            0usize,
+            data.overlay_modes.len() / 2,
+            data.overlay_modes.len() - 1,
+        ] {
+            let raw = data.overlay_modes[idx];
+            let (mode, lo, hi): (i64, i64, i64) = conn
+                .query_row(
+                    "SELECT mode, transparency_mode, draw_enable FROM map_overlay_modes \
+                     WHERE overlay_index = ?1",
+                    [idx as i32],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .unwrap();
+            assert_eq!(mode, raw as i64);
+            assert_eq!(lo, (raw & 0xFF) as i64);
+            assert_eq!(hi, (raw >> 8) as i64);
+        }
+    }
+
+    #[test]
+    fn test_db_export_tiles_cover_full_grid_with_decoded_fields() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        let w = data.model.tiled_map_width;
+        let h = data.model.tiled_map_height;
+        let offset_x = w / 2;
+        let offset_y = h / 2;
+
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_tiles"),
+            (w as i64) * (h as i64),
+            "dense grid: every (x, y) must have a row"
+        );
+
+        // Sample a deterministic spread of tiles.
+        for &(sx, sy) in &[
+            (0i32, 0i32),
+            (w / 3, h / 3),
+            (w - 1, h - 1),
+            (0, h - 1),
+            (w - 1, 0),
+        ] {
+            let coords = (sx, sy);
+            let tile_row: [Option<i64>; 6] = conn
+                .query_row(
+                    "SELECT event_word, marked, object_id, shadow_level, light_flags, \
+                     access_ref_word FROM map_tiles WHERE x = ?1 AND y = ?2",
+                    params![sx - offset_x, sy - offset_y],
+                    |row| {
+                        Ok([
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                            row.get(5)?,
+                        ])
+                    },
+                )
+                .unwrap_or([None, None, None, None, None, None]);
+            // unwrap_or would swallow a missing row; require presence:
+            if tile_row[0].is_none() && !data.events.contains_key(&coords) {
+                panic!("missing tile row at {:?}", coords);
+            }
+
+            let event_word = data.events.get(&coords).map(|e| e.word as i64).unwrap_or(0);
+            let marked = data
+                .events
+                .get(&coords)
+                .map(|e| e.is_tile_marked())
+                .unwrap_or(false);
+            let raw_ref = data.access_ref_words.get(&coords).copied().unwrap_or(0);
+            let expected_object = data.object_ids.get(&coords).map(|&v| v as i64);
+
+            assert_eq!(
+                tile_row[0].unwrap(),
+                event_word,
+                "event_word at {:?}",
+                coords
+            );
+            assert_eq!(tile_row[1].unwrap() != 0, marked, "marked at {:?}", coords);
+            assert_eq!(tile_row[2], expected_object, "object_id at {:?}", coords);
+            assert_eq!(
+                tile_row[3].unwrap(),
+                ((raw_ref >> 15) & 0x7FFF) as i64,
+                "shadow_level at {:?}",
+                coords
+            );
+            assert_eq!(
+                tile_row[4].unwrap(),
+                ((raw_ref >> 30) & 0x3) as i64,
+                "light_flags at {:?}",
+                coords
+            );
+            assert_eq!(
+                tile_row[5].unwrap(),
+                raw_ref as i64,
+                "access_ref_word at {:?}",
+                coords
+            );
+        }
+    }
+
+    #[test]
+    fn test_db_export_object_id_null_exactly_where_absent() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        // Sampled check: every sampled coordinate's NULL-ness matches the map.
+        let w = data.model.tiled_map_width;
+        let h = data.model.tiled_map_height;
+        for &(sx, sy) in &[(0i32, 0i32), (w / 2, h / 2), (w - 1, h - 1)] {
+            let coords = (sx, sy);
+            let stored: Option<Option<i64>> = conn
+                .query_row(
+                    "SELECT object_id FROM map_tiles WHERE x = ?1 AND y = ?2",
+                    params![sx - w / 2, sy - h / 2],
+                    |row| row.get::<_, Option<i64>>(0).map(Some),
+                )
+                .ok()
+                .flatten();
+            let stored = stored.expect("tile row must exist");
+            assert_eq!(
+                stored.as_ref().copied(),
+                data.object_ids.get(&coords).map(|&v| v as i64),
+                "object_id NULL pattern at {:?}",
+                coords
+            );
+        }
+    }
+
+    #[test]
+    fn test_db_export_sprites_carry_bottom_right_y_and_bbox() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        for sprite_idx in 0..data.sprite_blocks.len().min(5) {
+            let block = &data.sprite_blocks[sprite_idx];
+            let (bry, l, t, r): (i64, Option<i64>, Option<i64>, Option<i64>) = conn
+                .query_row(
+                    "SELECT bottom_right_y, bbox_left, bbox_top, bbox_right FROM map_sprites \
+                     WHERE sprite_id = ?1",
+                    [sprite_idx as i32],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .unwrap();
+            assert_eq!(bry, block.sprite_bottom_right_y as i64);
+            assert_eq!(l, Some(block.bbox_left as i64));
+            assert_eq!(t, Some(block.bbox_top as i64));
+            assert_eq!(r, Some(block.bbox_right as i64));
+        }
+    }
+
+    #[test]
+    fn test_db_export_sprite_sequences_and_frames_match_parsed_data() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_sprite_sequences"),
+            data.internal_sprites.len() as i64
+        );
+
+        'outer: for (seq_idx, seq) in data.internal_sprites.iter().enumerate() {
+            for (frame_idx, frame) in seq.frame_infos.iter().enumerate() {
+                let (size_bytes, start_pos, png_len): (i64, i64, i64) = conn
+                    .query_row(
+                        "SELECT size_bytes, image_start_position, LENGTH(png_blob) \
+                         FROM map_sprite_frames WHERE internal_sprite_id = ?1 AND frame_index = ?2",
+                        params![seq_idx as i32, frame_idx as i32],
+                        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                    )
+                    .unwrap();
+                assert_eq!(size_bytes, frame.size_bytes);
+                assert_eq!(start_pos, frame.image_start_position as i64);
+                assert!(png_len > 0, "png_blob must be non-empty");
+                if seq_idx >= 2 {
+                    break 'outer; // sample enough sequences only
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_db_export_object_refs_and_metadata_match_parsed_data() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_object_refs"),
+            data.tiled_object_refs.len() as i64
+        );
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_object_metadata"),
+            data.tiled_infos.len() as i64,
+            "one metadata row per tiled object bundle"
+        );
+    }
+
+    #[test]
+    fn test_db_export_internal_sprite_stamps_are_known_values() {
+        let (data, _reader) = parse_fixture();
+        assert_eq!(
+            data.internal_sprite_stamps.len(),
+            data.internal_sprites.len(),
+            "stamps parallel to internal_sprites"
+        );
+        for stamp in &data.internal_sprite_stamps {
+            assert!(*stamp == 6 || *stamp == 9, "unexpected stamp {stamp}");
+        }
+    }
+}

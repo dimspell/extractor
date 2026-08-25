@@ -191,6 +191,18 @@ fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
             }
         }
     }
+    println!("Saving fog_factors...");
+    let fog_path = main_path.join("ExtraInGame/fogdata.dat");
+    if !fog_path.exists() {
+        eprintln!(
+            "WARNING: fogdata.dat not found at {} — skipping fog_factors",
+            fog_path.display()
+        );
+    } else {
+        let fog = dispel_core::map::FogData::load(main_path)?;
+        dispel_core::map::save_fog_to_db(conn, &fog)?;
+    }
+
     println!("Saving map_inis...");
     let map_inis = dispel_core::references::map_ini::read_map_ini(&main_path.join("Ref/Map.ini"))?;
     save_map_inis(conn, &map_inis)?;
@@ -1075,6 +1087,16 @@ mod tests {
                 .query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))
                 .expect("Failed to query maps");
             assert!(map_count > 0, "maps table should be populated");
+
+            if game_path.join("ExtraInGame/fogdata.dat").exists() {
+                let fog_count: i64 = conn
+                    .query_row("SELECT COUNT(*) FROM fog_factors", [], |row| row.get(0))
+                    .expect("Failed to query fog_factors");
+                assert_eq!(
+                    fog_count, 62976,
+                    "fog_factors must hold one row per fogdata.dat byte"
+                );
+            }
         }
 
         if game_path.join("CharacterInGame/weaponItem.db").exists() {

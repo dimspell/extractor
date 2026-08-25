@@ -16,12 +16,12 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use std::io::{BufReader, Read, Result, Seek, SeekFrom};
 
 use crate::sprite;
 use crate::sprite::SequenceInfo;
 
-use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo};
+use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, TiledObjectMetadata};
 
 // --------------------------------------------------------------------------
 // Skipped blocks (parsed by the format but not persisted in MapData)
@@ -38,11 +38,35 @@ use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo};
 /// lands exactly on the overlay table's size field, while `count*8` lands on
 /// `0x01010101` garbage. The previous `multiplier*size*4` skip only worked by
 /// coincidence (`8 + 2*count*4 == 16 + (count-1)*8`).
-pub fn skip_tiled_object_refs(reader: &mut BufReader<File>) -> Result<()> {
+/// Reads (instead of skipping) the tiled-object ref records: `count` (i32)
+/// followed by `(count - 1)` records of 2 × i32 each (`value1`, `value2`).
+///
+/// `value2` is a linear tile index (`y * stride + x`) into the three end
+/// grids — tiled-object rendering and access checks resolve tiles
+/// through it.
+///
+/// Verified against cat1/cat3/dun01/map1/catp fixtures: reading `(count-1)`
+/// pairs lands exactly on the overlay table's size field, while `count*8`
+/// lands on `0x01010101` garbage. The previous `multiplier*size*4` skip only
+/// worked by coincidence (`8 + 2*count*4 == 16 + (count-1)*8`).
+///
+/// A count below 1 cannot be honored (the format has no negative-record
+/// semantics) and yields a clear error instead of a silent negative seek.
+pub fn read_tiled_object_refs(reader: &mut BufReader<File>) -> Result<Vec<(i32, i32)>> {
     let count = reader.read_i32::<LittleEndian>()?;
-    let skip: i64 = ((count - 1) * 8).into();
-    reader.seek(SeekFrom::Current(skip))?;
-    Ok(())
+    if count < 1 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid tiled-object ref count {count}"),
+        ));
+    }
+    let mut refs = Vec::with_capacity((count - 1).max(0) as usize);
+    for _ in 0..(count - 1) {
+        let value0 = reader.read_i32::<LittleEndian>()?;
+        let value1 = reader.read_i32::<LittleEndian>()?;
+        refs.push((value0, value1));
+    }
+    Ok(refs)
 }
 
 /// Overlay-id lookup table: `size` (i32) followed by `size` u16 entries.
@@ -67,9 +91,12 @@ pub fn read_overlay_id_table(reader: &mut BufReader<File>) -> Result<Vec<u16>> {
 // Sprite block – embedded sprites stored inside the map file
 // --------------------------------------------------------------------------
 
-pub fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
+/// Returns `(sequences, image_stamps)` — one stamp per sequence, same order
+/// (stamps are always 6 or 9; anything else is a parse error).
+pub fn sprite_block(reader: &mut BufReader<File>) -> Result<(Vec<SequenceInfo>, Vec<i32>)> {
     let sprite_count = reader.read_i32::<LittleEndian>()?;
     let mut sprites = vec![];
+    let mut stamps = Vec::with_capacity(sprite_count.unsigned_abs() as usize);
     for _ in 0..sprite_count {
         let image_stamp = reader.read_i32::<LittleEndian>()?;
         let image_offset: i32 = if image_stamp == 6 {
@@ -82,6 +109,7 @@ pub fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
                 format!("Unexpected image-stamp {image_stamp}"),
             ));
         };
+        stamps.push(image_stamp);
 
         reader.seek(SeekFrom::Current(264))?;
 
@@ -93,7 +121,7 @@ pub fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
         let image_offset: i64 = image_offset.into();
         reader.seek(SeekFrom::Current(image_offset))?;
     }
-    Ok(sprites)
+    Ok((sprites, stamps))
 }
 
 // --------------------------------------------------------------------------
@@ -112,9 +140,9 @@ pub fn sprite_info_block(
         // Frame-0 record (24 bytes): bbox {left, top, right, bottom} in map
         // pixels + duplicated anchor. left/top are re-read as x/y below;
         // right is unused (== left + frame width).
-        let _bbox_left = reader.read_i32::<LittleEndian>()?;
-        let _bbox_top = reader.read_i32::<LittleEndian>()?;
-        let _bbox_right = reader.read_i32::<LittleEndian>()?;
+        let bbox_left = reader.read_i32::<LittleEndian>()?;
+        let bbox_top = reader.read_i32::<LittleEndian>()?;
+        let bbox_right = reader.read_i32::<LittleEndian>()?;
         let sprite_bottom_right_y = reader.read_i32::<LittleEndian>()?;
         let sprite_x = reader.read_i32::<LittleEndian>()?;
         let sprite_y = reader.read_i32::<LittleEndian>()?;
@@ -130,6 +158,9 @@ pub fn sprite_info_block(
             sprite_x,
             sprite_y,
             sprite_bottom_right_y,
+            bbox_left,
+            bbox_top,
+            bbox_right,
         });
     }
     Ok(info)
@@ -146,36 +177,44 @@ pub fn sprite_info_block(
 // empirically fitted layout that round-trips all known maps.
 // --------------------------------------------------------------------------
 
-pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObjectInfo>> {
+/// Returns `(infos, metadata)` — one [`TiledObjectMetadata`] per bundle, same
+/// order as the returned [`TiledObjectInfo`]s.
+pub fn tiled_objects_block(
+    reader: &mut BufReader<File>,
+) -> Result<(Vec<TiledObjectInfo>, Vec<TiledObjectMetadata>)> {
     let bundles_count = reader.read_i32::<LittleEndian>()?;
     // Sub-record count inside the bundle: sub-records of {stamp, 260-byte
     // metadata, items} follow at this point.
     let _sub_record_count = reader.read_i32::<LittleEndian>()?;
 
     let mut infos: Vec<TiledObjectInfo> = Vec::with_capacity(bundles_count.unsigned_abs() as usize);
+    let mut metadata: Vec<TiledObjectMetadata> =
+        Vec::with_capacity(bundles_count.unsigned_abs() as usize);
     for _ in 0..bundles_count {
         // 264 bytes: stamp i32 + metadata block (building name/definition).
-        reader.seek(SeekFrom::Current(264))?;
+        // Read verbatim (stamp included) so the DB export is lossless.
+        let mut metadata_blob = vec![0u8; 264];
+        reader.read_exact(&mut metadata_blob)?;
 
         // Control words — always observed as (8, 0, 1, 0) in known maps.
-        let _control_0 = reader.read_i32::<LittleEndian>()?;
-        let _control_1 = reader.read_i32::<LittleEndian>()?;
-        let _control_2 = reader.read_i32::<LittleEndian>()?;
-        let _control_3 = reader.read_i32::<LittleEndian>()?;
+        let control_0 = reader.read_i32::<LittleEndian>()?;
+        let control_1 = reader.read_i32::<LittleEndian>()?;
+        let control_2 = reader.read_i32::<LittleEndian>()?;
+        let control_3 = reader.read_i32::<LittleEndian>()?;
 
         // Unmapped parameters preceding the stack anchor.
-        let _param_0 = reader.read_i32::<LittleEndian>()?;
-        let _param_1 = reader.read_i32::<LittleEndian>()?;
-        let _param_2 = reader.read_i32::<LittleEndian>()?;
-        let _param_3 = reader.read_i32::<LittleEndian>()?;
+        let param_0 = reader.read_i32::<LittleEndian>()?;
+        let param_1 = reader.read_i32::<LittleEndian>()?;
+        let param_2 = reader.read_i32::<LittleEndian>()?;
+        let param_3 = reader.read_i32::<LittleEndian>()?;
 
         // Anchor of the building stack in map-local pixel coordinates.
         let x = reader.read_i32::<LittleEndian>()?;
         let y = reader.read_i32::<LittleEndian>()?;
 
         // Unmapped parameters following the anchor.
-        let _param_4 = reader.read_i32::<LittleEndian>()?;
-        let _param_5 = reader.read_i32::<LittleEndian>()?;
+        let param_4 = reader.read_i32::<LittleEndian>()?;
+        let param_5 = reader.read_i32::<LittleEndian>()?;
 
         // Trailing counts. Only `tile_stack_len` BTL tile ids follow here;
         // the other two counts gate data covered by the skip below.
@@ -190,6 +229,21 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
         }
 
         infos.push(TiledObjectInfo { ids, x, y });
+        metadata.push(TiledObjectMetadata {
+            metadata_blob,
+            control_0,
+            control_1,
+            control_2,
+            control_3,
+            param_0,
+            param_1,
+            param_2,
+            param_3,
+            param_4,
+            param_5,
+            extra_count_a,
+            extra_count_b,
+        });
 
         reader.seek(SeekFrom::Current(84))?;
         let skip: i64 = ((extra_count_a + extra_count_b + tile_stack_len) * 4).into();
@@ -211,7 +265,7 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
     let to_undo: i64 = last_pos.into();
     reader.seek(SeekFrom::Current(-to_undo - 4))?;
 
-    Ok(infos)
+    Ok((infos, metadata))
 }
 
 // --------------------------------------------------------------------------

@@ -175,15 +175,16 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     }
 
     // ── Pre-load external entities (if game path given) ──────────────────
-    let external = game_path.and_then(|gp| {
-        match collect_external_entities(map_id, gp, &data.model) {
-            Ok(entities) => Some(entities),
-            Err(e) => {
-                eprintln!("WARNING: no external entities rendered for map '{map_id}': {e}");
-                None
-            }
-        }
-    });
+    let external =
+        game_path.and_then(
+            |gp| match collect_external_entities(map_id, gp, &data.model) {
+                Ok(entities) => Some(entities),
+                Err(e) => {
+                    eprintln!("WARNING: no external entities rendered for map '{map_id}': {e}");
+                    None
+                }
+            },
+        );
 
     // ── Pass 2: Interleaved objects + entities ───────────────────────────
     // All depth-relevant items (buildings, internal sprites, monsters, NPCs,
@@ -280,8 +281,9 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                 ItemKind::Sprite(i) => {
                     let block = &data.sprite_blocks[*i];
                     let sequence = &data.internal_sprites[block.sprite_id];
-                    let f =
-                        toggles.sprite_frame.map_or(0, |f| f.min(sequence.frame_infos.len() - 1));
+                    let f = toggles
+                        .sprite_frame
+                        .map_or(0, |f| f.min(sequence.frame_infos.len() - 1));
                     let sprite = &sequence.frame_infos[f];
                     let dest_x = block.sprite_x;
                     let dest_y = block.sprite_y;
@@ -343,7 +345,13 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     if toggles.show_shadows
         && let Some(fog) = prepare_shadow_pass(game_path, map_id)
     {
-        plot_shadows(&mut imgbuf, &data.model, &data.access_ref_words, &fog, lights);
+        plot_shadows(
+            &mut imgbuf,
+            &data.model,
+            &data.access_ref_words,
+            &fog,
+            lights,
+        );
     }
 
     // ── Pass 4: Overlays ─────────────────────────────────────────────────
@@ -1759,7 +1767,10 @@ fn dynamic_entity_light_max_wins_over_static() {
         "dimmer light must never reduce a brighter static level"
     );
     // Sanity: the tile actually received the bright static fade.
-    assert_eq!(base_img.get_pixel((px + 32) as u32, (py + 16) as u32)[0], (200 * 31 / 32) as u8);
+    assert_eq!(
+        base_img.get_pixel((px + 32) as u32, (py + 16) as u32)[0],
+        (200 * 31 / 32) as u8
+    );
 }
 
 #[test]

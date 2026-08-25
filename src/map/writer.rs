@@ -199,6 +199,9 @@ mod tests {
             tiled_infos: Vec::new(),
             internal_sprites: Vec::new(),
             sprite_blocks: Vec::new(),
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_object_metadata: Vec::new(),
         };
 
         let result = write_map_to_path(&tmp, &data);

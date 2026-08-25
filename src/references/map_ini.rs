@@ -103,14 +103,11 @@ pub fn save_map_inis(conn: &mut Connection, map_inis: &[MapIni]) -> Result<()> {
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_map_ini.sql"))?;
         for map_ini in map_inis {
-            let camera_event = if map_ini.event_id_on_camera_move == 0 {
-                None
-            } else {
-                Some(map_ini.event_id_on_camera_move)
-            };
+            // Stored verbatim: 0 means "no camera-move event" but is real
+            // file data, so it must survive the round-trip (no NULLing).
             stmt.execute(params![
                 map_ini.id,
-                camera_event,
+                map_ini.event_id_on_camera_move,
                 map_ini.start_pos_x,
                 map_ini.start_pos_y,
                 map_ini.map_id,
@@ -143,6 +140,33 @@ mod tests {
         assert_eq!(maps[0].cd_music_track_number, 3);
         assert!(maps[0].monsters_filename.is_none());
         assert!(maps[0].npc_filename.is_none());
+    }
+
+    #[test]
+    fn test_save_map_inis_stores_camera_event_verbatim() {
+        // 0 means "no camera-move event" but must be stored as 0, not NULL.
+        let data = b"1,0,5,10,2,null,null,null,3\n2,1005,3,8,5,a.ref,b.ref,c.ref,7\n";
+        let mut c = Cursor::new(data.as_ref());
+        let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
+
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_inis.sql"))
+            .unwrap();
+        save_map_inis(&mut conn, &maps).unwrap();
+
+        for (id, expected) in [(1, 0), (2, 1005)] {
+            let stored: i32 = conn
+                .query_row(
+                    "SELECT event_id_on_camera_move FROM map_inis WHERE id = ?1",
+                    [id],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(
+                stored, expected,
+                "event_id_on_camera_move for id {id} must be stored verbatim"
+            );
+        }
     }
 
     #[test]
