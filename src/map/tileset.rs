@@ -138,8 +138,15 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
 
 /// Creates a mask for isometric tile rendering.
 ///
-/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the 32-row tile.
-/// The mask describes the diamond shape: narrow at top/bottom, full-width in the middle.
+/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the
+/// 32-row tile. The mask describes a 62px-wide ([`TILE_WIDTH`]) diamond:
+/// narrow at top/bottom, full-width across the two middle rows. Row widths
+/// run 2, 6, …, 62, 62, …, 6, 2 and consume exactly `TILE_PIXEL_NUMBER`
+/// (1024) texels per tile.
+///
+/// Tiling geometry: diagonal neighbours step (±32, ∓16) and abut
+/// edge-to-edge; horizontal neighbours step 64px, leaving a 2px seam
+/// between the widest rows (the visible isometric grid line).
 fn create_mask() -> [[i32; 2]; 32] {
     let mut mask = [[0i32; 2]; TILE_HEIGHT as usize];
     let mut pixels_x: i32 = 1;

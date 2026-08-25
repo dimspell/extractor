@@ -1530,18 +1530,27 @@ impl From<bool> for HealItemFlag {
 
 /// Magic type classification for spells.
 ///
-/// Each spell belongs to one of three types. The player's proficiency in a
-/// type rises as they cast spells of that type.
+/// Each spell belongs to one of seven types: three schools of magic plus four
+/// elemental types. The player's proficiency in a type rises as they cast
+/// spells of that type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicType {
     /// Normal magic (healing, basic spells)
     #[default]
     Magic = 0,
-    /// Light/Holy magic (protection, buffs)
-    LightMagic = 1,
-    /// Black magic (poison, curses)
-    BlackMagic = 2,
+    /// Holy magic (protection, buffs)
+    HolyMagic = 1,
+    /// Dark magic (poison, curses)
+    DarkMagic = 2,
+    /// Fire elemental magic
+    Fire = 3,
+    /// Water elemental magic
+    Water = 4,
+    /// Earth elemental magic
+    Earth = 5,
+    /// Air elemental magic
+    Air = 6,
 }
 
 impl MagicType {
@@ -1549,8 +1558,12 @@ impl MagicType {
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
             0 => Some(MagicType::Magic),
-            1 => Some(MagicType::LightMagic),
-            2 => Some(MagicType::BlackMagic),
+            1 => Some(MagicType::HolyMagic),
+            2 => Some(MagicType::DarkMagic),
+            3 => Some(MagicType::Fire),
+            4 => Some(MagicType::Water),
+            5 => Some(MagicType::Earth),
+            6 => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -1564,8 +1577,12 @@ impl MagicType {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "Magic" => Some(MagicType::Magic),
-            "LightMagic" => Some(MagicType::LightMagic),
-            "BlackMagic" => Some(MagicType::BlackMagic),
+            "HolyMagic" => Some(MagicType::HolyMagic),
+            "DarkMagic" => Some(MagicType::DarkMagic),
+            "Fire" => Some(MagicType::Fire),
+            "Water" => Some(MagicType::Water),
+            "Earth" => Some(MagicType::Earth),
+            "Air" => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -2153,17 +2170,25 @@ mod tests {
     #[test]
     fn test_magic_type_conversion() {
         assert_eq!(MagicType::from_u32(0), Some(MagicType::Magic));
-        assert_eq!(MagicType::from_u32(1), Some(MagicType::LightMagic));
-        assert_eq!(MagicType::from_u32(2), Some(MagicType::BlackMagic));
-        assert_eq!(MagicType::from_u32(3), None);
+        assert_eq!(MagicType::from_u32(1), Some(MagicType::HolyMagic));
+        assert_eq!(MagicType::from_u32(2), Some(MagicType::DarkMagic));
+        assert_eq!(MagicType::from_u32(3), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_u32(4), Some(MagicType::Water));
+        assert_eq!(MagicType::from_u32(5), Some(MagicType::Earth));
+        assert_eq!(MagicType::from_u32(6), Some(MagicType::Air));
+        assert_eq!(MagicType::from_u32(7), None);
         assert_eq!(MagicType::from_u32(99), None);
 
-        assert_eq!(u32::from(MagicType::BlackMagic), 2);
-        assert_eq!(MagicType::BlackMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::DarkMagic), 2);
+        assert_eq!(MagicType::DarkMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::Fire), 3);
+        assert_eq!(u32::from(MagicType::Air), 6);
         assert_eq!(
-            MagicType::from_name("LightMagic"),
-            Some(MagicType::LightMagic)
+            MagicType::from_name("HolyMagic"),
+            Some(MagicType::HolyMagic)
         );
+        assert_eq!(MagicType::from_name("Fire"), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_name("Air"), Some(MagicType::Air));
     }
 
     #[test]
