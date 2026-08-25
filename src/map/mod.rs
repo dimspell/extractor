@@ -1023,6 +1023,8 @@ pub fn save_map_object_metadata(
                 meta.param_5,
                 meta.extra_count_a,
                 meta.extra_count_b,
+                meta.trailing_fixed,
+                meta.trailing_variable,
             ])?;
         }
     }

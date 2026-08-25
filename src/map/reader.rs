@@ -229,6 +229,22 @@ pub fn tiled_objects_block(
         }
 
         infos.push(TiledObjectInfo { ids, x, y });
+
+        // Fixed 84-byte trailer after the tile stack (read, not skipped).
+        let mut trailing_fixed = vec![0u8; 84];
+        reader.read_exact(&mut trailing_fixed)?;
+
+        // Variable trailer sized from the three counts.
+        let var_len = (extra_count_a + extra_count_b + tile_stack_len) * 4;
+        if var_len < 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid tiled-object variable trailer length {var_len}"),
+            ));
+        }
+        let mut trailing_variable = vec![0u8; var_len as usize];
+        reader.read_exact(&mut trailing_variable)?;
+
         metadata.push(TiledObjectMetadata {
             metadata_blob,
             control_0,
@@ -243,11 +259,9 @@ pub fn tiled_objects_block(
             param_5,
             extra_count_a,
             extra_count_b,
+            trailing_fixed,
+            trailing_variable,
         });
-
-        reader.seek(SeekFrom::Current(84))?;
-        let skip: i64 = ((extra_count_a + extra_count_b + tile_stack_len) * 4).into();
-        reader.seek(SeekFrom::Current(skip))?;
     }
 
     // Align past the bundle-end sentinel
