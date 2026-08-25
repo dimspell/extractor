@@ -1,7 +1,7 @@
 CREATE TABLE npc_refs
 (
     file_id                 INTEGER NOT NULL,
-    "index"                  INTEGER,
+    id                      INTEGER,
     file_record_id          INTEGER,
     npc_ini_id              INTEGER,
     name                    TEXT,

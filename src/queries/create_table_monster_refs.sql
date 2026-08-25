@@ -1,7 +1,7 @@
 CREATE TABLE monster_refs
 (
     file_id         INTEGER NOT NULL,
-    "index"              INTEGER,
+    id              INTEGER,
     placement_id    INTEGER,
     monster_db_id   INTEGER,
     map_x           INTEGER,
