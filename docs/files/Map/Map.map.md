@@ -56,12 +56,12 @@ entries each, so a reader can seek to them from the end of the file.
 
 ```
 count: i32
-records: (count − 1) × 8 bytes   -- each record: value1: i32, value2: i32
+records: (count − 1) × 8 bytes   -- each record: word0: i32, word1: i32
 ```
 
 Skipping `(count − 1) × 8` lands exactly on the next block's size field, verified against the cat1/cat3/dun01/map1/catp
-fixtures. In-game, each record's second i32 (`value2`) is a **linear tile index** (`y × stride + x`) into the three
-end grids — the game's tiled-object renderer and access checks resolve tiles through it.
+fixtures. Both words are **constant across all shipped maps** — `word0 == 0` and `word1 == 1` in all 99,104 records
+probed — so their purpose is unknown. The earlier "linear tile index into the end grids" interpretation was wrong.
 
 ### Second Block *(u16 lookup table)*
 
@@ -111,26 +111,62 @@ the game stores them in separate per-frame arrays so they can diverge).
 Verified against cat1/map1: `right − left` and `bottom − top` equal the frame's
 pixel `width × height` exactly. Placements Y-sort by `bottom`.
 
-### Tiled Objects Block *(buildings)*
+### Tiled Objects Block *(buildings)* — fully typed
+
+This block is a three-level tree: bundle, record, item, and entry. The
+structure below is based on the on-disk data.
 
 ```
 bundle_count: i32
-number1: i32                     -- always observed as 1
 for each bundle:
-    metadata: 264 bytes
-    control: 4 × i32             -- expected pattern: 8, 0, 1, 0
-    v1..v4: 4 × i32              -- unknown
-    x: i32                       -- stack anchor, map-local pixels
-    y: i32
-    v7, v8: 2 × i32              -- unknown
-    c1, c2, c3: 3 × i32          -- counts
-    tile_ids: c3 × i16           -- BTL tile stack, top → bottom
-    unknown_a: 84 bytes
-    unknown_b: (c1 + c2 + c3) × 4 bytes
-<end sentinel alignment>         -- see tiled_objects_block() in reader.rs
+    record_count: i32
+    for each record:
+        field_04: i32                       -- observed as 0 in shipped maps
+        body: 260 bytes                     -- binary metadata, not text
+        item_count: i32
+        for each item:
+            type_flag: i32                  -- 1 ⇒ entries carry extra bytes
+            entry_count: i32
+            field_14: i32                   -- always 0 in all shipped maps
+            for each entry:
+                bound_x, bound_y,           -- bounding box, map pixels:
+                bound_right, bound_bottom     right = x + 64 and
+                                              bottom = y + grid_height*32,
+                                              exact across all shipped entries
+                anchor_x, anchor_y          -- stack anchor, map-local pixels
+                draw_x, draw_y              -- position terms used during
+                                            -- drawing relative to the camera
+                grid_width                  -- constant 1 in all shipped maps
+                grid_height                 -- equals ids.len()
+                stored_cell_count           -- equals grid_width*grid_height
+                                            -- in all shipped maps
+                ids: stored_cell_count × u16    -- BTL tile stack of this entry
+                if type_flag == 1:
+                    extra_payload: stored_cell_count bytes
+    n = first_record.first_item.entries[0].grid_height
+    level_flags: n × (flag_a: i32, flag_b: i32)  -- two binary 0/1 flags per
+                                    -- stack level; their meaning is unknown
 ```
 
-Each bundle is one building: its `tile_ids` stack is drawn downward from the anchor, one 62×32 diamond per entry.
+There is **no end-of-block sentinel**: the three end grids follow the last
+bundle's level flags immediately. The previously described "empirically fitted"
+layout (`264-byte blob`, `control words`, `84-byte trailer`,
+`sentinel alignment scan`) was an approximation that happened to consume the
+same byte stream; it has been deleted.
+
+Discovered semantics (verified over all 33 fixture maps, 43,554 entries):
+- `anchor_x`/`anchor_y` are the stack anchor `(x, y)` in map-local pixels;
+  the entry's `ids` u16 array is its BTL tile stack. The renderer-facing
+  `TiledObjectInfo` is derived from the bundle's *first* entry
+  (first record → first item → first entry).
+- The bbox relations above hold exactly on every shipped entry.
+- An entry's `grid_height` sizes the per-bundle flag arrays that follow.
+
+Shipped data is degenerate: exactly one record per bundle, eight items per
+record, at most one entry per item; `type_flag ≡ 0` and `field_14 ≡ 0`
+everywhere.
+
+Each bundle's first-entry tile stack is drawn downward from the anchor, one 62×32 diamond per id.
 Negative ids occur and are skipped when drawing.
 
 ### Event Block

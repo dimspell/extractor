@@ -21,38 +21,30 @@ use std::io::{BufReader, Read, Result, Seek, SeekFrom};
 use crate::sprite;
 use crate::sprite::SequenceInfo;
 
-use super::types::{Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, TiledObjectMetadata};
+use super::types::{
+    BundleEntry, BundleItem, BundleRecord, Coords, EventBlock, SpriteInfoBlock, StackLevelFlags,
+    TiledBundle, TiledObjectInfo, TiledObjectRef,
+};
 
 // --------------------------------------------------------------------------
 // Skipped blocks (parsed by the format but not persisted in MapData)
 // --------------------------------------------------------------------------
 
 /// Tiled-object ref records: `count` (i32) followed by `(count - 1)` records
-/// of 2 × i32 each (`value1`, `value2`).
+/// of 2 × i32 each.
 ///
-/// `value2` is a linear tile index (`y * stride + x`) into the three end
-/// grids — tiled-object rendering and access checks resolve tiles
-/// through it.
-///
-/// Verified against cat1/cat3/dun01/map1/catp fixtures: skipping `(count-1)*8`
-/// lands exactly on the overlay table's size field, while `count*8` lands on
-/// `0x01010101` garbage. The previous `multiplier*size*4` skip only worked by
-/// coincidence (`8 + 2*count*4 == 16 + (count-1)*8`).
-/// Reads (instead of skipping) the tiled-object ref records: `count` (i32)
-/// followed by `(count - 1)` records of 2 × i32 each (`value1`, `value2`).
-///
-/// `value2` is a linear tile index (`y * stride + x`) into the three end
-/// grids — tiled-object rendering and access checks resolve tiles
-/// through it.
+/// Both words are constant across ALL shipped maps (`word0 == 0`,
+/// `word1 == 1` in all 99,104 records probed); their semantics are unknown.
+/// The earlier "linear tile index into the end grids" interpretation was
+/// wrong. See [`TiledObjectRef`].
 ///
 /// Verified against cat1/cat3/dun01/map1/catp fixtures: reading `(count-1)`
 /// pairs lands exactly on the overlay table's size field, while `count*8`
-/// lands on `0x01010101` garbage. The previous `multiplier*size*4` skip only
-/// worked by coincidence (`8 + 2*count*4 == 16 + (count-1)*8`).
+/// lands on `0x01010101` garbage.
 ///
 /// A count below 1 cannot be honored (the format has no negative-record
 /// semantics) and yields a clear error instead of a silent negative seek.
-pub fn read_tiled_object_refs(reader: &mut BufReader<File>) -> Result<Vec<(i32, i32)>> {
+pub fn read_tiled_object_refs(reader: &mut BufReader<File>) -> Result<Vec<TiledObjectRef>> {
     let count = reader.read_i32::<LittleEndian>()?;
     if count < 1 {
         return Err(std::io::Error::new(
@@ -62,9 +54,9 @@ pub fn read_tiled_object_refs(reader: &mut BufReader<File>) -> Result<Vec<(i32, 
     }
     let mut refs = Vec::with_capacity((count - 1).max(0) as usize);
     for _ in 0..(count - 1) {
-        let value0 = reader.read_i32::<LittleEndian>()?;
-        let value1 = reader.read_i32::<LittleEndian>()?;
-        refs.push((value0, value1));
+        let word0 = reader.read_i32::<LittleEndian>()?;
+        let word1 = reader.read_i32::<LittleEndian>()?;
+        refs.push(TiledObjectRef { word0, word1 });
     }
     Ok(refs)
 }
@@ -169,117 +161,169 @@ pub fn sprite_info_block(
 // --------------------------------------------------------------------------
 // Tiled objects block – building definitions composed of BTL tile stacks
 //
-// Each bundle is a building placed on the map. The file parser reads, per
-// bundle: a sub-record count, then per sub-record {i32 stamp, 260-byte name/
-// metadata block, item count, items}; each item carries seven i32 fields plus
-// a u16 array (tile-stack ids) and an optional byte array when the item's
-// first i32 == 1. The Rust reader below flattens this byte stream with an
-// empirically fitted layout that round-trips all known maps.
+// Each bundle contains records, items, and entries. An entry contains four
+// bounding-box words, seven position and size words, tile IDs, and optional
+// extra bytes. The number of level-flag pairs equals the grid height of the
+// first entry.
+//
+// The three end grids follow immediately after the last bundle's flags —
+// the format has no end-of-block sentinel. The previous empirical parser's
+// "sentinel alignment scan" is gone; any decode error now surfaces as an
+// explicit `Err` instead of being papered over by a resync hack.
 // --------------------------------------------------------------------------
 
-/// Returns `(infos, metadata)` — one [`TiledObjectMetadata`] per bundle, same
-/// order as the returned [`TiledObjectInfo`]s.
+fn read_bundle_entry(reader: &mut BufReader<File>, type_flag: i32) -> Result<BundleEntry> {
+    let bound_x = reader.read_i32::<LittleEndian>()?;
+    let bound_y = reader.read_i32::<LittleEndian>()?;
+    let bound_right = reader.read_i32::<LittleEndian>()?;
+    let bound_bottom = reader.read_i32::<LittleEndian>()?;
+
+    let anchor_x = reader.read_i32::<LittleEndian>()?;
+    let anchor_y = reader.read_i32::<LittleEndian>()?;
+    let draw_x = reader.read_i32::<LittleEndian>()?;
+    let draw_y = reader.read_i32::<LittleEndian>()?;
+    let grid_width = reader.read_i32::<LittleEndian>()?;
+    let grid_height = reader.read_i32::<LittleEndian>()?;
+    let stored_cell_count = reader.read_i32::<LittleEndian>()?;
+
+    // stored_cell_count sizes both trailing arrays of the entry. Reject
+    // absurd counts early so that a malformed file returns an error.
+    if !(0..=100_000).contains(&stored_cell_count) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid tiled-bundle entry id count {stored_cell_count}"),
+        ));
+    }
+
+    let mut ids = Vec::with_capacity(stored_cell_count as usize);
+    for _ in 0..stored_cell_count {
+        ids.push(reader.read_u16::<LittleEndian>()?);
+    }
+
+    let extra_payload = if type_flag == 1 {
+        let mut bytes = vec![0u8; stored_cell_count as usize];
+        reader.read_exact(&mut bytes)?;
+        Some(bytes)
+    } else {
+        None
+    };
+
+    Ok(BundleEntry {
+        bound_x,
+        bound_y,
+        bound_right,
+        bound_bottom,
+        anchor_x,
+        anchor_y,
+        draw_x,
+        draw_y,
+        grid_width,
+        grid_height,
+        stored_cell_count,
+        ids,
+        extra_payload,
+    })
+}
+
+/// Returns `(infos, bundles)` — one [`TiledObjectInfo`] per bundle, same
+/// order as the returned [`TiledBundle`]s.
 pub fn tiled_objects_block(
     reader: &mut BufReader<File>,
-) -> Result<(Vec<TiledObjectInfo>, Vec<TiledObjectMetadata>)> {
+) -> Result<(Vec<TiledObjectInfo>, Vec<TiledBundle>)> {
     let bundles_count = reader.read_i32::<LittleEndian>()?;
-    // Sub-record count inside the bundle: sub-records of {stamp, 260-byte
-    // metadata, items} follow at this point.
-    let _sub_record_count = reader.read_i32::<LittleEndian>()?;
+    if bundles_count < 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid tiled-bundle count {bundles_count}"),
+        ));
+    }
 
-    let mut infos: Vec<TiledObjectInfo> = Vec::with_capacity(bundles_count.unsigned_abs() as usize);
-    let mut metadata: Vec<TiledObjectMetadata> =
-        Vec::with_capacity(bundles_count.unsigned_abs() as usize);
-    for _ in 0..bundles_count {
-        // 264 bytes: stamp i32 + metadata block (building name/definition).
-        // Read verbatim (stamp included) so the DB export is lossless.
-        let mut metadata_blob = vec![0u8; 264];
-        reader.read_exact(&mut metadata_blob)?;
+    let mut infos = Vec::with_capacity(bundles_count as usize);
+    let mut bundles = Vec::with_capacity(bundles_count as usize);
 
-        // Control words — always observed as (8, 0, 1, 0) in known maps.
-        let control_0 = reader.read_i32::<LittleEndian>()?;
-        let control_1 = reader.read_i32::<LittleEndian>()?;
-        let control_2 = reader.read_i32::<LittleEndian>()?;
-        let control_3 = reader.read_i32::<LittleEndian>()?;
-
-        // Unmapped parameters preceding the stack anchor.
-        let param_0 = reader.read_i32::<LittleEndian>()?;
-        let param_1 = reader.read_i32::<LittleEndian>()?;
-        let param_2 = reader.read_i32::<LittleEndian>()?;
-        let param_3 = reader.read_i32::<LittleEndian>()?;
-
-        // Anchor of the building stack in map-local pixel coordinates.
-        let x = reader.read_i32::<LittleEndian>()?;
-        let y = reader.read_i32::<LittleEndian>()?;
-
-        // Unmapped parameters following the anchor.
-        let param_4 = reader.read_i32::<LittleEndian>()?;
-        let param_5 = reader.read_i32::<LittleEndian>()?;
-
-        // Trailing counts. Only `tile_stack_len` BTL tile ids follow here;
-        // the other two counts gate data covered by the skip below.
-        let extra_count_a = reader.read_i32::<LittleEndian>()?;
-        let extra_count_b = reader.read_i32::<LittleEndian>()?;
-        let tile_stack_len = reader.read_i32::<LittleEndian>()?;
-
-        // BTL tile stack for this building, top → bottom.
-        let mut ids: Vec<i16> = vec![];
-        for _ in 0..tile_stack_len {
-            ids.push(reader.read_i16::<LittleEndian>()?);
-        }
-
-        infos.push(TiledObjectInfo { ids, x, y });
-
-        // Fixed 84-byte trailer after the tile stack (read, not skipped).
-        let mut trailing_fixed = vec![0u8; 84];
-        reader.read_exact(&mut trailing_fixed)?;
-
-        // Variable trailer sized from the three counts.
-        let var_len = (extra_count_a + extra_count_b + tile_stack_len) * 4;
-        if var_len < 0 {
+    for _bundle_index in 0..bundles_count {
+        let record_count = reader.read_i32::<LittleEndian>()?;
+        if !(0..=10_000).contains(&record_count) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Invalid tiled-object variable trailer length {var_len}"),
+                format!("Invalid tiled-bundle record count {record_count}"),
             ));
         }
-        let mut trailing_variable = vec![0u8; var_len as usize];
-        reader.read_exact(&mut trailing_variable)?;
 
-        metadata.push(TiledObjectMetadata {
-            metadata_blob,
-            control_0,
-            control_1,
-            control_2,
-            control_3,
-            param_0,
-            param_1,
-            param_2,
-            param_3,
-            param_4,
-            param_5,
-            extra_count_a,
-            extra_count_b,
-            trailing_fixed,
-            trailing_variable,
-        });
-    }
+        let mut records = Vec::with_capacity(record_count as usize);
+        for _record_index in 0..record_count {
+            let field_04 = reader.read_i32::<LittleEndian>()?;
+            let mut body = [0u8; 260];
+            reader.read_exact(&mut body)?;
 
-    // Align past the bundle-end sentinel
-    let back_pos = 20;
-    reader.seek(SeekFrom::Current(-back_pos))?;
-    let mut last_pos = 0u8;
-    for _ in 0..back_pos {
-        let v: u8 = reader.read_u8()?;
-        if v == 1 {
-            last_pos = v;
+            let item_count = reader.read_i32::<LittleEndian>()?;
+            if !(0..=10_000).contains(&item_count) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Invalid tiled-bundle item count {item_count}"),
+                ));
+            }
+
+            let mut items = Vec::with_capacity(item_count as usize);
+            for _item_index in 0..item_count {
+                let type_flag = reader.read_i32::<LittleEndian>()?;
+                let entry_count = reader.read_i32::<LittleEndian>()?;
+                let field_14 = reader.read_i32::<LittleEndian>()?;
+                if !(0..=10_000).contains(&entry_count) {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Invalid tiled-bundle entry count {entry_count}"),
+                    ));
+                }
+
+                let mut entries = Vec::with_capacity(entry_count as usize);
+                for _entry_index in 0..entry_count {
+                    entries.push(read_bundle_entry(reader, type_flag)?);
+                }
+                items.push(BundleItem {
+                    type_flag,
+                    field_14,
+                    entries,
+                });
+            }
+            records.push(BundleRecord {
+                field_04,
+                body,
+                items,
+            });
         }
-    }
-    let to_undo: i64 = back_pos;
-    reader.seek(SeekFrom::Current(to_undo))?;
-    let to_undo: i64 = last_pos.into();
-    reader.seek(SeekFrom::Current(-to_undo - 4))?;
 
-    Ok((infos, metadata))
+        // The first entry sets the number of flag pairs.
+        let n = records
+            .first()
+            .and_then(|r| r.items.first())
+            .and_then(|i| i.entries.first())
+            .map(|e| e.grid_height)
+            .unwrap_or(0);
+        if n < 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid tiled-bundle flag count {n}"),
+            ));
+        }
+        let mut level_flags = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            let flag_a = reader.read_i32::<LittleEndian>()?;
+            let flag_b = reader.read_i32::<LittleEndian>()?;
+            level_flags.push(StackLevelFlags { flag_a, flag_b });
+        }
+        let bundle = TiledBundle {
+            records,
+            level_flags,
+        };
+
+        if let Some(info) = bundle.info() {
+            infos.push(info);
+        }
+        bundles.push(bundle);
+    }
+
+    Ok((infos, bundles))
 }
 
 // --------------------------------------------------------------------------

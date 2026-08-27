@@ -64,7 +64,7 @@ fn make_state(
         sprite_blocks: vec![],
         internal_sprite_stamps: Vec::new(),
         tiled_object_refs: Vec::new(),
-        tiled_object_metadata: Vec::new(),
+        tiled_bundles: Vec::new(),
     };
 
     let mut state = MapEditorState::default();

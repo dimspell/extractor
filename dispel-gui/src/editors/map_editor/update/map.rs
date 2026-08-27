@@ -1011,7 +1011,7 @@ mod tests {
             sprite_blocks: vec![],
             internal_sprite_stamps: Vec::new(),
             tiled_object_refs: Vec::new(),
-            tiled_object_metadata: Vec::new(),
+            tiled_bundles: Vec::new(),
         };
         let state = app.state.editors.map_editors.entry(TAB).or_default();
         state.data.loading_state = LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));

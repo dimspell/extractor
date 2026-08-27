@@ -35,7 +35,12 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "magic_spells",
         "map_inis",
         "map_metadata",
-        "map_object_metadata",
+        "map_bundles",
+        "map_bundle_records",
+        "map_bundle_items",
+        "map_bundle_entries",
+        "map_bundle_entry_ids",
+        "map_bundle_flags",
         "map_object_refs",
         "map_objects",
         "map_overlay_modes",
@@ -111,7 +116,14 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "queries/create_table_map_sprite_sequences.sql"
     ))?;
     conn.execute_batch(include_str!("queries/create_table_map_object_refs.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_map_object_metadata.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_bundles.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_bundle_records.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_bundle_items.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_bundle_entries.sql"))?;
+    conn.execute_batch(include_str!(
+        "queries/create_table_map_bundle_entry_ids.sql"
+    ))?;
+    conn.execute_batch(include_str!("queries/create_table_map_bundle_flags.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_paragraphs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
