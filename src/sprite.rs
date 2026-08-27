@@ -417,27 +417,40 @@ pub fn save_sequence_anim(
 
     println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
-    let atlas_w = rect_w * (frames.len() as u32);
-    let mut imgbuf = RgbaImage::new(atlas_w, rect_h);
-    let mut offset_x: u32 = 0;
-
-    for (i, frame) in frames.iter().enumerate() {
-        let (_, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
-
-        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, 0, offset_y)?;
-
-        for (px, py, pixel) in frame_rgba.enumerate_pixels() {
-            imgbuf.put_pixel(px + offset_x, py, *pixel);
-        }
-
-        offset_x += rect_w;
-    }
+    let imgbuf = render_sequence_animation(reader, frames, rect_x, rect_y, rect_w, rect_h)?;
 
     imgbuf
         .save(format!("image_{:?}.png", sequence_counter))
         .unwrap();
 
     Ok(())
+}
+
+/// Renders every frame of a sequence into a horizontal animation atlas.
+///
+/// Each atlas cell uses the sequence's shared bounding box, keeping the
+/// frame anchor at the same position across the animation.
+fn render_sequence_animation<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    frames: &[ImageInfo],
+    rect_x: i32,
+    rect_y: i32,
+    rect_w: u32,
+    rect_h: u32,
+) -> Result<RgbaImage> {
+    let atlas_w = rect_w * (frames.len() as u32);
+    let mut imgbuf = RgbaImage::new(atlas_w, rect_h);
+
+    for (i, frame) in frames.iter().enumerate() {
+        let (offset_x, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
+        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, offset_x, offset_y)?;
+
+        for (px, py, pixel) in frame_rgba.enumerate_pixels() {
+            imgbuf.put_pixel(px + (i as u32 * rect_w), py, *pixel);
+        }
+    }
+
+    Ok(imgbuf)
 }
 
 pub fn save_sequence(
