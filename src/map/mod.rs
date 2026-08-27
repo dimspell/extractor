@@ -28,10 +28,9 @@
 // | - Count (i32)               |
 // | - Data: (count-1)*8 bytes   |
 // |  (count-1 records of 2×i32; |
-// |   value2 = linear tile index|
-// |   into the three end grids, |
-// |   used by tiled-object     |
-// |   rendering)               |
+// |   word0 ≡ 0 and word1 ≡ 1   |
+// |   across all shipped maps — |
+// |   semantics unknown)        |
 // +------------------------------+
 // | SECOND BLOCK (variable)      |
 // | - Size (i32)                 |
@@ -60,12 +59,18 @@
 // +------------------------------+
 // | TILED OBJECTS BLOCK         |
 // | - Bundle count (i32)        |
-// | For each bundle:            |
-// |   - 264 bytes metadata      |
-// |   - Control words + params  |
-// |   - Anchor (x,y) map px     |
-// |   - BTL tile stack IDs      |
-// |   - Building definition    |
+// | For each bundle (a tree):   |
+// |   - records {field_04 i32,  |
+// |     body 260 B, items}      |
+// |   - items {type_flag,       |
+// |     entry_count, entries}   |
+// |   - entries {16 B payload,  |
+// |     bbox + 7 i32 fields,    |
+// |     u16 tile stack,         |
+// |     optional extra bytes}   |
+// |   - n flag pairs            |
+// |     (n = grid_height of the |
+// |      first entry)           |
 // +------------------------------+
 // | ... (file continues) ...    |
 // +------------------------------+
@@ -113,8 +118,9 @@ pub use self::fogdata::{FogData, save_to_db as save_fog_to_db};
 pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
-    Coords, EventBlock, SpriteInfoBlock, TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF,
-    TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledObjectInfo, convert_map_coords_to_image_coords,
+    BundleEntry, BundleItem, BundleRecord, Coords, EventBlock, SpriteInfoBlock, StackLevelFlags,
+    TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledBundle,
+    TiledObjectInfo, TiledObjectRef, convert_map_coords_to_image_coords,
 };
 
 use std::collections::HashMap;
@@ -139,7 +145,6 @@ use reader::{
     read_tiles_and_access_block, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
-use types::TiledObjectMetadata;
 
 // --------------------------------------------------------------------------
 // MapData – the in-memory representation of a parsed .map file
@@ -165,11 +170,12 @@ pub struct MapData {
     /// Image stamp per embedded sprite (6 or 9), parallel to
     /// `internal_sprites` — same length, same order.
     pub internal_sprite_stamps: Vec<i32>,
-    /// First-block tiled-object ref records `(value0, value1)` in file order.
-    pub tiled_object_refs: Vec<(i32, i32)>,
-    /// Per-bundle retained metadata, parallel to `tiled_infos` — same length,
-    /// same order.
-    pub tiled_object_metadata: Vec<TiledObjectMetadata>,
+    /// First-block tiled-object ref records in file order (both words are
+    /// constant across all shipped maps).
+    pub tiled_object_refs: Vec<TiledObjectRef>,
+    /// Fully typed tiled-bundle trees, parallel to `tiled_infos` — same
+    /// length, same order.
+    pub tiled_bundles: Vec<TiledBundle>,
 }
 
 /// JSON-serializable representation of map data.
@@ -411,7 +417,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 
     let (internal_sprites, internal_sprite_stamps) = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
-    let (tiled_infos, tiled_object_metadata) = tiled_objects_block(reader)?;
+    let (tiled_infos, tiled_bundles) = tiled_objects_block(reader)?;
 
     // Event and tile blocks live at the end of the file
     // Calculate expected size for the three end blocks
@@ -471,7 +477,7 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         sprite_blocks,
         internal_sprite_stamps,
         tiled_object_refs,
-        tiled_object_metadata,
+        tiled_bundles,
     })
 }
 
@@ -705,7 +711,7 @@ pub fn save_to_db(
 
     save_map_object_refs(conn, map_id, &data.tiled_object_refs)?;
 
-    save_map_object_metadata(conn, map_id, &data.tiled_infos, &data.tiled_object_metadata)?;
+    save_map_bundles(conn, map_id, &data.tiled_bundles)?;
 
     Ok(())
 }
@@ -979,53 +985,110 @@ pub fn save_map_sprite_sequences(
 pub fn save_map_object_refs(
     conn: &mut Connection,
     map_id: &str,
-    refs: &[(i32, i32)],
+    refs: &[TiledObjectRef],
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_ref.sql"))?;
-        for (ref_index, &(value0, value1)) in refs.iter().enumerate() {
-            stmt.execute(params![map_id, ref_index as i32, value0, value1])?;
+        for (ref_index, r) in refs.iter().enumerate() {
+            stmt.execute(params![map_id, ref_index as i32, r.word0, r.word1])?;
         }
     }
     tx.commit()?;
     Ok(())
 }
 
-/// Persists per-bundle retained metadata from the tiled objects block.
+/// Persists the typed tiled-bundle trees into the six `map_bundle*` tables.
 ///
-/// Defensive guard: if `metadata.len() != tiled_infos.len()` (should not
-/// happen — both come from one parse pass), whatever exists is still written
-/// indexed positionally and the export continues.
-pub fn save_map_object_metadata(
+/// All rows go in one transaction; a failure anywhere rolls the whole map's
+/// bundle export back. Row counts are derivable from the tree: one
+/// `map_bundles` row per bundle, one record/item/entry row per node, and one
+/// id row per `(entry, seq)`.
+pub fn save_map_bundles(
     conn: &mut Connection,
     map_id: &str,
-    _tiled_infos: &[TiledObjectInfo],
-    metadata: &[TiledObjectMetadata],
+    bundles: &[TiledBundle],
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_metadata.sql"))?;
-        for (obj_idx, meta) in metadata.iter().enumerate() {
-            stmt.execute(params![
-                map_id,
-                obj_idx as i32,
-                meta.metadata_blob,
-                meta.control_0,
-                meta.control_1,
-                meta.control_2,
-                meta.control_3,
-                meta.param_0,
-                meta.param_1,
-                meta.param_2,
-                meta.param_3,
-                meta.param_4,
-                meta.param_5,
-                meta.extra_count_a,
-                meta.extra_count_b,
-                meta.trailing_fixed,
-                meta.trailing_variable,
-            ])?;
+        let mut bundle_stmt = tx.prepare(include_str!("../queries/insert_map_bundle.sql"))?;
+        let mut record_stmt =
+            tx.prepare(include_str!("../queries/insert_map_bundle_record.sql"))?;
+        let mut item_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_item.sql"))?;
+        let mut entry_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_entry.sql"))?;
+        let mut entry_id_stmt =
+            tx.prepare(include_str!("../queries/insert_map_bundle_entry_id.sql"))?;
+        let mut flag_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_flag.sql"))?;
+
+        for (bundle_index, bundle) in bundles.iter().enumerate() {
+            bundle_stmt.execute(params![map_id, bundle_index as i32])?;
+
+            for (level_index, flags) in bundle.level_flags.iter().enumerate() {
+                flag_stmt.execute(params![
+                    map_id,
+                    bundle_index as i32,
+                    level_index as i32,
+                    flags.flag_a,
+                    flags.flag_b
+                ])?;
+            }
+
+            for (record_index, record) in bundle.records.iter().enumerate() {
+                record_stmt.execute(params![
+                    map_id,
+                    bundle_index as i32,
+                    record_index as i32,
+                    record.field_04,
+                    record.body,
+                    record.items.len() as i32,
+                ])?;
+
+                for (item_index, item) in record.items.iter().enumerate() {
+                    item_stmt.execute(params![
+                        map_id,
+                        bundle_index as i32,
+                        record_index as i32,
+                        item_index as i32,
+                        item.type_flag,
+                        item.field_14,
+                        item.entries.len() as i32,
+                    ])?;
+
+                    for (entry_index, entry) in item.entries.iter().enumerate() {
+                        entry_stmt.execute(params![
+                            map_id,
+                            bundle_index as i32,
+                            record_index as i32,
+                            item_index as i32,
+                            entry_index as i32,
+                            entry.bound_x,
+                            entry.bound_y,
+                            entry.bound_right,
+                            entry.bound_bottom,
+                            entry.anchor_x,
+                            entry.anchor_y,
+                            entry.draw_x,
+                            entry.draw_y,
+                            entry.grid_width,
+                            entry.grid_height,
+                            entry.stored_cell_count,
+                            entry.extra_payload,
+                        ])?;
+
+                        for (seq, &id) in entry.ids.iter().enumerate() {
+                            entry_id_stmt.execute(params![
+                                map_id,
+                                bundle_index as i32,
+                                record_index as i32,
+                                item_index as i32,
+                                entry_index as i32,
+                                seq as i32,
+                                id as i32,
+                            ])?;
+                        }
+                    }
+                }
+            }
         }
     }
     tx.commit()?;
@@ -1052,7 +1115,7 @@ mod shadow_tests {
             sprite_blocks: Vec::new(),
             internal_sprite_stamps: Vec::new(),
             tiled_object_refs: Vec::new(),
-            tiled_object_metadata: Vec::new(),
+            tiled_bundles: Vec::new(),
         };
 
         // No shadows yet
@@ -1117,10 +1180,24 @@ mod db_export_tests {
         .unwrap();
         conn.execute_batch(include_str!("../queries/create_table_map_object_refs.sql"))
             .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_bundles.sql"))
+            .unwrap();
         conn.execute_batch(include_str!(
-            "../queries/create_table_map_object_metadata.sql"
+            "../queries/create_table_map_bundle_records.sql"
         ))
         .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_bundle_items.sql"))
+            .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_bundle_entries.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!(
+            "../queries/create_table_map_bundle_entry_ids.sql"
+        ))
+        .unwrap();
+        conn.execute_batch(include_str!("../queries/create_table_map_bundle_flags.sql"))
+            .unwrap();
         conn
     }
 
@@ -1330,7 +1407,7 @@ mod db_export_tests {
     }
 
     #[test]
-    fn test_db_export_object_refs_and_metadata_match_parsed_data() {
+    fn test_db_export_object_refs_and_bundles_match_parsed_data() {
         let (data, mut reader) = parse_fixture();
         let mut conn = setup_db();
         save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
@@ -1340,10 +1417,131 @@ mod db_export_tests {
             data.tiled_object_refs.len() as i64
         );
         assert_eq!(
-            count(&conn, "SELECT COUNT(*) FROM map_object_metadata"),
+            count(&conn, "SELECT COUNT(*) FROM map_bundles"),
             data.tiled_infos.len() as i64,
-            "one metadata row per tiled object bundle"
+            "one bundle row per tiled object"
         );
+    }
+
+    #[test]
+    fn test_db_export_bundle_tree_matches_parsed_data() {
+        let (data, mut reader) = parse_fixture();
+        let mut conn = setup_db();
+        save_to_db(&mut conn, "cat1", &data, &mut reader).unwrap();
+
+        let bundles = &data.tiled_bundles;
+        assert!(!bundles.is_empty(), "cat1 must contain bundles");
+
+        // Aggregate expected node counts from the parsed trees.
+        let mut records = 0i64;
+        let mut items = 0i64;
+        let mut entries = 0i64;
+        let mut ids = 0i64;
+        for bundle in bundles {
+            for record in &bundle.records {
+                records += 1;
+                for item in &record.items {
+                    items += 1;
+                    for entry in &item.entries {
+                        entries += 1;
+                        ids += entry.ids.len() as i64;
+                    }
+                }
+            }
+        }
+
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_bundle_records"),
+            records
+        );
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM map_bundle_items"), items);
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_bundle_entries"),
+            entries
+        );
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_bundle_entry_ids"),
+            ids
+        );
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM map_bundle_flags"),
+            bundles
+                .iter()
+                .map(|b| b.level_flags.len() as i64)
+                .sum::<i64>()
+        );
+
+        // Sampled deep check: first bundle's first entry must round-trip its
+        // u16 id array and its 260-byte record body length.
+        let entry0 = bundles[0]
+            .records
+            .first()
+            .unwrap()
+            .items
+            .first()
+            .unwrap()
+            .entries
+            .first()
+            .unwrap();
+
+        let body_len: i64 = conn
+            .query_row(
+                "SELECT LENGTH(body) FROM map_bundle_records \
+                 WHERE bundle_index = 0 AND record_index = 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(body_len, 260, "record body BLOB must be the full 260 bytes");
+
+        let stored: Vec<i64> = conn
+            .prepare(
+                "SELECT id FROM map_bundle_entry_ids \
+                 WHERE bundle_index = 0 AND record_index = 0 AND item_index = 0 \
+                 AND entry_index = 0 ORDER BY seq",
+            )
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(
+            stored,
+            entry0.ids.iter().map(|&v| v as i64).collect::<Vec<_>>(),
+            "stored entry ids must equal the parsed u16 array in order"
+        );
+
+        // Flag count of bundle 0 == first entry's grid_height.
+        let flag_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM map_bundle_flags WHERE bundle_index = 0",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            flag_count as i32,
+            bundles[0].first_entry().unwrap().grid_height
+        );
+
+        // Bounds assertions on the sampled entry: right/bottom relations hold
+        // exactly across every shipped entry.
+        assert_eq!(entry0.bound_x, entry0.anchor_x);
+        assert_eq!(entry0.bound_y, entry0.anchor_y);
+        assert_eq!(entry0.bound_right, entry0.bound_x + 64);
+        assert_eq!(
+            entry0.bound_bottom,
+            entry0.bound_y + entry0.grid_height * 32
+        );
+        assert_eq!(
+            entry0.stored_cell_count,
+            entry0.grid_width * entry0.grid_height
+        );
+
+        // Ref records spot-check: both words constant on shipped maps.
+        for r in data.tiled_object_refs.iter().take(10) {
+            assert_eq!((r.word0, r.word1), (0, 1));
+        }
     }
 
     #[test]

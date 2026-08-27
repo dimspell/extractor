@@ -517,7 +517,7 @@ mod tests {
             sprite_blocks: vec![],
             internal_sprite_stamps: Vec::new(),
             tiled_object_refs: Vec::new(),
-            tiled_object_metadata: Vec::new(),
+            tiled_bundles: Vec::new(),
         };
         state.data.loading_state = LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));
 

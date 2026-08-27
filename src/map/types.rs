@@ -1,5 +1,29 @@
 use serde::{Deserialize, Serialize};
 
+/// Serde support for fixed-size byte arrays larger than 32 (serde's built-in
+/// array impls stop at 32); serializes as a plain byte sequence.
+mod bytes_array {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<const N: usize, S: Serializer>(v: &[u8; N], s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_bytes(v)
+    }
+
+    pub fn deserialize<'de, const N: usize, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<[u8; N], D::Error> {
+        let vec = Vec::<u8>::deserialize(d)?;
+        if vec.len() != N {
+            return Err(serde::de::Error::invalid_length(
+                vec.len(),
+                &"exact byte array",
+            ));
+        }
+        let arr: [u8; N] = vec.try_into().expect("length just checked");
+        Ok(arr)
+    }
+}
+
 /// Isometric (x, y) tile coordinate.
 pub type Coords = (i32, i32);
 
@@ -102,40 +126,177 @@ pub struct SpriteInfoBlock {
     pub bbox_right: i32,
 }
 
-/// Retained per-bundle metadata from the tiled objects block, preserved so the
-/// DB export is lossless. The 264-byte bundle header is stored verbatim
-/// (its first i32 is a stamp); control words, unmapped parameters and trailing
-/// counts are captured as named fields.
+/// One leaf record inside a tiled-bundle item.
+///
+/// On-disk layout, per entry:
+/// ```text
+/// [i32 × 4]             bounding box {bound_x, bound_y, bound_right, bound_bottom}
+/// [i32 × 7]             anchor_x, anchor_y, draw_x, draw_y, grid_width,
+///                       grid_height, stored_cell_count
+/// [u16 × stored_cell_count] ids — BTL tile-stack ids for this entry
+/// if type_flag == 1:
+///     [u8 × stored_cell_count] extra_payload bytes
+/// ```
+///
+/// Discovered field semantics (verified over all 33 shipped map fixtures,
+/// 43,554 entries):
+/// - The leading four i32 words are a **bounding box** in map pixels:
+///   word0 == `anchor_x`, word1 == `anchor_y`, and in shipped maps always
+///   `bound_right == bound_x + 64`, `bound_bottom == bound_y + grid_height * 32`.
+/// - `anchor_x`/`anchor_y` are the stack anchor `(x, y)` in map-local pixels —
+///   they surface as [`TiledObjectInfo::x`] / [`TiledObjectInfo::y`].
+/// - `draw_x` (signed) and `draw_y` are position terms for drawing relative to
+///   the camera. They do not correlate with the anchors or the bounding box.
+/// - `grid_width` is constant 1 across all shipped maps; `grid_height`
+///   equals `ids.len()`. The `grid_height` of the first entry sizes the two
+///   parallel flag arrays that follow ([`TiledBundle::level_flags`]).
+/// - `stored_cell_count` is a redundant duplicate of
+///   `grid_width * grid_height` with zero exceptions. It sizes both trailing
+///   arrays of the entry on disk (IDs and optional payload).
+///
+/// Shipped data is degenerate: exactly one record per bundle, eight items per
+/// record, at most one entry per item; `BundleItem::type_flag ≡ 0` and
+/// `BundleItem::field_14 ≡ 0` everywhere.
+///
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TiledObjectMetadata {
-    /// The raw 264-byte bundle header, first i32 stamp included verbatim.
-    pub metadata_blob: Vec<u8>,
-    /// Control words — always observed as `(8, 0, 1, 0)` in known maps.
-    pub control_0: i32,
-    pub control_1: i32,
-    pub control_2: i32,
-    pub control_3: i32,
-    /// Unmapped parameters preceding/following the stack anchor.
-    pub param_0: i32,
-    pub param_1: i32,
-    pub param_2: i32,
-    pub param_3: i32,
-    pub param_4: i32,
-    pub param_5: i32,
-    /// Trailing counts gating data covered by the post-stack skip.
-    pub extra_count_a: i32,
-    pub extra_count_b: i32,
-    /// The fixed 84-byte trailer after the tile stack (unmapped; retained
-    /// verbatim for lossless DB export).
-    pub trailing_fixed: Vec<u8>,
-    /// The variable trailer of `(extra_count_a + extra_count_b +
-    /// tile_stack_len) * 4` bytes after the fixed trailer (unmapped; retained
-    /// verbatim).
-    pub trailing_variable: Vec<u8>,
+pub struct BundleEntry {
+    /// Left edge of the entry's bounding box in map pixels (== `anchor_x`).
+    pub bound_x: i32,
+    /// Top edge of the entry's bounding box in map pixels (== `anchor_y`).
+    pub bound_y: i32,
+    /// Right edge of the entry's bounding box in map pixels
+    /// (== `bound_x + 64` in every shipped entry).
+    pub bound_right: i32,
+    /// Bottom edge of the entry's bounding box in map pixels
+    /// (== `bound_y + grid_height * 32` in every shipped entry).
+    pub bound_bottom: i32,
+    /// Stack anchor X in map-local pixels.
+    pub anchor_x: i32,
+    /// Stack anchor Y in map-local pixels.
+    pub anchor_y: i32,
+    /// Signed X term subtracted from camera scroll during blit placement.
+    pub draw_x: i32,
+    /// Y term subtracted from camera scroll during blit placement.
+    pub draw_y: i32,
+    /// Grid width of the entry's cell layout (constant 1 across all shipped
+    /// maps).
+    pub grid_width: i32,
+    /// Grid height of the entry's cell layout; equals `ids.len()`.
+    pub grid_height: i32,
+    /// On-disk count for the ID and optional payload arrays. It equals
+    /// `grid_width * grid_height` in every shipped map.
+    pub stored_cell_count: i32,
+    /// `stored_cell_count` BTL overlay/tile ids (u16, little-endian) drawn
+    /// bottom → top.
+    pub ids: Vec<u16>,
+    /// Present only when the parent item's `type_flag == 1`:
+    /// `stored_cell_count` raw bytes.
+    pub extra_payload: Option<Vec<u8>>,
+}
+
+impl BundleEntry {
+    /// Anchor of this entry's tile stack in map-local pixels.
+    pub fn coords(&self) -> (i32, i32) {
+        (self.anchor_x, self.anchor_y)
+    }
+
+    /// Bounding box `(left, top, right, bottom)` of this entry in map pixels.
+    pub fn bounds(&self) -> (i32, i32, i32, i32) {
+        (
+            self.bound_x,
+            self.bound_y,
+            self.bound_right,
+            self.bound_bottom,
+        )
+    }
+}
+
+/// Two binary 0/1 flags for one stack level.
+///
+/// There are `n = first_entry().grid_height` of these, one per stack level;
+/// semantics not yet pinned.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct StackLevelFlags {
+    pub flag_a: i32,
+    pub flag_b: i32,
+}
+
+/// One record of the .map file's first block (the tiled-object refs).
+///
+/// Both words are **constant across ALL shipped maps** — `word0 == 0` and
+/// `word1 == 1` in all 99,104 records probed. The earlier "linear tile index"
+/// interpretation was wrong; the true semantics are unknown.
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TiledObjectRef {
+    /// Always 0 across all shipped maps; purpose unknown.
+    pub word0: i32,
+    /// Always 1 across all shipped maps; purpose unknown.
+    pub word1: i32,
+}
+
+/// One mid-level node of the tiled-bundle tree.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BundleItem {
+    /// First i32 of the item. When `1`, every child entry carries an extra
+    /// payload array after its id list. Always 0 in all shipped maps.
+    pub type_flag: i32,
+    /// Third i32 of the item. It is 0 in all shipped maps. Its purpose is
+    /// unknown.
+    pub field_14: i32,
+    pub entries: Vec<BundleEntry>,
+}
+
+/// One sub-record of a tiled bundle.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BundleRecord {
+    /// First i32 of the record. It is 0 in known maps.
+    pub field_04: i32,
+    // Binary metadata. It does not contain valid Windows-1250 or EUC-KR text.
+    #[serde(with = "bytes_array")]
+    pub body: [u8; 260],
+    pub items: Vec<BundleItem>,
+}
+
+/// A placed tiled building ("bundle") from the .map tiled-objects block.
+///
+/// After the records, the first entry's `grid_height` gives the number of flag
+/// pairs. The three end grids follow immediately. The format has no
+/// end-of-block sentinel.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TiledBundle {
+    pub records: Vec<BundleRecord>,
+    /// One [`StackLevelFlags`] per stack level following the records
+    /// (`n = first_entry().grid_height`); two binary 0/1 flags each.
+    pub level_flags: Vec<StackLevelFlags>,
+}
+
+impl TiledBundle {
+    /// First entry of the first record's first item, if any.
+    ///
+    /// This entry gives the number of flag pairs.
+    pub fn first_entry(&self) -> Option<&BundleEntry> {
+        self.records.first()?.items.first()?.entries.first()
+    }
+
+    /// Derives the renderer-facing [`TiledObjectInfo`] from the tree.
+    ///
+    /// Mapping (verified byte-exact against the previous empirical parser on
+    /// every shipped map fixture): the anchor is the first entry's
+    /// `(anchor_x, anchor_y)` and the BTL tile stack is that entry's u16
+    /// `ids`.
+    pub fn info(&self) -> Option<TiledObjectInfo> {
+        let entry = self.first_entry()?;
+        let (x, y) = entry.coords();
+        Some(TiledObjectInfo {
+            ids: entry.ids.iter().map(|&id| id as i16).collect(),
+            x,
+            y,
+        })
+    }
 }
 
 /// A building/object made up of stacked BTL tileset tiles.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TiledObjectInfo {
     pub ids: Vec<i16>,
     pub x: i32,

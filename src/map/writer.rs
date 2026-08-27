@@ -7,7 +7,9 @@ use super::types::Coords;
 
 /// Write map data back to a .map file by patching only the 3 end grids
 /// (event grid, tile & access grid, access-ref grid) in-place. All
-/// header/sprite/object bytes are preserved unchanged.
+/// header/sprite/object bytes are preserved unchanged — including the typed
+/// tiled-bundle tree (`MapData::tiled_bundles`), which therefore survives a
+/// write → re-parse cycle byte-identically.
 pub fn write_map_to_path(path: &Path, data: &MapData) -> io::Result<()> {
     let w = data.model.tiled_map_width;
     let h = data.model.tiled_map_height;
@@ -201,7 +203,7 @@ mod tests {
             sprite_blocks: Vec::new(),
             internal_sprite_stamps: Vec::new(),
             tiled_object_refs: Vec::new(),
-            tiled_object_metadata: Vec::new(),
+            tiled_bundles: Vec::new(),
         };
 
         let result = write_map_to_path(&tmp, &data);
