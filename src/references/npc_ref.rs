@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{
     BooleanFlag, InventoryItem, ItemTypeId, NpcInteractionMode, NpcLookingDirection,
-    NpcMovementMode,
+    NpcMovementMode, NpcRoleResult,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
@@ -47,9 +47,9 @@ pub struct NPC {
     #[translatable(encoding = "WINDOWS_1250", max_bytes = 260)]
     #[extractor(string(encoding = "WINDOWS-1250", size = 260))]
     pub role_description: String,
-    /// Party-member slot. Values 1–8 use the party/recruitment NPC logic.
-    #[extractor(primitive(type = "i32"))]
-    pub party_member_slot: i32,
+    /// Role behavior selected when the NPC is interacted with.
+    #[extractor(enum_from_i32(type = "NpcRoleResult"))]
+    pub role_result: NpcRoleResult,
     /// Event ID condition required to spawn NPC.
     #[extractor(primitive(type = "i32"))]
     pub show_on_event: i32,
@@ -187,7 +187,7 @@ pub fn save_npc_refs(
                 },
                 npc.name,
                 npc.role_description,
-                npc.party_member_slot,
+                i32::from(npc.role_result),
                 if npc.show_on_event == 0 {
                     None
                 } else {
@@ -293,6 +293,31 @@ mod tests {
     }
 
     #[test]
+    fn npc_role_result_maps_all_known_wire_values() {
+        let expected = [
+            NpcRoleResult::NormalDialogue,
+            NpcRoleResult::PartyMemberDialogue1,
+            NpcRoleResult::PartyMemberDialogue2,
+            NpcRoleResult::PartyMemberDialogue3,
+            NpcRoleResult::PartyMemberDialogue4,
+            NpcRoleResult::PartyMemberDialogue5,
+            NpcRoleResult::PartyMemberDialogue6,
+            NpcRoleResult::PartyMemberDialogue7,
+            NpcRoleResult::PartyMemberDialogue8,
+            NpcRoleResult::WeaponShop,
+            NpcRoleResult::HealMiscShop,
+            NpcRoleResult::EditItemShop,
+            NpcRoleResult::Inn,
+        ];
+
+        for (value, role) in expected.into_iter().enumerate() {
+            assert_eq!(NpcRoleResult::from_i32(value as i32), Some(role));
+            assert_eq!(i32::from(role), value as i32);
+        }
+        assert_eq!(NpcRoleResult::from_i32(13), None);
+    }
+
+    #[test]
     fn parse_runtime_mapped_fields_at_their_wire_offsets() {
         let mut rec = npc_bytes(42, "Inkeeper", 81);
         rec[528..532].copy_from_slice(&7i32.to_le_bytes());
@@ -316,7 +341,7 @@ mod tests {
         data.extend(rec);
         let npc = NPC::parse(&mut Cursor::new(data), 676).unwrap().remove(0);
 
-        assert_eq!(npc.party_member_slot, 7);
+        assert_eq!(npc.role_result, NpcRoleResult::PartyMemberDialogue7);
         assert_eq!(npc.show_on_event, 42);
         assert_eq!(npc.movement_mode, NpcMovementMode::RandomInActivationRect);
         assert_eq!(npc.goto1_filled, BooleanFlag::True);

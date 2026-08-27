@@ -25,7 +25,7 @@
 |      4 | npc_ini_id                                             | NPC visual-archetype ID from `Npc.ini`.                                      |
 |      8 | name                                                   | 260-byte Windows-1250 display name.                                          |
 |    268 | role_description                                       | 260-byte Windows-1250 role/description text.                                 |
-|    528 | party_member_slot                                      | Values 1–8 select party/recruitment NPC behavior.                            |
+|    528 | role_result                                            | 0 normal dialogue; 1–8 party-member dialogue; 9–12 select shop or inn UI.   |
 |    532 | show_on_event                                          | Event condition controlling visibility.                                      |
 |    536 | movement_mode                                          | 0 static, 1 waypoint patrol, 2 random movement in activation rectangle.      |
 |    540 | goto1_filled..goto4_filled                             | Four waypoint-enabled flags.                                                 |

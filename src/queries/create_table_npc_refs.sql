@@ -6,7 +6,7 @@ CREATE TABLE npc_refs
     npc_ini_id              INTEGER,
     name                    TEXT,
     role_description        TEXT,
-    party_member_slot       INTEGER,
+    role_result             INTEGER,
     show_on_event           INTEGER,
     movement_mode           INTEGER,
     goto1_filled            INTEGER,

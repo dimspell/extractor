@@ -998,6 +998,82 @@ impl std::fmt::Display for NpcMovementMode {
     }
 }
 
+/// Role behavior selected by an NPC placement record.
+///
+/// Values 1 through 8 select one of the party-member dialogue slots. The
+/// remaining values select the normal dialogue or a specific service UI.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcRoleResult {
+    /// Normal NPC dialogue.
+    #[default]
+    NormalDialogue = 0,
+    PartyMemberDialogue1 = 1,
+    PartyMemberDialogue2 = 2,
+    PartyMemberDialogue3 = 3,
+    PartyMemberDialogue4 = 4,
+    PartyMemberDialogue5 = 5,
+    PartyMemberDialogue6 = 6,
+    PartyMemberDialogue7 = 7,
+    PartyMemberDialogue8 = 8,
+    WeaponShop = 9,
+    HealMiscShop = 10,
+    EditItemShop = 11,
+    Inn = 12,
+}
+
+impl NpcRoleResult {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::NormalDialogue),
+            1 => Some(Self::PartyMemberDialogue1),
+            2 => Some(Self::PartyMemberDialogue2),
+            3 => Some(Self::PartyMemberDialogue3),
+            4 => Some(Self::PartyMemberDialogue4),
+            5 => Some(Self::PartyMemberDialogue5),
+            6 => Some(Self::PartyMemberDialogue6),
+            7 => Some(Self::PartyMemberDialogue7),
+            8 => Some(Self::PartyMemberDialogue8),
+            9 => Some(Self::WeaponShop),
+            10 => Some(Self::HealMiscShop),
+            11 => Some(Self::EditItemShop),
+            12 => Some(Self::Inn),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "NormalDialogue" => Some(Self::NormalDialogue),
+            "PartyMemberDialogue1" => Some(Self::PartyMemberDialogue1),
+            "PartyMemberDialogue2" => Some(Self::PartyMemberDialogue2),
+            "PartyMemberDialogue3" => Some(Self::PartyMemberDialogue3),
+            "PartyMemberDialogue4" => Some(Self::PartyMemberDialogue4),
+            "PartyMemberDialogue5" => Some(Self::PartyMemberDialogue5),
+            "PartyMemberDialogue6" => Some(Self::PartyMemberDialogue6),
+            "PartyMemberDialogue7" => Some(Self::PartyMemberDialogue7),
+            "PartyMemberDialogue8" => Some(Self::PartyMemberDialogue8),
+            "WeaponShop" => Some(Self::WeaponShop),
+            "HealMiscShop" => Some(Self::HealMiscShop),
+            "EditItemShop" => Some(Self::EditItemShop),
+            "Inn" => Some(Self::Inn),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcRoleResult> for i32 {
+    fn from(value: NpcRoleResult) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcRoleResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 /// Selects the NPC's special interaction-result behavior.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
