@@ -48,6 +48,7 @@ pub mod tileset;
 pub mod wave_ini;
 pub mod map_info_multi;
 pub mod tile_grid;
+pub mod tile_grid_canvas;
 pub mod weapon;
 pub mod chest_spawn;
 pub mod monster_spawn;
