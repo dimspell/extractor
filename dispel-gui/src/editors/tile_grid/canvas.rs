@@ -13,7 +13,20 @@ use super::state::TileGridViewState;
 use crate::message::{Message, MessageExt};
 use dispel_core::references::tile_grid::{TileDescriptor, TileGrid};
 use iced::widget::canvas::{self, Action, Frame, Geometry, Path, Stroke};
-use iced::{Color, Event, Rectangle, mouse};
+use iced::{Color, Event, Point, Rectangle, mouse};
+
+/// Mutable state for the canvas program — tracks drag-to-pan.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DragState {
+    /// `true` while the left mouse button is held down and the cursor has
+    /// moved at least one pixel since the press. Used to distinguish a
+    /// genuine drag from a simple click.
+    pub did_drag: bool,
+    /// `true` while the left mouse button is held down.
+    pub dragging: bool,
+    /// Last cursor position in canvas-local coords (for delta computation).
+    pub last_pos: Option<Point>,
+}
 
 /// `iced::widget::canvas::Program` that renders the 2D tile grid.
 pub struct TileGridCanvas<'a> {
@@ -22,11 +35,11 @@ pub struct TileGridCanvas<'a> {
 }
 
 impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
-    type State = ();
+    type State = DragState;
 
     fn update(
         &self,
-        _state: &mut (),
+        state: &mut DragState,
         event: &Event,
         bounds: Rectangle,
         cursor: mouse::Cursor,
@@ -35,16 +48,37 @@ impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
         match event {
             Event::Mouse(MouseEvent::ButtonPressed(mouse::Button::Left)) => {
                 if let Some(pos) = cursor.position_in(bounds) {
+                    state.dragging = true;
+                    state.did_drag = false;
+                    state.last_pos = Some(pos);
                     return Some(Action::publish(Message::tile_grid_canvas(
                         TileGridCanvasMessage::Click(pos.x, pos.y),
                     )));
                 }
             }
+            Event::Mouse(MouseEvent::ButtonReleased(mouse::Button::Left)) => {
+                state.did_drag = false;
+                state.dragging = false;
+                state.last_pos = None;
+            }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(pos) = cursor.position_in(bounds) {
-                    return Some(Action::publish(Message::tile_grid_canvas(
-                        TileGridCanvasMessage::Hover(pos.x, pos.y),
-                    )));
+                    if state.dragging {
+                        state.did_drag = true;
+                        if let Some(last) = state.last_pos {
+                            let dx = pos.x - last.x;
+                            let dy = pos.y - last.y;
+                            state.last_pos = Some(pos);
+                            return Some(Action::publish(Message::tile_grid_canvas(
+                                TileGridCanvasMessage::Pan(dx, dy),
+                            )));
+                        }
+                        state.last_pos = Some(pos);
+                    } else {
+                        return Some(Action::publish(Message::tile_grid_canvas(
+                            TileGridCanvasMessage::Hover(pos.x, pos.y),
+                        )));
+                    }
                 }
             }
             Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
@@ -52,8 +86,17 @@ impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
                     mouse::ScrollDelta::Lines { y, .. } => 1.0 + y * 0.1,
                     mouse::ScrollDelta::Pixels { y, .. } => 1.0 + y * 0.01,
                 };
+                // Zoom-to-cursor: pass cursor position so the update handler
+                // can keep the world point under the cursor stationary.
+                if let Some(pos) = cursor.position_in(bounds) {
+                    return Some(Action::publish(Message::tile_grid_canvas(
+                        TileGridCanvasMessage::Zoom(factor, pos.x, pos.y),
+                    )));
+                }
+            }
+            Event::Window(iced::window::Event::Resized { .. }) => {
                 return Some(Action::publish(Message::tile_grid_canvas(
-                    TileGridCanvasMessage::Zoom(factor),
+                    TileGridCanvasMessage::Resize(bounds.width, bounds.height),
                 )));
             }
             _ => {}
@@ -63,16 +106,13 @@ impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
 
     fn draw(
         &self,
-        _state: &(),
+        _state: &DragState,
         renderer: &iced::Renderer,
         _theme: &iced::Theme,
         bounds: Rectangle,
         _cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
         let frame = Frame::new(renderer, bounds.size());
-        // Draw directly into the frame; cache is handled at the view level
-        // via iced's built-in canvas caching when the widget is used with
-        // a stable program.
         let mut frame = frame;
         draw_grid(&mut frame, self.grid, self.view);
         vec![frame.into_geometry()]
