@@ -10,10 +10,7 @@ use iced::{Element, Length};
 
 /// Render the tile grid canvas view: a resizable pane grid with the canvas
 /// on the left and an inspector panel on the right.
-pub fn view_canvas<'a>(
-    grid: &'a TileGrid,
-    view: &'a TileGridViewState,
-) -> Element<'a, Message> {
+pub fn view_canvas<'a>(grid: &'a TileGrid, view: &'a TileGridViewState) -> Element<'a, Message> {
     // The pane_grid widget needs a reference to a State. We fall back to
     // a transient local State if the persistent one is missing — the user
     // won't be able to resize in that case, but the layout still renders.
@@ -50,16 +47,11 @@ pub fn view_canvas<'a>(
     .on_resize(10, |event| {
         Message::tile_grid_canvas(TileGridCanvasMessage::PaneResized(event))
     })
-    .on_click(|pane| {
-        Message::tile_grid_canvas(TileGridCanvasMessage::PaneClicked(pane))
-    })
+    .on_click(|pane| Message::tile_grid_canvas(TileGridCanvasMessage::PaneClicked(pane)))
     .into()
 }
 
-fn inspector_panel<'a>(
-    grid: &'a TileGrid,
-    view: &'a TileGridViewState,
-) -> Element<'a, Message> {
+fn inspector_panel<'a>(grid: &'a TileGrid, view: &'a TileGridViewState) -> Element<'a, Message> {
     let mut col = column![text("Inspector").size(18)].spacing(6).padding(10);
 
     if let Some(idx) = view.selected_cell {
@@ -84,8 +76,16 @@ fn inspector_panel<'a>(
 
         let fields: [(&str, &str, i32); 4] = [
             ("object_id", "Object ID (0–1023):", desc.object_id as i32),
-            ("tile_index", "Tile Index (0–32767):", desc.tile_index as i32),
-            ("render_flags", "Render Flags (0–3):", desc.render_flags as i32),
+            (
+                "tile_index",
+                "Tile Index (0–32767):",
+                desc.tile_index as i32,
+            ),
+            (
+                "render_flags",
+                "Render Flags (0–3):",
+                desc.render_flags as i32,
+            ),
             ("reserved", "Reserved (0–31):", desc.reserved as i32),
         ];
 
@@ -93,11 +93,14 @@ fn inspector_panel<'a>(
             // Use the edit buffer if present, else the live value.
             // This prevents the "clamped value mid-edit" bug: typing "999"
             // shows "999" in the field, not "1023" until the user commits.
-            let display = view
-                .edit_buffers
-                .get(field)
-                .cloned()
-                .unwrap_or_else(|| value.to_string());
+            let display = if let Some(idx) = view.selected_cell {
+                view.edit_buffers
+                    .get(&(idx, field.to_string()))
+                    .cloned()
+                    .unwrap_or_else(|| value.to_string())
+            } else {
+                value.to_string()
+            };
             col = col.push(text(label).size(12));
             col = col.push(
                 text_input("", display)
@@ -130,9 +133,9 @@ fn inspector_panel<'a>(
                 button("Fit").on_press(Message::tile_grid_canvas(
                     TileGridCanvasMessage::FitToWindow
                 )),
-                button("1:1").on_press(Message::tile_grid_canvas(
-                    TileGridCanvasMessage::SetZoom(1.0)
-                )),
+                button("1:1").on_press(Message::tile_grid_canvas(TileGridCanvasMessage::SetZoom(
+                    1.0
+                ))),
             ]
             .spacing(4),
         );

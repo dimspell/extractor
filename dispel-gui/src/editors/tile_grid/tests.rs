@@ -89,11 +89,7 @@ fn clamp_zoom_bounds() {
 fn pan_message_updates_state() {
     let mut v = TileGridViewState::default();
     let mut g = TileGrid::default();
-    let status = super::update::handle(
-        TileGridCanvasMessage::Pan(10.0, 20.0),
-        &mut v,
-        &mut g,
-    );
+    let status = super::update::handle(TileGridCanvasMessage::Pan(10.0, 20.0), &mut v, &mut g);
     assert_eq!(v.pan_x, 10.0);
     assert_eq!(v.pan_y, 20.0);
     assert!(status.is_none());
@@ -133,10 +129,22 @@ fn zoom_to_cursor_keeps_world_point_stationary() {
     // old_zoom = 1.0, new_zoom = 2.0
     // world_x = (100 - 0) / (8 * 1) = 12.5
     // pan_x_new = 100 - 12.5 * 16 = 100 - 200 = -100
-    super::update::handle(TileGridCanvasMessage::Zoom(2.0, 100.0, 100.0), &mut v, &mut g);
+    super::update::handle(
+        TileGridCanvasMessage::Zoom(2.0, 100.0, 100.0),
+        &mut v,
+        &mut g,
+    );
     assert_eq!(v.zoom, 2.0);
-    assert!((v.pan_x - (-100.0)).abs() < 0.01, "pan_x should be -100, got {}", v.pan_x);
-    assert!((v.pan_y - (-100.0)).abs() < 0.01, "pan_y should be -100, got {}", v.pan_y);
+    assert!(
+        (v.pan_x - (-100.0)).abs() < 0.01,
+        "pan_x should be -100, got {}",
+        v.pan_x
+    );
+    assert!(
+        (v.pan_y - (-100.0)).abs() < 0.01,
+        "pan_y should be -100, got {}",
+        v.pan_y
+    );
 }
 
 #[test]
@@ -156,10 +164,22 @@ fn zoom_to_cursor_with_existing_pan() {
     // Cursor at (150, 150), zoom in 2×
     // world_x = (150 - (-50)) / 8 = 200/8 = 25.0
     // pan_x_new = 150 - 25.0 * 16 = 150 - 400 = -250
-    super::update::handle(TileGridCanvasMessage::Zoom(2.0, 150.0, 150.0), &mut v, &mut g);
+    super::update::handle(
+        TileGridCanvasMessage::Zoom(2.0, 150.0, 150.0),
+        &mut v,
+        &mut g,
+    );
     assert_eq!(v.zoom, 2.0);
-    assert!((v.pan_x - (-250.0)).abs() < 0.01, "pan_x should be -250, got {}", v.pan_x);
-    assert!((v.pan_y - (-250.0)).abs() < 0.01, "pan_y should be -250, got {}", v.pan_y);
+    assert!(
+        (v.pan_x - (-250.0)).abs() < 0.01,
+        "pan_x should be -250, got {}",
+        v.pan_x
+    );
+    assert!(
+        (v.pan_y - (-250.0)).abs() < 0.01,
+        "pan_y should be -250, got {}",
+        v.pan_y
+    );
 }
 
 #[test]
@@ -170,11 +190,7 @@ fn click_message_selects_cell() {
         ..Default::default()
     };
     // Click at pixel (16, 16) → cell (2, 2) → flat index 2*249+2 = 500
-    let status = super::update::handle(
-        TileGridCanvasMessage::Click(16.0, 16.0),
-        &mut v,
-        &mut g,
-    );
+    let status = super::update::handle(TileGridCanvasMessage::Click(16.0, 16.0), &mut v, &mut g);
     assert_eq!(v.selected_cell, Some(500));
     assert!(status.unwrap().contains("Selected cell"));
 }
@@ -205,11 +221,7 @@ fn hover_message_sets_hovered_cell() {
         grid_size: 249,
         ..Default::default()
     };
-    super::update::handle(
-        TileGridCanvasMessage::Hover(0.0, 0.0),
-        &mut v,
-        &mut g,
-    );
+    super::update::handle(TileGridCanvasMessage::Hover(0.0, 0.0), &mut v, &mut g);
     assert_eq!(v.hovered_cell, Some(0));
 }
 
@@ -261,10 +273,10 @@ fn edit_selected_without_selection_returns_error() {
 fn encode_descriptor_roundtrip() {
     // Encode then decode should recover the same fields
     let d = TileDescriptor {
-        object_id: 0x03ff, // max 10-bit
+        object_id: 0x03ff,  // max 10-bit
         tile_index: 0x7fff, // max 15-bit
         render_flags: 0x03, // max 2-bit
-        reserved: 0x1f,    // max 5-bit
+        reserved: 0x1f,     // max 5-bit
     };
     let word = super::update::encode_descriptor(d);
     let decoded = TileDescriptor::from_word(word);

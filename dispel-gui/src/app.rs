@@ -372,12 +372,13 @@ impl App {
                 let path_buf = path.to_path_buf();
                 Task::perform(
                     async move {
-                        dispel_core::ChestSpawn::read_file(&path_buf)
-                            .map_err(|e| e.to_string())
+                        dispel_core::ChestSpawn::read_file(&path_buf).map_err(|e| e.to_string())
                     },
                     |result| {
                         crate::message::Message::chest_spawn(
-                            crate::editors::chest_spawn::ChestSpawnEditorMessage::CatalogLoaded(result),
+                            crate::editors::chest_spawn::ChestSpawnEditorMessage::CatalogLoaded(
+                                result,
+                            ),
                         )
                     },
                 )
@@ -386,12 +387,13 @@ impl App {
                 let path_buf = path.to_path_buf();
                 Task::perform(
                     async move {
-                        dispel_core::MonsterSpawn::read_file(&path_buf)
-                            .map_err(|e| e.to_string())
+                        dispel_core::MonsterSpawn::read_file(&path_buf).map_err(|e| e.to_string())
                     },
                     |result| {
                         crate::message::Message::monster_spawn(
-                            crate::editors::monster_spawn::MonsterSpawnEditorMessage::CatalogLoaded(result),
+                            crate::editors::monster_spawn::MonsterSpawnEditorMessage::CatalogLoaded(
+                                result,
+                            ),
                         )
                     },
                 )
@@ -400,8 +402,7 @@ impl App {
                 let path_buf = path.to_path_buf();
                 Task::perform(
                     async move {
-                        dispel_core::MapInfoMulti::read_file(&path_buf)
-                            .map_err(|e| e.to_string())
+                        dispel_core::MapInfoMulti::read_file(&path_buf).map_err(|e| e.to_string())
                     },
                     |result| {
                         crate::message::Message::map_info_multi(
@@ -417,8 +418,7 @@ impl App {
                 // without requiring the user to click "Fit" or resize.
                 let load_task = Task::perform(
                     async move {
-                        dispel_core::TileGrid::read_file(&path_buf)
-                            .map_err(|e| e.to_string())
+                        dispel_core::TileGrid::read_file(&path_buf).map_err(|e| e.to_string())
                     },
                     |result| {
                         crate::message::Message::tile_grid(

@@ -261,9 +261,7 @@ pub fn spreadsheet_nav_msg(
         MapInfoMultiEditor => {
             Message::map_info_multi(map_info_multi::MapInfoMultiEditorMessage::Spreadsheet(sm))
         }
-        TileGridEditor => {
-            Message::tile_grid(tile_grid::TileGridEditorMessage::Spreadsheet(sm))
-        }
+        TileGridEditor => Message::tile_grid(tile_grid::TileGridEditorMessage::Spreadsheet(sm)),
         _ => return None,
     })
 }

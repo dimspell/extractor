@@ -51,23 +51,31 @@ impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
                     state.dragging = true;
                     state.did_drag = false;
                     state.last_pos = Some(pos);
-                    return Some(Action::publish(Message::tile_grid_canvas(
-                        TileGridCanvasMessage::Click(pos.x, pos.y),
-                    )));
+                    return None;
                 }
             }
             Event::Mouse(MouseEvent::ButtonReleased(mouse::Button::Left)) => {
+                let did_drag = state.did_drag;
                 state.did_drag = false;
                 state.dragging = false;
                 state.last_pos = None;
+                if !did_drag {
+                    if let Some(pos) = cursor.position_in(bounds) {
+                        return Some(Action::publish(Message::tile_grid_canvas(
+                            TileGridCanvasMessage::Click(pos.x, pos.y),
+                        )));
+                    }
+                }
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if let Some(pos) = cursor.position_in(bounds) {
                     if state.dragging {
-                        state.did_drag = true;
                         if let Some(last) = state.last_pos {
                             let dx = pos.x - last.x;
                             let dy = pos.y - last.y;
+                            if dx != 0.0 || dy != 0.0 {
+                                state.did_drag = true;
+                            }
                             state.last_pos = Some(pos);
                             return Some(Action::publish(Message::tile_grid_canvas(
                                 TileGridCanvasMessage::Pan(dx, dy),
@@ -170,7 +178,7 @@ fn draw_grid(frame: &mut Frame, grid: &TileGrid, view: &TileGridViewState) {
 fn cell_color(object_id: u16) -> Color {
     match object_id {
         0 => Color::from_rgb(0.15, 0.15, 0.15), // empty: dark
-        1 => Color::from_rgb(0.6, 0.6, 0.6),   // wall: light gray
-        _ => Color::from_rgb(0.3, 0.5, 0.9),   // other: blue
+        1 => Color::from_rgb(0.6, 0.6, 0.6),    // wall: light gray
+        _ => Color::from_rgb(0.3, 0.5, 0.9),    // other: blue
     }
 }

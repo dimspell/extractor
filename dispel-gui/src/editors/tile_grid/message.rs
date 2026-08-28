@@ -33,13 +33,8 @@ pub enum TileGridCanvasMessage {
     /// Update the local edit buffer for a field without committing to
     /// `grid.data`. Used so the user can type "999" and see "999" before
     /// it gets clamped on commit (Enter/blur).
-    EditFieldBuffer {
-        field: String,
-        value: String,
-    },
+    EditFieldBuffer { field: String, value: String },
     /// Commit the edit buffer for a field to `grid.data` (called on Enter
     /// or blur). If the buffer is empty or invalid, the field is ignored.
-    CommitFieldBuffer {
-        field: String,
-    },
+    CommitFieldBuffer { field: String },
 }

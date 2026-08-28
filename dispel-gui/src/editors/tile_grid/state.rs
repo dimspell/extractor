@@ -43,11 +43,9 @@ pub struct TileGridViewState {
     pub pane_state: Option<pane_grid::State<PaneContent>>,
     /// Last focused pane in the pane grid.
     pub pane_focus: Option<pane_grid::Pane>,
-    /// Per-field edit buffers. Keyed by field name (e.g. "object_id").
-    /// When `Some`, the inspector shows the buffer text instead of the live
-    /// `grid.data` value, so the user can type "999" and see "999" before
-    /// it gets clamped on commit.
-    pub edit_buffers: HashMap<String, String>,
+    /// Per-cell, per-field edit buffers. Keyed by `(cell_index, field_name)`
+    /// so switching cells never carries a wrong "999" value.
+    pub edit_buffers: HashMap<(u32, String), String>,
 }
 
 /// Identifies which pane the user is looking at.
@@ -61,13 +59,16 @@ pub enum PaneContent {
 
 impl Default for TileGridViewState {
     fn default() -> Self {
-        let (mut pane_state, canvas_pane) =
-            pane_grid::State::new(PaneContent::Canvas);
+        let (mut pane_state, canvas_pane) = pane_grid::State::new(PaneContent::Canvas);
         // Split the canvas pane vertically to place the inspector below
         // the canvas. In `pane_grid::Axis`, `Vertical` means the split
         // line runs top-to-bottom, so the new pane appears beneath.
         let (inspector_pane, split) = pane_state
-            .split(pane_grid::Axis::Vertical, canvas_pane, PaneContent::Inspector)
+            .split(
+                pane_grid::Axis::Vertical,
+                canvas_pane,
+                PaneContent::Inspector,
+            )
             .expect("split on fresh pane_grid should always succeed");
         // Set the split so the inspector (bottom pane) takes ~30% of the
         // vertical space, with the canvas taking the remaining ~70%.
@@ -117,12 +118,7 @@ impl TileGridViewState {
 
     /// Convert canvas-local pixel coords to a flat cell index.
     /// Returns `None` if the position is outside the grid.
-    pub fn pixel_to_cell(
-        &self,
-        cx: f32,
-        cy: f32,
-        grid_size: u32,
-    ) -> Option<u32> {
+    pub fn pixel_to_cell(&self, cx: f32, cy: f32, grid_size: u32) -> Option<u32> {
         let world_x = (cx - self.pan_x) / (CELL_SIZE * self.zoom);
         let world_y = (cy - self.pan_y) / (CELL_SIZE * self.zoom);
         if world_x < 0.0 || world_y < 0.0 {

@@ -1,7 +1,7 @@
 use crate::components::editable::EditableRecord;
 use crate::editable_record_fields;
-use dispel_core::references::tile_grid::TileDescriptor;
 use dispel_core::TileGrid;
+use dispel_core::references::tile_grid::TileDescriptor;
 
 editable_record_fields!(TileGrid, {
     { id = Integer / "ID:" },
