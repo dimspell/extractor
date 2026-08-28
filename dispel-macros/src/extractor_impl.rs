@@ -165,6 +165,30 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
+            FieldInfo::Nested {
+                ident,
+                item_ty,
+                max_items,
+                item_size: _,
+            } => {
+                let inner_ty = extract_vec_inner(item_ty).unwrap_or_else(|| {
+                    panic!(
+                        "#[extractor(nested)] requires the field type to be Vec<T>; got `{}`",
+                        quote! { #item_ty }
+                    )
+                });
+                let inner_ty_tokens = quote! { #inner_ty };
+                parse_stmts.push(quote! {
+                    let mut #ident: Vec<#inner_ty_tokens> = Vec::with_capacity(#max_items);
+                    for _ in 0..#max_items {
+                        match <#inner_ty_tokens as crate::references::extractor::Extractor>::parse_one(reader)? {
+                            Some(item) => #ident.push(item),
+                            None => break,
+                        }
+                    }
+                });
+                struct_field_inits.push(quote! { #ident: #ident, });
+            }
             FieldInfo::InventoryItem { ident, wire_type } => {
                 let read_stmt = match wire_type.as_str() {
                     "u16" => {
@@ -317,6 +341,34 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                     writer.write_all(&record.#ident)?;
                 });
             }
+            FieldInfo::Nested {
+                ident,
+                item_ty,
+                max_items,
+                item_size,
+            } => {
+                let inner_ty = extract_vec_inner(item_ty).unwrap_or_else(|| {
+                    panic!(
+                        "#[extractor(nested)] requires the field type to be Vec<T>; got `{}`",
+                        quote! { #item_ty }
+                    )
+                });
+                let inner_ty_tokens = quote! { #inner_ty };
+                let total_size = *max_items as i32 * *item_size;
+                write_stmts.push(quote! {
+                    for item in record.#ident.iter() {
+                        <#inner_ty_tokens as crate::references::extractor::Extractor>::write_one(item, writer)?;
+                    }
+                    let written = (record.#ident.len() as i32) * (#item_size as i32);
+                    let remaining_slots = ((#total_size as i32 - written) / #item_size as i32) as usize;
+                    if remaining_slots > 0 {
+                        let pad = vec![0u8; #item_size as usize];
+                        for _ in 0..remaining_slots {
+                            writer.write_all(&pad)?;
+                        }
+                    }
+                });
+            }
             FieldInfo::InventoryItem { ident, wire_type } => {
                 let write_stmt = match wire_type.as_str() {
                     "u16" => {
@@ -372,6 +424,8 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     // Generate the full implementation
     let expanded = quote! {
         impl crate::references::extractor::Extractor for #name {
+            const ITEM_SIZE: i32 = #property_item_size;
+
             fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
                 const COUNTER_SIZE: u8 = #counter_size;
                 const PROPERTY_ITEM_SIZE: i32 = #property_item_size;
@@ -405,6 +459,22 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 }
 
                 Ok(())
+            }
+
+            fn parse_one<R: std::io::Read + std::io::Seek>(reader: &mut R) -> std::io::Result<Option<Self>> {
+                const ITEM_SIZE: usize = #property_item_size as usize;
+                let mut buf = vec![0u8; ITEM_SIZE];
+                reader.read_exact(&mut buf)?;
+                if buf.iter().all(|&b| b == 0) {
+                    return Ok(None);
+                }
+                let mut cursor = std::io::Cursor::new(buf);
+                let mut parsed = Self::parse(&mut cursor, ITEM_SIZE as u64)?;
+                Ok(parsed.pop())
+            }
+
+            fn write_one<W: std::io::Write>(record: &Self, writer: &mut W) -> std::io::Result<()> {
+                Self::to_writer(std::slice::from_ref(record), writer)
             }
         }
     };
@@ -467,6 +537,12 @@ pub(crate) enum FieldInfo<'a> {
         ident: &'a Ident,
         size: usize,
     },
+    Nested {
+        ident: &'a Ident,
+        item_ty: &'a Type,
+        max_items: usize,
+        item_size: i32,
+    },
     Skip,
 }
 
@@ -482,6 +558,8 @@ pub(crate) fn parse_extractor_attr<'a>(
     let mut field_info = None;
     let mut counter_size = None;
     let mut property_item_size = None;
+    let mut nested_max_items: Option<usize> = None;
+    let mut nested_item_size: Option<i32> = None;
 
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("id") {
@@ -647,6 +725,21 @@ pub(crate) fn parse_extractor_attr<'a>(
             })?;
             let size = size.expect("vec_u8 requires size");
             field_info = Some(FieldInfo::VecU8 { ident, size });
+        } else if meta.path.is_ident("nested") {
+            // `nested` is a flag (no parens). The `max_items` and `item_size`
+            // keys are expected as additional top-level metas on the same
+            // attribute (handled below).
+        } else if meta.path.is_ident("max_items") {
+            let value = meta.value()?;
+            let lit: LitInt = value.parse()?;
+            nested_max_items = Some(
+                lit.base10_parse::<usize>()
+                    .expect("max_items must be usize"),
+            );
+        } else if meta.path.is_ident("item_size") {
+            let value = meta.value()?;
+            let lit: LitInt = value.parse()?;
+            nested_item_size = Some(lit.base10_parse::<i32>().expect("item_size must be i32"));
         } else if meta.path.is_ident("skip") {
             field_info = Some(FieldInfo::Skip);
         } else if meta.path.is_ident("inventory_item") {
@@ -678,6 +771,15 @@ pub(crate) fn parse_extractor_attr<'a>(
     })
     .expect("Failed to parse #[extractor(...)] arguments");
 
+    if let (Some(max_items), Some(item_size)) = (nested_max_items, nested_item_size) {
+        field_info = Some(FieldInfo::Nested {
+            ident,
+            item_ty: _ty,
+            max_items,
+            item_size,
+        });
+    }
+
     (field_info, counter_size, property_item_size)
 }
 
@@ -690,5 +792,26 @@ pub(crate) fn get_encoding_tokens(encoding: &str) -> TokenStream2 {
             "Unknown encoding '{}' in #[extractor]; expected WINDOWS-1250, EUC-KR, or UTF-8",
             other
         ),
+    }
+}
+
+/// Extract the inner `T` from a field declared as `Vec<T>`.
+/// Returns `None` if the type is not a `Vec<...>` (path with that ident and one generic arg).
+pub(crate) fn extract_vec_inner(ty: &Type) -> Option<&Type> {
+    let Type::Path(type_path) = ty else {
+        return None;
+    };
+    let last = type_path.path.segments.last()?;
+    if last.ident != "Vec" {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    let inner = args.args.first()?;
+    if let syn::GenericArgument::Type(inner_ty) = inner {
+        Some(inner_ty)
+    } else {
+        None
     }
 }
