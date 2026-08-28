@@ -26,9 +26,15 @@ fn main() {
         Some(Commands::List(args)) => ListCommand { args: args.clone() }.execute(),
         Some(Commands::Schema(args)) => SchemaCommand { args: args.clone() }.execute(),
         Some(Commands::Template(args)) => TemplateCommand { args: args.clone() }.execute(),
-        Some(Commands::Sprite { input, mode, info }) => SpriteCommand {
+        Some(Commands::Sprite {
+            input,
+            mode,
+            no_origin_offset,
+            info,
+        }) => SpriteCommand {
             input: input.clone(),
             mode: *mode,
+            no_origin_offset: *no_origin_offset,
             info: *info,
         }
         .execute(),
