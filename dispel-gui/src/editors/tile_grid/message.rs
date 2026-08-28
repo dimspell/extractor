@@ -9,8 +9,9 @@ use dispel_core::references::tile_grid::TileDescriptor;
 pub enum TileGridCanvasMessage {
     /// Pan the canvas by (dx, dy) in screen pixels.
     Pan(f32, f32),
-    /// Zoom by a multiplicative factor (e.g. 1.1 = zoom in 10%).
-    Zoom(f32),
+    /// Zoom by a multiplicative factor, keeping the world point under the
+    /// cursor at the same screen position. `(factor, cursor_x, cursor_y)`.
+    Zoom(f32, f32, f32),
     /// Set zoom to a specific value (clamped to `[MIN_ZOOM, MAX_ZOOM]`).
     SetZoom(f32),
     /// User clicked at canvas-local pixel coords; selects the cell under the cursor.
@@ -25,6 +26,20 @@ pub enum TileGridCanvasMessage {
     EditSelected(TileDescriptor),
     /// Clear the current selection.
     ClearSelection,
-    /// Toggle between canvas view and raw text view.
-    ToggleRawView,
+    /// Inspector pane was resized by the user.
+    PaneResized(iced::widget::pane_grid::ResizeEvent),
+    /// Inspector pane was clicked/focused.
+    PaneClicked(iced::widget::pane_grid::Pane),
+    /// Update the local edit buffer for a field without committing to
+    /// `grid.data`. Used so the user can type "999" and see "999" before
+    /// it gets clamped on commit (Enter/blur).
+    EditFieldBuffer {
+        field: String,
+        value: String,
+    },
+    /// Commit the edit buffer for a field to `grid.data` (called on Enter
+    /// or blur). If the buffer is empty or invalid, the field is ignored.
+    CommitFieldBuffer {
+        field: String,
+    },
 }

@@ -134,7 +134,7 @@ define_view_dispatch! {
     (ChestSpawnEditor, chest_spawn),
     (MonsterSpawnEditor, monster_spawn),
     (MapInfoMultiEditor, map_info_multi),
-    (TileGridEditor, tile_grid),
+    (TileGridEditor, tile_grid_canvas),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game

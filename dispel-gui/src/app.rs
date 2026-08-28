@@ -412,7 +412,10 @@ impl App {
             }
             EditorType::TileGridEditor => {
                 let path_buf = path.to_path_buf();
-                Task::perform(
+                // Chain: (1) load the file, (2) after the catalog is ready,
+                // dispatch FitToWindow so the grid auto-fits the canvas pane
+                // without requiring the user to click "Fit" or resize.
+                let load_task = Task::perform(
                     async move {
                         dispel_core::TileGrid::read_file(&path_buf)
                             .map_err(|e| e.to_string())
@@ -422,7 +425,11 @@ impl App {
                             crate::editors::tile_grid::TileGridEditorMessage::CatalogLoaded(result),
                         )
                     },
-                )
+                );
+                let fit_task = Task::done(crate::message::Message::tile_grid_canvas(
+                    crate::editors::tile_grid::TileGridCanvasMessage::FitToWindow,
+                ));
+                load_task.chain(fit_task)
             }
             EditorType::SaveFileViewer => {
                 let Some(tab_id) = self.active_tab_id() else {

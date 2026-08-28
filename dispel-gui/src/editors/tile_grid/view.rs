@@ -2,40 +2,63 @@
 
 use super::canvas::TileGridCanvas;
 use super::message::TileGridCanvasMessage;
-use super::state::TileGridViewState;
+use super::state::{PaneContent, TileGridViewState};
 use crate::message::{Message, MessageExt};
 use dispel_core::references::tile_grid::{TileDescriptor, TileGrid};
-use iced::widget::{canvas, column, container, row, scrollable, text, text_input};
+use iced::widget::{button, canvas, column, pane_grid, row, scrollable, text, text_input};
 use iced::{Element, Length};
 
-/// Render the tile grid canvas view: a pan/zoom canvas on the left,
-/// an inspector panel on the right for editing the selected cell.
+/// Render the tile grid canvas view: a resizable pane grid with the canvas
+/// on the left and an inspector panel on the right.
 pub fn view_canvas<'a>(
     grid: &'a TileGrid,
     view: &'a TileGridViewState,
-    status: Option<&'a str>,
 ) -> Element<'a, Message> {
-    let canvas_widget = canvas(TileGridCanvas { grid, view })
-        .width(Length::Fill)
-        .height(Length::Fill);
+    // The pane_grid widget needs a reference to a State. We fall back to
+    // a transient local State if the persistent one is missing — the user
+    // won't be able to resize in that case, but the layout still renders.
+    let pane_state_ref: &pane_grid::State<PaneContent> = match view.pane_state.as_ref() {
+        Some(s) => s,
+        None => {
+            // Leak a static State so the reference is valid for 'a.
+            Box::leak(Box::new(pane_grid::State::new(PaneContent::Canvas).0))
+        }
+    };
 
-    let inspector = inspector_panel(grid, view, status);
-
-    row![
-        container(canvas_widget)
-            .width(Length::FillPortion(3))
-            .height(Length::Fill),
-        container(scrollable(inspector))
-            .width(Length::FillPortion(1))
-            .height(Length::Fill),
-    ]
+    pane_grid::PaneGrid::new(pane_state_ref, |_pane, content, _is_maximized| {
+        let inner: Element<Message> = match content {
+            PaneContent::Canvas => canvas(TileGridCanvas { grid, view })
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .into(),
+            PaneContent::Inspector => {
+                let inspector = inspector_panel(grid, view);
+                scrollable(inspector)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .into()
+            }
+        };
+        // Wrap in `pane_grid::Content` so the pane_grid forwards mouse
+        // events (ButtonPressed/CursorMoved/WheelScrolled) to the child
+        // instead of capturing them for resize-handle logic. Content::new
+        // already provides a container with `Length::Fill` sizing, so we
+        // must NOT wrap the inner element in another container — double
+        // wrapping collapses the layout to zero size.
+        pane_grid::Content::new(inner)
+    })
+    .on_resize(10, |event| {
+        Message::tile_grid_canvas(TileGridCanvasMessage::PaneResized(event))
+    })
+    .on_click(|pane| {
+        Message::tile_grid_canvas(TileGridCanvasMessage::PaneClicked(pane))
+    })
     .into()
 }
 
 fn inspector_panel<'a>(
     grid: &'a TileGrid,
-    view: &TileGridViewState,
-    status: Option<&'a str>,
+    view: &'a TileGridViewState,
 ) -> Element<'a, Message> {
     let mut col = column![text("Inspector").size(18)].spacing(6).padding(10);
 
@@ -59,28 +82,36 @@ fn inspector_panel<'a>(
             .push(text(format!("Grid coords: ({gx}, {gy})")))
             .push(text(format!("Raw word: 0x{:08X}", word_from_desc(desc))));
 
-        let fields: [(&str, i32); 4] = [
-            ("Object ID (0–1023):", desc.object_id as i32),
-            ("Tile Index (0–32767):", desc.tile_index as i32),
-            ("Render Flags (0–3):", desc.render_flags as i32),
-            ("Reserved (0–31):", desc.reserved as i32),
+        let fields: [(&str, &str, i32); 4] = [
+            ("object_id", "Object ID (0–1023):", desc.object_id as i32),
+            ("tile_index", "Tile Index (0–32767):", desc.tile_index as i32),
+            ("render_flags", "Render Flags (0–3):", desc.render_flags as i32),
+            ("reserved", "Reserved (0–31):", desc.reserved as i32),
         ];
 
-        for (label, value) in fields {
-            let d = desc;
-            let value_str = value.to_string();
+        for (field, label, value) in fields {
+            // Use the edit buffer if present, else the live value.
+            // This prevents the "clamped value mid-edit" bug: typing "999"
+            // shows "999" in the field, not "1023" until the user commits.
+            let display = view
+                .edit_buffers
+                .get(field)
+                .cloned()
+                .unwrap_or_else(|| value.to_string());
             col = col.push(text(label).size(12));
             col = col.push(
-                text_input("", value_str)
+                text_input("", display)
                     .on_input(move |s| {
-                        if let Ok(v) = s.parse::<i32>() {
-                            let mut new_desc = d;
-                            apply_field(&mut new_desc, label, v);
-                            Message::tile_grid_canvas(TileGridCanvasMessage::EditSelected(new_desc))
-                        } else {
-                            Message::tile_grid_canvas(TileGridCanvasMessage::ClearSelection)
-                        }
+                        Message::tile_grid_canvas(TileGridCanvasMessage::EditFieldBuffer {
+                            field: field.to_string(),
+                            value: s,
+                        })
                     })
+                    .on_submit(Message::tile_grid_canvas(
+                        TileGridCanvasMessage::CommitFieldBuffer {
+                            field: field.to_string(),
+                        },
+                    ))
                     .width(Length::Fill),
             );
         }
@@ -88,9 +119,23 @@ fn inspector_panel<'a>(
         col = col.push(text("No cell selected. Click a cell to inspect."));
     }
 
-    if let Some(s) = status {
+    if let Some(s) = view.last_status.as_deref() {
         col = col.push(text(s).size(12));
     }
+
+    col = col
+        .push(text(format!("Zoom: {:.2}×", view.zoom)).size(12))
+        .push(
+            row![
+                button("Fit").on_press(Message::tile_grid_canvas(
+                    TileGridCanvasMessage::FitToWindow
+                )),
+                button("1:1").on_press(Message::tile_grid_canvas(
+                    TileGridCanvasMessage::SetZoom(1.0)
+                )),
+            ]
+            .spacing(4),
+        );
 
     col.into()
 }
@@ -100,17 +145,4 @@ fn word_from_desc(d: TileDescriptor) -> u32 {
         | ((d.tile_index as u32 & 0x7fff) << 10)
         | ((d.render_flags as u32 & 0x03) << 25)
         | ((d.reserved as u32 & 0x1f) << 27)
-}
-
-/// Apply a clamped value to the correct field of a `TileDescriptor` based on the label.
-fn apply_field(d: &mut TileDescriptor, label: &str, v: i32) {
-    if label.starts_with("Object ID") {
-        d.object_id = v.clamp(0, 1023) as u16;
-    } else if label.starts_with("Tile Index") {
-        d.tile_index = v.clamp(0, 32767) as u16;
-    } else if label.starts_with("Render Flags") {
-        d.render_flags = v.clamp(0, 3) as u8;
-    } else if label.starts_with("Reserved") {
-        d.reserved = v.clamp(0, 31) as u8;
-    }
 }
