@@ -54,6 +54,14 @@ pub enum EditorType {
     /// Editor for `ExtraInGame/fogdata.dat` — map-lighting fade tables
     /// (123 levels × 512 brightness factors).
     FogDataEditor,
+    /// Chest spawn editor for multiplayer `.cst` files.
+    ChestSpawnEditor,
+    /// Monster spawn editor for multiplayer `.mon` files.
+    MonsterSpawnEditor,
+    /// Map info editor for multiplayer `.ifm` files.
+    MapInfoMultiEditor,
+    /// Tile grid editor for multiplayer `.dat` files.
+    TileGridEditor,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -98,6 +106,10 @@ impl EditorType {
             "map" => EditorType::MapEditor,
             "sav" => EditorType::SaveFileViewer,
             "ifo" => EditorType::SaveIfoEditor,
+            "cst" => EditorType::ChestSpawnEditor,
+            "mon" => EditorType::MonsterSpawnEditor,
+            "ifm" => EditorType::MapInfoMultiEditor,
+            "dat" => EditorType::TileGridEditor,
             _ => EditorType::HexEditor,
         }
     }

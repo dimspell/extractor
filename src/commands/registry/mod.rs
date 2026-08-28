@@ -123,6 +123,21 @@ pub fn get_type_fields(key: &str) -> Vec<String> {
             "effect_visual_id",
             "targeting_mode",
         ],
+        "chest_spawn" => vec![
+            "serial", "x", "y", "direction", "item_group", "gold_class",
+        ],
+        "monster_spawn" => vec![
+            "serial", "monster_no", "x", "y", "persistent", "burrow",
+            "item_group", "drop_attribute",
+        ],
+        "map_info_multi" => vec![
+            "id", "self_name", "anchor_tile_index", "stride", "row_step",
+            "start_pos_a_x", "start_pos_a_y", "start_pos_b_x", "start_pos_b_y",
+            "transition_target", "mon_filename", "npc_spawns",
+        ],
+        "tile_grid" => vec![
+            "id", "payload_length", "grid_size", "data",
+        ],
         "store" => vec![
             "id",
             "name",
