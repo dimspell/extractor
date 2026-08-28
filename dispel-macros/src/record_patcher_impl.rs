@@ -180,6 +180,14 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                     )));
                 }
             },
+            FieldInfo::Nested { ident: _, .. } => quote! {
+                #field_name => {
+                    return Err(crate::modding::error::ModdingError::Malformed(format!(
+                        "{}.{} is nested and cannot be patched",
+                        Self::RECORD_NAME, #field_name
+                    )));
+                }
+            },
             FieldInfo::Skip => continue,
         };
         field_arms.push(arm);

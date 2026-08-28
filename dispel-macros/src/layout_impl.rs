@@ -102,5 +102,16 @@ fn field_size_and_type(info: &FieldInfo<'_>) -> Option<(u32, String)> {
         FieldInfo::Array { size, ty, .. } => {
             Some(((*size as u32) * scalar(ty), format!("[{ty}; {size}]")))
         }
+        FieldInfo::Nested {
+            item_size,
+            max_items,
+            ..
+        } => {
+            // Nested array/record — approximate with fixed item size
+            Some((
+                (*max_items as u32) * (*item_size as u32),
+                format!("Nested(max={max_items}, item_size={item_size})"),
+            ))
+        }
     }
 }
