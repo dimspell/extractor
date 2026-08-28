@@ -388,9 +388,18 @@ where
 // CLI commands (file extraction)
 // ===========================================================================
 
-pub fn animation(file_path: &Path) -> Result<()> {
+/// Exports every sequence as a horizontal animation atlas.
+///
+/// When `apply_origin_offsets` is true, each frame is placed in the shared
+/// sequence bounds so its origin remains fixed across the animation.
+pub fn animation(file_path: &Path, apply_origin_offsets: bool) -> Result<()> {
     for_each_sequence(file_path, |reader, info, seq_idx| {
-        save_sequence_anim(reader, &info.frame_infos, seq_idx as i32)
+        save_sequence_anim(
+            reader,
+            &info.frame_infos,
+            seq_idx as i32,
+            apply_origin_offsets,
+        )
     })?;
     println!("Finished");
     Ok(())
@@ -408,6 +417,7 @@ pub fn save_sequence_anim(
     reader: &mut BufReader<File>,
     frames: &[ImageInfo],
     sequence_counter: i32,
+    apply_origin_offsets: bool,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
@@ -417,7 +427,15 @@ pub fn save_sequence_anim(
 
     println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
-    let imgbuf = render_sequence_animation(reader, frames, rect_x, rect_y, rect_w, rect_h)?;
+    let imgbuf = render_sequence_animation(
+        reader,
+        frames,
+        rect_x,
+        rect_y,
+        rect_w,
+        rect_h,
+        apply_origin_offsets,
+    )?;
 
     imgbuf
         .save(format!("image_{:?}.png", sequence_counter))
@@ -437,12 +455,17 @@ fn render_sequence_animation<R: Read + Seek>(
     rect_y: i32,
     rect_w: u32,
     rect_h: u32,
+    apply_origin_offsets: bool,
 ) -> Result<RgbaImage> {
     let atlas_w = rect_w * (frames.len() as u32);
     let mut imgbuf = RgbaImage::new(atlas_w, rect_h);
 
     for (i, frame) in frames.iter().enumerate() {
-        let (offset_x, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
+        let (offset_x, offset_y) = if apply_origin_offsets {
+            compute_frame_offset(frames, i, rect_x, rect_y)
+        } else {
+            (0, 0)
+        };
         let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, offset_x, offset_y)?;
 
         for (px, py, pixel) in frame_rgba.enumerate_pixels() {

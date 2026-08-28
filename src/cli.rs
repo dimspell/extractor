@@ -83,17 +83,12 @@ pub enum Commands {
     Sprite {
         /// Path to the source .SPR file
         input: String,
-        #[arg(
-            long,
-            require_equals = true,
-            value_name = "MODE",
-            num_args = 0..=1,
-            default_value_t = SpriteMode::Sprite,
-            default_missing_value = "always",
-            value_enum
-        )]
+        #[arg(long, value_name = "MODE", default_value_t = SpriteMode::Sprite, value_enum)]
         /// Mode: 'sprite' (individual frames) or 'animation' (full sequence)
         mode: SpriteMode,
+        /// Render animation frames at their raw top-left position instead of aligning their origins
+        #[arg(long)]
+        no_origin_offset: bool,
         /// Output sprite metadata as JSON (no rendering)
         #[arg(long)]
         info: bool,

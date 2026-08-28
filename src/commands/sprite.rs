@@ -8,6 +8,7 @@ use std::path::Path;
 pub struct SpriteCommand {
     pub input: String,
     pub mode: CliSpriteMode,
+    pub no_origin_offset: bool,
     pub info: bool,
 }
 
@@ -38,7 +39,7 @@ impl Command for SpriteCommand {
                     .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
             SpriteMode::Animation => {
-                sprite::animation(Path::new(&self.input))
+                sprite::animation(Path::new(&self.input), !self.no_origin_offset)
                     .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
         }

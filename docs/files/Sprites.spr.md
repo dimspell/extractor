@@ -203,8 +203,11 @@ The file is parsed by the `src/sprite.rs` module.
 # Extract individual frames as separate PNG files
 cargo run -- sprite "path/to/file.spr"
 
-# Extract animation sequences as horizontal strip PNGs
+# Extract animation sequences as horizontal strip PNGs, aligned by origin
 cargo run -- sprite "path/to/file.spr" --mode animation
+
+# Extract animation sequences without applying origin offsets
+cargo run -- sprite "path/to/file.spr" --mode animation --no-origin-offset
 
 # Output sprite metadata as JSON (no rendering)
 cargo run -- sprite "path/to/file.spr" --info
