@@ -47,6 +47,11 @@ pub static FILE_TYPES: LazyLock<Vec<FileType>> = LazyLock::new(|| {
         entries::make_btl(),
         // Sprite files (extract only, no patch)
         entries::make_sprite(),
+        // Multiplayer file types
+        entries::make_chest_spawn(),
+        entries::make_monster_spawn(),
+        entries::make_map_info_multi(),
+        entries::make_tile_grid(),
         // Save files
         entries::make_save_file(),
         entries::make_save_ifo(),

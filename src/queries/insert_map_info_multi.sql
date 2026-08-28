@@ -1,0 +1,1 @@
+INSERT OR IGNORE INTO map_info_multi (id, self_name, anchor_tile_index, stride, row_step, start_pos_a_x, start_pos_a_y, start_pos_b_x, start_pos_b_y, transition_target, mon_filename, npc_spawns_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12);

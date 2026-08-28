@@ -699,4 +699,63 @@ mod map_editor_entity_tests {
             "MapRenderSource::shadow_data surfaces loaded tables to the canvas"
         );
     }
+
+    // ── CLI ↔ GUI placement parity ─────────────────────────────────────────
+
+    /// The GUI draws entities in absolute canvas space; the CLI crops to the
+    /// occluded viewport. Both must agree: cli_pos = gui_world_pos − origin.
+    #[test]
+    fn gui_tile_world_center_matches_core_transform() {
+        use crate::components::map_render::{TILE_H, TILE_W, tile_world_center};
+
+        let model = dispel_core::map::model::MapModel {
+            tiled_map_width: 249,
+            tiled_map_height: 249,
+            ..Default::default()
+        };
+        let diagonal = model.tiled_map_width + model.tiled_map_height;
+        for (x, y) in [(0i32, 0i32), (10, 7), (67, 35), (140, 93), (248, 248)] {
+            let (wx, wy) = tile_world_center(x, y, diagonal);
+            let (px, py) =
+                dispel_core::map::types::convert_map_coords_to_image_coords(x, y, diagonal);
+            assert_eq!(wx, px as f32 + TILE_W * 0.5);
+            assert_eq!(wy, py as f32 + TILE_H * 0.5);
+
+            // The CLI's viewport-space anchor is the same point minus the
+            // non-occluded origin.
+            let cli_cx = px - model.map_non_occluded_start_x
+                + dispel_core::map::tileset::TILE_WIDTH as i32 / 2;
+            let cli_cy = py - model.map_non_occluded_start_y
+                + dispel_core::map::tileset::TILE_HEIGHT as i32 / 2;
+            assert_eq!(
+                wx as i32 - model.map_non_occluded_start_x,
+                cli_cx,
+                "GUI/CLI x placement diverged at ({x},{y})"
+            );
+            assert_eq!(
+                wy as i32 - model.map_non_occluded_start_y,
+                cli_cy,
+                "GUI/CLI y placement diverged at ({x},{y})"
+            );
+        }
+    }
+
+    /// GUI hit-testing and the CLI renderer must pick the same standing spot
+    /// for every NPC record in the fixture set.
+    #[test]
+    fn gui_npc_placement_matches_core_renderer() {
+        use crate::editors::map_editor::canvas::hit_test::npc_pos;
+        let gp = std::path::PathBuf::from("../fixtures/Dispel");
+        if !gp.exists() {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        }
+        use dispel_core::references::extractor::Extractor;
+        let npcs = dispel_core::NPC::read_file(&gp.join("NpcInGame/Npccat1.ref"))
+            .expect("parse npccat1.ref");
+        assert!(!npcs.is_empty());
+        for n in &npcs {
+            assert_eq!(npc_pos(n), dispel_core::map::render::npc_placement(n));
+        }
+    }
 }
