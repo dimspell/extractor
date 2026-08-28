@@ -368,6 +368,62 @@ impl App {
                     ),
                 ))
             }
+            EditorType::ChestSpawnEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::ChestSpawn::read_file(&path_buf)
+                            .map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::chest_spawn(
+                            crate::editors::chest_spawn::ChestSpawnEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
+            }
+            EditorType::MonsterSpawnEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::MonsterSpawn::read_file(&path_buf)
+                            .map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::monster_spawn(
+                            crate::editors::monster_spawn::MonsterSpawnEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
+            }
+            EditorType::MapInfoMultiEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::MapInfoMulti::read_file(&path_buf)
+                            .map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::map_info_multi(
+                            crate::editors::map_info_multi::MapInfoMultiEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
+            }
+            EditorType::TileGridEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::TileGrid::read_file(&path_buf)
+                            .map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::tile_grid(
+                            crate::editors::tile_grid::TileGridEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
+            }
             EditorType::SaveFileViewer => {
                 let Some(tab_id) = self.active_tab_id() else {
                     return Task::none();

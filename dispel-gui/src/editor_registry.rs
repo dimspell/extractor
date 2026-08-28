@@ -29,6 +29,7 @@ use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
+
 use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
@@ -85,6 +86,10 @@ pub struct EditorRegistry {
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
     pub fog_editors: HashMap<usize, FogDataEditorState>,
+    pub chest_spawn_editor: Box<StandardEditor<dispel_core::ChestSpawn>>,
+    pub monster_spawn_editor: Box<StandardEditor<dispel_core::MonsterSpawn>>,
+    pub map_info_multi_editor: Box<StandardEditor<dispel_core::MapInfoMulti>>,
+    pub tile_grid_editor: Box<StandardEditor<dispel_core::TileGrid>>,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -115,6 +120,10 @@ macro_rules! undo_redo_dispatch {
             EditorType::QuestScrEditor => $self.quest_scr_editor.$action($lookups),
             EditorType::WaveIniEditor => $self.wave_ini_editor.$action($lookups),
             EditorType::ChDataEditor => $self.chdata_editor.$action($lookups),
+            EditorType::ChestSpawnEditor => $self.chest_spawn_editor.$action($lookups),
+            EditorType::MonsterSpawnEditor => $self.monster_spawn_editor.$action($lookups),
+            EditorType::MapInfoMultiEditor => $self.map_info_multi_editor.$action($lookups),
+            EditorType::TileGridEditor => $self.tile_grid_editor.$action($lookups),
             EditorType::PartyLevelDbEditor => $self.party_level_db_level_editor.$action($lookups),
 
             // Custom-layout editor (undo/redo without lookups)
@@ -345,6 +354,10 @@ impl EditorRegistry {
             EditorType::PartyIniEditor => Some(self.party_ini_editor.edit_history()),
             EditorType::StoreEditor => Some(self.store_editor.edit_history()),
             EditorType::SaveIfoEditor => Some(self.save_ifo_editor.edit_history()),
+            EditorType::ChestSpawnEditor => Some(self.chest_spawn_editor.edit_history()),
+            EditorType::MonsterSpawnEditor => Some(self.monster_spawn_editor.edit_history()),
+            EditorType::MapInfoMultiEditor => Some(self.map_info_multi_editor.edit_history()),
+            EditorType::TileGridEditor => Some(self.tile_grid_editor.edit_history()),
 
             // Tab-based editors — need a HashMap lookup
             EditorType::MonsterRefEditor => self
@@ -424,6 +437,10 @@ impl EditorRegistry {
         *self.chdata_editor = Default::default();
         *self.event_scr_editor = Default::default();
         *self.save_ifo_editor = Default::default();
+        *self.chest_spawn_editor = Default::default();
+        *self.monster_spawn_editor = Default::default();
+        *self.map_info_multi_editor = Default::default();
+        *self.tile_grid_editor = Default::default();
 
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();

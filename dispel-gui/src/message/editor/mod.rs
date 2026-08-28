@@ -40,6 +40,12 @@ use crate::editors::sprite_editor::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::tileset::TilesetEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
+
+use crate::editors::chest_spawn::ChestSpawnEditorMessage;
+use crate::editors::monster_spawn::MonsterSpawnEditorMessage;
+use crate::editors::map_info_multi::MapInfoMultiEditorMessage;
+use crate::editors::tile_grid::TileGridEditorMessage;
+
 use crate::editors::weapon::WeaponEditorMessage;
 use hexedit::HexEditorMessage;
 
@@ -85,4 +91,8 @@ pub enum EditorMessage {
     SaveIfo(SaveIfoEditorMessage),
     FogData(FogDataMessage),
     HexEditor(HexEditorMessage),
+    ChestSpawn(ChestSpawnEditorMessage),
+    MonsterSpawn(MonsterSpawnEditorMessage),
+    MapInfoMulti(MapInfoMultiEditorMessage),
+    TileGrid(TileGridEditorMessage),
 }

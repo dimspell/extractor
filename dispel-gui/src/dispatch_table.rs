@@ -84,6 +84,10 @@ define_update_dispatch! {
     (SaveFileViewer, save_file_viewer),
     (SaveIfo, save_ifo),
     (FogData, fog_data),
+    (ChestSpawn, chest_spawn),
+    (MonsterSpawn, monster_spawn),
+    (MapInfoMulti, map_info_multi),
+    (TileGrid, tile_grid),
 }
 
 define_view_dispatch! {
@@ -126,6 +130,10 @@ define_view_dispatch! {
     (SaveFileViewer, save_file_viewer),
     (SaveIfoEditor, save_ifo),
     (FogDataEditor, fog_data),
+    (ChestSpawnEditor, chest_spawn),
+    (MonsterSpawnEditor, monster_spawn),
+    (MapInfoMultiEditor, map_info_multi),
+    (TileGridEditor, tile_grid),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game
@@ -179,6 +187,10 @@ pub fn load_catalog_task(et: EditorType) -> Option<iced::Task<Message>> {
         PartyLevelDbEditor => Some(iced::Task::done(Message::party_level_db(
             crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
         ))),
+        ChestSpawnEditor => load!(Message::chest_spawn),
+        MonsterSpawnEditor => load!(Message::monster_spawn),
+        MapInfoMultiEditor => load!(Message::map_info_multi),
+        TileGridEditor => load!(Message::tile_grid),
         _ => None,
     }
 }
@@ -238,6 +250,18 @@ pub fn spreadsheet_nav_msg(
         ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
         PartyLevelDbEditor => {
             Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
+        }
+        ChestSpawnEditor => {
+            Message::chest_spawn(chest_spawn::ChestSpawnEditorMessage::Spreadsheet(sm))
+        }
+        MonsterSpawnEditor => {
+            Message::monster_spawn(monster_spawn::MonsterSpawnEditorMessage::Spreadsheet(sm))
+        }
+        MapInfoMultiEditor => {
+            Message::map_info_multi(map_info_multi::MapInfoMultiEditorMessage::Spreadsheet(sm))
+        }
+        TileGridEditor => {
+            Message::tile_grid(tile_grid::TileGridEditorMessage::Spreadsheet(sm))
         }
         _ => return None,
     })

@@ -46,4 +46,8 @@ pub mod sprite_editor;
 pub mod store;
 pub mod tileset;
 pub mod wave_ini;
+pub mod map_info_multi;
+pub mod tile_grid;
 pub mod weapon;
+pub mod chest_spawn;
+pub mod monster_spawn;

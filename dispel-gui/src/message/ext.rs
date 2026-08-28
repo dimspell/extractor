@@ -41,6 +41,10 @@ define_message_ext! {
     save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
     save_ifo:        SaveIfo(crate::editors::save_ifo::SaveIfoEditorMessage),
     fog_data:        FogData(crate::editors::fog_data::FogDataMessage),
+    chest_spawn:     ChestSpawn(crate::editors::chest_spawn::ChestSpawnEditorMessage),
+    monster_spawn:   MonsterSpawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage),
+    map_info_multi:  MapInfoMulti(crate::editors::map_info_multi::MapInfoMultiEditorMessage),
+    tile_grid:       TileGrid(crate::editors::tile_grid::TileGridEditorMessage),
 }
 
 /// Extension trait for building nested editor messages.
