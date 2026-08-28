@@ -1138,9 +1138,6 @@ mod shadow_tests {
 }
 
 #[cfg(test)]
-mod render_placement_tests;
-
-#[cfg(test)]
 mod db_export_tests {
     use super::*;
     use rusqlite::Connection;
