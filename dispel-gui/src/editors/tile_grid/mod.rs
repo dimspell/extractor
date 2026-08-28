@@ -35,10 +35,10 @@ pub fn handle_canvas_message(
         let view = &app.state.editors.tile_grid_view;
         let catalog = &app.state.editors.tile_grid_editor.state.catalog;
         let old = if let TileGridCanvasMessage::EditSelected(_) = &msg {
-            catalog
-                .as_ref()
-                .and_then(|c| c.first())
-                .and_then(|g| view.selected_cell.and_then(|idx| g.data.get(idx as usize).copied()))
+            catalog.as_ref().and_then(|c| c.first()).and_then(|g| {
+                view.selected_cell
+                    .and_then(|idx| g.data.get(idx as usize).copied())
+            })
         } else {
             None
         };
@@ -65,20 +65,17 @@ pub fn handle_canvas_message(
     // Step 3: push to EditHistory (mutable borrow, now safe since the
     // catalog borrow from step 2 is dropped).
     if let (Some(old), Some(new_desc)) = (old_word, new_desc_for_history) {
-            let new_word = update::encode_descriptor(new_desc);
-            if new_word != old {
-                app.state
-                    .editors
-                    .tile_grid_editor
-                    .state
-                    .edit_history
-                    .push(crate::components::edit_history::EditAction::FieldChange {
-                        record_idx: selected_idx.unwrap_or(0) as usize,
-                        field: format!("cell_{}", selected_idx.unwrap_or(0)),
-                        old_value: old.to_string(),
-                        new_value: new_word.to_string(),
-                    });
-            }
+        let new_word = update::encode_descriptor(new_desc);
+        if new_word != old {
+            app.state.editors.tile_grid_editor.state.edit_history.push(
+                crate::components::edit_history::EditAction::FieldChange {
+                    record_idx: selected_idx.unwrap_or(0) as usize,
+                    field: format!("cell_{}", selected_idx.unwrap_or(0)),
+                    old_value: old.to_string(),
+                    new_value: new_word.to_string(),
+                },
+            );
+        }
     }
 
     if let Some(s) = status {

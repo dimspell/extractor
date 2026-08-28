@@ -312,7 +312,9 @@ pub fn format_vec_u32(values: &[u32]) -> String {
 /// Returns `None` if any value fails to parse.
 #[inline]
 pub fn parse_vec_u32(s: &str) -> Option<Vec<u32>> {
-    s.split(',').map(|part| part.trim().parse::<u32>().ok()).collect()
+    s.split(',')
+        .map(|part| part.trim().parse::<u32>().ok())
+        .collect()
 }
 
 // ── editable_record_fields! macro ─────────────────────────────────────────────

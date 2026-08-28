@@ -14,4 +14,4 @@ pub use modal::modal;
 pub use paragraph_cache::ParagraphCache;
 pub use popover::popover;
 pub use table_widget::{RowFlags, TableColumn, TableState, TableWidget};
-pub use text_area::{TextAreaContent, textarea, textarea_style};
+pub use text_area::{TextAreaContent, textarea, textarea_fill, textarea_style};

@@ -32,7 +32,8 @@ fn handle_inner(
         }
         TileGridCanvasMessage::Zoom(factor, cx, cy) => {
             let old_zoom = view.zoom;
-            let new_zoom = (view.zoom * factor).clamp(super::state::MIN_ZOOM, super::state::MAX_ZOOM);
+            let new_zoom =
+                (view.zoom * factor).clamp(super::state::MIN_ZOOM, super::state::MAX_ZOOM);
             if (new_zoom - old_zoom).abs() > f32::EPSILON {
                 // Zoom-to-cursor: keep the world point under (cx, cy) stationary.
                 // world_x = (cx - pan_x) / (CELL_SIZE * old_zoom)
@@ -97,7 +98,9 @@ fn handle_inner(
             let cell_total = gs * super::state::CELL_SIZE;
             let zoom_x = avail_w / cell_total;
             let zoom_y = avail_h / cell_total;
-            view.zoom = zoom_x.min(zoom_y).clamp(super::state::MIN_ZOOM, super::state::MAX_ZOOM);
+            view.zoom = zoom_x
+                .min(zoom_y)
+                .clamp(super::state::MIN_ZOOM, super::state::MAX_ZOOM);
             view.pan_x = (avail_w - cell_total * view.zoom) * 0.5;
             view.pan_y = (avail_h - cell_total * view.zoom) * 0.5;
             view.needs_fit = false;
@@ -122,7 +125,10 @@ fn handle_inner(
                     view.invalidate_cache();
                     return Some(format!("Edited cell {idx}"));
                 }
-                return Some(format!("Cell {idx} out of range (grid has {})", grid.data.len()));
+                return Some(format!(
+                    "Cell {idx} out of range (grid has {})",
+                    grid.data.len()
+                ));
             }
             Some("No cell selected".to_string())
         }
@@ -141,25 +147,36 @@ fn handle_inner(
             None
         }
         TileGridCanvasMessage::EditFieldBuffer { field, value } => {
-            view.edit_buffers.insert(field, value);
+            if let Some(idx) = view.selected_cell {
+                view.edit_buffers.insert((idx, field.clone()), value);
+            }
             None
         }
         TileGridCanvasMessage::CommitFieldBuffer { field } => {
-            if let Some(buf) = view.edit_buffers.remove(&field)
-                && let Ok(v) = buf.parse::<i32>()
-                && let Some(idx) = view.selected_cell
-                && let Some(word) = grid.data.get(idx as usize).copied()
-            {
-                            let mut desc = TileDescriptor::from_word(word);
-                            apply_field_to_desc(&mut desc, &field, v);
-                            if (idx as usize) < grid.data.len() {
-                                let old_word = grid.data[idx as usize];
-                                let new_word = encode_descriptor(desc);
-                                if new_word != old_word {
-                                    grid.data[idx as usize] = new_word;
-                                    view.invalidate_cache();
-                                }
-                            }
+            if let Some(idx) = view.selected_cell {
+                let buf_opt = view.edit_buffers.remove(&(idx, field.clone()));
+                if buf_opt.is_none() {
+                    return Some(format!("No edit buffer for '{field}' on cell {idx}"));
+                }
+                let buf = buf_opt.unwrap();
+                if buf.trim().is_empty() {
+                    return Some("Empty value — nothing to commit".to_string());
+                }
+                if let Ok(v) = buf.parse::<i32>()
+                    && let Some(word) = grid.data.get(idx as usize).copied()
+                {
+                    let mut desc = TileDescriptor::from_word(word);
+                    apply_field_to_desc(&mut desc, &field, v);
+                    if (idx as usize) < grid.data.len() {
+                        let old_word = grid.data[idx as usize];
+                        let new_word = encode_descriptor(desc);
+                        if new_word != old_word {
+                            grid.data[idx as usize] = new_word;
+                            view.invalidate_cache();
+                        }
+                    }
+                    return Some(format!("Updated '{field}' to {v}"));
+                }
             }
             None
         }

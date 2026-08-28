@@ -1,6 +1,6 @@
 use iced::advanced::text::Wrapping;
 use iced::widget::text_editor;
-use iced::{Background, Border, Color, Element, color};
+use iced::{Background, Border, Color, Element, Length, color};
 
 /// Owned `text_editor::Content` that can be stored in app state.
 ///
@@ -24,12 +24,39 @@ impl Clone for TextAreaContent {
     }
 }
 
-/// Styled multiline text area using the project's leather/medieval theme.
+/// Styled multiline text area that grows with its wrapped content.
 ///
-/// Matches the color palette of other input fields in the project.
+/// This is best for fields inside a parent scrollable, such as an inspector.
+/// Use [`textarea_fill`] when the editor should take its container's remaining
+/// vertical space instead.
 pub fn textarea<'a, Message>(
     content: &'a text_editor::Content,
     on_action: impl Fn(text_editor::Action) -> Message + 'a,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    textarea_with_height(content, on_action, Length::Fit)
+}
+
+/// Styled multiline text area that fills its container's remaining height.
+///
+/// Use this for a primary editor pane whose surrounding layout already
+/// constrains its height.
+pub fn textarea_fill<'a, Message>(
+    content: &'a text_editor::Content,
+    on_action: impl Fn(text_editor::Action) -> Message + 'a,
+) -> Element<'a, Message>
+where
+    Message: 'a,
+{
+    textarea_with_height(content, on_action, Length::Fill)
+}
+
+fn textarea_with_height<'a, Message>(
+    content: &'a text_editor::Content,
+    on_action: impl Fn(text_editor::Action) -> Message + 'a,
+    height: Length,
 ) -> Element<'a, Message>
 where
     Message: 'a,
@@ -38,7 +65,7 @@ where
         .on_action(on_action)
         .padding([8, 10])
         .size(12)
-        .height(80.0)
+        .height(height)
         .wrapping(Wrapping::WordOrGlyph)
         .style(textarea_style)
         .into()
