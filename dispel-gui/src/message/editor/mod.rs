@@ -44,6 +44,7 @@ use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::editors::chest_spawn::ChestSpawnEditorMessage;
 use crate::editors::monster_spawn::MonsterSpawnEditorMessage;
 use crate::editors::map_info_multi::MapInfoMultiEditorMessage;
+use crate::editors::tile_grid::TileGridCanvasMessage;
 use crate::editors::tile_grid::TileGridEditorMessage;
 
 use crate::editors::weapon::WeaponEditorMessage;
@@ -95,4 +96,5 @@ pub enum EditorMessage {
     MonsterSpawn(MonsterSpawnEditorMessage),
     MapInfoMulti(MapInfoMultiEditorMessage),
     TileGrid(TileGridEditorMessage),
+    TileGridCanvas(TileGridCanvasMessage),
 }

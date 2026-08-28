@@ -90,6 +90,7 @@ pub struct EditorRegistry {
     pub monster_spawn_editor: Box<StandardEditor<dispel_core::MonsterSpawn>>,
     pub map_info_multi_editor: Box<StandardEditor<dispel_core::MapInfoMulti>>,
     pub tile_grid_editor: Box<StandardEditor<dispel_core::TileGrid>>,
+    pub tile_grid_view: crate::editors::tile_grid::TileGridViewState,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -441,6 +442,7 @@ impl EditorRegistry {
         *self.monster_spawn_editor = Default::default();
         *self.map_info_multi_editor = Default::default();
         *self.tile_grid_editor = Default::default();
+        self.tile_grid_view = Default::default();
 
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();

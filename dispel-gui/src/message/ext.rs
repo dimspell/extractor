@@ -45,6 +45,7 @@ define_message_ext! {
     monster_spawn:   MonsterSpawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage),
     map_info_multi:  MapInfoMulti(crate::editors::map_info_multi::MapInfoMultiEditorMessage),
     tile_grid:       TileGrid(crate::editors::tile_grid::TileGridEditorMessage),
+    tile_grid_canvas: TileGridCanvas(crate::editors::tile_grid::TileGridCanvasMessage),
 }
 
 /// Extension trait for building nested editor messages.

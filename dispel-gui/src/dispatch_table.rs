@@ -88,6 +88,7 @@ define_update_dispatch! {
     (MonsterSpawn, monster_spawn),
     (MapInfoMulti, map_info_multi),
     (TileGrid, tile_grid),
+    (TileGridCanvas, tile_grid_canvas),
 }
 
 define_view_dispatch! {
