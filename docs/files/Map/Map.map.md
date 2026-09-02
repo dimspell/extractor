@@ -180,9 +180,17 @@ event_id: i16                    -- low half of a packed u32; low 14 bits hold
 flags: i16                       -- high half: parameter/flag bits
 ```
 
-In the packed u32, bit 22 acts as a "tile marked / entity occupied" flag (see
-`EventBlock::is_tile_marked` in `src/map/mod.rs`); the remaining high bits are
-unmapped parameters.
+In the packed u32, bit 22 sets `EventBlock::is_tile_marked`.
+
+`EventBlock::suppresses_btl_pass` returns true only when this expression is
+true:
+
+```text
+(word & 0x0FC00000) == 0x00400000
+```
+
+`EventBlock::is_no_combat_zone` returns the same derived value for callers
+that use this label. The remaining high bits have no documented meaning.
 
 ### Tile & Access Block
 

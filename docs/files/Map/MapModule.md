@@ -390,7 +390,7 @@ This ensures proper isometric depth ordering (painter's algorithm).
 | Table          | Columns                                                                                                                                         | Description                               |
 |----------------|-------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
 | `map_metadata` | `map_id`, `tiled_width`, `tiled_height`, `pixel_width`, `pixel_height`, `non_occluded_x`, `non_occluded_y`, `occluded_width`, `occluded_height` | Map dimensions and offsets                |
-| `map_tiles`    | `map_id`, `x`, `y`, `gtl_tile_id`, `btl_tile_id`, `collision`, `event_id`                                                                       | Per-tile ground/roof/collision/event data |
+| `map_tiles`    | `map_id`, `x`, `y`, `gtl_tile_id`, `btl_tile_id`, `collision`, `event_id`, `event_word`, `marked`, `btl_pass_suppressed`, `no_combat_zone` | Per-tile ground, roof, collision, and event data. Both derived flags use `(event_word & 0x0FC00000) == 0x00400000`. |
 | `map_objects`  | `map_id`, `object_index`, `x`, `y`, `btl_tile_id`, `stack_order`                                                                                | Building tile stacks                      |
 | `map_sprites`  | `map_id`, `sprite_index`, `x`, `y`, `sprite_id`                                                                                                 | Embedded sprite placements                |
 

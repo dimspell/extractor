@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS map_tiles (
     event_id INTEGER,
     event_word INTEGER NOT NULL DEFAULT 0,
     marked BOOLEAN NOT NULL DEFAULT FALSE,
+    btl_pass_suppressed BOOLEAN NOT NULL DEFAULT FALSE,
+    no_combat_zone BOOLEAN NOT NULL DEFAULT FALSE,
     object_id INTEGER,
     shadow_level INTEGER NOT NULL DEFAULT 0,
     light_flags INTEGER NOT NULL DEFAULT 0,
