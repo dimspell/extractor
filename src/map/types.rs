@@ -98,6 +98,52 @@ impl EventBlock {
     pub fn is_tile_marked(&self) -> bool {
         self.word & 0x0040_0000 != 0
     }
+
+    /// Returns true when the event word matches the BTL-pass mask.
+    pub fn suppresses_btl_pass(&self) -> bool {
+        (self.word & 0x0FC0_0000) == 0x0040_0000
+    }
+
+    /// Returns the same derived value under the no-combat-zone label.
+    pub fn is_no_combat_zone(&self) -> bool {
+        self.suppresses_btl_pass()
+    }
+}
+
+#[cfg(test)]
+mod event_block_tests {
+    use super::EventBlock;
+
+    #[test]
+    fn btl_pass_suppression_requires_the_exact_high_bits() {
+        let plain = EventBlock {
+            x: 0,
+            y: 0,
+            word: 0x0040_0000,
+        };
+        assert!(plain.suppresses_btl_pass());
+        assert!(plain.is_no_combat_zone());
+        let event_payload = EventBlock {
+            x: 0,
+            y: 0,
+            word: 0x0040_0013,
+        };
+        assert!(event_payload.suppresses_btl_pass());
+        let merely_unmarked = EventBlock {
+            x: 0,
+            y: 0,
+            word: 0,
+        };
+        assert!(!merely_unmarked.suppresses_btl_pass());
+        let marked_with_high_flag = EventBlock {
+            x: 0,
+            y: 0,
+            word: 0x00C0_0000,
+        };
+        assert!(marked_with_high_flag.is_tile_marked());
+        assert!(!marked_with_high_flag.suppresses_btl_pass());
+        assert!(!marked_with_high_flag.is_no_combat_zone());
+    }
 }
 
 /// Placement record for a sprite embedded directly in the map file.

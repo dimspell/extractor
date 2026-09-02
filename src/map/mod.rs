@@ -772,6 +772,14 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                     .get(&coords)
                     .map(|e| e.is_tile_marked())
                     .unwrap_or_default();
+                let btl_pass_suppressed = events
+                    .get(&coords)
+                    .map(|e| e.suppresses_btl_pass())
+                    .unwrap_or_default();
+                let no_combat_zone = events
+                    .get(&coords)
+                    .map(|e| e.is_no_combat_zone())
+                    .unwrap_or_default();
                 let object_id = object_ids.get(&coords).copied();
                 let raw_ref = access_ref_words.get(&coords).copied().unwrap_or(0);
                 let shadow_level = ((raw_ref >> 15) & 0x7FFF) as i64;
@@ -788,6 +796,8 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                     event_id as i32,
                     event_word,
                     marked,
+                    btl_pass_suppressed,
+                    no_combat_zone,
                     object_id,
                     shadow_level,
                     light_flags,
@@ -1260,9 +1270,9 @@ mod db_export_tests {
             (w - 1, 0),
         ] {
             let coords = (sx, sy);
-            let tile_row: [Option<i64>; 6] = conn
+            let tile_row: [Option<i64>; 8] = conn
                 .query_row(
-                    "SELECT event_word, marked, object_id, shadow_level, light_flags, \
+                    "SELECT event_word, marked, btl_pass_suppressed, no_combat_zone, object_id, shadow_level, light_flags, \
                      access_ref_word FROM map_tiles WHERE x = ?1 AND y = ?2",
                     params![sx - offset_x, sy - offset_y],
                     |row| {
@@ -1273,10 +1283,12 @@ mod db_export_tests {
                             row.get(3)?,
                             row.get(4)?,
                             row.get(5)?,
+                            row.get(6)?,
+                            row.get(7)?,
                         ])
                     },
                 )
-                .unwrap_or([None, None, None, None, None, None]);
+                .unwrap_or([None, None, None, None, None, None, None, None]);
             // unwrap_or would swallow a missing row; require presence:
             if tile_row[0].is_none() && !data.events.contains_key(&coords) {
                 panic!("missing tile row at {:?}", coords);
@@ -1288,6 +1300,16 @@ mod db_export_tests {
                 .get(&coords)
                 .map(|e| e.is_tile_marked())
                 .unwrap_or(false);
+            let btl_pass_suppressed = data
+                .events
+                .get(&coords)
+                .map(|e| e.suppresses_btl_pass())
+                .unwrap_or(false);
+            let no_combat_zone = data
+                .events
+                .get(&coords)
+                .map(|e| e.is_no_combat_zone())
+                .unwrap_or(false);
             let raw_ref = data.access_ref_words.get(&coords).copied().unwrap_or(0);
             let expected_object = data.object_ids.get(&coords).map(|&v| v as i64);
 
@@ -1298,21 +1320,33 @@ mod db_export_tests {
                 coords
             );
             assert_eq!(tile_row[1].unwrap() != 0, marked, "marked at {:?}", coords);
-            assert_eq!(tile_row[2], expected_object, "object_id at {:?}", coords);
             assert_eq!(
-                tile_row[3].unwrap(),
+                tile_row[2].unwrap() != 0,
+                btl_pass_suppressed,
+                "btl_pass_suppressed at {:?}",
+                coords
+            );
+            assert_eq!(
+                tile_row[3].unwrap() != 0,
+                no_combat_zone,
+                "no_combat_zone at {:?}",
+                coords
+            );
+            assert_eq!(tile_row[4], expected_object, "object_id at {:?}", coords);
+            assert_eq!(
+                tile_row[5].unwrap(),
                 ((raw_ref >> 15) & 0x7FFF) as i64,
                 "shadow_level at {:?}",
                 coords
             );
             assert_eq!(
-                tile_row[4].unwrap(),
+                tile_row[6].unwrap(),
                 ((raw_ref >> 30) & 0x3) as i64,
                 "light_flags at {:?}",
                 coords
             );
             assert_eq!(
-                tile_row[5].unwrap(),
+                tile_row[7].unwrap(),
                 raw_ref as i64,
                 "access_ref_word at {:?}",
                 coords
