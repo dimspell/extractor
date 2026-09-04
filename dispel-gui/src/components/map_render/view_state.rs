@@ -20,6 +20,12 @@ pub struct MapViewState {
     pub show_internal_sprites: bool,
     pub show_collisions: bool,
     pub show_events: bool,
+    /// Tiles whose event word marks the player as being under a roof.
+    pub show_under_roof_markers: bool,
+    /// Player/camera anchors where a native visible-area scan blocks a spell cast.
+    pub show_no_spell_cast_zones: bool,
+    /// Roof overlays that can draw on dark maps.
+    pub show_btl_overlays_in_dark_maps: bool,
     pub show_monsters: bool,
     pub show_npcs: bool,
     pub show_npc_waypoints: bool,
@@ -75,6 +81,9 @@ impl Default for MapViewState {
             show_internal_sprites: true,
             show_collisions: false,
             show_events: false,
+            show_under_roof_markers: false,
+            show_no_spell_cast_zones: false,
+            show_btl_overlays_in_dark_maps: false,
             show_monsters: true,
             show_npcs: true,
             show_npc_waypoints: false,

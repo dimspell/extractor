@@ -99,15 +99,56 @@ impl EventBlock {
         self.word & 0x0040_0000 != 0
     }
 
-    /// Returns true when the event word matches the BTL-pass mask.
-    pub fn suppresses_btl_pass(&self) -> bool {
+    /// True when this tile marks the player as being under a roof.
+    ///
+    /// The renderer uses this exact high-bit predicate for the player's tile
+    /// before it skips the BTL pass.
+    pub fn is_under_roof_marker(&self) -> bool {
         (self.word & 0x0FC0_0000) == 0x0040_0000
     }
 
-    /// Returns the same derived value under the no-combat-zone label.
-    pub fn is_no_combat_zone(&self) -> bool {
-        self.suppresses_btl_pass()
+    /// True when this tile belongs to the visible-area spell-casting gate.
+    ///
+    /// This has the same on-disk predicate as [`Self::is_under_roof_marker`],
+    /// but the game consumes it by scanning visible tiles before a spell arms.
+    pub fn is_no_spell_cast_zone(&self) -> bool {
+        (self.word & 0x0FC0_0000) == 0x0040_0000
     }
+}
+
+/// True when a roof overlay can draw on a dark map.
+///
+/// The low 15 bits select a BTL overlay. In dark-map rendering, the game also
+/// requires at least one bit in the upper 17 bits (bits 15–31) to be set.
+pub fn btl_overlay_draws_in_dark_map(access_ref_word: u32) -> bool {
+    (access_ref_word & 0x7FFF) != 0 && (access_ref_word & 0xFFFF_8000) != 0
+}
+
+/// Returns true when a spell-gate marker falls in the native visible diamond
+/// rooted at `anchor`.
+///
+/// The game scans 500 tiles in 32 rows before it allows a spell to arm. The
+/// callback receives each map coordinate in that camera-relative footprint and
+/// can stop the scan by returning true.
+pub fn no_spell_cast_zone_blocks_at_anchor(
+    anchor: Coords,
+    mut is_no_spell_marker: impl FnMut(Coords) -> bool,
+) -> bool {
+    const ROW_RUNS: [i32; 32] = [
+        1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 27, 27, 27, 27, 27, 25, 23, 21, 19, 17,
+        15, 13, 11, 9, 7, 5, 3, 1,
+    ];
+
+    for (y, &run) in ROW_RUNS.iter().enumerate() {
+        let y = y as i32;
+        let first_x = if y < 13 { -y } else { y - 26 };
+        for x in first_x..first_x + run {
+            if is_no_spell_marker((anchor.0 + x, anchor.1 + y)) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -115,34 +156,66 @@ mod event_block_tests {
     use super::EventBlock;
 
     #[test]
-    fn btl_pass_suppression_requires_the_exact_high_bits() {
+    fn under_roof_and_no_spell_markers_require_the_exact_high_bits() {
         let plain = EventBlock {
             x: 0,
             y: 0,
             word: 0x0040_0000,
         };
-        assert!(plain.suppresses_btl_pass());
-        assert!(plain.is_no_combat_zone());
+        assert!(plain.is_under_roof_marker());
+        assert!(plain.is_no_spell_cast_zone());
         let event_payload = EventBlock {
             x: 0,
             y: 0,
             word: 0x0040_0013,
         };
-        assert!(event_payload.suppresses_btl_pass());
+        assert!(event_payload.is_under_roof_marker());
+        assert!(event_payload.is_no_spell_cast_zone());
         let merely_unmarked = EventBlock {
             x: 0,
             y: 0,
             word: 0,
         };
-        assert!(!merely_unmarked.suppresses_btl_pass());
+        assert!(!merely_unmarked.is_under_roof_marker());
+        assert!(!merely_unmarked.is_no_spell_cast_zone());
         let marked_with_high_flag = EventBlock {
             x: 0,
             y: 0,
             word: 0x00C0_0000,
         };
         assert!(marked_with_high_flag.is_tile_marked());
-        assert!(!marked_with_high_flag.suppresses_btl_pass());
-        assert!(!marked_with_high_flag.is_no_combat_zone());
+        assert!(!marked_with_high_flag.is_under_roof_marker());
+        assert!(!marked_with_high_flag.is_no_spell_cast_zone());
+    }
+
+    #[test]
+    fn dark_map_roof_overlay_requires_a_reference_and_upper_bits() {
+        assert!(!super::btl_overlay_draws_in_dark_map(0));
+        assert!(!super::btl_overlay_draws_in_dark_map(7));
+        assert!(super::btl_overlay_draws_in_dark_map(0x0000_8007));
+        assert!(super::btl_overlay_draws_in_dark_map(0x4000_0007));
+    }
+
+    #[test]
+    fn visible_spell_gate_uses_the_native_500_tile_diamond() {
+        let anchor = (10, 20);
+        let mut scanned = 0;
+        assert!(!super::no_spell_cast_zone_blocks_at_anchor(anchor, |_| {
+            scanned += 1;
+            false
+        }));
+        assert_eq!(scanned, 500);
+        assert!(super::no_spell_cast_zone_blocks_at_anchor(
+            anchor,
+            |tile| tile == anchor
+        ));
+        assert!(super::no_spell_cast_zone_blocks_at_anchor(anchor, |tile| {
+            tile == (15, 51)
+        }));
+        assert!(!super::no_spell_cast_zone_blocks_at_anchor(
+            anchor,
+            |tile| { tile == (16, 51) }
+        ));
     }
 }
 
