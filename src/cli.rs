@@ -78,7 +78,7 @@ pub enum Commands {
     /// Sprite/Animation extraction
     #[command(
         about = "Extract frames or sequences from SPR files",
-        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation\n  dispel-extractor sprite character.spr --info"
+        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation\n  dispel-extractor sprite character.spr --preserve-black\n  dispel-extractor sprite character.spr --info"
     )]
     Sprite {
         /// Path to the source .SPR file
@@ -89,6 +89,9 @@ pub enum Commands {
         /// Render animation frames at their raw top-left position instead of aligning their origins
         #[arg(long)]
         no_origin_offset: bool,
+        /// Keep raw 0x0000 pixels as opaque #000000 instead of making them transparent
+        #[arg(long)]
+        preserve_black: bool,
         /// Output sprite metadata as JSON (no rendering)
         #[arg(long)]
         info: bool,

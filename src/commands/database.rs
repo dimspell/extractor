@@ -743,7 +743,6 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
 
 fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     use image::ImageEncoder;
-    use std::io::{Seek, SeekFrom};
 
     // Ensure the schema exists (idempotent — uses CREATE TABLE IF NOT EXISTS)
     initialize_database(conn)?;
@@ -809,32 +808,18 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
 
         match std::fs::File::open(&path) {
             Ok(file) => {
-                let file_len = match file.metadata() {
-                    Ok(m) => m.len(),
-                    Err(_) => {
+                let mut reader = std::io::BufReader::new(file);
+                let infos = match dispel_core::sprite::get_sprite_sequence_infos(&path) {
+                    Ok(infos) => infos,
+                    Err(e) => {
+                        eprintln!("WARNING: sprite parse failed for {}: {e}", path.display());
                         errors += 1;
                         return Ok(());
                     }
                 };
-                let mut reader = std::io::BufReader::new(file);
 
-                // Skip 268-byte header
-                if reader.seek(SeekFrom::Start(268)).is_err() {
-                    errors += 1;
-                    return Ok(());
-                }
-
-                let mut seq_idx = 0;
-                loop {
-                    let pos = reader.stream_position().unwrap_or(file_len);
-                    match dispel_core::sprite::seek_next_sequence(&mut reader, pos, file_len) {
-                        Ok(true) => {}
-                        _ => break,
-                    }
-                    let info = match dispel_core::sprite::get_sequence_info(&mut reader) {
-                        Ok(i) => i,
-                        Err(_) => break,
-                    };
+                for (seq_idx, info) in infos.iter().enumerate() {
+                    let seq_idx = seq_idx as i32;
 
                     let frame_count = info.frame_infos.len() as i32;
                     let mut has_frame_data = false;
@@ -911,14 +896,6 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                             errors += 1;
                         }
                     }
-
-                    if reader
-                        .seek(SeekFrom::Start(info.sequence_end_position))
-                        .is_err()
-                    {
-                        break;
-                    }
-                    seq_idx += 1;
                 }
 
                 count += 1;
