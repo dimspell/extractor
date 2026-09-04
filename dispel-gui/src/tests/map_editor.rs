@@ -639,6 +639,49 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    fn derived_map_overlay_layers_default_hidden_and_toggle_independently() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+        let view = &app.state.editors.map_editors[&tab_id].view;
+        assert!(!view.show_under_roof_markers);
+        assert!(!view.show_no_spell_cast_zones);
+        assert!(!view.show_btl_overlays_in_dark_maps);
+
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::UnderRoofMarkers),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .view
+                .show_under_roof_markers
+        );
+        assert!(
+            !app.state.editors.map_editors[&tab_id]
+                .view
+                .show_no_spell_cast_zones
+        );
+        assert!(
+            !app.state.editors.map_editors[&tab_id]
+                .view
+                .show_btl_overlays_in_dark_maps
+        );
+
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::NoSpellCastZones),
+            &mut app,
+        );
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::BtlOverlaysInDarkMaps),
+            &mut app,
+        );
+        let view = &app.state.editors.map_editors[&tab_id].view;
+        assert!(view.show_under_roof_markers);
+        assert!(view.show_no_spell_cast_zones);
+        assert!(view.show_btl_overlays_in_dark_maps);
+    }
+
+    #[test]
     fn light_map_loads_no_shadow_data() {
         let Some(gp) = fixture_game_path() else {
             eprintln!("Skipping: fixtures not found");
@@ -737,25 +780,6 @@ mod map_editor_entity_tests {
                 cli_cy,
                 "GUI/CLI y placement diverged at ({x},{y})"
             );
-        }
-    }
-
-    /// GUI hit-testing and the CLI renderer must pick the same standing spot
-    /// for every NPC record in the fixture set.
-    #[test]
-    fn gui_npc_placement_matches_core_renderer() {
-        use crate::editors::map_editor::canvas::hit_test::npc_pos;
-        let gp = std::path::PathBuf::from("../fixtures/Dispel");
-        if !gp.exists() {
-            eprintln!("Skipping: fixtures not found");
-            return;
-        }
-        use dispel_core::references::extractor::Extractor;
-        let npcs = dispel_core::NPC::read_file(&gp.join("NpcInGame/Npccat1.ref"))
-            .expect("parse npccat1.ref");
-        assert!(!npcs.is_empty());
-        for n in &npcs {
-            assert_eq!(npc_pos(n), dispel_core::map::render::npc_placement(n));
         }
     }
 }

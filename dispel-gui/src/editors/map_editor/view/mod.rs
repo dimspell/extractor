@@ -144,6 +144,27 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
+                    "Under Roof / Hide BTL",
+                    state.view.show_under_roof_markers,
+                    tab_id,
+                    MapLayer::UnderRoofMarkers,
+                    None
+                ),
+                layer_toggle(
+                    "No Spell Casting Range",
+                    state.view.show_no_spell_cast_zones,
+                    tab_id,
+                    MapLayer::NoSpellCastZones,
+                    None
+                ),
+                layer_toggle(
+                    "BTL Overlays in Dark Maps",
+                    state.view.show_btl_overlays_in_dark_maps,
+                    tab_id,
+                    MapLayer::BtlOverlaysInDarkMaps,
+                    None
+                ),
+                layer_toggle(
                     "Object IDs",
                     state.view.show_object_ids,
                     tab_id,
@@ -200,6 +221,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 state.view.show_internal_sprites,
                 state.view.show_collisions,
                 state.view.show_events,
+                state.view.show_under_roof_markers,
+                state.view.show_no_spell_cast_zones,
+                state.view.show_btl_overlays_in_dark_maps,
                 state.view.show_monsters,
                 state.view.show_npcs,
                 state.view.show_npc_waypoints,

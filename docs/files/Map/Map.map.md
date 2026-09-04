@@ -182,15 +182,19 @@ flags: i16                       -- high half: parameter/flag bits
 
 In the packed u32, bit 22 sets `EventBlock::is_tile_marked`.
 
-`EventBlock::suppresses_btl_pass` returns true only when this expression is
-true:
+Two game systems use the following exact event-word predicate:
 
 ```text
 (word & 0x0FC00000) == 0x00400000
 ```
 
-`EventBlock::is_no_combat_zone` returns the same derived value for callers
-that use this label. The remaining high bits have no documented meaning.
+- `EventBlock::is_under_roof_marker` identifies a player tile that hides the
+  BTL pass.
+- `EventBlock::is_no_spell_cast_zone` identifies a visible tile that prevents
+  a player from preparing a spell.
+
+The predicate is the same, but the systems use different tile scopes. The
+remaining high bits have no documented meaning.
 
 ### Tile & Access Block
 
@@ -229,8 +233,14 @@ This grid packs **two layers** in one u32:
 2. **Shadow/fog level** (bits 15–29): 0–199 darkness applied per tile via a
    fade table; entities carrying light raise the value (max wins).
 
-Bit 15 of the word bleeds into the signed `ref_id` i16, which is why readers
-skip negative ids.
+On a dark map, a BTL overlay must have a non-zero reference and at least one
+bit in positions 15–31. The extractor exposes this condition as
+`btl_overlay_draws_in_dark_map`. It is not a guarantee that the overlay draws:
+the referenced Second Block entry must also have its draw-enable byte set.
+Light maps use a different roof pass and do not apply this extra condition.
+
+Bit 15 overlaps the signed-i16 view of `ref_id`; readers must mask the low 15
+bits instead of treating a negative i16 value as an absent reference.
 
 ---
 

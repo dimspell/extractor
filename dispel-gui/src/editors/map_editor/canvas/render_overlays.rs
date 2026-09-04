@@ -20,6 +20,36 @@ pub struct MapCanvasOverlaysLayer<'a> {
     pub tab_id: usize,
 }
 
+/// Return the full isometric diamond for one map tile.
+fn tile_diamond_path(px: f32, py: f32, zoom: f32) -> canvas::Path {
+    let width = TILE_W * zoom;
+    let height = TILE_H * zoom;
+    let center_x = px + width * 0.5;
+    let center_y = py + height * 0.5;
+    canvas::Path::new(|builder| {
+        builder.move_to(Point::new(center_x, center_y - height * 0.5));
+        builder.line_to(Point::new(center_x + width * 0.5, center_y));
+        builder.line_to(Point::new(center_x, center_y + height * 0.5));
+        builder.line_to(Point::new(center_x - width * 0.5, center_y));
+        builder.close();
+    })
+}
+
+/// True when the native visible-area spell gate blocks a cast from `anchor`.
+/// This inverts the map marker view: it identifies the player/camera anchors
+/// from which at least one no-spell marker is visible.
+fn no_spell_cast_is_blocked_at_anchor(
+    map_data: &dispel_core::map::MapData,
+    anchor: (i32, i32),
+) -> bool {
+    dispel_core::map::no_spell_cast_zone_blocks_at_anchor(anchor, |coords| {
+        map_data
+            .events
+            .get(&coords)
+            .is_some_and(|event| event.is_no_spell_cast_zone())
+    })
+}
+
 impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
     type State = MapCanvasState;
 
@@ -128,6 +158,63 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 ellipsis: iced::widget::text::Ellipsis::None,
                                 wrapping: iced::widget::text::Wrapping::None,
                             });
+                        }
+                    }
+
+                    // Player-under-roof marker — amber fill. The renderer uses
+                    // this marker at the player tile to hide the BTL pass.
+                    if self.state.view.show_under_roof_markers {
+                        for (&(tx, ty), event) in &map_data.events {
+                            if !event.is_under_roof_marker() {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            frame.fill(
+                                &tile_diamond_path(px, py, zoom),
+                                Color::from_rgba(1.0, 0.55, 0.05, 0.32),
+                            );
+                        }
+                    }
+
+                    // No-spell-casting range — violet fill. Unlike the amber
+                    // source markers, this shows every player/camera anchor
+                    // whose native 500-tile visible diamond contains a marker.
+                    if self.state.view.show_no_spell_cast_zones {
+                        for &(tx, ty) in map_data.events.keys() {
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            if !no_spell_cast_is_blocked_at_anchor(map_data, (tx, ty)) {
+                                continue;
+                            }
+                            frame.fill(
+                                &tile_diamond_path(px, py, zoom),
+                                Color::from_rgba(0.8, 0.15, 0.95, 0.25),
+                            );
+                        }
+                    }
+
+                    // Conditional roof overlays — teal outline. These access
+                    // references can draw in the dark-map roof pass.
+                    if self.state.view.show_btl_overlays_in_dark_maps {
+                        for (&(tx, ty), &access_ref_word) in &map_data.access_ref_words {
+                            if !dispel_core::map::btl_overlay_draws_in_dark_map(access_ref_word) {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            frame.stroke(
+                                &tile_diamond_path(px, py, zoom),
+                                canvas::Stroke::default()
+                                    .with_color(Color::from_rgba(0.05, 0.85, 0.78, 0.95))
+                                    .with_width((2.0 * zoom).max(1.0)),
+                            );
                         }
                     }
 

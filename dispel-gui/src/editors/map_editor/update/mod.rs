@@ -189,6 +189,16 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         state.view.show_collisions = !state.view.show_collisions
                     }
                     MapLayer::Events => state.view.show_events = !state.view.show_events,
+                    MapLayer::UnderRoofMarkers => {
+                        state.view.show_under_roof_markers = !state.view.show_under_roof_markers
+                    }
+                    MapLayer::NoSpellCastZones => {
+                        state.view.show_no_spell_cast_zones = !state.view.show_no_spell_cast_zones
+                    }
+                    MapLayer::BtlOverlaysInDarkMaps => {
+                        state.view.show_btl_overlays_in_dark_maps =
+                            !state.view.show_btl_overlays_in_dark_maps
+                    }
                     MapLayer::Monsters => state.view.show_monsters = !state.view.show_monsters,
                     MapLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
                     MapLayer::NpcWaypoints => {
