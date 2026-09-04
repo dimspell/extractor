@@ -30,11 +30,13 @@ fn main() {
             input,
             mode,
             no_origin_offset,
+            preserve_black,
             info,
         }) => SpriteCommand {
             input: input.clone(),
             mode: *mode,
             no_origin_offset: *no_origin_offset,
+            preserve_black: *preserve_black,
             info: *info,
         }
         .execute(),
