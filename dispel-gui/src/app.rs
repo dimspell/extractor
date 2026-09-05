@@ -316,7 +316,6 @@ impl App {
                 Task::none()
             }
             EditorType::FogDataEditor => {
-                // 63 KB file — synchronous parse, same as the sprite editor.
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
                         .editors
