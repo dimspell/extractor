@@ -396,8 +396,8 @@ This cross-reference documentation:
 - Does **not distribute any copyrighted game content**
 - Focuses on **data structure organization and system design**
 - Uses **generic descriptions** of game mechanics
-- Maintains **nominal fair use** for trademark references
-- Is intended for **educational and research purposes** only
+- Maintains **nominative use** for trademark references
+- Is intended for **independent interoperability research based on observable behavior** only, without circumvention of technological protection measures
 
 ## Extractor Commands
 

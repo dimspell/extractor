@@ -298,7 +298,7 @@ cargo run -p dispel-gui
 
 This project is **not affiliated with, endorsed by, or sponsored by** the Dispel game owner.
 
-This tool is for **educational and research purposes only**. It does not distribute copyrighted game content and complies with fair use principles for reverse engineering research.
+This tool is for **independent file-format interoperability research based on observable program behavior** only. It does not redistribute copyrighted game files and does not circumvent technological protection measures.
 
 ### License
 

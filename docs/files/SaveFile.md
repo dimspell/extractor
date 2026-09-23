@@ -452,8 +452,9 @@ This file stores the complete player game state, including:
 ## Legal Notice
 
 ⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any
-copyrighted game content, save data, or proprietary assets. All references to save file structures are for **educational
-and research purposes** to document file organization and data structures.
+copyrighted game content, save data, or proprietary assets. All references to save file structures are for **independent
+interoperability research based on observable behavior** to document file organization and data structures, without
+circumvention of technological protection measures.
 
 **DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the
 trademark owner.
@@ -466,7 +467,7 @@ This documentation:
 - Does **not** distribute any save data or game content
 - Focuses on **technical organization**, not creative content
 - Uses **generic descriptions** of file purposes
-- Maintains **nominal fair use** for trademark references
+- Maintains **nominative use** for trademark references
 
 ## Notes
 
