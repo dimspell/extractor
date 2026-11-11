@@ -159,7 +159,9 @@ NpcMapFiles.ref (NPC placements)
     └── Waypoints for patrol routes
 
 Eventnpc.ref (event NPCs)
-    ├── event_id → Event.ini.event_id (trigger condition)
+    ├── npc_ini_id → Npc.ini.id (visual type)
+    ├── show_on_event → Event.ini.event_id (trigger condition)
+    ├── dialog_id → DlgMapFiles.dlg.id (dialogue script)
     └── Temporary NPCs appearing during specific events
 
 DlgMapFiles.dlg (dialogue scripts)
@@ -208,7 +210,7 @@ Events are referenced by:
     ├── DlgMapFiles.dlg.event_id
     ├── DlgMapFiles.dlg.prev_event
     ├── Extra.ref.event_id
-    └── Eventnpc.ref.event_id
+    └── Eventnpc.ref.show_on_event
 ```
 
 ### 7. Item/Equipment System Relationships
@@ -293,7 +295,9 @@ Message.scr (UI messages)
 | NpcMapFiles.ref  | npc_id                | Npc.ini          | id           | NPC type           |
 | NpcMapFiles.ref  | dialog_id             | DlgMapFiles.dlg  | id           | Dialogue           |
 | NpcMapFiles.ref  | show_on_event         | Event.ini        | event_id     | Visibility         |
-| Eventnpc.ref     | event_id              | Event.ini        | event_id     | Trigger            |
+| Eventnpc.ref     | show_on_event         | Event.ini        | event_id     | Trigger            |
+| Eventnpc.ref     | npc_ini_id            | Npc.ini          | id           | NPC type           |
+| Eventnpc.ref     | dialog_id             | DlgMapFiles.dlg  | id           | Dialogue           |
 | DlgMapFiles.dlg  | prev_event            | Event.ini        | event_id     | Prerequisite       |
 | DlgMapFiles.dlg  | next_dlg              | DlgMapFiles.dlg  | id           | Chain              |
 | DlgMapFiles.dlg  | dlg_id                | PgpMapFiles.pgp  | id           | Text               |
