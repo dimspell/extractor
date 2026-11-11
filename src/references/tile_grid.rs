@@ -163,7 +163,6 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-
     #[test]
     fn serialize_round_trip_small() {
         let mut data = 248004u32.to_le_bytes().to_vec();

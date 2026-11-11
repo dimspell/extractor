@@ -1149,4 +1149,3 @@ mod shadow_tests {
         assert_eq!(levels, vec![((1, 0), 100), ((4, 0), 199)]);
     }
 }
-

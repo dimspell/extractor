@@ -532,5 +532,4 @@ mod tests {
             assert_eq!(summaries[i].game_tmp_key, None);
         }
     }
-
 }
