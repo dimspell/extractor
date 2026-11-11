@@ -59,12 +59,10 @@ impl<'a> canvas::Program<Message> for TileGridCanvas<'a> {
                 state.did_drag = false;
                 state.dragging = false;
                 state.last_pos = None;
-                if !did_drag {
-                    if let Some(pos) = cursor.position_in(bounds) {
-                        return Some(Action::publish(Message::tile_grid_canvas(
-                            TileGridCanvasMessage::Click(pos.x, pos.y),
-                        )));
-                    }
+                if !did_drag && let Some(pos) = cursor.position_in(bounds) {
+                    return Some(Action::publish(Message::tile_grid_canvas(
+                        TileGridCanvasMessage::Click(pos.x, pos.y),
+                    )));
                 }
             }
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {

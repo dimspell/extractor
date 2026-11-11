@@ -559,7 +559,7 @@ where
     let infos = read_sprite_sequence_infos(&mut reader)?;
 
     for (seq_index, info) in infos.iter().enumerate() {
-        f(&mut reader, &info, seq_index)?;
+        f(&mut reader, info, seq_index)?;
     }
 
     Ok(())
@@ -675,6 +675,7 @@ pub fn save_sequence_anim_with_black(
 ///
 /// Each atlas cell uses the sequence's shared bounding box, keeping the
 /// frame anchor at the same position across the animation.
+#[allow(clippy::too_many_arguments)]
 fn render_sequence_animation<R: Read + Seek>(
     reader: &mut BufReader<R>,
     frames: &[ImageInfo],
