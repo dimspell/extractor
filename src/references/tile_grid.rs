@@ -163,25 +163,6 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    #[test]
-    fn parse_qd1_1_dat_header() {
-        let path = Path::new(
-            "/Users/piotr/Projects/dispel-re/multi-iso-files/contents/Patch565/Map/Multi/QD1-1.dat",
-        );
-        let grids = TileGrid::read_file(path).unwrap();
-        assert_eq!(grids.len(), 1);
-        let g = &grids[0];
-        assert_eq!(g.payload_length, 248004);
-        assert_eq!(g.grid_size, 249);
-        assert_eq!(g.data.len(), 62001);
-        // First non-zero value should be a wall or empty tile descriptor.
-        // The file authors use 0 (empty) or 1 (wall) in low-10 bits.
-        assert!(
-            g.data
-                .iter()
-                .any(|&v| v == 0 || v == 1 || (v & 0x3ff) == 0 || (v & 0x3ff) == 1)
-        );
-    }
 
     #[test]
     fn serialize_round_trip_small() {

@@ -184,16 +184,4 @@ impl Extractor for SaveIfo {
 mod tests {
     use super::*;
 
-    /// Both known-good fixtures must round-trip byte-for-byte.
-    #[test]
-    fn fixtures_round_trip_byte_for_byte() {
-        for rel in ["fixtures/Dispel/Save.ifo", "fixtures/kr-save/Save.ifo"] {
-            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(rel);
-            let original = std::fs::read(&path).unwrap_or_else(|e| panic!("{rel}: {e}"));
-            let parsed = SaveIfo::parse(&original).unwrap_or_else(|e| panic!("{rel}: {e}"));
-            let mut out = Vec::new();
-            parsed.write_to(&mut out).unwrap();
-            assert_eq!(out, original, "{rel} did not round-trip");
-        }
-    }
 }

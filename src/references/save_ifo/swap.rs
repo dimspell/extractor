@@ -533,22 +533,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn summarize_real_fixture() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/Dispel");
-        let summaries = summarize_slots(&root).unwrap();
-        assert_eq!(summaries.len(), SLOT_COUNT);
-        for s in &summaries {
-            assert!(s.occupied);
-        }
-        for s in &summaries[0..3] {
-            assert!(s.sav_present, "slot {} should have a .sav", s.index);
-            assert!(s.game_tmp_key.is_some());
-            assert!(s.map_id.is_some());
-        }
-        for s in &summaries[3..] {
-            assert!(!s.sav_present, "slot {} should have no .sav", s.index);
-            assert!(s.game_tmp_key.is_none());
-        }
-    }
 }

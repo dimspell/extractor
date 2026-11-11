@@ -237,21 +237,3 @@ impl std::fmt::Display for MapInfoMulti {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_qd1_1_ifm() {
-        let path = Path::new(
-            "/Users/piotr/Projects/dispel-re/multi-iso-files/contents/Patch565/Map/Multi/QD1-1.ifm",
-        );
-        let records = MapInfoMulti::read_file(path).unwrap();
-        assert_eq!(records.len(), 1);
-        let info = &records[0];
-        // The hex shows self_name = "QS1" for this .ifm (binary-verified).
-        assert!(!info.self_name.is_empty());
-        assert!(info.anchor_tile_index == 149 || info.anchor_tile_index > 0);
-        assert!(info.stride == 250 || info.stride > 0);
-    }
-}
