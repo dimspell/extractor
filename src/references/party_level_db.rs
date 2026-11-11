@@ -27,13 +27,13 @@ pub struct PartyLevelRecord {
     pub wisdom: u32,
     pub health_points: u16,
     pub mana_points: u16,
-    /// Agility at offset `0x14`; the following three bytes are reserved.
-    pub agility: u8,
+    /// Accuracy rate; the following three bytes are reserved.
+    pub accuracy: u8,
     pub reserved_0x15: u8,
     pub reserved_0x16: u8,
     pub reserved_0x17: u8,
-    /// Attack-related stat at offset `0x18`; the following three bytes are reserved.
-    pub attack: u8,
+    /// Dodge rate; the following three bytes are reserved.
+    pub dodge: u8,
     pub reserved_0x19: u8,
     pub reserved_0x1a: u8,
     pub reserved_0x1b: u8,
@@ -79,11 +79,11 @@ impl Extractor for PartyLevelNpc {
                     wisdom: reader.read_u32::<LittleEndian>()?,
                     health_points: reader.read_u16::<LittleEndian>()?,
                     mana_points: reader.read_u16::<LittleEndian>()?,
-                    agility: reader.read_u8()?,
+                    accuracy: reader.read_u8()?,
                     reserved_0x15: reader.read_u8()?,
                     reserved_0x16: reader.read_u8()?,
                     reserved_0x17: reader.read_u8()?,
-                    attack: reader.read_u8()?,
+                    dodge: reader.read_u8()?,
                     reserved_0x19: reader.read_u8()?,
                     reserved_0x1a: reader.read_u8()?,
                     reserved_0x1b: reader.read_u8()?,
@@ -108,11 +108,11 @@ impl Extractor for PartyLevelNpc {
                 writer.write_u32::<LittleEndian>(record.wisdom)?;
                 writer.write_u16::<LittleEndian>(record.health_points)?;
                 writer.write_u16::<LittleEndian>(record.mana_points)?;
-                writer.write_u8(record.agility)?;
+                writer.write_u8(record.accuracy)?;
                 writer.write_u8(record.reserved_0x15)?;
                 writer.write_u8(record.reserved_0x16)?;
                 writer.write_u8(record.reserved_0x17)?;
-                writer.write_u8(record.attack)?;
+                writer.write_u8(record.dodge)?;
                 writer.write_u8(record.reserved_0x19)?;
                 writer.write_u8(record.reserved_0x1a)?;
                 writer.write_u8(record.reserved_0x1b)?;
@@ -145,11 +145,11 @@ pub fn save_party_levels(conn: &mut Connection, npcs: &[PartyLevelNpc]) -> DbRes
                 record.wisdom as i64,
                 record.health_points as i32,
                 record.mana_points as i32,
-                record.agility as i32,
+                record.accuracy as i32,
                 record.reserved_0x15 as i32,
                 record.reserved_0x16 as i32,
                 record.reserved_0x17 as i32,
-                record.attack as i32,
+                record.dodge as i32,
                 record.reserved_0x19 as i32,
                 record.reserved_0x1a as i32,
                 record.reserved_0x1b as i32,

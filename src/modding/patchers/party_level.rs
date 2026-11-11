@@ -80,11 +80,11 @@ impl RecordPatcher for PartyLevelDbPatcher {
             "wisdom" => set_u32(&mut rec.wisdom, field, new)?,
             "health_points" => set_u16(&mut rec.health_points, field, new)?,
             "mana_points" => set_u16(&mut rec.mana_points, field, new)?,
-            "agility" => set_u8(&mut rec.agility, field, new)?,
+            "accuracy" => set_u8(&mut rec.accuracy, field, new)?,
             "reserved_0x15" => set_u8(&mut rec.reserved_0x15, field, new)?,
             "reserved_0x16" => set_u8(&mut rec.reserved_0x16, field, new)?,
             "reserved_0x17" => set_u8(&mut rec.reserved_0x17, field, new)?,
-            "attack" => set_u8(&mut rec.attack, field, new)?,
+            "dodge" => set_u8(&mut rec.dodge, field, new)?,
             "reserved_0x19" => set_u8(&mut rec.reserved_0x19, field, new)?,
             "reserved_0x1a" => set_u8(&mut rec.reserved_0x1a, field, new)?,
             "reserved_0x1b" => set_u8(&mut rec.reserved_0x1b, field, new)?,
@@ -275,11 +275,11 @@ mod tests {
         let p = PartyLevelDbPatcher;
         let original = empty_file();
         let out = p
-            .apply_field(&original, 100, "agility", &Value::I64(7))
+            .apply_field(&original, 100, "accuracy", &Value::I64(7))
             .unwrap();
         assert_eq!(out.len(), original.len());
         // Every byte should still be zero except where we wrote.
-        // Block 100 starts at offset 100 * 36 = 3600; agility is the u8
+        // Block 100 starts at offset 100 * 36 = 3600; accuracy is the u8
         // at sub-offset 20.
         let mut expected = vec![0u8; original.len()];
         expected[3620] = 7;
