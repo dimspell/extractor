@@ -115,13 +115,13 @@ dispel-extractor/
 `WeaponItem`, `HealItem`, `EditItem`, `EventItem`, `MiscItem`, `Monster`, `MagicSpell`, `Store`, `ChData`, `PartyIniNpc`
 
 **Binary ref records:**
-`MonsterRef` (Mondun*.ref), `NPC` (Npccat*.ref, 672 bytes), `ExtraRef` (Extdun*.ref)
+`MonsterRef` (Mondun*.ref), `NPC` (Npc*.ref, 672 bytes), `ExtraRef` (Ext*.ref)
 
 **INI/CSV/Text records (derive-based):**
-`Map`, `MapIni`, `Event`, `Extra`, `MonsterIni`, `NpcIni`, `WaveIni`, `Message`, `EventNpcRef`, `PartyRef`
+`Map`, `MapIni`, `Event`, `Extra`, `MonsterIni`, `NpcIni`, `WaveIni`, `Message`, `PartyRef`
 
 **Manually implemented parsers:**
-`PartyLevelNpc` (+ `PartyLevelRecord`), `DrawItem`, `Quest`, `EventScript`, `DialogueScript`, `DialogueParagraph`, **`SaveFile`**, **`SaveIfo`**
+`PartyLevelNpc` (+ `PartyLevelRecord`), `DrawItem`, `Quest`, `EventScript`, `DialogueScript`, `DialogueParagraph`, **`EventNpcRef`, `SaveFile`, `SaveIfo`
 
 ---
 
