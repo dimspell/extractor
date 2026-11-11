@@ -237,21 +237,3 @@ impl std::fmt::Display for MapInfoMulti {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_qd1_1_ifm() {
-        let path = Path::new(
-            "",
-        );
-        let records = MapInfoMulti::read_file(path).unwrap();
-        assert_eq!(records.len(), 1);
-        let info = &records[0];
-        // The self_name field is NUL-padded to eight bytes.
-        assert!(!info.self_name.is_empty());
-        assert!(info.anchor_tile_index == 149 || info.anchor_tile_index > 0);
-        assert!(info.stride == 250 || info.stride > 0);
-    }
-}

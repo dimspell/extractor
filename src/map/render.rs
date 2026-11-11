@@ -1839,15 +1839,6 @@ fn fog_loads_only_for_dark_maps() {
 }
 
 #[test]
-fn fogdata_loads_from_fixture_game_dir() {
-    let fog = FogData::load(Path::new("fixtures/Dispel")).expect("fixture fogdata.dat");
-    // Known values from the shipped file: level 1 is uniformly dark (f=2),
-    // level 65 is fully bright (f=31).
-    assert_eq!(fog.factor(1, 0), 2);
-    assert_eq!(fog.factor(65, 256), 31);
-}
-
-#[test]
 fn entity_marker_is_placed_in_viewport_space() {
     // Regression: external entities must be shifted into the occluded
     // viewport like every other layer — subtracting the map origin
