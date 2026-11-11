@@ -27,8 +27,10 @@ fn pixel_to_cell_out_of_bounds() {
 
 #[test]
 fn pixel_to_cell_with_zoom() {
-    let mut v = TileGridViewState::default();
-    v.zoom = 2.0;
+    let v = TileGridViewState {
+        zoom: 2.0,
+        ..Default::default()
+    };
     // At zoom=2, cell size is 16px. Pixel (16,0) → cell (1,0)
     assert_eq!(v.pixel_to_cell(CELL_SIZE * 2.0, 0.0, 249), Some(1));
     // Pixel (8,0) at zoom=2 → still cell (0,0)
@@ -37,8 +39,10 @@ fn pixel_to_cell_with_zoom() {
 
 #[test]
 fn pixel_to_cell_with_pan() {
-    let mut v = TileGridViewState::default();
-    v.pan_x = -CELL_SIZE; // shifted left by 1 cell
+    let v = TileGridViewState {
+        pan_x: -CELL_SIZE, // shifted left by 1 cell
+        ..Default::default()
+    };
     // Pixel (0,0) with pan=-8 → world_x = (0 - (-8)) / 8 = 1 → cell (1,0)
     assert_eq!(v.pixel_to_cell(0.0, 0.0, 249), Some(1));
 }
@@ -53,8 +57,10 @@ fn cell_to_pixel_origin() {
 
 #[test]
 fn cell_to_pixel_with_zoom() {
-    let mut v = TileGridViewState::default();
-    v.zoom = 2.0;
+    let v = TileGridViewState {
+        zoom: 2.0,
+        ..Default::default()
+    };
     let (x, y) = v.cell_to_pixel(1, 249);
     assert_eq!(x, CELL_SIZE * 2.0);
     assert_eq!(y, 0.0);
@@ -71,8 +77,10 @@ fn cell_to_pixel_row() {
 
 #[test]
 fn clamp_zoom_bounds() {
-    let mut v = TileGridViewState::default();
-    v.zoom = 0.0;
+    let mut v = TileGridViewState {
+        zoom: 0.0,
+        ..Default::default()
+    };
     v.clamp_zoom();
     assert_eq!(v.zoom, MIN_ZOOM);
 
@@ -352,7 +360,7 @@ fn fit_to_window_computes_correct_zoom() {
     assert!((v.zoom - 0.281).abs() < 0.01);
     // pan should center: (600 - 1992*0.281) / 2 ≈ 20
     assert!(v.pan_y.abs() < 25.0);
-    assert!(v.needs_fit == false);
+    assert!(!v.needs_fit);
 }
 
 #[test]

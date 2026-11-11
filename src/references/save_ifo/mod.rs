@@ -181,6 +181,4 @@ impl Extractor for SaveIfo {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-}
+mod tests {}
