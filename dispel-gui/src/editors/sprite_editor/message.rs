@@ -47,6 +47,8 @@ pub enum SpriteViewerMessage {
     ZoomOut,
     ZoomReset,
     ZoomToFit,
+    /// Toggle whether raw `0x0000` pixels are displayed as opaque black.
+    TogglePreserveBlack,
     // ── Editing ──────────────────────────────────────────────────────────────
     /// Save the current sprite file to disk.
     Save,

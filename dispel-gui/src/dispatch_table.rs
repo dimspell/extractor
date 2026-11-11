@@ -1,6 +1,6 @@
 //! Generated editor dispatch table.
 //!
-//! Collapses the 37-arm message dispatch and the 35-arm view dispatch
+//! Collapses the 39-arm message dispatch and the 38-arm view dispatch
 //! into a single macro declaration. Two editors are handled specially
 //! outside this table:
 //! - `DbViewer` — no EditorMessage variant; view is `App::view_db_viewer()`
@@ -82,6 +82,13 @@ define_update_dispatch! {
     (Localization, localization_manager),
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
+    (SaveIfo, save_ifo),
+    (FogData, fog_data),
+    (ChestSpawn, chest_spawn),
+    (MonsterSpawn, monster_spawn),
+    (MapInfoMulti, map_info_multi),
+    (TileGrid, tile_grid),
+    (TileGridCanvas, tile_grid_canvas),
 }
 
 define_view_dispatch! {
@@ -122,6 +129,12 @@ define_view_dispatch! {
     (LocalizationManager, localization_manager),
     (HexEditor, hex_wrapper),
     (SaveFileViewer, save_file_viewer),
+    (SaveIfoEditor, save_ifo),
+    (FogDataEditor, fog_data),
+    (ChestSpawnEditor, chest_spawn),
+    (MonsterSpawnEditor, monster_spawn),
+    (MapInfoMultiEditor, map_info_multi),
+    (TileGridEditor, tile_grid_canvas),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game
@@ -169,9 +182,16 @@ pub fn load_catalog_task(et: EditorType) -> Option<iced::Task<Message>> {
         StoreEditor => Some(iced::Task::done(Message::store(
             crate::editors::store::StoreEditorMessage::LoadCatalog,
         ))),
+        SaveIfoEditor => Some(iced::Task::done(Message::save_ifo(
+            crate::editors::save_ifo::SaveIfoEditorMessage::LoadCatalog,
+        ))),
         PartyLevelDbEditor => Some(iced::Task::done(Message::party_level_db(
             crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
         ))),
+        ChestSpawnEditor => load!(Message::chest_spawn),
+        MonsterSpawnEditor => load!(Message::monster_spawn),
+        MapInfoMultiEditor => load!(Message::map_info_multi),
+        TileGridEditor => load!(Message::tile_grid),
         _ => None,
     }
 }
@@ -198,6 +218,7 @@ pub fn spreadsheet_nav_msg(
         EventItemEditor => Message::event_item(event_item::EventItemEditorMessage::Spreadsheet(sm)),
         MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
         StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
+        SaveIfoEditor => return None, // SaveIfo editor has a custom layout, no generic spreadsheet
         NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
         NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
         MonsterRefEditor => {
@@ -231,6 +252,16 @@ pub fn spreadsheet_nav_msg(
         PartyLevelDbEditor => {
             Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
         }
+        ChestSpawnEditor => {
+            Message::chest_spawn(chest_spawn::ChestSpawnEditorMessage::Spreadsheet(sm))
+        }
+        MonsterSpawnEditor => {
+            Message::monster_spawn(monster_spawn::MonsterSpawnEditorMessage::Spreadsheet(sm))
+        }
+        MapInfoMultiEditor => {
+            Message::map_info_multi(map_info_multi::MapInfoMultiEditorMessage::Spreadsheet(sm))
+        }
+        TileGridEditor => Message::tile_grid(tile_grid::TileGridEditorMessage::Spreadsheet(sm)),
         _ => return None,
     })
 }

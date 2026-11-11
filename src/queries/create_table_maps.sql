@@ -5,5 +5,5 @@ CREATE TABLE IF NOT EXISTS maps
     map_name     TEXT,
     pgp_filename TEXT,
     dlg_filename TEXT,
-    is_light     BOOLEAN
+    lighting     BOOLEAN
 )

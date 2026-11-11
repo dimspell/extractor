@@ -70,10 +70,18 @@ fn save_task_for_editor(
         // Custom editors with Save support
         EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
         EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
+        EditorType::SaveIfoEditor => {
+            Message::save_ifo(crate::editors::save_ifo::SaveIfoEditorMessage::Save)
+        }
 
         // Sprite editor
         EditorType::SpriteViewer => {
             Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
+        }
+
+        // Fog data editor (per-tab Save carries the tab id)
+        EditorType::FogDataEditor => {
+            Message::fog_data(crate::editors::fog_data::FogDataMessage::Save(tab_id))
         }
 
         // Map editor uses SaveEntities with tab_id

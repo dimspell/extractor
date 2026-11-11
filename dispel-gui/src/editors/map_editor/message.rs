@@ -152,8 +152,8 @@ pub enum MapEditorMessage {
     ExportImage(usize),
     /// Async export completed. Ok carries the output path; Err the error.
     ExportComplete(usize, Result<String, String>),
-    /// Clear the status message (auto-dismiss after a delay).
-    ClearStatus(usize),
+    /// Dismiss the toast at `index` (close button or timeout).
+    DismissToast(usize, usize),
     /// Switch between Map and Sprites view modes.
     SwitchViewMode(usize, MapViewMode),
     /// Select a sprite sequence in the browser (None = deselect).
@@ -206,6 +206,16 @@ pub enum MapEditorMessage {
     ExportTmx(usize),
     /// Async TMX export completed. Ok carries the output path; Err the error.
     TmxExportComplete(usize, Result<String, String>),
+    /// Set the object-id brush value for painting (1–511).
+    SetObjectBrush(usize, i32),
+    /// Select the active canvas tool (Pan / Collision / ObjectId / EventInspect).
+    SelectTool(usize, MapTool),
+    /// Set how the object-id brush is applied (Paint / Erase).
+    SetObjectBrushMode(usize, ObjectBrushMode),
+    /// Toggle the layers dropdown popover open/closed.
+    ToggleLayersPopover(usize),
+    /// Close the layers dropdown popover.
+    CloseLayersPopover(usize),
 }
 
 /// Which entity or tile is currently selected in the map editor inspector.
@@ -220,6 +230,18 @@ pub enum SelectedEntity {
     CollisionTile(i32, i32),
     /// An event tile coordinate — carries (tx, ty).
     EventTile(i32, i32),
+    /// An object-id tile coordinate — carries (tx, ty).
+    ObjectIdTile(i32, i32),
+}
+
+/// How the object-id brush is applied on click (enum over boolean per conventions).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ObjectBrushMode {
+    /// Write the brush value, overwriting whatever was there.
+    #[default]
+    Paint,
+    /// Remove the object-id entry regardless of its current value.
+    Erase,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -227,14 +249,46 @@ pub enum MapLayer {
     Ground,
     Buildings,
     Roofs,
+    Shadows,
     InternalSprites,
     Collisions,
     Events,
+    UnderRoofMarkers,
+    NoSpellCastZones,
+    BtlOverlaysInDarkMaps,
     Monsters,
     Npcs,
     NpcWaypoints,
     Objects,
     DrawItems,
+    ObjectIds,
+}
+
+/// Active canvas tool. Visibility of a layer no longer implies editability:
+/// editing tools must be explicitly selected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MapTool {
+    /// Select entities / pan the viewport (default).
+    #[default]
+    Pan,
+    /// Click a tile to toggle its collision flag.
+    Collision,
+    /// Click a tile to paint/erase an object ID with the current brush.
+    ObjectId,
+    /// Click a tile to inspect its event in the inspector (read-only).
+    EventInspect,
+}
+
+impl MapTool {
+    /// The map layer this tool edits, if any.
+    pub fn owning_layer(self) -> Option<MapLayer> {
+        match self {
+            MapTool::Pan => None,
+            MapTool::Collision => Some(MapLayer::Collisions),
+            MapTool::ObjectId => Some(MapLayer::ObjectIds),
+            MapTool::EventInspect => Some(MapLayer::Events),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

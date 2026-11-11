@@ -4,12 +4,13 @@ use std::fs::File;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use crate::map::tileset::{TILE_HEIGHT, Tile, plot_tile};
-use crate::sprite::{ImageInfo, SequenceInfo, rgb16_565_produce_color};
+use crate::map::tileset::{TILE_HEIGHT, Tile, plot_tile, plot_tile_opaque};
+use crate::sprite::{ImageInfo, rgb16_565_produce_color};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
-    Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, convert_map_coords_to_image_coords,
+    Coords, EventBlock, convert_map_coords_to_image_coords, internal_sprite_sort_key,
+    tiled_object_sort_key,
 };
 
 use super::model::MapModel;
@@ -27,12 +28,13 @@ pub struct LayerToggles {
     pub show_ground: bool,
     pub show_buildings: bool,
     pub show_roofs: bool,
+    /// Darken tiles according to their shadow/fog-of-war level from the
+    /// access-ref grid.
+    pub show_shadows: bool,
     pub show_internal_sprites: bool,
     pub show_monsters: bool,
     pub show_npcs: bool,
     pub show_objects: bool,
-    /// If true, render the entire map canvas instead of the occluded viewport.
-    pub full_map: bool,
     /// If true, output RGBA PNG where black (0,0,0) background pixels are
     /// transparent (alpha=0). When false, output standard RGB PNG.
     pub transparent: bool,
@@ -40,6 +42,9 @@ pub struct LayerToggles {
     pub show_events: bool,
     pub show_draw_items: bool,
     pub show_npc_waypoints: bool,
+    /// Frame index used for internal sprites' animations (`None` = frame 0).
+    /// Out-of-range indices are clamped to the last frame of each sequence.
+    pub sprite_frame: Option<usize>,
 }
 
 impl Default for LayerToggles {
@@ -48,16 +53,17 @@ impl Default for LayerToggles {
             show_ground: true,
             show_buildings: true,
             show_roofs: true,
+            show_shadows: true,
             show_internal_sprites: true,
             show_monsters: true,
             show_npcs: true,
             show_objects: true,
-            full_map: false,
             transparent: false,
             show_collisions: false,
             show_events: false,
             show_draw_items: false,
             show_npc_waypoints: false,
+            sprite_frame: None,
         }
     }
 }
@@ -92,17 +98,40 @@ pub struct ExternalEntities {
 // Top-level render entry point
 // --------------------------------------------------------------------------
 
+/// A runtime light source carried by an entity (torch, lantern, spell effect…).
+///
+/// Light data is runtime state — it is **not** stored in map files — so stills
+/// receive lights explicitly through [`MapRenderConfig::lights`]. On tiles
+/// whose access-ref word has the light-source flag bits (30–31) set, the
+/// effective shadow level becomes `max(static_level, covering_light_level)`
+/// ("max wins", see `reader.rs` word layout). Radius is Chebyshev distance in
+/// tile units; the flat-inside-radius falloff model is an approximation until
+/// validated against game captures (`docs/rendering_discrepancies.md` §1.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EntityLight {
+    /// Light position in map tile coordinates.
+    pub x: i32,
+    pub y: i32,
+    /// Reach in tile units (Chebyshev). Tiles at distance ≤ radius are lit.
+    pub radius: u16,
+    /// Light level contributed to covered tiles (`1..=123`; higher values
+    /// leave a tile untouched by the fade pass, like static levels ≥ 124).
+    pub level: u16,
+}
+
 /// Configuration for rendering a map
 pub struct MapRenderConfig<'a> {
     pub reader: &'a mut BufReader<File>,
     pub output_path: &'a Path,
     pub data: &'a super::MapData,
-    pub occlusion: bool,
     pub gtl_tileset: &'a [Tile],
     pub btl_tileset: &'a [Tile],
     pub map_id: &'a str,
     pub game_path: Option<&'a Path>,
     pub toggles: LayerToggles,
+    /// Runtime entity-carried lights for the shadow pass on Dark maps
+    /// (see [`EntityLight`]). Empty = static lighting only.
+    pub lights: &'a [EntityLight],
 }
 
 /// Renders the full map to a PNG file.
@@ -117,24 +146,18 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         reader,
         output_path,
         data,
-        occlusion,
         gtl_tileset,
         btl_tileset,
         map_id,
         game_path,
         toggles,
+        lights,
     } = config;
 
-    let image_width = if occlusion {
-        data.model.occluded_map_in_pixels_width
-    } else {
-        data.model.map_width_in_pixels
-    };
-    let image_height = if occlusion {
-        data.model.occluded_map_in_pixels_height
-    } else {
-        data.model.map_height_in_pixels
-    };
+    // The renderer reproduces the observed occluded viewport — the region
+    // the player actually sees — not the full map canvas.
+    let image_width = data.model.occluded_map_in_pixels_width;
+    let image_height = data.model.occluded_map_in_pixels_height;
 
     println!("{:?}", data.model);
     println!(
@@ -143,39 +166,30 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         image_height.unsigned_abs()
     );
 
-    let offset_x = if !occlusion {
-        data.model.map_non_occluded_start_x
-    } else {
-        0
-    };
-    let offset_y = if !occlusion {
-        data.model.map_non_occluded_start_y
-    } else {
-        0
-    };
-
     let mut imgbuf: ImageBuffer<Rgb<u8>, Vec<u8>> =
         image::ImageBuffer::new(image_width.unsigned_abs(), image_height.unsigned_abs());
 
     // ── Pass 1: Ground tiles ──────────────────────────────────────────────
     if toggles.show_ground {
-        plot_base(
-            &mut imgbuf,
-            &data.model,
-            occlusion,
-            &data.gtl_tiles,
-            gtl_tileset,
-        );
+        plot_base(&mut imgbuf, &data.model, &data.gtl_tiles, gtl_tileset);
     }
 
     // ── Pre-load external entities (if game path given) ──────────────────
-    let external = game_path.and_then(|gp| collect_external_entities(map_id, gp, &data.model).ok());
+    let external =
+        game_path.and_then(
+            |gp| match collect_external_entities(map_id, gp, &data.model) {
+                Ok(entities) => Some(entities),
+                Err(e) => {
+                    eprintln!("WARNING: no external entities rendered for map '{map_id}': {e}");
+                    None
+                }
+            },
+        );
 
     // ── Pass 2: Interleaved objects + entities ───────────────────────────
     // All depth-relevant items (buildings, internal sprites, monsters, NPCs,
     // extras) are collected into one list, sorted by Y-depth with type
-    // tiebreaker, then rendered together — matching the DispelTools
-    // IInterlacedOrderObject / IInterlacedOrderObjectComparer approach.
+    // tiebreaker, then rendered together.
     {
         let mut sprite_cache: HashMap<
             PathBuf,
@@ -183,11 +197,9 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         > = HashMap::new();
 
         let diagonal = data.model.tiled_map_width + data.model.tiled_map_height;
-        let noy = if occlusion {
-            0
-        } else {
-            data.model.map_non_occluded_start_y
-        };
+        // All interlaced sort keys are compared in map-local pixel space
+        // (world Y minus the non-occluded origin), independent of output mode.
+        let noy = data.model.map_non_occluded_start_y;
 
         // Helper: entity sort position (matches GUI's entity_pos)
         let entity_pos = |tx: i32, ty: i32| -> i32 {
@@ -204,34 +216,41 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         let mut items: Vec<(i32, i32, i32, ItemKind)> = Vec::new();
 
-        // Buildings (type_order=0)
+        // Buildings (type_order=0) — single units ordered by their stack bottom.
+        // Keys are map-local, matching entity_pos below.
         if toggles.show_buildings {
             for (i, info) in data.tiled_infos.iter().enumerate() {
-                let pos = info.y + info.ids.len() as i32 * TILE_HEIGHT as i32 + noy;
-                items.push((pos, 0, i as i32, ItemKind::TiledObject(i)));
+                let pos = tiled_object_sort_key(info.y, info.ids.len());
+                items.push((pos, 0, info.x, ItemKind::TiledObject(i)));
             }
         }
 
-        // Internal sprites (type_order=1)
+        // Internal sprites (type_order=1) — key is map-local
+        // (sprite_bottom_right_y == sprite_y + height), minus the half-tile
+        // window so characters sitting on props draw over them.
         if toggles.show_internal_sprites {
             for (i, block) in data.sprite_blocks.iter().enumerate() {
                 if block.sprite_id < data.internal_sprites.len() {
-                    let h = data.internal_sprites[block.sprite_id].frame_infos[0].height;
-                    items.push((block.sprite_y + h + noy, 1, 0, ItemKind::Sprite(i)));
+                    let infos = &data.internal_sprites[block.sprite_id].frame_infos;
+                    let f = toggles.sprite_frame.map_or(0, |f| f.min(infos.len() - 1));
+                    let h = infos[f].height;
+                    let pos = internal_sprite_sort_key(block.sprite_y + h);
+                    items.push((pos, 1, block.sprite_x, ItemKind::Sprite(i)));
                 }
             }
         }
 
-        // External entities (type_order=2)
+        // External entities (type_order rungs shared with the GUI interlaced
+        // pass: Extra=2 < DrawItem=3 < Monster=4 < Npc=5).
         if let Some(ref ext) = external {
             if toggles.show_monsters {
                 for (i, m) in ext.monsters.iter().enumerate() {
-                    items.push((entity_pos(m.x, m.y), 2, m.x, ItemKind::Monster(i)));
+                    items.push((entity_pos(m.x, m.y), 4, m.x, ItemKind::Monster(i)));
                 }
             }
             if toggles.show_npcs {
                 for (i, n) in ext.npcs.iter().enumerate() {
-                    items.push((entity_pos(n.x, n.y), 2, n.x, ItemKind::Npc(i)));
+                    items.push((entity_pos(n.x, n.y), 5, n.x, ItemKind::Npc(i)));
                 }
             }
             if toggles.show_objects {
@@ -253,8 +272,8 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                         }
                         let btl_tile_idx = btl_id.unsigned_abs() as usize;
                         if let Some(tile) = btl_tileset.get(btl_tile_idx) {
-                            let x = info.x + offset_x;
-                            let y = info.y + (j as i32 * TILE_HEIGHT as i32) + offset_y;
+                            let x = info.x;
+                            let y = info.y + (j as i32 * TILE_HEIGHT as i32);
                             plot_tile(&mut imgbuf, tile.colors, x, y);
                         }
                     }
@@ -262,9 +281,12 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                 ItemKind::Sprite(i) => {
                     let block = &data.sprite_blocks[*i];
                     let sequence = &data.internal_sprites[block.sprite_id];
-                    let sprite = &sequence.frame_infos[0];
-                    let dest_x = block.sprite_x + offset_x;
-                    let dest_y = block.sprite_y + offset_y;
+                    let f = toggles
+                        .sprite_frame
+                        .map_or(0, |f| f.min(sequence.frame_infos.len() - 1));
+                    let sprite = &sequence.frame_infos[f];
+                    let dest_x = block.sprite_x;
+                    let dest_y = block.sprite_y;
                     plot_sprite_on_bitmap(&mut imgbuf, reader, sprite, dest_x, dest_y)?;
                 }
                 ItemKind::Monster(i) => {
@@ -273,9 +295,8 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                             &mut imgbuf,
                             &ext.monsters[*i],
                             &mut sprite_cache,
+                            &data.model,
                             diagonal,
-                            offset_x,
-                            offset_y,
                         );
                     }
                 }
@@ -285,9 +306,8 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                             &mut imgbuf,
                             &ext.npcs[*i],
                             &mut sprite_cache,
+                            &data.model,
                             diagonal,
-                            offset_x,
-                            offset_y,
                         );
                     }
                 }
@@ -297,9 +317,8 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                             &mut imgbuf,
                             &ext.extras[*i],
                             &mut sprite_cache,
+                            &data.model,
                             diagonal,
-                            offset_x,
-                            offset_y,
                         );
                     }
                 }
@@ -312,9 +331,26 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         plot_roofs(
             &mut imgbuf,
             &data.model,
-            occlusion,
             &data.btl_tiles,
             btl_tileset,
+            &data.overlay_modes,
+        );
+    }
+
+    // ── Pass 3b: Shadows ─────────────────────────────────────────────────
+    // Reproduction of the observed lighting pass: on maps flagged
+    // Dark in AllMap.ini, level-0 tiles are blacked out and tiles with a
+    // light level are faded through the fogdata.dat tables. Drawn after
+    // world pixels so annotations added later stay fully visible.
+    if toggles.show_shadows
+        && let Some(fog) = prepare_shadow_pass(game_path, map_id)
+    {
+        plot_shadows(
+            &mut imgbuf,
+            &data.model,
+            &data.access_ref_words,
+            &fog,
+            lights,
         );
     }
 
@@ -322,41 +358,23 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     let diagonal = data.model.tiled_map_width + data.model.tiled_map_height;
 
     if toggles.show_collisions {
-        plot_collisions_overlay(
-            &mut imgbuf,
-            &data.model,
-            &data.collisions,
-            occlusion,
-            diagonal,
-        );
+        plot_collisions_overlay(&mut imgbuf, &data.model, &data.collisions, diagonal);
     }
 
     if toggles.show_events {
-        plot_events_overlay(&mut imgbuf, &data.model, &data.events, occlusion, diagonal);
+        plot_events_overlay(&mut imgbuf, &data.model, &data.events, diagonal);
     }
 
     if toggles.show_draw_items
         && let Some(ref ext) = external
     {
-        plot_draw_items_overlay(
-            &mut imgbuf,
-            &ext.draw_items,
-            &data.model,
-            occlusion,
-            diagonal,
-        );
+        plot_draw_items_overlay(&mut imgbuf, &ext.draw_items, &data.model, diagonal);
     }
 
     if toggles.show_npc_waypoints
         && let Some(ref ext) = external
     {
-        plot_npc_waypoints_overlay(
-            &mut imgbuf,
-            &ext.npc_records,
-            &data.model,
-            occlusion,
-            diagonal,
-        );
+        plot_npc_waypoints_overlay(&mut imgbuf, &ext.npc_records, &data.model, diagonal);
     }
 
     // ── Save: RGBA PNG (transparent) or RGB PNG (solid black) ───────────
@@ -389,7 +407,6 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 pub fn plot_base(
     image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     model: &MapModel,
-    occlusion: bool,
     gtl_tiles: &HashMap<Coords, i32>,
     gtl_tileset: &[Tile],
 ) {
@@ -410,10 +427,8 @@ pub fn plot_base(
                 };
 
                 let (mut sx, mut sy) = convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
-                if occlusion {
-                    sx -= model.map_non_occluded_start_x;
-                    sy -= model.map_non_occluded_start_y;
-                }
+                sx -= model.map_non_occluded_start_x;
+                sy -= model.map_non_occluded_start_y;
 
                 plot_tile(image, gtl_tile.colors, sx, sy);
             }
@@ -424,107 +439,6 @@ pub fn plot_base(
 // --------------------------------------------------------------------------
 // Object layer (sprites + tiled objects, sorted by ground-y)
 // --------------------------------------------------------------------------
-
-#[derive(Clone, Copy)]
-pub struct PlotObjectsParams<'a> {
-    pub btl_tileset: &'a [Tile],
-    pub tiled_info: &'a [TiledObjectInfo],
-    pub internal_sprites: &'a [SequenceInfo],
-    pub sprite_blocks: &'a [SpriteInfoBlock],
-    pub offset_x: i32,
-    pub offset_y: i32,
-}
-
-/// Legacy object renderer — renders only sprites + tiled objects sorted by Y.
-/// Used by the database renderer; new code should use `render_map` with toggles.
-pub fn plot_objects(
-    imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    reader: &mut BufReader<File>,
-    _model: &MapModel,
-    _occlusion: bool,
-    _btl_tiles: &HashMap<Coords, i32>,
-    params: PlotObjectsParams,
-) -> Result<()> {
-    enum Kind {
-        Sprite(usize),
-        TiledObject(usize),
-    }
-    struct Item {
-        ground_y: i32,
-        kind: Kind,
-    }
-
-    let mut items = Vec::new();
-
-    for (i, block) in params.sprite_blocks.iter().enumerate() {
-        let sequence = &params.internal_sprites[block.sprite_id];
-        let sprite = &sequence.frame_infos[0];
-        items.push(Item {
-            ground_y: block.sprite_y + sprite.height,
-            kind: Kind::Sprite(i),
-        });
-    }
-    for (i, info) in params.tiled_info.iter().enumerate() {
-        items.push(Item {
-            ground_y: info.y + (info.ids.len() as i32 * TILE_HEIGHT as i32),
-            kind: Kind::TiledObject(i),
-        });
-    }
-    items.sort_by_key(|it| it.ground_y);
-
-    for item in items {
-        match item.kind {
-            Kind::Sprite(i) => plot_single_sprite(
-                imgbuf,
-                reader,
-                &params.sprite_blocks[i],
-                params.internal_sprites,
-                params.offset_x,
-                params.offset_y,
-            )?,
-            Kind::TiledObject(i) => plot_single_tiled_object(
-                imgbuf,
-                &params.tiled_info[i],
-                params.btl_tileset,
-                params.offset_x,
-                params.offset_y,
-            ),
-        }
-    }
-    Ok(())
-}
-
-fn plot_single_tiled_object(
-    imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    tiled_info: &TiledObjectInfo,
-    btl_tileset: &[Tile],
-    offset_x: i32,
-    offset_y: i32,
-) {
-    for (i, btl_id) in tiled_info.ids.iter().enumerate() {
-        let btl_tile_idx = btl_id.unsigned_abs() as usize;
-        if let Some(tile) = btl_tileset.get(btl_tile_idx) {
-            let x = tiled_info.x + offset_x;
-            let y = tiled_info.y + (i as i32 * TILE_HEIGHT as i32) + offset_y;
-            plot_tile(imgbuf, tile.colors, x, y);
-        }
-    }
-}
-
-fn plot_single_sprite(
-    imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
-    reader: &mut BufReader<File>,
-    sprite_block: &SpriteInfoBlock,
-    internal_sprites: &[SequenceInfo],
-    offset_x: i32,
-    offset_y: i32,
-) -> Result<()> {
-    let sequence = &internal_sprites[sprite_block.sprite_id];
-    let sprite = &sequence.frame_infos[0];
-    let dest_x = sprite_block.sprite_x + offset_x;
-    let dest_y = sprite_block.sprite_y + offset_y;
-    plot_sprite_on_bitmap(imgbuf, reader, sprite, dest_x, dest_y)
-}
 
 pub fn plot_sprite_on_bitmap(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
@@ -563,9 +477,9 @@ pub fn plot_sprite_on_bitmap(
 pub fn plot_roofs(
     image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     model: &MapModel,
-    occlusion: bool,
     btl_tiles: &HashMap<Coords, i32>,
     btl_tileset: &[Tile],
+    overlay_modes: &[u16],
 ) {
     let map_diagonal_tiles = model.tiled_map_width + model.tiled_map_height;
     let width = model.tiled_map_width;
@@ -581,13 +495,219 @@ pub fn plot_roofs(
             if btl_tile_id > 0 {
                 let btl_tile_idx = btl_tile_id as usize;
                 if let Some(btl_tile) = btl_tileset.get(btl_tile_idx) {
+                    // Per-id mode from the map's overlay table: high byte is
+                    // the draw-enable flag (0 hides the overlay), low byte
+                    // selects the blit mode — 0 draws opaquely, any other
+                    // value skips black pixels.
+                    let entry = overlay_modes.get(btl_tile_idx).copied().unwrap_or(0);
+                    if entry >> 8 == 0 {
+                        continue;
+                    }
                     let (mut sx, mut sy) =
                         convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
-                    if occlusion {
-                        sx -= model.map_non_occluded_start_x;
-                        sy -= model.map_non_occluded_start_y;
+                    sx -= model.map_non_occluded_start_x;
+                    sy -= model.map_non_occluded_start_y;
+                    if entry & 0xFF == 0 {
+                        plot_tile_opaque(image, btl_tile.colors, sx, sy);
+                    } else {
+                        plot_tile(image, btl_tile.colors, sx, sy);
                     }
-                    plot_tile(image, btl_tile.colors, sx, sy);
+                }
+            }
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Shadow overlay – reproduction of the observed lighting pass
+//
+// Applied near the end of the world render sequence. The pass only runs on
+// maps flagged Dark in AllMap.ini — an observed per-map-catalog flag,
+// toggleable at runtime via the "Turn off the light" / "Honey, It's too
+// dark" cheat codes.
+//
+// Per tile, with level = (access_ref_word >> 15) & 0x7FFF:
+//   level ≥ 124    → untouched by the pass (124..=199 fit the level field
+//                    but read past the fade tables = undefined; levels
+//                    ≥ 200 are simply not darkened)
+//   level == 0     → span diamond filled solid black (fog of war)
+//   level 1..=123  → per pixel pair, red and green are scaled by f/32 where
+//                    f = fogdata.dat[(level-1)*512 + pair]; blue is never
+//                    modified. Flag bits 30–31 mark tiles whose factor is
+//                    blended with dynamic entity lights via max(); statically
+//                    we render the tile's own pattern.
+// --------------------------------------------------------------------------
+
+/// Per-row `(x_start, width)` spans of the shadow mask (32 rows). The rows
+/// trace the 62×32 isometric tile diamond (`TILE_WIDTH` × `TILE_HEIGHT`);
+/// each row is processed as `width/2` pixel pairs sharing one fade factor.
+///
+/// Geometry: diagonal neighbours step (±32, ∓16), so diamonds abut
+/// edge-to-edge without overlapping — every canvas pixel belongs to at most
+/// one shadow tile. Horizontal neighbours step 64px, leaving a 2px seam
+/// between the widest rows.
+pub const SHADOW_SPANS: [(i32, i32); 32] = [
+    (30, 2),
+    (28, 6),
+    (26, 10),
+    (24, 14),
+    (22, 18),
+    (20, 22),
+    (18, 26),
+    (16, 30),
+    (14, 34),
+    (12, 38),
+    (10, 42),
+    (8, 46),
+    (6, 50),
+    (4, 54),
+    (2, 58),
+    (0, 62),
+    (0, 62),
+    (2, 58),
+    (4, 54),
+    (6, 50),
+    (8, 46),
+    (10, 42),
+    (12, 38),
+    (14, 34),
+    (16, 30),
+    (18, 26),
+    (20, 22),
+    (22, 18),
+    (24, 14),
+    (26, 10),
+    (28, 6),
+    (30, 2),
+];
+
+pub use super::fogdata::FogData;
+
+/// Loads the fade tables when the map `map_stem` is flagged Dark in
+/// `<game_path>/AllMap.ini`. Returns `None` for Light maps (the game skips
+/// its lighting pass there) and reports IO problems on stderr.
+pub fn load_fog_if_dark(game_path: &Path, map_stem: &str) -> Option<FogData> {
+    use crate::references::all_map_ini::read_all_map_ini;
+    use crate::references::enums::MapLighting;
+
+    let all_map_path = game_path.join("AllMap.ini");
+    let maps = match read_all_map_ini(&all_map_path) {
+        Ok(maps) => maps,
+        Err(e) => {
+            eprintln!("Warning: could not read {all_map_path:?} ({e}); rendering without shadows");
+            return None;
+        }
+    };
+
+    let is_dark = maps
+        .iter()
+        .any(|m| m.map_filename.eq_ignore_ascii_case(map_stem) && m.lighting == MapLighting::Dark);
+    if !is_dark {
+        return None;
+    }
+
+    match FogData::load(game_path) {
+        Ok(fog) => Some(fog),
+        Err(e) => {
+            eprintln!("Warning: could not load fogdata.dat ({e}); rendering without shadows");
+            None
+        }
+    }
+}
+
+/// Loads the fade tables when the rendered map is flagged Dark in AllMap.ini.
+///
+/// Returns `None` when shadows must not be drawn: no game path or a Light
+/// map (see [`load_fog_if_dark`]).
+fn prepare_shadow_pass(game_path: Option<&Path>, map_id: &str) -> Option<FogData> {
+    let game_path = game_path?;
+    let base_name = map_id.split('.').next().unwrap_or(map_id);
+    load_fog_if_dark(game_path, base_name)
+}
+
+/// Applies the observed per-tile lighting pass over the rendered world pixels.
+///
+/// Levels `1..=[super::fogdata::ROWS]` index the fade tables; levels above
+/// `ROWS` (including the accepted-but-undefined `124..=199` range,
+/// which would read past the 123-row file) are skipped — the tile is left
+/// untouched. Reading out of bounds there is undefined behavior;
+/// tooling must not. Level 0 tiles are blacked out outright.
+///
+/// Tiles whose access-ref word carries the light-source flag bits (30–31)
+/// respond to [`EntityLight`]s: the effective level is
+/// `max(static_level, covering_light_level)` — "max wins", matching the
+/// game's behavior where entity light raises the tile's level.
+fn plot_shadows(
+    image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
+    model: &MapModel,
+    words: &HashMap<Coords, u32>,
+    fog: &FogData,
+    lights: &[EntityLight],
+) {
+    let map_diagonal_tiles = model.tiled_map_width + model.tiled_map_height;
+
+    // Pair indices are positional within the diamond: row r starts at
+    // `row_pair_base[r]`. A running counter would desync whenever a row or
+    // pixel is clipped off-canvas, reading the wrong flicker-phase byte.
+    let mut row_pair_base = [0usize; SHADOW_SPANS.len()];
+    for r in 1..SHADOW_SPANS.len() {
+        row_pair_base[r] = row_pair_base[r - 1] + SHADOW_SPANS[r - 1].1 as usize / 2;
+    }
+
+    for (&(x, y), &word) in words {
+        let static_level = (word >> 15) & 0x7FFF;
+        let flags = (word >> 30) & 0b11;
+        let mut level = static_level;
+        if flags != 0 && !lights.is_empty() {
+            for light in lights {
+                let dx = (x - light.x).abs();
+                let dy = (y - light.y).abs();
+                if dx.max(dy) <= i32::from(light.radius) {
+                    level = level.max(u32::from(light.level));
+                }
+            }
+        }
+        if level as usize > super::fogdata::ROWS {
+            continue;
+        }
+
+        let (mut px, mut py) = convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
+        px -= model.map_non_occluded_start_x;
+        py -= model.map_non_occluded_start_y;
+
+        for (row, &(start, width)) in SHADOW_SPANS.iter().enumerate() {
+            let py_row = py + row as i32;
+            if py_row < 0 {
+                continue;
+            }
+            for p in 0..(width as usize / 2) {
+                // Positional pair index — immune to clipping (see
+                // `row_pair_base` above).
+                let pair = row_pair_base[row] + p;
+                let x0 = px + start + (p * 2) as i32;
+                if x0 < 0 {
+                    continue;
+                }
+                if level == 0 {
+                    for dx in [0, 1] {
+                        if let Some(pixel) =
+                            image.get_pixel_mut_checked((x0 + dx) as u32, py_row as u32)
+                        {
+                            *pixel = Rgb([0, 0, 0]);
+                        }
+                    }
+                } else {
+                    // Both pixels of the pair share one fade factor byte.
+                    let f = u32::from(fog.factor(level, pair));
+                    for dx in [0, 1] {
+                        if let Some(pixel) =
+                            image.get_pixel_mut_checked((x0 + dx) as u32, py_row as u32)
+                        {
+                            pixel[0] = (u32::from(pixel[0]) * f / 32) as u8;
+                            pixel[1] = (u32::from(pixel[1]) * f / 32) as u8;
+                            // Blue stays untouched, as observed.
+                        }
+                    }
                 }
             }
         }
@@ -598,8 +718,30 @@ pub fn plot_roofs(
 // External entity collection and rendering
 // --------------------------------------------------------------------------
 
+/// Reads an INI entity catalog, reporting (not swallowing) failures.
+///
+/// A corrupt or missing file yields an empty catalog so the remaining entity
+/// kinds still render, but the problem is reported loudly on stderr — silent
+/// zero-entity renders have bitten us before (see
+/// `docs/rendering_discrepancies.md` §6.1).
+fn read_ini_catalog<T>(label: &str, path: &Path) -> Vec<T>
+where
+    T: crate::references::extractor::Extractor,
+{
+    match <T as crate::references::extractor::Extractor>::read_file(path) {
+        Ok(catalog) => catalog,
+        Err(e) => {
+            eprintln!(
+                "WARNING: could not read {label} from {}: {e} — no entities of this kind will be rendered",
+                path.display()
+            );
+            Vec::new()
+        }
+    }
+}
+
 /// Loads all external entity data (monsters, NPCs, extras, draw items) for the
-/// given map from the game files.
+/// given map from the game data files.
 pub fn collect_external_entities(
     map_id: &str,
     game_path: &Path,
@@ -678,23 +820,22 @@ pub fn collect_external_entities(
     };
 
     let monster_sprite_map: HashMap<i32, String> =
-        MonsterIni::read_file(&game_path.join("Monster.ini"))
-            .unwrap_or_default()
+        read_ini_catalog::<MonsterIni>("Monster.ini", &game_path.join("Monster.ini"))
             .into_iter()
             .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
             .collect();
 
-    let npc_sprite_map: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
-        .collect();
+    let npc_sprite_map: HashMap<i32, String> =
+        read_ini_catalog::<NpcIni>("Npc.ini", &game_path.join("Npc.ini"))
+            .into_iter()
+            .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
+            .collect();
 
-    let extra_sprite_map: HashMap<i32, String> = Extra::read_file(&game_path.join("Extra.ini"))
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
-        .collect();
+    let extra_sprite_map: HashMap<i32, String> =
+        read_ini_catalog::<Extra>("Extra.ini", &game_path.join("Extra.ini"))
+            .into_iter()
+            .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
+            .collect();
 
     let mut monsters = Vec::new();
     let mut npcs = Vec::new();
@@ -724,18 +865,7 @@ pub fn collect_external_entities(
         let p = resolve("NpcInGame", &f);
         if let Ok(data) = NPC::read_file(&p) {
             for n in data {
-                let waypoints = [
-                    (n.goto1_filled, n.goto1_x, n.goto1_y),
-                    (n.goto2_filled, n.goto2_x, n.goto2_y),
-                    (n.goto3_filled, n.goto3_x, n.goto3_y),
-                    (n.goto4_filled, n.goto4_x, n.goto4_y),
-                ];
-
-                let (x, y) = waypoints
-                    .iter()
-                    .find(|(filled, _, _)| i32::from(*filled) != 0)
-                    .map(|(_, x, y)| (*x, *y))
-                    .unwrap_or((n.goto1_x, n.goto1_y));
+                let (x, y) = npc_placement(&n);
 
                 let dir = i32::from(n.waypoint1_facing_direction);
                 let (seq, flip) = if dir > 4 {
@@ -787,17 +917,18 @@ pub fn collect_external_entities(
         }
     }
 
-    // Load draw items for this map
-    let map_draw_id: i32 = map_base_name
-        .trim_start_matches(|c: char| !c.is_ascii_digit())
-        .parse()
-        .unwrap_or(0);
-    let draw_items: Vec<DrawItem> =
-        DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
+    // Load draw items for this map. A draw item's map reference is the
+    // numeric ID from AllMap.ini — resolve it by filename (parsing digits
+    // from the stem gives wrong IDs: "cat1" → 1 instead of 3).
+    let map_draw_id = resolve_all_map_id(map_base_name, game_path);
+    let draw_items: Vec<DrawItem> = match map_draw_id {
+        Some(id) => DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
             .unwrap_or_default()
             .into_iter()
-            .filter(|d| d.map_id == map_draw_id)
-            .collect();
+            .filter(|d| d.map_id == id)
+            .collect(),
+        None => Vec::new(),
+    };
 
     Ok(ExternalEntities {
         monsters,
@@ -808,18 +939,50 @@ pub fn collect_external_entities(
     })
 }
 
+/// Resolves a map file stem (e.g. `"cat1"`) to its AllMap.ini numeric ID.
+///
+/// Mirrors the GUI's `resolve_map_id`; returns `None` when the map is not
+/// listed in AllMap.ini.
+fn resolve_all_map_id(map_base_name: &str, game_path: &Path) -> Option<i32> {
+    use crate::references::all_map_ini::read_all_map_ini;
+    read_all_map_ini(&game_path.join("AllMap.ini"))
+        .ok()?
+        .into_iter()
+        .find(|m| m.map_filename.eq_ignore_ascii_case(map_base_name))
+        .map(|m| m.id)
+}
+
+/// Where an NPC stands: its first active waypoint, falling back to waypoint 1.
+///
+/// Shared by the renderer and the placement tests; the GUI's
+/// `hit_test::npc_pos` implements the same rule.
+pub fn npc_placement(n: &crate::references::npc_ref::NPC) -> (i32, i32) {
+    [
+        (i32::from(n.goto1_filled), n.goto1_x, n.goto1_y),
+        (i32::from(n.goto2_filled), n.goto2_x, n.goto2_y),
+        (i32::from(n.goto3_filled), n.goto3_x, n.goto3_y),
+        (i32::from(n.goto4_filled), n.goto4_x, n.goto4_y),
+    ]
+    .iter()
+    .find(|(filled, _, _)| *filled != 0)
+    .map(|&(_, x, y)| (x, y))
+    .unwrap_or((n.goto1_x, n.goto1_y))
+}
+
 /// Render a single external entity sprite (or fallback marker) onto the image.
 fn render_entity_sprite(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     entity: &EntityRenderInfo,
     sprite_cache: &mut HashMap<PathBuf, Option<Vec<super::sprite_loader::LoadedSpriteFrame>>>,
+    model: &MapModel,
     diagonal: i32,
-    offset_px_x: i32,
-    offset_px_y: i32,
 ) {
+    // Entities live in absolute canvas space; shift into the occluded
+    // viewport like every other layer by subtracting the map origin,
+    // matching the observed on-screen placement.
     let (px, py) = convert_map_coords_to_image_coords(entity.x, entity.y, diagonal);
-    let cx = px - offset_px_x + super::tileset::TILE_WIDTH as i32 / 2;
-    let cy = py - offset_px_y + TILE_HEIGHT as i32 / 2;
+    let cx = px - model.map_non_occluded_start_x + super::tileset::TILE_WIDTH as i32 / 2;
+    let cy = py - model.map_non_occluded_start_y + TILE_HEIGHT as i32 / 2;
 
     let mut rendered = false;
     if let Some(ref sp) = entity.sprite_path
@@ -850,7 +1013,11 @@ fn render_entity_sprite(
     }
 }
 
-/// Blit an RGBA sprite onto an RGB destination image. Transparent pixels are skipped.
+/// Blit an RGBA sprite onto an RGB destination image.
+///
+/// Per-pixel alpha is honored: `a == 0` skips, `a == 255` replaces, anything
+/// in between blends linearly (`src*a + dst*(255-a)`) — matching soft sprite
+/// edges and ghost effects in the game.
 fn plot_rgba_sprite_on_rgb(
     dest: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     sprite: &image::RgbaImage,
@@ -874,12 +1041,24 @@ fn plot_rgba_sprite_on_rgb(
                 sx as u32
             };
             let pixel = *sprite.get_pixel(src_x, sy as u32);
-            if pixel[3] == 0 {
+            let a = u32::from(pixel[3]);
+            if a == 0 {
                 continue;
             }
             let px = dest_x + sx;
             if px >= 0 && px < dw {
-                dest.put_pixel(px as u32, py as u32, Rgb([pixel[0], pixel[1], pixel[2]]));
+                let dst = dest.get_pixel(px as u32, py as u32);
+                let mix =
+                    |s: u8, d: u8| ((u32::from(s) * a + u32::from(d) * (255 - a)) / 255) as u8;
+                dest.put_pixel(
+                    px as u32,
+                    py as u32,
+                    Rgb([
+                        mix(pixel[0], dst[0]),
+                        mix(pixel[1], dst[1]),
+                        mix(pixel[2], dst[2]),
+                    ]),
+                );
             }
         }
     }
@@ -1087,7 +1266,6 @@ fn plot_collisions_overlay(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     model: &MapModel,
     collisions: &HashMap<Coords, bool>,
-    occlusion: bool,
     diagonal: i32,
 ) {
     let width = model.tiled_map_width;
@@ -1104,10 +1282,8 @@ fn plot_collisions_overlay(
                 continue;
             }
             let (mut px, mut py) = convert_map_coords_to_image_coords(x, y, diagonal);
-            if occlusion {
-                px -= model.map_non_occluded_start_x;
-                py -= model.map_non_occluded_start_y;
-            }
+            px -= model.map_non_occluded_start_x;
+            py -= model.map_non_occluded_start_y;
             // Diamond center
             let cx = px + super::tileset::TILE_WIDTH as i32 / 2;
             let cy = py + TILE_HEIGHT as i32 / 2;
@@ -1125,7 +1301,6 @@ fn plot_events_overlay(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     model: &MapModel,
     events: &HashMap<Coords, EventBlock>,
-    occlusion: bool,
     diagonal: i32,
 ) {
     let width = model.tiled_map_width;
@@ -1137,20 +1312,16 @@ fn plot_events_overlay(
         for x in start_x..=end_x {
             let y = x + diff;
             let coords: Coords = (x, y);
-            let event = events.get(&coords).copied().unwrap_or(EventBlock {
-                x,
-                y,
-                _unknown_value: 0,
-                event_id: 0,
-            });
-            if event.event_id == 0 {
+            let event = events
+                .get(&coords)
+                .copied()
+                .unwrap_or(EventBlock { x, y, word: 0 });
+            if event.event_id() == 0 {
                 continue;
             }
             let (mut px, mut py) = convert_map_coords_to_image_coords(x, y, diagonal);
-            if occlusion {
-                px -= model.map_non_occluded_start_x;
-                py -= model.map_non_occluded_start_y;
-            }
+            px -= model.map_non_occluded_start_x;
+            py -= model.map_non_occluded_start_y;
             let cx = px + super::tileset::TILE_WIDTH as i32 / 2;
             let cy = py + TILE_HEIGHT as i32 / 2;
             // Magenta dot
@@ -1160,7 +1331,7 @@ fn plot_events_overlay(
                 imgbuf,
                 cx,
                 cy - 8,
-                event.event_id as i32,
+                event.event_id() as i32,
                 [255, 255, 255],
                 3,
             );
@@ -1192,15 +1363,12 @@ fn plot_draw_items_overlay(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     draw_items: &[crate::references::draw_item::DrawItem],
     model: &MapModel,
-    occlusion: bool,
     diagonal: i32,
 ) {
     for di in draw_items {
         let (mut px, mut py) = convert_map_coords_to_image_coords(di.x_coord, di.y_coord, diagonal);
-        if occlusion {
-            px -= model.map_non_occluded_start_x;
-            py -= model.map_non_occluded_start_y;
-        }
+        px -= model.map_non_occluded_start_x;
+        py -= model.map_non_occluded_start_y;
         let cx = px + super::tileset::TILE_WIDTH as i32 / 2;
         let cy = py + TILE_HEIGHT as i32 / 2;
         let color = draw_item_color(di.item.item_type());
@@ -1227,7 +1395,6 @@ fn plot_npc_waypoints_overlay(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     npc_records: &[crate::references::npc_ref::NPC],
     model: &MapModel,
-    occlusion: bool,
     diagonal: i32,
 ) {
     let waypoint_colors: [[u8; 3]; 4] = [
@@ -1261,16 +1428,10 @@ fn plot_npc_waypoints_overlay(
                 diagonal,
             );
 
-            let mut sx = sx;
-            let mut sy = sy;
-            let mut ex = ex;
-            let mut ey = ey;
-            if occlusion {
-                sx -= model.map_non_occluded_start_x;
-                sy -= model.map_non_occluded_start_y;
-                ex -= model.map_non_occluded_start_x;
-                ey -= model.map_non_occluded_start_y;
-            }
+            let sx = sx - model.map_non_occluded_start_x;
+            let sy = sy - model.map_non_occluded_start_y;
+            let ex = ex - model.map_non_occluded_start_x;
+            let ey = ey - model.map_non_occluded_start_y;
 
             // Center on tile
             let sx = sx + super::tileset::TILE_WIDTH as i32 / 2;
@@ -1315,74 +1476,6 @@ fn plot_npc_waypoints_overlay(
     }
 }
 
-// --------------------------------------------------------------------------
-// Atlas tile blitter (used by render_from_database)
-// --------------------------------------------------------------------------
-
-pub struct AtlasTileParams<'a> {
-    pub dest: &'a mut image::RgbaImage,
-    pub atlas: &'a image::DynamicImage,
-    pub src_x: u32,
-    pub src_y: u32,
-    pub tile_w: u32,
-    pub tile_h: u32,
-    pub dest_x: i32,
-    pub dest_y: i32,
-}
-
-/// Copies a tile from a pre-built atlas image onto the destination buffer,
-/// with per-pixel alpha blending support.
-pub fn plot_atlas_tile(params: AtlasTileParams) {
-    use image::GenericImageView;
-
-    let dest_x = if params.dest_x < 0 || params.dest_y < 0 {
-        return;
-    } else {
-        params.dest_x as u32
-    };
-    let dest_y = params.dest_y as u32;
-
-    if dest_x + params.tile_w > params.dest.width()
-        || dest_y + params.tile_h > params.dest.height()
-        || params.src_x + params.tile_w > params.atlas.width()
-        || params.src_y + params.tile_h > params.atlas.height()
-    {
-        return;
-    }
-
-    for py in 0..params.tile_h {
-        for px in 0..params.tile_w {
-            let pixel = params.atlas.get_pixel(params.src_x + px, params.src_y + py);
-            let alpha = pixel[3];
-            if alpha == 0 {
-                continue;
-            }
-            if alpha == 255 {
-                params.dest.put_pixel(dest_x + px, dest_y + py, pixel);
-            } else {
-                let existing = *params.dest.get_pixel(dest_x + px, dest_y + py);
-                let blend = |src: u8, dst: u8, a: u8| -> u8 {
-                    ((src as u32 * a as u32 + dst as u32 * (255 - a as u32)) / 255) as u8
-                };
-                params.dest.put_pixel(
-                    dest_x + px,
-                    dest_y + py,
-                    image::Rgba([
-                        blend(pixel[0], existing[0], alpha),
-                        blend(pixel[1], existing[1], alpha),
-                        blend(pixel[2], existing[2], alpha),
-                        255,
-                    ]),
-                );
-            }
-        }
-    }
-}
-
-// --------------------------------------------------------------------------
-// Tests
-// --------------------------------------------------------------------------
-
 #[test]
 fn rgb16_565_produce_color_test() {
     let color = rgb16_565_produce_color(0);
@@ -1419,30 +1512,6 @@ fn rgb16_565_white() {
     assert_eq!(color.r, 248);
     assert_eq!(color.g, 252);
     assert_eq!(color.b, 248);
-}
-
-#[test]
-fn plot_atlas_tile_params() {
-    use image::{ImageBuffer, Rgba, RgbaImage};
-
-    let mut dest: RgbaImage = ImageBuffer::new(100, 100);
-    let atlas: image::DynamicImage =
-        image::DynamicImage::ImageRgba8(ImageBuffer::from_pixel(64, 64, Rgba([255, 0, 0, 255])));
-
-    plot_atlas_tile(AtlasTileParams {
-        dest: &mut dest,
-        atlas: &atlas,
-        src_x: 0,
-        src_y: 0,
-        tile_w: 32,
-        tile_h: 32,
-        dest_x: 10,
-        dest_y: 10,
-    });
-
-    let pixel = dest.get_pixel(10, 10);
-    assert_eq!(pixel[0], 255);
-    assert_eq!(pixel[3], 255);
 }
 
 #[test]
@@ -1490,4 +1559,394 @@ fn test_draw_number_clips_at_max_digits() {
     // With max_digits=2, only "45" should be visible (last 2 digits)
     let has_white = img.pixels().any(|p| *p == Rgb([255, 255, 255]));
     assert!(has_white, "draw_number with max_digits should still render");
+}
+
+#[test]
+fn shadow_spans_trace_tile_diamond() {
+    assert_eq!(SHADOW_SPANS.len(), 32, "one span row per tile pixel row");
+    let mut pairs = 0usize;
+    for (i, &(start, width)) in SHADOW_SPANS.iter().enumerate() {
+        assert_eq!(width % 2, 0, "rows are processed as pixel pairs");
+        assert!(
+            start >= 0 && start + width <= 64,
+            "span must fit tile width"
+        );
+        assert_eq!(
+            (start, width),
+            SHADOW_SPANS[31 - i],
+            "mask must be vertically symmetric"
+        );
+        pairs += width as usize / 2;
+    }
+    assert_eq!(
+        pairs, 512,
+        "diamond covers exactly one fogdata row of pairs"
+    );
+}
+
+/// Builds a canvas filled with a known color and returns it together with
+/// the image position of map tile (0, 0).
+#[cfg(test)]
+fn shadow_test_canvas() -> (ImageBuffer<Rgb<u8>, Vec<u8>>, i32, i32) {
+    let model = test_model();
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+    let (px, py) = convert_map_coords_to_image_coords(0, 0, diagonal);
+    let img = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_pixel(128, 128, Rgb([200, 100, 50]));
+    (img, px, py)
+}
+
+#[cfg(test)]
+fn test_model() -> MapModel {
+    MapModel {
+        tiled_map_width: 1,
+        tiled_map_height: 1,
+        ..MapModel::default()
+    }
+}
+
+#[test]
+fn level_zero_tile_is_blacked_out_inside_spans_only() {
+    let (mut img, px, py) = shadow_test_canvas();
+    let fog = super::fogdata::FogData::from_raw(vec![31; super::fogdata::EXPECTED_LEN]);
+    let mut words = HashMap::new();
+    words.insert((0, 0), 0u32);
+    plot_shadows(&mut img, &test_model(), &words, &fog, &[]);
+
+    // Center of the diamond: solid black.
+    assert_eq!(img.get_pixel((px + 32) as u32, (py + 16) as u32)[0], 0);
+    // Corner outside the diamond: untouched.
+    assert_eq!(img.get_pixel(px as u32, py as u32)[0], 200);
+}
+
+#[test]
+fn lit_tiles_scale_red_green_pairwise_and_keep_blue() {
+    // Level 1 → fogdata row 0. Give each pair its own factor to prove the
+    // pair index walks the spans and both pixels share it.
+    let mut data = vec![0u8; super::fogdata::EXPECTED_LEN];
+    for (pair, slot) in data.iter_mut().enumerate().take(512) {
+        *slot = (pair % 32) as u8;
+    }
+    let fog = super::fogdata::FogData::from_raw(data);
+
+    let (mut img, px, py) = shadow_test_canvas();
+    let mut words = HashMap::new();
+    words.insert((0, 0), 1u32 << 15);
+    plot_shadows(&mut img, &test_model(), &words, &fog, &[]);
+
+    // First span row: start=30, width=2 → one pair at x=px+30.
+    let f0 = u32::from(fog.factor(1, 0));
+    let left = img.get_pixel((px + 30) as u32, py as u32);
+    assert_eq!(left[0], (200 * f0 / 32) as u8, "red scaled by f/32");
+    assert_eq!(left[1], (100 * f0 / 32) as u8, "green scaled by f/32");
+    assert_eq!(left[2], 50, "blue must stay untouched");
+
+    // A later pair (row 15's first pair) uses its own factor byte.
+    let &(start, _) = &SHADOW_SPANS[15];
+    let pair_index: usize = SHADOW_SPANS[..15]
+        .iter()
+        .map(|&(_, w)| w as usize / 2)
+        .sum();
+    let f = u32::from(fog.factor(1, pair_index));
+    let p = img.get_pixel((px + start) as u32, (py + 15) as u32);
+    assert_eq!(p[0], (200 * f / 32) as u8);
+    assert_eq!(p[1], (100 * f / 32) as u8);
+    assert_eq!(p[2], 50);
+}
+
+#[test]
+fn levels_at_or_above_200_are_untouched() {
+    // 124..=199 fit the level field but have no data rows
+    // (the table covers 1..=123); they must be skipped, not panic.
+    for level in [124u32, 150, 199, 200, 250, 0x7FFF] {
+        let (mut img, _px, _py) = shadow_test_canvas();
+        let fog = super::fogdata::FogData::from_raw(vec![0; super::fogdata::EXPECTED_LEN]);
+        let mut words = HashMap::new();
+        words.insert((0, 0), level << 15);
+        plot_shadows(&mut img, &test_model(), &words, &fog, &[]);
+        assert!(
+            img.pixels().all(|p| *p == Rgb([200, 100, 50])),
+            "level {level} tiles must not be modified"
+        );
+    }
+}
+
+/// Fog table with a dark row for level 1 (f=2) and a bright row for level 65
+/// (f=31); all other rows zeroed.
+#[cfg(test)]
+fn two_level_fog() -> super::fogdata::FogData {
+    let mut data = vec![0u8; super::fogdata::EXPECTED_LEN];
+    data[0..512].fill(2); // row 0 serves level 1
+    data[64 * 512..65 * 512].fill(31); // row 64 serves level 65
+    super::fogdata::FogData::from_raw(data)
+}
+
+#[test]
+fn dynamic_entity_light_raises_only_flagged_tiles() {
+    // Bits 30–31 gate the dynamic pass: a light covering both tiles raises
+    // only the flagged one. The unflagged tile keeps its static fade even
+    // though the light reaches it ("entities' light raises the level" applies
+    // solely to tiles marked as light-responsive).
+    let fog = two_level_fog();
+    let lights = [EntityLight {
+        x: 0,
+        y: 0,
+        radius: 5,
+        level: 65,
+    }];
+
+    // Flagged tile: static level 1 + light-flag bits set.
+    let mut flagged = HashMap::new();
+    flagged.insert((0, 0), (1u32 << 15) | (0b11 << 30));
+    // Unflagged twin: identical static level, no flag bits.
+    let mut unflagged = HashMap::new();
+    unflagged.insert((0, 0), 1u32 << 15);
+
+    let (mut base_img, px, py) = shadow_test_canvas();
+    plot_shadows(&mut base_img, &test_model(), &flagged, &fog, &[]);
+    let (mut lit_img, _, _) = shadow_test_canvas();
+    plot_shadows(&mut lit_img, &test_model(), &flagged, &fog, &lights);
+
+    // Diamond-center pixel: dark under static level 1, bright when raised
+    // to level 65 by the entity light.
+    let (cx, cy) = ((px + 32) as u32, (py + 16) as u32);
+    assert_eq!(base_img.get_pixel(cx, cy)[0], (200 * 2 / 32) as u8);
+    assert_eq!(lit_img.get_pixel(cx, cy)[0], (200 * 31 / 32) as u8);
+
+    // Same experiment on the unflagged tile: the light must change nothing.
+    let (mut base2, _, _) = shadow_test_canvas();
+    plot_shadows(&mut base2, &test_model(), &unflagged, &fog, &[]);
+    let (mut lit2, _, _) = shadow_test_canvas();
+    plot_shadows(&mut lit2, &test_model(), &unflagged, &fog, &lights);
+    assert_eq!(
+        base2.pixels().collect::<Vec<_>>(),
+        lit2.pixels().collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn semi_transparent_sprite_pixels_blend_with_background() {
+    // 1×2 sprite: left pixel half-transparent red, right pixel opaque green.
+    let mut sprite = image::RgbaImage::new(2, 1);
+    sprite.put_pixel(0, 0, image::Rgba([200, 0, 0, 128]));
+    sprite.put_pixel(1, 0, image::Rgba([0, 255, 0, 255]));
+
+    let mut dest = ImageBuffer::from_pixel(4, 1, Rgb([100, 100, 100]));
+    plot_rgba_sprite_on_rgb(&mut dest, &sprite, 0, 0, false);
+
+    // a=128: (src*128 + dst*127) / 255.
+    let expected = ((200 * 128 + 100 * 127) / 255) as u8;
+    assert_eq!(dest.get_pixel(0, 0)[0], expected, "red channel blended");
+    // Green: src contributes 0 → background scaled by (255-128).
+    assert_eq!(dest.get_pixel(0, 0)[1], ((100 * 127) / 255) as u8);
+    // Fully opaque pixel replaces the background outright.
+    assert_eq!(*dest.get_pixel(1, 0), Rgb([0u8, 255, 0]));
+}
+
+#[test]
+fn dynamic_entity_light_max_wins_over_static() {
+    // A dim light (level 1) covering a brightly lit flagged tile (static 65)
+    // must not darken it: effective level = max(65, 1) = 65.
+    let fog = two_level_fog();
+    let mut words = HashMap::new();
+    words.insert((0, 0), (65u32 << 15) | (0b11 << 30));
+    let lights = [EntityLight {
+        x: 0,
+        y: 0,
+        radius: 3,
+        level: 1,
+    }];
+
+    let (mut base_img, px, py) = shadow_test_canvas();
+    plot_shadows(&mut base_img, &test_model(), &words, &fog, &[]);
+    let (mut lit_img, _, _) = shadow_test_canvas();
+    plot_shadows(&mut lit_img, &test_model(), &words, &fog, &lights);
+
+    assert_eq!(
+        base_img.pixels().collect::<Vec<_>>(),
+        lit_img.pixels().collect::<Vec<_>>(),
+        "dimmer light must never reduce a brighter static level"
+    );
+    // Sanity: the tile actually received the bright static fade.
+    assert_eq!(
+        base_img.get_pixel((px + 32) as u32, (py + 16) as u32)[0],
+        (200 * 31 / 32) as u8
+    );
+}
+
+#[test]
+fn clipped_shadow_rows_keep_positional_pair_indices() {
+    // A tile whose top diamond rows fall above the canvas must still look up
+    // its flicker-phase bytes by POSITION. A running counter used to freeze
+    // at the clip boundary, desyncing every later pair.
+    let mut data = vec![31u8; super::fogdata::EXPECTED_LEN];
+    data[0] = 2; // row 0's single pair is distinctly dark
+    let fog = super::fogdata::FogData::from_raw(data);
+
+    // Shift the viewport down so local row 0 lands at global y = -1.
+    let model = MapModel {
+        tiled_map_width: 1,
+        tiled_map_height: 1,
+        map_non_occluded_start_y: 17, // convert(0,0).1 = 16 → py = -1
+        ..MapModel::default()
+    };
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+    let (px, py) = convert_map_coords_to_image_coords(0, 0, diagonal);
+    assert_eq!(py - model.map_non_occluded_start_y, -1);
+
+    let mut words = HashMap::new();
+    words.insert((0, 0), (1u32 << 15) | (0b11 << 30));
+
+    let mut img = image::ImageBuffer::<Rgb<u8>, Vec<u8>>::from_pixel(128, 128, Rgb([200, 100, 50]));
+    plot_shadows(&mut img, &model, &words, &fog, &[]);
+
+    // Local row 1 (global y = 0): span (28, 6), first pixel-pair p=0 →
+    // positional pair index 1 (row 0 contributed one pair). Factor must be
+    // 31 — a stale counter would have read data[0] = 2.
+    assert_eq!(
+        img.get_pixel((px + 28) as u32, 0)[0],
+        (200 * 31 / 32) as u8,
+        "first visible row must use its positional pair index"
+    );
+}
+
+#[test]
+fn fog_loads_only_for_dark_maps() {
+    let gp = Path::new("fixtures/Dispel");
+    if !gp.exists() {
+        eprintln!("Skipping: fixtures not found");
+        return;
+    }
+    use crate::references::all_map_ini::read_all_map_ini;
+    use crate::references::enums::MapLighting;
+
+    let maps = read_all_map_ini(&gp.join("AllMap.ini")).expect("parse AllMap.ini");
+    let Some(dark) = maps.iter().find(|m| m.lighting == MapLighting::Dark) else {
+        eprintln!("Skipping: no Dark map in fixture AllMap.ini");
+        return;
+    };
+    assert!(
+        load_fog_if_dark(gp, &dark.map_filename).is_some(),
+        "Dark map '{}' must load fog tables",
+        dark.map_filename
+    );
+    if let Some(light) = maps.iter().find(|m| m.lighting != MapLighting::Dark) {
+        assert!(
+            load_fog_if_dark(gp, &light.map_filename).is_none(),
+            "Light map '{}' must not load fog tables",
+            light.map_filename
+        );
+    }
+}
+
+#[test]
+fn entity_marker_is_placed_in_viewport_space() {
+    // Regression: external entities must be shifted into the occluded
+    // viewport like every other layer — subtracting the map origin
+    // when placing NPCs/monsters/extras, as observed.
+    let model = MapModel {
+        tiled_map_width: 1,
+        tiled_map_height: 1,
+        map_non_occluded_start_x: 100,
+        map_non_occluded_start_y: 20,
+        ..MapModel::default()
+    };
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+
+    let mut img = ImageBuffer::from_pixel(512, 512, Rgb([0, 0, 0]));
+    let entity = EntityRenderInfo {
+        x: 3,
+        y: 5,
+        fallback_color: [255, 0, 0],
+        sprite_path: None,
+        sequence: 0,
+        flip: false,
+    };
+    let mut cache = HashMap::new();
+    render_entity_sprite(&mut img, &entity, &mut cache, &model, diagonal);
+
+    let (px, py) = convert_map_coords_to_image_coords(3, 5, diagonal);
+    let cx = (px - model.map_non_occluded_start_x) + super::tileset::TILE_WIDTH as i32 / 2;
+    let cy = (py - model.map_non_occluded_start_y) + TILE_HEIGHT as i32 / 2;
+    assert_eq!(
+        img.get_pixel(cx as u32, cy as u32)[0],
+        255,
+        "fallback marker must sit at the viewport-space tile center"
+    );
+}
+
+#[test]
+fn draw_item_map_id_resolves_via_all_map_ini() {
+    // Regression: the draw-item map reference is the AllMap.ini numeric ID.
+    // Parsing digits from the file stem gave wrong IDs ("cat1" → 1 instead
+    // of 3), rendering another map's item drops.
+    let gp = std::path::Path::new("fixtures/Dispel");
+    if !gp.exists() {
+        eprintln!("Skipping: fixtures not found");
+        return;
+    }
+    assert_eq!(resolve_all_map_id("cat1", gp), Some(3));
+    assert_eq!(resolve_all_map_id("dun01", gp), Some(7));
+    assert_eq!(resolve_all_map_id("notamap", gp), None);
+}
+
+#[test]
+fn roof_overlay_modes_gate_and_pick_blit_style() {
+    let model = MapModel {
+        tiled_map_width: 1,
+        tiled_map_height: 1,
+        ..MapModel::default()
+    };
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+    let (px, py) = convert_map_coords_to_image_coords(0, 0, diagonal);
+    let (sx, sy) = (
+        px - model.map_non_occluded_start_x,
+        py - model.map_non_occluded_start_y,
+    );
+
+    // Tile id 1: half black, half red. Ids 2/3: fully red.
+    let mut colors = [crate::sprite::Color { r: 255, g: 0, b: 0 }; 1024];
+    for c in colors.iter_mut().take(512) {
+        *c = crate::sprite::Color { r: 0, g: 0, b: 0 };
+    }
+    let solid_red = [crate::sprite::Color { r: 255, g: 0, b: 0 }; 1024];
+    let tileset = vec![
+        Tile { colors: solid_red },
+        Tile { colors },
+        Tile { colors: solid_red },
+    ];
+
+    let mut btl_tiles = HashMap::new();
+    btl_tiles.insert((0, 0), 1i32);
+
+    let mut img = image::ImageBuffer::from_pixel(128, 128, Rgb([10, 20, 30]));
+
+    // Draw-enable high byte 0 → tile must not be drawn at all.
+    let modes = |hi: u16, lo: u16| vec![0u16, (hi << 8) | lo, 0, 0];
+    plot_roofs(&mut img, &model, &btl_tiles, &tileset, &modes(0, 1));
+    assert!(
+        img.get_pixel(sx as u32 + 32, sy as u32 + 16)[0] == 10,
+        "disabled overlay must be skipped"
+    );
+
+    // Transparent mode (low byte nonzero) → black pixels skipped, red drawn.
+    plot_roofs(&mut img, &model, &btl_tiles, &tileset, &modes(1, 1));
+    assert_eq!(
+        img.get_pixel(sx as u32 + 32, sy as u32 + 16)[0],
+        255,
+        "red pixel drawn"
+    );
+    assert_eq!(
+        img.get_pixel(sx as u32 + 30, sy as u32)[0],
+        10,
+        "black pixel (top rows) skipped in transparent mode"
+    );
+
+    // Opaque mode (low byte 0) → black pixels written.
+    let mut img2 = image::ImageBuffer::from_pixel(128, 128, Rgb([10, 20, 30]));
+    plot_roofs(&mut img2, &model, &btl_tiles, &tileset, &modes(1, 0));
+    assert_eq!(
+        img2.get_pixel(sx as u32 + 30, sy as u32)[0],
+        0,
+        "black pixel (top rows) written in opaque mode"
+    );
 }

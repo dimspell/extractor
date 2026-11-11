@@ -421,6 +421,19 @@ pub(crate) fn make_btl() -> FileType {
     }
 }
 
+pub(crate) fn make_save_ifo() -> FileType {
+    FileType {
+        key: "save_ifo",
+        name: "Save.ifo",
+        description: "Save-slot metadata index (timestamps and occupancy for 0.sav..5.sav)",
+        extensions: &[".ifo"],
+        detect_kind: DetectKind::Db(&["Save.ifo"]),
+        extract_fn: extract_as::<dispel_core::references::save_ifo::SaveIfo>,
+        patch_fn: patch_as::<dispel_core::references::save_ifo::SaveIfo>,
+        validate_fn: None,
+    }
+}
+
 pub(crate) fn make_sprite() -> FileType {
     FileType {
         key: "sprite",
@@ -430,6 +443,58 @@ pub(crate) fn make_sprite() -> FileType {
         detect_kind: DetectKind::Db(&[]),
         extract_fn: extract_sprite_info,
         patch_fn: patch_not_supported,
+        validate_fn: None,
+    }
+}
+
+pub(crate) fn make_chest_spawn() -> FileType {
+    FileType {
+        key: "chest_spawn",
+        name: "*.cst",
+        description: "Multiplayer chest/placeable spawn list (CSV, EUC-KR)",
+        extensions: &[".cst"],
+        detect_kind: DetectKind::Db(&[]),
+        extract_fn: extract_as::<dispel_core::references::chest_spawn::ChestSpawn>,
+        patch_fn: patch_as::<dispel_core::references::chest_spawn::ChestSpawn>,
+        validate_fn: Some(validate_as::<dispel_core::references::chest_spawn::ChestSpawn>),
+    }
+}
+
+pub(crate) fn make_monster_spawn() -> FileType {
+    FileType {
+        key: "monster_spawn",
+        name: "*.mon",
+        description: "Multiplayer monster spawn list (CSV, EUC-KR)",
+        extensions: &[".mon"],
+        detect_kind: DetectKind::Db(&[]),
+        extract_fn: extract_as::<dispel_core::references::monster_spawn::MonsterSpawn>,
+        patch_fn: patch_as::<dispel_core::references::monster_spawn::MonsterSpawn>,
+        validate_fn: Some(validate_as::<dispel_core::references::monster_spawn::MonsterSpawn>),
+    }
+}
+
+pub(crate) fn make_map_info_multi() -> FileType {
+    FileType {
+        key: "map_info_multi",
+        name: "*.ifm",
+        description: "Multiplayer map info/linkage struct (binary, 100 B)",
+        extensions: &[".ifm"],
+        detect_kind: DetectKind::Db(&[]),
+        extract_fn: extract_as::<dispel_core::references::map_info_multi::MapInfoMulti>,
+        patch_fn: patch_as::<dispel_core::references::map_info_multi::MapInfoMulti>,
+        validate_fn: None,
+    }
+}
+
+pub(crate) fn make_tile_grid() -> FileType {
+    FileType {
+        key: "tile_grid",
+        name: "*.dat",
+        description: "Multiplayer per-tile u32 grid (binary, 249×249)",
+        extensions: &[".dat"],
+        detect_kind: DetectKind::Db(&[]),
+        extract_fn: extract_as::<dispel_core::references::tile_grid::TileGrid>,
+        patch_fn: patch_as::<dispel_core::references::tile_grid::TileGrid>,
         validate_fn: None,
     }
 }

@@ -95,25 +95,42 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                     let mut items: Vec<(i32, i32, i32, Item)> = Vec::new();
 
                     if view.show_buildings {
+                        // Buildings draw as single units ordered by their stack bottom.
                         for (i, info) in map_data.tiled_infos.iter().enumerate() {
-                            let pos = info.y + info.ids.len() as i32 * TILE_H as i32;
-                            items.push((pos, 0, i as i32, Item::TiledObject(i)));
+                            let pos = dispel_core::map::types::tiled_object_sort_key(
+                                info.y,
+                                info.ids.len(),
+                            );
+                            items.push((pos, 0, info.x, Item::TiledObject(i)));
                         }
                     }
 
                     if view.show_internal_sprites {
                         for (i, spr) in self.state.internal_sprite_handles().iter().enumerate() {
-                            items.push((spr.sort_y, 1, 0, Item::Sprite(i)));
+                            // Half-tile window: props lose near-ties to characters sitting/standing
+                            // on them (see internal_sprite_sort_key).
+                            items.push((
+                                dispel_core::map::types::internal_sprite_sort_key(spr.sort_y),
+                                1,
+                                spr.x,
+                                Item::Sprite(i),
+                            ));
                         }
                     }
 
-                    // External entity sort key
+                    // External entity sort key — kind rung breaks ties between entities sharing a
+                    // tile (NPC must draw over an Extra).
                     for i in 0..self.state.entity_count() {
                         if let Some(ed) = self.state.entity_data(i) {
                             if !ed.visible {
                                 continue;
                             }
-                            items.push((ed.sort_key, 2, ed.tile_x, Item::Entity(i)));
+                            items.push((
+                                ed.sort_key,
+                                ed.kind.type_order(),
+                                ed.tile_x,
+                                Item::Entity(i),
+                            ));
                         }
                     }
 
@@ -121,13 +138,13 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
 
                     for (_, _, _, item) in &items {
                         match item {
-                            Item::TiledObject(obj_i) => {
-                                let info = &map_data.tiled_infos[*obj_i];
+                            Item::TiledObject(i) => {
+                                let info = &map_data.tiled_infos[*i];
                                 let base_x = (info.x as f32 + nox_f) * zoom + pan_x;
                                 let base_y = (info.y as f32 + noy_f) * zoom + pan_y;
                                 let w = TILE_W * zoom;
                                 let h = TILE_H * zoom;
-                                for (i, &btl_id) in info.ids.iter().enumerate() {
+                                for (j, &btl_id) in info.ids.iter().enumerate() {
                                     if btl_id <= 0 {
                                         continue;
                                     }
@@ -137,7 +154,7 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                                         continue;
                                     };
                                     let px = base_x;
-                                    let py = base_y + i as f32 * h;
+                                    let py = base_y + j as f32 * h;
                                     if !is_visible(px, py, w, h, bounds) {
                                         continue;
                                     }
@@ -229,6 +246,28 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                         bounds,
                     );
                 }
+
+                // ── Shadow/lighting pass (observed behavior) ─────────────────────
+                // On Dark maps, level-0 tiles black out and lit tiles fade
+                // through the fogdata.dat tables. Drawn after world pixels;
+                // entities on the overlay canvas above stay fully visible,
+                // like the player character. The GUI fades all channels
+                // uniformly (canvas has no per-channel multiply); the CLI
+                // renderer is the pixel-exact reference.
+                if view.show_shadows
+                    && let Some(fog) = self.state.shadow_data()
+                {
+                    draw_shadow_layer(
+                        frame,
+                        &map_data.access_ref_words,
+                        fog,
+                        diagonal,
+                        pan_x,
+                        pan_y,
+                        zoom,
+                        bounds,
+                    );
+                }
             });
 
         vec![geometry]
@@ -244,6 +283,81 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
             mouse::Interaction::Grab
         } else {
             mouse::Interaction::Idle
+        }
+    }
+}
+
+// ── Shadow/lighting pass ─────────────────────────────────────────────────────
+
+/// Draws the observed per-tile lighting pass over the world pixels.
+///
+/// Level-0 tiles (fog of war) black out; tiles with a light level fade
+/// through the fogdata tables, one factor byte per 2×1-pixel pair walking
+/// the span mask. The GUI fades all channels uniformly via alpha (canvas
+/// has no per-channel multiply) — the CLI renderer is the pixel-exact
+/// reference.
+#[allow(clippy::too_many_arguments)]
+fn draw_shadow_layer(
+    frame: &mut canvas::Frame,
+    words: &std::collections::HashMap<(i32, i32), u32>,
+    fog: &dispel_core::map::render::FogData,
+    diagonal: i32,
+    pan_x: f32,
+    pan_y: f32,
+    zoom: f32,
+    bounds: Rectangle,
+) {
+    use dispel_core::map::render::SHADOW_SPANS;
+
+    let tile_w = TILE_W * zoom;
+    let tile_h = TILE_H * zoom;
+    let pair_w = 2.0 * zoom;
+    let row_h = zoom;
+
+    for (&(tx, ty), &word) in words {
+        let level = (word >> 15) & 0x7FFF;
+        if level >= 200 {
+            continue;
+        }
+
+        let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+        if !is_visible(px, py, tile_w, tile_h, bounds) {
+            continue;
+        }
+
+        if level == 0 {
+            // Fog of war: solid black diamond covering the tile.
+            let cx = px + tile_w * 0.5;
+            let cy = py + tile_h * 0.5;
+            let hw = tile_w * 0.5;
+            let hh = tile_h * 0.5;
+            let path = canvas::Path::new(|b| {
+                b.move_to(Point::new(cx, cy - hh));
+                b.line_to(Point::new(cx + hw, cy));
+                b.line_to(Point::new(cx, cy + hh));
+                b.line_to(Point::new(cx - hw, cy));
+                b.close();
+            });
+            frame.fill(&path, Color::BLACK);
+            continue;
+        }
+
+        // Lit tile: one overlay rect per pixel pair, alpha = 1 − f/32.
+        let mut pair = 0usize;
+        for (row, &(start, width)) in SHADOW_SPANS.iter().enumerate() {
+            let y = py + row as f32 * row_h;
+            for p in 0..(width / 2) {
+                let x = px + (start + p * 2) as f32 * zoom;
+                if is_visible(x, y, pair_w, row_h, bounds) {
+                    let f = f32::from(fog.factor(level, pair)) / 32.0;
+                    frame.fill_rectangle(
+                        Point::new(x, y),
+                        Size::new(pair_w, row_h),
+                        Color::from_rgba(0.0, 0.0, 0.0, 1.0 - f),
+                    );
+                }
+                pair += 1;
+            }
         }
     }
 }

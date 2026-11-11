@@ -20,6 +20,36 @@ pub struct MapCanvasOverlaysLayer<'a> {
     pub tab_id: usize,
 }
 
+/// Return the full isometric diamond for one map tile.
+fn tile_diamond_path(px: f32, py: f32, zoom: f32) -> canvas::Path {
+    let width = TILE_W * zoom;
+    let height = TILE_H * zoom;
+    let center_x = px + width * 0.5;
+    let center_y = py + height * 0.5;
+    canvas::Path::new(|builder| {
+        builder.move_to(Point::new(center_x, center_y - height * 0.5));
+        builder.line_to(Point::new(center_x + width * 0.5, center_y));
+        builder.line_to(Point::new(center_x, center_y + height * 0.5));
+        builder.line_to(Point::new(center_x - width * 0.5, center_y));
+        builder.close();
+    })
+}
+
+/// True when the native visible-area spell gate blocks a cast from `anchor`.
+/// This inverts the map marker view: it identifies the player/camera anchors
+/// from which at least one no-spell marker is visible.
+fn no_spell_cast_is_blocked_at_anchor(
+    map_data: &dispel_core::map::MapData,
+    anchor: (i32, i32),
+) -> bool {
+    dispel_core::map::no_spell_cast_zone_blocks_at_anchor(anchor, |coords| {
+        map_data
+            .events
+            .get(&coords)
+            .is_some_and(|event| event.is_no_spell_cast_zone())
+    })
+}
+
 impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
     type State = MapCanvasState;
 
@@ -99,7 +129,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                     // Event overlay
                     if self.state.view.show_events {
                         for (&(tx, ty), event) in &map_data.events {
-                            if event.event_id == 0 {
+                            if event.event_id() == 0 {
                                 continue;
                             }
                             let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
@@ -115,11 +145,112 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             );
                             let label_size = (11.0 * zoom).max(6.0);
                             frame.fill_text(CanvasText {
-                                content: event.event_id.to_string(),
+                                content: event.event_id().to_string(),
                                 position: Point::new(ecx, ecy - 10.0 * zoom),
                                 color: Color::WHITE,
                                 size: iced::Pixels(label_size),
                                 font: Font::DEFAULT,
+                                align_x: TextAlignment::Center,
+                                align_y: alignment::Vertical::Bottom,
+                                shaping: iced::widget::text::Shaping::Basic,
+                                line_height: iced::widget::text::LineHeight::default(),
+                                max_width: f32::INFINITY,
+                                ellipsis: iced::widget::text::Ellipsis::None,
+                                wrapping: iced::widget::text::Wrapping::None,
+                            });
+                        }
+                    }
+
+                    // Player-under-roof marker — amber fill. The renderer uses
+                    // this marker at the player tile to hide the BTL pass.
+                    if self.state.view.show_under_roof_markers {
+                        for (&(tx, ty), event) in &map_data.events {
+                            if !event.is_under_roof_marker() {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            frame.fill(
+                                &tile_diamond_path(px, py, zoom),
+                                Color::from_rgba(1.0, 0.55, 0.05, 0.32),
+                            );
+                        }
+                    }
+
+                    // No-spell-casting range — violet fill. Unlike the amber
+                    // source markers, this shows every player/camera anchor
+                    // whose native 500-tile visible diamond contains a marker.
+                    if self.state.view.show_no_spell_cast_zones {
+                        for &(tx, ty) in map_data.events.keys() {
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            if !no_spell_cast_is_blocked_at_anchor(map_data, (tx, ty)) {
+                                continue;
+                            }
+                            frame.fill(
+                                &tile_diamond_path(px, py, zoom),
+                                Color::from_rgba(0.8, 0.15, 0.95, 0.25),
+                            );
+                        }
+                    }
+
+                    // Conditional roof overlays — teal outline. These access
+                    // references can draw in the dark-map roof pass.
+                    if self.state.view.show_btl_overlays_in_dark_maps {
+                        for (&(tx, ty), &access_ref_word) in &map_data.access_ref_words {
+                            if !dispel_core::map::btl_overlay_draws_in_dark_map(access_ref_word) {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                continue;
+                            }
+                            frame.stroke(
+                                &tile_diamond_path(px, py, zoom),
+                                canvas::Stroke::default()
+                                    .with_color(Color::from_rgba(0.05, 0.85, 0.78, 0.95))
+                                    .with_width((2.0 * zoom).max(1.0)),
+                            );
+                        }
+                    }
+
+                    // Object ID overlay — cyan diamond + label for non-zero object slots
+                    if self.state.view.show_object_ids {
+                        for (&(tx, ty), &obj_id) in &map_data.object_ids {
+                            if obj_id == 0 {
+                                continue;
+                            }
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            let w = TILE_W * zoom;
+                            let h = TILE_H * zoom;
+                            if !is_visible(px, py, w, h, bounds) {
+                                continue;
+                            }
+                            let cx = px + w * 0.5;
+                            let cy = py + h * 0.5;
+                            let dx = w * 0.5;
+                            let dy = h * 0.5;
+                            frame.fill(
+                                &canvas::Path::new(|b| {
+                                    b.move_to(Point::new(cx, cy - dy));
+                                    b.line_to(Point::new(cx + dx, cy));
+                                    b.line_to(Point::new(cx, cy + dy));
+                                    b.line_to(Point::new(cx - dx, cy));
+                                    b.close();
+                                }),
+                                Color::from_rgba(0.1, 0.7, 0.8, 0.3),
+                            );
+                            let label_size = (10.0 * zoom).max(6.0);
+                            frame.fill_text(CanvasText {
+                                content: obj_id.to_string(),
+                                position: Point::new(cx, cy - 10.0 * zoom),
+                                color: Color::WHITE,
+                                size: iced::Pixels(label_size),
+                                font: Font::MONOSPACE,
                                 align_x: TextAlignment::Center,
                                 align_y: alignment::Vertical::Bottom,
                                 shaping: iced::widget::text::Shaping::Basic,
@@ -433,8 +564,31 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 )
             });
             let label = format!("X: {}  Y: {}", tile_x, tile_y);
+            // Build a compact tile-context readout from map data.
+            let context_label = {
+                let mut parts = Vec::new();
+                if let Some(&gtl) = map_data.gtl_tiles.get(&(tile_x, tile_y)) {
+                    parts.push(format!("gtl {}", gtl));
+                }
+                if map_data
+                    .collisions
+                    .get(&(tile_x, tile_y))
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    parts.push("blocked".into());
+                }
+                if let Some(&obj) = map_data.object_ids.get(&(tile_x, tile_y)) {
+                    parts.push(format!("obj {}", obj));
+                }
+                if parts.is_empty() {
+                    label.clone()
+                } else {
+                    format!("{} · {}", label, parts.join(" · "))
+                }
+            };
             cursor_frame.fill_text(CanvasText {
-                content: label.clone(),
+                content: context_label.clone(),
                 position: Point::new(11.5, 11.5),
                 color: Color::from_rgba(0.0, 0.0, 0.0, 0.75),
                 size: iced::Pixels(13.0),
@@ -448,7 +602,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 wrapping: iced::widget::text::Wrapping::None,
             });
             cursor_frame.fill_text(CanvasText {
-                content: label,
+                content: context_label,
                 position: Point::new(10.0, 10.0),
                 color: Color::WHITE,
                 size: iced::Pixels(13.0),

@@ -2,6 +2,7 @@ use super::Command;
 use crate::cli::DatabaseCommands;
 use dispel_core::database::initialize_database;
 use dispel_core::references::all_map_ini::save_maps;
+use dispel_core::references::chdata_db::save_chdatas;
 use dispel_core::references::dialogue_paragraph::save_dialogue_paragraphs;
 use dispel_core::references::dialogue_script::save_dialogs;
 use dispel_core::references::draw_item::save_draw_items;
@@ -190,6 +191,18 @@ fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
             }
         }
     }
+    println!("Saving fog_factors...");
+    let fog_path = main_path.join("ExtraInGame/fogdata.dat");
+    if !fog_path.exists() {
+        eprintln!(
+            "WARNING: fogdata.dat not found at {} — skipping fog_factors",
+            fog_path.display()
+        );
+    } else {
+        let fog = dispel_core::map::FogData::load(main_path)?;
+        dispel_core::map::save_fog_to_db(conn, &fog)?;
+    }
+
     println!("Saving map_inis...");
     let map_inis = dispel_core::references::map_ini::read_map_ini(&main_path.join("Ref/Map.ini"))?;
     save_map_inis(conn, &map_inis)?;
@@ -223,7 +236,7 @@ fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                 stmt.execute(params![
                     req_id,
                     0,                      // required_event_id
-                    Option::<i32>::None,    // event_type_id
+                    Option::<i32>::None,    // event_type
                     Option::<String>::None, // event_filename
                     0,                      // counter
                 ])?;
@@ -388,7 +401,7 @@ fn import_dialogues_paragraphs(
                     next_id,
                     Option::<i32>::None, // required_event_id
                     Option::<i32>::None, // next_dialog_to_check
-                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_type
                     Option::<i32>::None, // dialog_owner
                     Option::<i32>::None, // dialog_id
                     Option::<i32>::None, // next_dialog_id1
@@ -458,6 +471,12 @@ fn import_databases(main_path: &Path, conn: &mut Connection) -> Result<(), Box<d
     let magic_spells =
         dispel_core::references::magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
     save_magic_spells(conn, &magic_spells)?;
+
+    println!("Saving ch_datas...");
+    let chdatas = dispel_core::references::chdata_db::read_chdata(
+        &main_path.join("CharacterInGame/ChData.db"),
+    )?;
+    save_chdatas(conn, &chdatas)?;
 
     // Monsters must be saved after magic_spells because
     // known_spell_slot1/2/3 REFERENCES magic_spells(id).
@@ -576,7 +595,7 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                     dialog_id,
                     Option::<i32>::None, // required_event_id
                     Option::<i32>::None, // next_dialog_to_check
-                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_type
                     Option::<i32>::None, // dialog_owner
                     Option::<i32>::None, // dialog_id
                     Option::<i32>::None, // next_dialog_id1
@@ -724,7 +743,6 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
 
 fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     use image::ImageEncoder;
-    use std::io::{Seek, SeekFrom};
 
     // Ensure the schema exists (idempotent — uses CREATE TABLE IF NOT EXISTS)
     initialize_database(conn)?;
@@ -790,32 +808,18 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
 
         match std::fs::File::open(&path) {
             Ok(file) => {
-                let file_len = match file.metadata() {
-                    Ok(m) => m.len(),
-                    Err(_) => {
+                let mut reader = std::io::BufReader::new(file);
+                let infos = match dispel_core::sprite::get_sprite_sequence_infos(&path) {
+                    Ok(infos) => infos,
+                    Err(e) => {
+                        eprintln!("WARNING: sprite parse failed for {}: {e}", path.display());
                         errors += 1;
                         return Ok(());
                     }
                 };
-                let mut reader = std::io::BufReader::new(file);
 
-                // Skip 268-byte header
-                if reader.seek(SeekFrom::Start(268)).is_err() {
-                    errors += 1;
-                    return Ok(());
-                }
-
-                let mut seq_idx = 0;
-                loop {
-                    let pos = reader.stream_position().unwrap_or(file_len);
-                    match dispel_core::sprite::seek_next_sequence(&mut reader, pos, file_len) {
-                        Ok(true) => {}
-                        _ => break,
-                    }
-                    let info = match dispel_core::sprite::get_sequence_info(&mut reader) {
-                        Ok(i) => i,
-                        Err(_) => break,
-                    };
+                for (seq_idx, info) in infos.iter().enumerate() {
+                    let seq_idx = seq_idx as i32;
 
                     let frame_count = info.frame_infos.len() as i32;
                     let mut has_frame_data = false;
@@ -892,14 +896,6 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                             errors += 1;
                         }
                     }
-
-                    if reader
-                        .seek(SeekFrom::Start(info.sequence_end_position))
-                        .is_err()
-                    {
-                        break;
-                    }
-                    seq_idx += 1;
                 }
 
                 count += 1;
@@ -1068,6 +1064,16 @@ mod tests {
                 .query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))
                 .expect("Failed to query maps");
             assert!(map_count > 0, "maps table should be populated");
+
+            if game_path.join("ExtraInGame/fogdata.dat").exists() {
+                let fog_count: i64 = conn
+                    .query_row("SELECT COUNT(*) FROM fog_factors", [], |row| row.get(0))
+                    .expect("Failed to query fog_factors");
+                assert_eq!(
+                    fog_count, 62976,
+                    "fog_factors must hold one row per fogdata.dat byte"
+                );
+            }
         }
 
         if game_path.join("CharacterInGame/weaponItem.db").exists() {

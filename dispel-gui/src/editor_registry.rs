@@ -12,6 +12,7 @@ use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -22,11 +23,13 @@ use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
 use crate::editors::save_file_viewer::SaveFileViewerState;
+use crate::editors::save_ifo::SaveIfoEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
+
 use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
@@ -74,6 +77,7 @@ pub struct EditorRegistry {
     pub event_scr_editor: Box<EventScriptEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
+    pub save_ifo_editor: Box<SaveIfoEditorState>,
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
@@ -81,6 +85,12 @@ pub struct EditorRegistry {
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
+    pub fog_editors: HashMap<usize, FogDataEditorState>,
+    pub chest_spawn_editor: Box<StandardEditor<dispel_core::ChestSpawn>>,
+    pub monster_spawn_editor: Box<StandardEditor<dispel_core::MonsterSpawn>>,
+    pub map_info_multi_editor: Box<StandardEditor<dispel_core::MapInfoMulti>>,
+    pub tile_grid_editor: Box<StandardEditor<dispel_core::TileGrid>>,
+    pub tile_grid_view: crate::editors::tile_grid::TileGridViewState,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -111,15 +121,30 @@ macro_rules! undo_redo_dispatch {
             EditorType::QuestScrEditor => $self.quest_scr_editor.$action($lookups),
             EditorType::WaveIniEditor => $self.wave_ini_editor.$action($lookups),
             EditorType::ChDataEditor => $self.chdata_editor.$action($lookups),
+            EditorType::ChestSpawnEditor => $self.chest_spawn_editor.$action($lookups),
+            EditorType::MonsterSpawnEditor => $self.monster_spawn_editor.$action($lookups),
+            EditorType::MapInfoMultiEditor => $self.map_info_multi_editor.$action($lookups),
+            EditorType::TileGridEditor => $self.tile_grid_editor.$action($lookups),
             EditorType::PartyLevelDbEditor => $self.party_level_db_level_editor.$action($lookups),
 
             // Custom-layout editor (undo/redo without lookups)
             EditorType::StoreEditor => $self.store_editor.$action(),
+            EditorType::SaveIfoEditor => $self.save_ifo_editor.$action(),
 
             // Sprite editor — uses its own snapshot-based undo/redo
             EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
                 viewer.$action();
                 String::new() // no status message needed
+            }),
+
+            // Fog data editor — snapshot-based undo/redo; reports whether the
+            // operation did anything so the status bar can say "Nothing to undo".
+            EditorType::FogDataEditor => $self.fog_editors.get_mut(&$tab_id).and_then(|editor| {
+                if editor.$action() {
+                    Some(String::new())
+                } else {
+                    None
+                }
             }),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
@@ -174,6 +199,7 @@ impl EditorRegistry {
         self.map_editors.remove(&tab_id);
         self.hex_editors.remove(&tab_id);
         self.save_file_viewers.remove(&tab_id);
+        self.fog_editors.remove(&tab_id);
     }
 
     /// Clear editors for every tab.  Use when the workspace is about to lose
@@ -195,6 +221,7 @@ impl EditorRegistry {
         self.map_editors.clear();
         self.hex_editors.clear();
         self.save_file_viewers.clear();
+        self.fog_editors.clear();
     }
 
     /// Stop SNF audio playback on every open SNF editor.
@@ -327,6 +354,11 @@ impl EditorRegistry {
             EditorType::PartyRefEditor => Some(self.party_ref_editor.edit_history()),
             EditorType::PartyIniEditor => Some(self.party_ini_editor.edit_history()),
             EditorType::StoreEditor => Some(self.store_editor.edit_history()),
+            EditorType::SaveIfoEditor => Some(self.save_ifo_editor.edit_history()),
+            EditorType::ChestSpawnEditor => Some(self.chest_spawn_editor.edit_history()),
+            EditorType::MonsterSpawnEditor => Some(self.monster_spawn_editor.edit_history()),
+            EditorType::MapInfoMultiEditor => Some(self.map_info_multi_editor.edit_history()),
+            EditorType::TileGridEditor => Some(self.tile_grid_editor.edit_history()),
 
             // Tab-based editors — need a HashMap lookup
             EditorType::MonsterRefEditor => self
@@ -380,6 +412,7 @@ impl EditorRegistry {
         self.snf_editors.clear();
         self.hex_editors.clear();
         self.save_file_viewers.clear();
+        self.fog_editors.clear();
 
         // Boxed editors — reset to default
         *self.weapon_editor = Default::default();
@@ -404,6 +437,12 @@ impl EditorRegistry {
         *self.wave_ini_editor = Default::default();
         *self.chdata_editor = Default::default();
         *self.event_scr_editor = Default::default();
+        *self.save_ifo_editor = Default::default();
+        *self.chest_spawn_editor = Default::default();
+        *self.monster_spawn_editor = Default::default();
+        *self.map_info_multi_editor = Default::default();
+        *self.tile_grid_editor = Default::default();
+        self.tile_grid_view = Default::default();
 
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();

@@ -7,9 +7,8 @@
 //  model.rs        – MapModel struct and geometry parser (read_map_model)
 //  reader.rs       – Binary block readers for the native .map file format
 //  render.rs       – Isometric rendering pipeline (ground / objects / roofs,
-//                    sprite on bitmap, atlas tile blitter)
+//                    sprite on bitmap)
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
-//  database.rs     – render_from_database + entity overlay helpers
 //  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
 
 // ===========================================================================
@@ -28,13 +27,18 @@
 // | FIRST BLOCK (variable)      |
 // | - Count (i32)               |
 // | - Data: (count-1)*8 bytes   |
-// |  (count-1 records of 2×i32, |
-// |   purpose unknown, skipped) |
+// |  (count-1 records of 2×i32; |
+// |   word0 ≡ 0 and word1 ≡ 1   |
+// |   across all shipped maps — |
+// |   semantics unknown)        |
 // +------------------------------+
 // | SECOND BLOCK (variable)      |
 // | - Size (i32)                 |
-// | - Data: size*2               |
-// |  (unknown purpose, skipped)  |
+// | - Data: size*2 (u16 table)   |
+// |  (lookup table for the end-  |
+// |   grid BTL overlay refs:     |
+// |  hi byte = draw-enable flag, |
+// |  lo byte = transparency mode)|
 // +------------------------------+
 // | SPRITE BLOCK                 |
 // | - Sprite count (i32)         |
@@ -48,33 +52,46 @@
 // | - Placement count (i32)      |
 // | For each placement:         |
 // |   - Sprite ID (i32)         |
-// |   - Position data           |
-// |   - Frame count             |
+// |   - Frame-0 bbox in map px  |
+// |     {left, top, right,      |
+// |      bottom} + dup {x, y}   |
+// |   - (frame_count-1)*24 bytes|
 // +------------------------------+
 // | TILED OBJECTS BLOCK         |
 // | - Bundle count (i32)        |
-// | For each bundle:            |
-// |   - 264 bytes metadata      |
-// |   - Coordinates (x,y)      |
-// |   - Tile stack IDs         |
-// |   - Building definition    |
+// | For each bundle (a tree):   |
+// |   - records {field_04 i32,  |
+// |     body 260 B, items}      |
+// |   - items {type_flag,       |
+// |     entry_count, entries}   |
+// |   - entries {16 B payload,  |
+// |     bbox + 7 i32 fields,    |
+// |     u16 tile stack,         |
+// |     optional extra bytes}   |
+// |   - n flag pairs            |
+// |     (n = grid_height of the |
+// |      first entry)           |
 // +------------------------------+
 // | ... (file continues) ...    |
 // +------------------------------+
-// | EVENT BLOCK (near end)      |
-// | For each tile (width×height):|
-// |   - Event ID (i16)          |
-// |   - Unknown (i16)           |
+// | EVENT GRID (near end)       |
+// | For each tile: packed u32   |
+// |   bits 0-13  event id       |
+// |   bit  22    tile marked    |
+// |   remainder  unmapped       |
 // +------------------------------+
-// | TILE & ACCESS BLOCK         |
-// | For each tile (width×height):|
-// |   - GTL tile ID (i32)      |
-// |   - Collision flag         |
+// | TILE & ACCESS GRID          |
+// | For each tile: packed u32   |
+// |   bit 0     collision       |
+// |   bits 1-9  object slot id  |
+// |   bits 10-24 GTL tile index |
 // +------------------------------+
-// | ROOF TILE BLOCK (optional)   |
-// | For each tile (width×height):|
-// |   - BTL tile ID (i16)      |
-// |   - Flags (i16)            |
+// | ACCESS-REF GRID ("roof")    |
+// | For each tile: packed u32   |
+// |   bits 0-14  overlay id →   |
+// |              second block   |
+// |   bits 15-29 shadow level   |
+// |   bits 30-31 light flags    |
 // +------------------------------+
 //
 // COORDINATE SYSTEM:
@@ -84,9 +101,9 @@
 // - Offsets: TILE_HORIZONTAL_OFFSET_HALF=32, TILE_HEIGHT_HALF=16
 //
 // FILE SIZE CALCULATION:
-// Total size = header + blocks + (width×height×(2+4+2)) + optional roof data
+// Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
-pub mod database;
+pub mod fogdata;
 pub mod model;
 pub mod reader;
 pub mod render;
@@ -97,12 +114,14 @@ pub mod types;
 pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
-pub use database::render_from_database;
+pub use self::fogdata::{FogData, save_to_db as save_fog_to_db};
 pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
-    Coords, EventBlock, SpriteInfoBlock, TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF,
-    TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledObjectInfo, convert_map_coords_to_image_coords,
+    BundleEntry, BundleItem, BundleRecord, Coords, EventBlock, SpriteInfoBlock, StackLevelFlags,
+    TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledBundle,
+    TiledObjectInfo, TiledObjectRef, btl_overlay_draws_in_dark_map,
+    convert_map_coords_to_image_coords, no_spell_cast_zone_blocks_at_anchor,
 };
 
 use std::collections::HashMap;
@@ -123,8 +142,8 @@ use serde::{Deserialize, Serialize};
 type IoResult<T> = std::io::Result<T>;
 
 use reader::{
-    first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
-    sprite_block, sprite_info_block, tiled_objects_block,
+    read_events_block, read_overlay_id_table, read_roof_tiles, read_tiled_object_refs,
+    read_tiles_and_access_block, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
 
@@ -136,11 +155,28 @@ pub struct MapData {
     pub model: MapModel,
     pub gtl_tiles: HashMap<Coords, i32>,
     pub btl_tiles: HashMap<Coords, i32>,
+    /// Per-overlay-id `{lo: transparency mode, hi: draw-enable}` table from
+    /// the map file; drives roof rendering (see `render::plot_roofs`).
+    pub overlay_modes: Vec<u16>,
+    /// Raw packed u32 words of the access-ref grid ("roof" block), preserved
+    /// so saving keeps shadow levels and light flags intact. Overlay refs are
+    /// patched from `btl_tiles` on write.
+    pub access_ref_words: HashMap<Coords, u32>,
     pub collisions: HashMap<Coords, bool>,
     pub events: HashMap<Coords, EventBlock>,
+    pub object_ids: HashMap<Coords, i32>,
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
+    /// Image stamp per embedded sprite (6 or 9), parallel to
+    /// `internal_sprites` — same length, same order.
+    pub internal_sprite_stamps: Vec<i32>,
+    /// First-block tiled-object ref records in file order (both words are
+    /// constant across all shipped maps).
+    pub tiled_object_refs: Vec<TiledObjectRef>,
+    /// Fully typed tiled-bundle trees, parallel to `tiled_infos` — same
+    /// length, same order.
+    pub tiled_bundles: Vec<TiledBundle>,
 }
 
 /// JSON-serializable representation of map data.
@@ -152,6 +188,7 @@ pub struct MapDataJson {
     pub btl_tiles: Vec<TileEntryJson>,
     pub collisions: Vec<CollisionEntryJson>,
     pub events: Vec<EventEntryJson>,
+    pub object_ids: Vec<TileEntryJson>,
     pub tiled_objects: Vec<TiledObjectJson>,
     pub sprites: Vec<SpritePlacementJson>,
     pub internal_sprites: Vec<InternalSpriteJson>,
@@ -225,6 +262,22 @@ pub struct SpriteFrameJson {
 }
 
 impl MapData {
+    /// Iterate tiles carrying a light level, yielding `(coords, level)` with
+    /// levels in `1..=199`.
+    ///
+    /// The level lives in bits 15–29 of the tile's access-ref word and
+    /// selects a brightness pattern from `ExtraInGame/fogdata.dat` (higher
+    /// levels are generally brighter, not darker). Level 0 tiles are skipped
+    /// here — on maps flagged Dark in AllMap.ini they render fully black;
+    /// see [`render::plot_shadows`]. Levels ≥ 200 fall outside the lighting
+    /// pass and are skipped as well.
+    pub fn shadow_levels(&self) -> impl Iterator<Item = (Coords, u8)> + '_ {
+        self.access_ref_words.iter().filter_map(|(&coords, &word)| {
+            let level = (word >> 15) & 0x7FFF;
+            (level != 0 && level < 200).then_some((coords, level as u8))
+        })
+    }
+
     /// Convert MapData to JSON-serializable format.
     pub fn to_json(&self) -> MapDataJson {
         MapDataJson {
@@ -261,8 +314,13 @@ impl MapData {
                 .map(|(&(x, y), event)| EventEntryJson {
                     x,
                     y,
-                    event_id: event.event_id,
+                    event_id: event.event_id() as i16,
                 })
+                .collect(),
+            object_ids: self
+                .object_ids
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
                 .collect(),
             tiled_objects: self
                 .tiled_infos
@@ -329,13 +387,14 @@ impl MapData {
 /// # Parsing Process
 /// The function reads these blocks in order:
 /// 1. Map model header to determine dimensions
-/// 2. Unknown blocks (skipped)
+/// 2. Object-ref records + overlay-id table (skipped; see
+///    `reader::skip_tiled_object_refs` / `reader::skip_overlay_id_table`)
 /// 3. Sprite block with embedded animation sequences
-/// 4. Sprite placement information
+/// 4. Sprite placement information (frame bounding boxes in map pixels)
 /// 5. Tiled objects (building definitions)
-/// 6. Event triggers (read from end of file)
-/// 7. Ground tiles and collision data
-/// 8. Optional roof/building tiles
+/// 6. Event grid (packed u32 per tile, read from end of file)
+/// 7. Tile & access grid (GTL index + access bits per tile)
+/// 8. Access-ref grid (BTL overlay ref + shadow level per tile)
 ///
 /// The parser handles the isometric coordinate system and converts tile coordinates
 /// to the internal (x,y) format used throughout the codebase.
@@ -352,12 +411,14 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_map_width = map_model.tiled_map_width;
     let tiled_map_height = map_model.tiled_map_height;
 
-    first_block(reader)?;
-    second_block(reader)?;
+    // First-block refs are now read (previously skipped) — see
+    // `reader::read_tiled_object_refs`.
+    let tiled_object_refs = read_tiled_object_refs(reader)?;
+    let overlay_modes = read_overlay_id_table(reader)?;
 
-    let internal_sprites = sprite_block(reader)?;
+    let (internal_sprites, internal_sprite_stamps) = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
-    let tiled_infos = tiled_objects_block(reader)?;
+    let (tiled_infos, tiled_bundles) = tiled_objects_block(reader)?;
 
     // Event and tile blocks live at the end of the file
     // Calculate expected size for the three end blocks
@@ -378,22 +439,27 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     reader.seek(SeekFrom::End(skip))?;
 
     let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
-    let (gtl_tiles, collisions) =
+    let (gtl_tiles, collisions, object_ids) =
         read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
+    let mut access_ref_words = HashMap::new();
     let current_pos = reader.stream_position()?;
     let remaining_bytes = file_len - current_pos;
     let expected_roof_size = (tiled_map_width * tiled_map_height * 4) as u64;
 
-    // Only read roof tiles if we have exactly the expected amount of data remaining
+    // Only read the access-ref grid if we have exactly the expected amount of
+    // data remaining
     if remaining_bytes >= expected_roof_size {
-        btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        let (refs, words) = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        btl_tiles = refs;
+        access_ref_words = words;
+        let _ = &overlay_modes;
     } else if remaining_bytes > 0 {
-        // If there are remaining bytes but not enough for a full roof block,
+        // If there are remaining bytes but not enough for a full grid,
         // this might indicate a different file structure or corruption
         eprintln!(
-            "Warning: Found {} bytes after tile blocks, expected {} for roof tiles. Skipping.",
+            "Warning: Found {} bytes after tile blocks, expected {} for the access-ref grid. Skipping.",
             remaining_bytes, expected_roof_size
         );
     }
@@ -402,11 +468,17 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         model: map_model,
         gtl_tiles,
         btl_tiles,
+        overlay_modes,
+        access_ref_words,
         collisions,
         events,
+        object_ids,
         tiled_infos,
         internal_sprites,
         sprite_blocks,
+        internal_sprite_stamps,
+        tiled_object_refs,
+        tiled_bundles,
     })
 }
 
@@ -440,13 +512,13 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 /// # Map File Structure
 /// The .MAP file format consists of these main blocks:
 /// 1. Header: Map dimensions in chunks (25-tile units)
-/// 2. Unknown blocks: Skipped during processing
+/// 2. Object-ref records + overlay-id table: skipped during processing
 /// 3. Sprite block: Embedded sprite sequences and metadata
-/// 4. Sprite info: Position data for placed sprites
+/// 4. Sprite info: Frame bounding boxes for placed sprites
 /// 5. Tiled objects: Building definitions using stacked tiles
-/// 6. Event block: Per-tile event trigger IDs
-/// 7. Tile & access: Ground tiles with collision flags
-/// 8. Roof tiles: Optional building/roof tile layer
+/// 6. Event grid: Packed u32 per tile (event id + flags)
+/// 7. Tile & access: Packed u32 per tile (GTL index + access bits)
+/// 8. Access-ref grid: BTL overlay refs and shadow levels per tile
 ///
 /// Coordinates use an isometric system where each tile is 32×32 pixels,
 /// with special offsets for proper isometric rendering.
@@ -480,12 +552,12 @@ pub fn extract(
         reader: &mut reader,
         output_path,
         data: &map_data,
-        occlusion: !toggles.full_map,
         gtl_tileset: &gtl_tileset,
         btl_tileset: &btl_tileset,
         map_id,
         game_path,
         toggles,
+        lights: &[],
     })
 }
 
@@ -514,7 +586,7 @@ pub fn extract(
 /// - Pixel data for each animation frame
 ///
 /// Sprites are extracted with their original animation sequences preserved,
-/// allowing for proper reconstruction of in-game animations.
+/// allowing for proper reconstruction of the observed animations.
 pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
@@ -620,6 +692,8 @@ pub fn save_to_db(
         btl_tiles: &data.btl_tiles,
         collisions: &data.collisions,
         events: &data.events,
+        access_ref_words: &data.access_ref_words,
+        object_ids: &data.object_ids,
         width: data.model.tiled_map_width,
         height: data.model.tiled_map_height,
     })?;
@@ -632,6 +706,14 @@ pub fn save_to_db(
 
     save_map_metadata(conn, map_id, &data.model)?;
 
+    save_map_overlay_modes(conn, map_id, &data.overlay_modes)?;
+
+    save_map_sprite_sequences(conn, map_id, &data.internal_sprites)?;
+
+    save_map_object_refs(conn, map_id, &data.tiled_object_refs)?;
+
+    save_map_bundles(conn, map_id, &data.tiled_bundles)?;
+
     Ok(())
 }
 
@@ -642,6 +724,8 @@ pub struct SaveMapTilesParams<'a> {
     pub btl_tiles: &'a HashMap<Coords, i32>,
     pub collisions: &'a HashMap<Coords, bool>,
     pub events: &'a HashMap<Coords, EventBlock>,
+    pub access_ref_words: &'a HashMap<Coords, u32>,
+    pub object_ids: &'a HashMap<Coords, i32>,
     pub width: i32,
     pub height: i32,
 }
@@ -653,6 +737,8 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
     let btl_tiles = params.btl_tiles;
     let collisions = params.collisions;
     let events = params.events;
+    let access_ref_words = params.access_ref_words;
+    let object_ids = params.object_ids;
     let width = params.width;
     let height = params.height;
 
@@ -675,11 +761,32 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                 let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
                 let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
                 let collision = collisions.get(&coords).cloned().unwrap_or(false);
-                let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+                let event_id = events.get(&coords).map(|e| e.event_id()).unwrap_or(0);
 
-                if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
-                    continue;
-                }
+                // Dense grid: every (x, y) is written so access/shadow data of
+                // otherwise "empty" tiles survives the round-trip.
+                let event_word = events
+                    .get(&coords)
+                    .map(|e| e.word as i64)
+                    .unwrap_or_default();
+                let marked = events
+                    .get(&coords)
+                    .map(|e| e.is_tile_marked())
+                    .unwrap_or_default();
+                let under_roof_marker = events
+                    .get(&coords)
+                    .map(|e| e.is_under_roof_marker())
+                    .unwrap_or_default();
+                let no_spell_cast_zone = events
+                    .get(&coords)
+                    .map(|e| e.is_no_spell_cast_zone())
+                    .unwrap_or_default();
+                let object_id = object_ids.get(&coords).copied();
+                let raw_ref = access_ref_words.get(&coords).copied().unwrap_or(0);
+                let btl_overlay_draws_in_dark_map = btl_overlay_draws_in_dark_map(raw_ref);
+                let shadow_level = ((raw_ref >> 15) & 0x7FFF) as i64;
+                let light_flags = ((raw_ref >> 30) & 0x3) as i64;
+                let access_ref_word = raw_ref as i64;
 
                 stmt.execute(params![
                     map_id,
@@ -689,6 +796,15 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
                     btl_id,
                     collision,
                     event_id as i32,
+                    event_word,
+                    marked,
+                    under_roof_marker,
+                    no_spell_cast_zone,
+                    btl_overlay_draws_in_dark_map,
+                    object_id,
+                    shadow_level,
+                    light_flags,
+                    access_ref_word,
                 ])?;
             }
         }
@@ -738,6 +854,10 @@ pub fn save_map_sprites(
                 block.sprite_x,
                 block.sprite_y,
                 block.sprite_id as i32,
+                block.sprite_bottom_right_y,
+                block.bbox_left,
+                block.bbox_top,
+                block.bbox_right,
             ])?;
         }
     }
@@ -797,6 +917,8 @@ pub fn save_map_sprite_frames(
                     frame.height,
                     frame.origin_x,
                     frame.origin_y,
+                    frame.size_bytes,
+                    frame.image_start_position as i64,
                 ])?;
             }
         }
@@ -822,4 +944,208 @@ pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) 
     )?;
 
     Ok(())
+}
+
+/// Persists the overlay-id lookup table: one row per u16 entry, with the
+/// low byte decoded as transparency mode and the high byte as draw-enable.
+pub fn save_map_overlay_modes(
+    conn: &mut Connection,
+    map_id: &str,
+    overlay_modes: &[u16],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_overlay_mode.sql"))?;
+        for (index, &raw) in overlay_modes.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                index as i32,
+                raw as i32,
+                (raw & 0xFF) as i32,
+                (raw >> 8) as i32,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists sequence-level info for each embedded internal sprite
+/// (file offsets + frame count).
+pub fn save_map_sprite_sequences(
+    conn: &mut Connection,
+    map_id: &str,
+    internal_sprites: &[SequenceInfo],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_sequence.sql"))?;
+        for (seq_idx, seq) in internal_sprites.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                seq_idx as i32,
+                seq.sequence_start_position as i64,
+                seq.sequence_end_position as i64,
+                seq.frame_count,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists the first-block tiled-object ref records in file order.
+pub fn save_map_object_refs(
+    conn: &mut Connection,
+    map_id: &str,
+    refs: &[TiledObjectRef],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_ref.sql"))?;
+        for (ref_index, r) in refs.iter().enumerate() {
+            stmt.execute(params![map_id, ref_index as i32, r.word0, r.word1])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// Persists the typed tiled-bundle trees into the six `map_bundle*` tables.
+///
+/// All rows go in one transaction; a failure anywhere rolls the whole map's
+/// bundle export back. Row counts are derivable from the tree: one
+/// `map_bundles` row per bundle, one record/item/entry row per node, and one
+/// id row per `(entry, seq)`.
+pub fn save_map_bundles(
+    conn: &mut Connection,
+    map_id: &str,
+    bundles: &[TiledBundle],
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut bundle_stmt = tx.prepare(include_str!("../queries/insert_map_bundle.sql"))?;
+        let mut record_stmt =
+            tx.prepare(include_str!("../queries/insert_map_bundle_record.sql"))?;
+        let mut item_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_item.sql"))?;
+        let mut entry_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_entry.sql"))?;
+        let mut entry_id_stmt =
+            tx.prepare(include_str!("../queries/insert_map_bundle_entry_id.sql"))?;
+        let mut flag_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_flag.sql"))?;
+
+        for (bundle_index, bundle) in bundles.iter().enumerate() {
+            bundle_stmt.execute(params![map_id, bundle_index as i32])?;
+
+            for (level_index, flags) in bundle.level_flags.iter().enumerate() {
+                flag_stmt.execute(params![
+                    map_id,
+                    bundle_index as i32,
+                    level_index as i32,
+                    flags.flag_a,
+                    flags.flag_b
+                ])?;
+            }
+
+            for (record_index, record) in bundle.records.iter().enumerate() {
+                record_stmt.execute(params![
+                    map_id,
+                    bundle_index as i32,
+                    record_index as i32,
+                    record.field_04,
+                    record.body,
+                    record.items.len() as i32,
+                ])?;
+
+                for (item_index, item) in record.items.iter().enumerate() {
+                    item_stmt.execute(params![
+                        map_id,
+                        bundle_index as i32,
+                        record_index as i32,
+                        item_index as i32,
+                        item.type_flag,
+                        item.field_14,
+                        item.entries.len() as i32,
+                    ])?;
+
+                    for (entry_index, entry) in item.entries.iter().enumerate() {
+                        entry_stmt.execute(params![
+                            map_id,
+                            bundle_index as i32,
+                            record_index as i32,
+                            item_index as i32,
+                            entry_index as i32,
+                            entry.bound_x,
+                            entry.bound_y,
+                            entry.bound_right,
+                            entry.bound_bottom,
+                            entry.anchor_x,
+                            entry.anchor_y,
+                            entry.draw_x,
+                            entry.draw_y,
+                            entry.grid_width,
+                            entry.grid_height,
+                            entry.stored_cell_count,
+                            entry.extra_payload,
+                        ])?;
+
+                        for (seq, &id) in entry.ids.iter().enumerate() {
+                            entry_id_stmt.execute(params![
+                                map_id,
+                                bundle_index as i32,
+                                record_index as i32,
+                                item_index as i32,
+                                entry_index as i32,
+                                seq as i32,
+                                id as i32,
+                            ])?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod shadow_tests {
+    use super::*;
+
+    #[test]
+    fn test_shadow_levels_decodes_bits_15_to_29() {
+        let mut data = MapData {
+            model: MapModel::default(),
+            gtl_tiles: HashMap::new(),
+            btl_tiles: HashMap::new(),
+            overlay_modes: Vec::new(),
+            access_ref_words: HashMap::new(),
+            collisions: HashMap::new(),
+            events: HashMap::new(),
+            object_ids: HashMap::new(),
+            tiled_infos: Vec::new(),
+            internal_sprites: Vec::new(),
+            sprite_blocks: Vec::new(),
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_bundles: Vec::new(),
+        };
+
+        // No shadows yet
+        assert_eq!(data.shadow_levels().count(), 0);
+
+        // Overlay ref 5 with shadow level 100, plus light-flag bits set high
+        data.access_ref_words
+            .insert((1, 0), (100 << 15) | 5 | 0xC000_0000);
+        // Level 0 → not yielded
+        data.access_ref_words.insert((2, 0), 7);
+        // Level 200 → not a darkness level, skipped
+        data.access_ref_words.insert((3, 0), 200 << 15);
+        // Level 199 → maximum valid darkness
+        data.access_ref_words.insert((4, 0), 199 << 15);
+
+        let mut levels: Vec<(Coords, u8)> = data.shadow_levels().collect();
+        levels.sort();
+        assert_eq!(levels, vec![((1, 0), 100), ((4, 0), 199)]);
+    }
 }

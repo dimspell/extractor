@@ -1,6 +1,10 @@
-# Quest.scr - Quest Journal Entries
+# Quest.scr — Quest Journal Entries
+
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
 
 ## File Information
+
 - **Location**: `ExtraInGame/Quest.scr`
 - **Format**: Pipe-delimited text
 - **Encoding**: WINDOWS-1250
@@ -9,11 +13,13 @@
 ## File Structure
 
 ### File Format
+
 - Lines starting with `;` are comments
 - Pipe-delimited format: `field1|field2|field3|field4`
 - Empty lines are ignored
 
 ### Record Structure
+
 - `id`: i32 - Unique quest identifier
 - `type`: i32 - Quest category
 - `title`: String - Quest title/name
@@ -22,25 +28,29 @@
 ## Field Definitions
 
 ### id
+
 - Unique quest identifier
 - References from event system
 - Used for quest tracking
 
 ### type
+
 - Quest category identifier
 - Determines quest classification
 - Values:
-  - `0`: Main quests (primary story line)
-  - `1`: Side quests (optional content)
-  - `2`: Traders journal (commerce-related)
+    - `0`: Main quests (primary story line)
+    - `1`: Side quests (optional content)
+    - `2`: Traders journal (commerce-related)
 
 ### title
+
 - Quest title/name
 - Displayed in quest journal
 - Short summary of quest objective
 - "null" for empty titles
 
 ### description
+
 - Quest description/text
 - Detailed quest information
 - Objectives and requirements
@@ -49,12 +59,14 @@
 ## Quest Types
 
 ### Main Quests (type=0)
+
 - Primary story line
 - Required for game completion
 - Major plot points
 - Critical path quests
 
 ### Side Quests (type=1)
+
 - Optional content
 - Additional rewards
 - World exploration
@@ -62,6 +74,7 @@
 - Lore expansion
 
 ### Traders Journal (type=2)
+
 - Commerce-related quests
 - Trading missions
 - Economic activities
@@ -69,13 +82,16 @@
 - Supply chain quests
 
 ## Special Values
+
 - `"null"` literal for missing title/description
 - Lines starting with `;` are comments
 - Pipe (`|`) delimiter between fields
 - Empty lines ignored
 
 ## File Purpose
+
 Defines all quests with categories, titles, and descriptions. Used for:
+
 - Quest journal system
 - Quest tracking and progression
 - Player objectives
@@ -84,6 +100,7 @@ Defines all quests with categories, titles, and descriptions. Used for:
 - Linked to event system for completion
 
 ## Implementation
+
 - **Rust Module**: `src/references/quest_scr.rs`
 - **Extractor**: `Quest` struct implementing `Extractor` trait
 - **Data Structure**: `Quest` with ID, type, title, and description
@@ -92,11 +109,13 @@ Defines all quests with categories, titles, and descriptions. Used for:
 ## Example Usage
 
 ### Extract and display quests:
+
 ```bash
 cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Quest.scr"
 ```
 
 ### Format Example
+
 ```
 ; Main quests
 1|0|Main Quest|Defeat the Dark Lord

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{MagicSpellFlag, MagicType, SpellTargetType};
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, RecordPatcher};
+use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -56,9 +56,9 @@ use serde::{Deserialize, Serialize};
 /// +--------------------------------------+
 /// ```
 ///
-/// # Reverse-engineered behavior
+/// # Observed behavior
 ///
-/// The combat code reads `base_damage`, `base_success_rate`, `mana_cost`,
+/// Combat calculations consume `base_damage`, `base_success_rate`, `mana_cost`,
 /// `range`, `cast_duration`, `magic_type`, `animation_set_id`, and
 /// `effect_visual_id`. Effective mana cost is reduced by the caster's
 /// magic-school skill, with a minimum of 5; effective success chance also
@@ -70,7 +70,7 @@ use serde::{Deserialize, Serialize};
 /// Defines all magic spells with costs, effects, targeting,
 /// and visual properties. Used for spell casting system,
 /// magic combat, and spell learning mechanics.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher, RecordLayout)]
 #[extractor(property_item_size = 88, counter_size = 0)]
 #[patcher(filename = "Magic.db")]
 pub struct MagicSpell {
@@ -99,11 +99,11 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub mana_cost: u32,
 
-    /// Reserved word at record offset `0x14`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x14`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x14: u32,
 
-    /// Reserved word at record offset `0x18`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x18`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x18: u32,
 
@@ -116,7 +116,7 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub range: u32,
 
-    /// Reserved word at record offset `0x24`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x24`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x24: u32,
 
@@ -142,11 +142,11 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub effect_modifier: u32,
 
-    /// Reserved word at record offset `0x3c`; zero in the shipped `Magic.db`.
+    /// Reserved word at record offset `0x3c`; zero by default.
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x3c: u32,
 
-    /// Magic type (Magic=0, LightMagic=1, BlackMagic=2) — selects which character
+    /// Magic type (Magic=0, HolyMagic=1, DarkMagic=2) — selects which character
     /// magic-skill attribute drives damage, success, and mana-cost calculations.
     #[extractor(enum_from_u32(type = "MagicType"))]
     pub magic_type: MagicType,
@@ -248,7 +248,7 @@ mod tests {
             1,  // effect_type
             0,  // effect_modifier
             0,  // reserved_0x3c
-            1,  // magic_type (LightMagic)
+            1,  // magic_type (HolyMagic)
             0,  // target_animation_blends_with_background
             1,  // animation_set_id
             2,  // effect_visual_id
@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(spells[0].enabled, MagicSpellFlag::Enabled);
         assert_eq!(spells[0].base_damage, 20);
         assert_eq!(spells[0].mana_cost, 50);
-        assert_eq!(spells[0].magic_type, MagicType::LightMagic);
+        assert_eq!(spells[0].magic_type, MagicType::HolyMagic);
         assert_eq!(spells[0].targeting_mode, SpellTargetType::Single);
     }
 

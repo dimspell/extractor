@@ -263,9 +263,15 @@ pub struct InventoryMiscItem {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
-    /// Reserved bytes copied from the item definition; no runtime use is known.
-    #[binary_record(size = 16)]
-    pub reserved_definition_bytes: Vec<u8>,
+    /// X coordinate of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_x: i32,
+    /// Y coordinate of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_y: i32,
+    /// Map ID of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_map_id: u32,
+    /// Reserved bytes after the mark data. They are zero in known saves.
+    #[binary_record(size = 4)]
+    pub reserved_mark_tail_bytes: Vec<u8>,
     /// Zero-based index of the corresponding miscellaneous-item definition.
     pub misc_item_id: u32,
     /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.

@@ -78,22 +78,20 @@ pub enum Commands {
     /// Sprite/Animation extraction
     #[command(
         about = "Extract frames or sequences from SPR files",
-        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation\n  dispel-extractor sprite character.spr --info"
+        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation\n  dispel-extractor sprite character.spr --preserve-black\n  dispel-extractor sprite character.spr --info"
     )]
     Sprite {
         /// Path to the source .SPR file
         input: String,
-        #[arg(
-            long,
-            require_equals = true,
-            value_name = "MODE",
-            num_args = 0..=1,
-            default_value_t = SpriteMode::Sprite,
-            default_missing_value = "always",
-            value_enum
-        )]
+        #[arg(long, value_name = "MODE", default_value_t = SpriteMode::Sprite, value_enum)]
         /// Mode: 'sprite' (individual frames) or 'animation' (full sequence)
         mode: SpriteMode,
+        /// Render animation frames at their raw top-left position instead of aligning their origins
+        #[arg(long)]
+        no_origin_offset: bool,
+        /// Keep raw 0x0000 pixels as opaque #000000 instead of making them transparent
+        #[arg(long)]
+        preserve_black: bool,
         /// Output sprite metadata as JSON (no rendering)
         #[arg(long)]
         info: bool,
@@ -233,6 +231,10 @@ pub enum MapCommands {
         /// Disable roof (BTL) tile layer
         #[arg(long)]
         no_roofs: bool,
+        /// Disable the shadow/lighting pass (fog-of-war darkening on maps
+        /// flagged Dark in AllMap.ini)
+        #[arg(long)]
+        no_shadows: bool,
         /// Disable internal sprites (embedded in .map file)
         #[arg(long)]
         no_internal_sprites: bool,
@@ -245,11 +247,12 @@ pub enum MapCommands {
         /// Disable external objects (extras) rendering
         #[arg(long)]
         no_objects: bool,
+        /// Animation frame index for internal sprites (default 0; clamped to
+        /// each sequence's last frame)
+        #[arg(long)]
+        frame: Option<usize>,
 
         // Canvas mode
-        /// Render the full map canvas instead of the occluded viewport (reveals all edges)
-        #[arg(long)]
-        full_map: bool,
         /// Output RGBA PNG with alpha channel (black background pixels become transparent)
         #[arg(long)]
         transparent: bool,
@@ -267,34 +270,6 @@ pub enum MapCommands {
         /// Show NPC waypoint arrows (coloured per waypoint slot: green→blue→red→yellow, with index labels)
         #[arg(long)]
         npc_waypoints: bool,
-    },
-    /// Render a map from SQLite database
-    #[command(
-        about = "Render map from database",
-        long_about = "Renders a map image using tile data from SQLite database and atlas PNG files."
-    )]
-    FromDb {
-        /// Path to the SQLite database file
-        #[arg(short, long, default_value = "database.sqlite")]
-        database: String,
-        /// Map ID to render (e.g., "cat1")
-        #[arg(short, long)]
-        map_id: String,
-        /// Path to the ground tileset atlas PNG
-        #[arg(long)]
-        gtl_atlas: String,
-        /// Path to the building/roof tileset atlas PNG
-        #[arg(long)]
-        btl_atlas: String,
-        /// Number of tiles per row in the atlas (default: 48)
-        #[arg(long, default_value = "48")]
-        atlas_columns: u32,
-        /// Path to save the output PNG
-        #[arg(short, long)]
-        output: String,
-        /// Path to the Dispel game directory (enables sprite rendering for NPCs, monsters, extras)
-        #[arg(long)]
-        game_path: Option<String>,
     },
     /// Import a map file into SQLite database
     #[command(

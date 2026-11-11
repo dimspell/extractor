@@ -196,9 +196,9 @@ impl From<bool> for PropertyFlag {
 #[repr(i32)]
 #[derive(Default)]
 pub enum MapLighting {
-    /// Dark map (interior, dungeon)
+    /// Light map (exterior, daytime) — no lighting pass applied
     Light = 0,
-    /// Light map (exterior, daytime)
+    /// Dark map (interior, dungeon) — the lighting pass darkens tiles
     #[default]
     Dark = 1,
 }
@@ -998,6 +998,82 @@ impl std::fmt::Display for NpcMovementMode {
     }
 }
 
+/// Role behavior selected by an NPC placement record.
+///
+/// Values 1 through 8 select one of the party-member dialogue slots. The
+/// remaining values select the normal dialogue or a specific service UI.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcRoleResult {
+    /// Normal NPC dialogue.
+    #[default]
+    NormalDialogue = 0,
+    PartyMemberDialogue1 = 1,
+    PartyMemberDialogue2 = 2,
+    PartyMemberDialogue3 = 3,
+    PartyMemberDialogue4 = 4,
+    PartyMemberDialogue5 = 5,
+    PartyMemberDialogue6 = 6,
+    PartyMemberDialogue7 = 7,
+    PartyMemberDialogue8 = 8,
+    WeaponShop = 9,
+    HealMiscShop = 10,
+    EditItemShop = 11,
+    Inn = 12,
+}
+
+impl NpcRoleResult {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::NormalDialogue),
+            1 => Some(Self::PartyMemberDialogue1),
+            2 => Some(Self::PartyMemberDialogue2),
+            3 => Some(Self::PartyMemberDialogue3),
+            4 => Some(Self::PartyMemberDialogue4),
+            5 => Some(Self::PartyMemberDialogue5),
+            6 => Some(Self::PartyMemberDialogue6),
+            7 => Some(Self::PartyMemberDialogue7),
+            8 => Some(Self::PartyMemberDialogue8),
+            9 => Some(Self::WeaponShop),
+            10 => Some(Self::HealMiscShop),
+            11 => Some(Self::EditItemShop),
+            12 => Some(Self::Inn),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "NormalDialogue" => Some(Self::NormalDialogue),
+            "PartyMemberDialogue1" => Some(Self::PartyMemberDialogue1),
+            "PartyMemberDialogue2" => Some(Self::PartyMemberDialogue2),
+            "PartyMemberDialogue3" => Some(Self::PartyMemberDialogue3),
+            "PartyMemberDialogue4" => Some(Self::PartyMemberDialogue4),
+            "PartyMemberDialogue5" => Some(Self::PartyMemberDialogue5),
+            "PartyMemberDialogue6" => Some(Self::PartyMemberDialogue6),
+            "PartyMemberDialogue7" => Some(Self::PartyMemberDialogue7),
+            "PartyMemberDialogue8" => Some(Self::PartyMemberDialogue8),
+            "WeaponShop" => Some(Self::WeaponShop),
+            "HealMiscShop" => Some(Self::HealMiscShop),
+            "EditItemShop" => Some(Self::EditItemShop),
+            "Inn" => Some(Self::Inn),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcRoleResult> for i32 {
+    fn from(value: NpcRoleResult) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcRoleResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 /// Selects the NPC's special interaction-result behavior.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -1530,18 +1606,27 @@ impl From<bool> for HealItemFlag {
 
 /// Magic type classification for spells.
 ///
-/// Each spell belongs to one of three types. The player's proficiency in a
-/// type rises as they cast spells of that type.
+/// Each spell belongs to one of seven types: three schools of magic plus four
+/// elemental types. The player's proficiency in a type rises as they cast
+/// spells of that type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicType {
     /// Normal magic (healing, basic spells)
     #[default]
     Magic = 0,
-    /// Light/Holy magic (protection, buffs)
-    LightMagic = 1,
-    /// Black magic (poison, curses)
-    BlackMagic = 2,
+    /// Holy magic (protection, buffs)
+    HolyMagic = 1,
+    /// Dark magic (poison, curses)
+    DarkMagic = 2,
+    /// Fire elemental magic
+    Fire = 3,
+    /// Water elemental magic
+    Water = 4,
+    /// Earth elemental magic
+    Earth = 5,
+    /// Air elemental magic
+    Air = 6,
 }
 
 impl MagicType {
@@ -1549,8 +1634,12 @@ impl MagicType {
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
             0 => Some(MagicType::Magic),
-            1 => Some(MagicType::LightMagic),
-            2 => Some(MagicType::BlackMagic),
+            1 => Some(MagicType::HolyMagic),
+            2 => Some(MagicType::DarkMagic),
+            3 => Some(MagicType::Fire),
+            4 => Some(MagicType::Water),
+            5 => Some(MagicType::Earth),
+            6 => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -1564,8 +1653,12 @@ impl MagicType {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "Magic" => Some(MagicType::Magic),
-            "LightMagic" => Some(MagicType::LightMagic),
-            "BlackMagic" => Some(MagicType::BlackMagic),
+            "HolyMagic" => Some(MagicType::HolyMagic),
+            "DarkMagic" => Some(MagicType::DarkMagic),
+            "Fire" => Some(MagicType::Fire),
+            "Water" => Some(MagicType::Water),
+            "Earth" => Some(MagicType::Earth),
+            "Air" => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -2153,17 +2246,25 @@ mod tests {
     #[test]
     fn test_magic_type_conversion() {
         assert_eq!(MagicType::from_u32(0), Some(MagicType::Magic));
-        assert_eq!(MagicType::from_u32(1), Some(MagicType::LightMagic));
-        assert_eq!(MagicType::from_u32(2), Some(MagicType::BlackMagic));
-        assert_eq!(MagicType::from_u32(3), None);
+        assert_eq!(MagicType::from_u32(1), Some(MagicType::HolyMagic));
+        assert_eq!(MagicType::from_u32(2), Some(MagicType::DarkMagic));
+        assert_eq!(MagicType::from_u32(3), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_u32(4), Some(MagicType::Water));
+        assert_eq!(MagicType::from_u32(5), Some(MagicType::Earth));
+        assert_eq!(MagicType::from_u32(6), Some(MagicType::Air));
+        assert_eq!(MagicType::from_u32(7), None);
         assert_eq!(MagicType::from_u32(99), None);
 
-        assert_eq!(u32::from(MagicType::BlackMagic), 2);
-        assert_eq!(MagicType::BlackMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::DarkMagic), 2);
+        assert_eq!(MagicType::DarkMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::Fire), 3);
+        assert_eq!(u32::from(MagicType::Air), 6);
         assert_eq!(
-            MagicType::from_name("LightMagic"),
-            Some(MagicType::LightMagic)
+            MagicType::from_name("HolyMagic"),
+            Some(MagicType::HolyMagic)
         );
+        assert_eq!(MagicType::from_name("Fire"), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_name("Air"), Some(MagicType::Air));
     }
 
     #[test]

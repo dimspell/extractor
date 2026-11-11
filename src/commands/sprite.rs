@@ -8,6 +8,8 @@ use std::path::Path;
 pub struct SpriteCommand {
     pub input: String,
     pub mode: CliSpriteMode,
+    pub no_origin_offset: bool,
+    pub preserve_black: bool,
     pub info: bool,
 }
 
@@ -34,12 +36,20 @@ impl Command for SpriteCommand {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("sprite");
-                sprite::extract(Path::new(&self.input), prefix.to_string())
-                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
+                sprite::extract_with_black(
+                    Path::new(&self.input),
+                    prefix.to_string(),
+                    self.preserve_black,
+                )
+                .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
             SpriteMode::Animation => {
-                sprite::animation(Path::new(&self.input))
-                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
+                sprite::animation_with_black(
+                    Path::new(&self.input),
+                    !self.no_origin_offset,
+                    self.preserve_black,
+                )
+                .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
         }
         Ok(())

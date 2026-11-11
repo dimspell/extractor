@@ -138,8 +138,15 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
 
 /// Creates a mask for isometric tile rendering.
 ///
-/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the 32-row tile.
-/// The mask describes the diamond shape: narrow at top/bottom, full-width in the middle.
+/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the
+/// 32-row tile. The mask describes a 62px-wide ([`TILE_WIDTH`]) diamond:
+/// narrow at top/bottom, full-width across the two middle rows. Row widths
+/// run 2, 6, …, 62, 62, …, 6, 2 and consume exactly `TILE_PIXEL_NUMBER`
+/// (1024) texels per tile.
+///
+/// Tiling geometry: diagonal neighbours step (±32, ∓16) and abut
+/// edge-to-edge; horizontal neighbours step 64px, leaving a 2px seam
+/// between the widest rows (the visible isometric grid line).
 fn create_mask() -> [[i32; 2]; 32] {
     let mut mask = [[0i32; 2]; TILE_HEIGHT as usize];
     let mut pixels_x: i32 = 1;
@@ -211,6 +218,42 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
             if pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
                 continue;
             }
+
+            let final_x = dest_x + x + row[0];
+            let final_y = dest_y + y as i32;
+
+            if final_x >= 0 && final_x < img_w && final_y >= 0 && final_y < img_h {
+                imgbuf.put_pixel(
+                    final_x as u32,
+                    final_y as u32,
+                    Rgb([pixel.r, pixel.g, pixel.b]),
+                );
+            }
+        }
+    }
+}
+
+/// Same diamond-masked blit as [`plot_tile`], but writes black (0,0,0)
+/// pixels too. The overlay id's mode entry picks per tile between this and
+/// the black-skipping variant.
+pub fn plot_tile_opaque(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
+    let img_w = imgbuf.width() as i32;
+    let img_h = imgbuf.height() as i32;
+
+    if dest_x + TILE_WIDTH as i32 <= 0
+        || dest_x >= img_w
+        || dest_y + TILE_HEIGHT as i32 <= 0
+        || dest_y >= img_h
+    {
+        return;
+    }
+
+    let mask = create_mask();
+    let mut i = 0;
+    for (y, row) in mask.iter().enumerate() {
+        for x in 0..row[1] {
+            let pixel: Color = colors[i];
+            i += 1;
 
             let final_x = dest_x + x + row[0];
             let final_y = dest_y + y as i32;

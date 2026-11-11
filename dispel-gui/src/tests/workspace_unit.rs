@@ -626,6 +626,21 @@ fn ini_stems_map_to_correct_editor_types() {
 }
 
 #[test]
+fn ifo_files_map_to_save_ifo_editor() {
+    let cases = [
+        ("Save.ifo", EditorType::SaveIfoEditor),
+        ("save.ifo", EditorType::SaveIfoEditor),
+    ];
+    for (filename, expected) in cases {
+        assert_eq!(
+            EditorType::from_path(Path::new(filename)),
+            expected,
+            "failed for {filename}"
+        );
+    }
+}
+
+#[test]
 fn ref_stems_map_to_correct_editor_types() {
     let cases = [
         ("PartyRef.ref", EditorType::PartyRefEditor),

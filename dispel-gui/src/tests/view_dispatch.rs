@@ -44,6 +44,7 @@ mod view_dispatch_tests {
             ModPackager,
             LocalizationManager,
             HexEditor,
+            FogDataEditor,
         ];
 
         for et in types {

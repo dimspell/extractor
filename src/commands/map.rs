@@ -1,7 +1,6 @@
 use super::Command;
 use crate::cli::MapCommands;
 use dispel_core::map;
-use dispel_core::map::database::RenderConfig;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -43,11 +42,12 @@ impl Command for MapCommand {
                 no_ground,
                 no_buildings,
                 no_roofs,
+                no_shadows,
                 no_internal_sprites,
                 no_monsters,
                 no_npcs,
                 no_objects,
-                full_map,
+                frame,
                 transparent,
                 collisions,
                 events,
@@ -66,41 +66,20 @@ impl Command for MapCommand {
                         show_ground: !no_ground,
                         show_buildings: !no_buildings,
                         show_roofs: !no_roofs,
+                        show_shadows: !no_shadows,
                         show_internal_sprites: !no_internal_sprites,
                         show_monsters: !no_monsters,
                         show_npcs: !no_npcs,
                         show_objects: !no_objects,
-                        full_map: *full_map,
                         transparent: *transparent,
                         show_collisions: *collisions,
                         show_events: *events,
                         show_draw_items: *draw_items,
                         show_npc_waypoints: *npc_waypoints,
+                        sprite_frame: *frame,
                     },
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;
-                Ok(())
-            }
-            MapCommands::FromDb {
-                database,
-                map_id,
-                gtl_atlas,
-                btl_atlas,
-                atlas_columns,
-                output,
-                game_path,
-            } => {
-                eprintln!("Rendering map from database...");
-                map::render_from_database(RenderConfig {
-                    database_path: Path::new(database),
-                    map_id,
-                    gtl_atlas_path: Path::new(gtl_atlas),
-                    btl_atlas_path: Path::new(btl_atlas),
-                    atlas_columns: *atlas_columns,
-                    output_path: Path::new(output),
-                    game_path: game_path.as_deref().map(Path::new),
-                })
-                .map_err(|e| format!("ERROR: could not render map from database: {e}"))?;
                 Ok(())
             }
             MapCommands::ToDb { database, map } => {

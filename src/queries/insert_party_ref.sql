@@ -6,5 +6,5 @@ INSERT OR REPLACE INTO party_refs(id,
                        party_dlg_file_id,
                        dlg_when_not_in_party,
                        dlg_when_in_party,
-                       ghost_face_id)
+                       is_in_party)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)

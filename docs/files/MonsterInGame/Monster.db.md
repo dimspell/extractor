@@ -1,17 +1,20 @@
 # Monster.db Documentation
 
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
+
 ## File Information
 
 ### Overview
 
-Binary database file that defines all monster types with complete combat statistics, behavior patterns, and reward systems for the game's monster spawning and combat AI.
+Binary database file that defines all monster types with complete combat statistics, behavior patterns, and reward
+systems for the game's monster spawning and combat AI.
 
 ### File Structure
 
 **Location**: `MonsterInGame/Monster.db`
 **Encoding**: Binary (Little-Endian)
-**Text Encoding**: EUC-KR
-**Record Size**: 160 bytes (40 × 4-byte fields)
+**Text Encoding**: EUC-KR **Record Size**: 160 bytes (24-byte name + 34 × i32 fields)
 **Header**: None (count derived from file size)
 **Total Records**: Variable (file_size / 160)
 
@@ -60,52 +63,54 @@ Binary database file that defines all monster types with complete combat statist
 
 ### Field Definitions
 
-| Field | Size | Type | Description |
-|-------|------|------|-------------|
-| id | N/A | i32 | Record index (assigned during parsing) |
-| name | 24 | string | Monster name (EUC-KR encoded) |
-| health_points_max | 4 | i32 | Maximum HP ceiling |
-| health_points_min | 4 | i32 | Minimum HP floor |
-| mana_points_max | 4 | i32 | Maximum MP limit |
-| mana_points_min | 4 | i32 | Minimum MP limit |
-| walk_speed | 4 | i32 | Baseline tiles moved per tick |
-| to_hit_max | 4 | i32 | Upper bound of accuracy |
-| to_hit_min | 4 | i32 | Lower bound of accuracy |
-| to_dodge_max | 4 | i32 | Upper bound for evasion rate |
-| to_dodge_min | 4 | i32 | Lower bound for evasion rate |
-| offense_max | 4 | i32 | Maximum physical damage |
-| offense_min | 4 | i32 | Minimum physical damage |
-| defense_max | 4 | i32 | Upper bound armor class |
-| defense_min | 4 | i32 | Lower bound armor class |
-| magic_attack_max | 4 | i32 | Maximum magical intensity |
-| magic_attack_min | 4 | i32 | Minimum magical intensity |
-| is_undead | 4 | i32 | Undead flag (PropertyFlag) |
-| has_blood | 4 | i32 | Blood flag (PropertyFlag) |
-| ai_type | 4 | i32 | Combat behavior (MonsterAiType) |
-| exp_gain_max | 4 | i32 | High roll for experience points |
-| exp_gain_min | 4 | i32 | Low roll for experience points |
-| gold_drop_max | 4 | i32 | Maximum gold drop |
-| gold_drop_min | 4 | i32 | Minimum gold drop |
-| detection_sight_size | 4 | i32 | Aggro radius in tiles |
-| distance_range_size | 4 | i32 | Maximum engage distance |
-| known_spell_slot1 | 4 | i32 | Primary magic spell index |
-| known_spell_slot2 | 4 | i32 | Secondary magic spell index |
-| known_spell_slot3 | 4 | i32 | Tertiary magic spell index |
-| is_oversize | 4 | i32 | Oversize collision flag |
-| magic_level | 4 | i32 | Spellcasting potency |
-| special_attack | 4 | i32 | Unique monster skill ID |
-| special_attack_chance | 4 | i32 | Percentage likelihood |
-| special_attack_duration | 4 | i32 | Effect duration in ticks |
-| boldness | 4 | i32 | Retreat threshold metric |
-| attack_speed | 4 | i32 | Delay ticks between attacks |
+| Field                   | Size | Type   | Description                            |
+|-------------------------|------|--------|----------------------------------------|
+| id                      | N/A  | i32    | Record index (assigned during parsing) |
+| name                    | 24   | string | Monster name (EUC-KR encoded)          |
+| health_points_max       | 4    | i32    | Maximum HP ceiling                     |
+| health_points_min       | 4    | i32    | Minimum HP floor                       |
+| mana_points_max         | 4    | i32    | Maximum MP limit                       |
+| mana_points_min         | 4    | i32    | Minimum MP limit                       |
+| walk_speed              | 4    | i32    | Baseline tiles moved per tick          |
+| to_hit_max              | 4    | i32    | Upper bound of accuracy                |
+| to_hit_min              | 4    | i32    | Lower bound of accuracy                |
+| to_dodge_max            | 4    | i32    | Upper bound for evasion rate           |
+| to_dodge_min            | 4    | i32    | Lower bound for evasion rate           |
+| offense_max             | 4    | i32    | Maximum physical damage                |
+| offense_min             | 4    | i32    | Minimum physical damage                |
+| defense_max             | 4    | i32    | Upper bound armor class                |
+| defense_min             | 4    | i32    | Lower bound armor class                |
+| magic_attack_max        | 4    | i32    | Maximum magical intensity              |
+| magic_attack_min        | 4    | i32    | Minimum magical intensity              |
+| is_undead               | 4    | i32    | Undead flag (PropertyFlag)             |
+| has_blood               | 4    | i32    | Blood flag (PropertyFlag)              |
+| ai_type                 | 4    | i32    | Combat behavior (MonsterAiType)        |
+| exp_gain_max            | 4    | i32    | High roll for experience points        |
+| exp_gain_min            | 4    | i32    | Low roll for experience points         |
+| gold_drop_max           | 4    | i32    | Maximum gold drop                      |
+| gold_drop_min           | 4    | i32    | Minimum gold drop                      |
+| detection_sight_size    | 4    | i32    | Aggro radius in tiles                  |
+| distance_range_size     | 4    | i32    | Maximum engage distance                |
+| known_spell_slot1       | 4    | i32    | Primary magic spell index              |
+| known_spell_slot2       | 4    | i32    | Secondary magic spell index            |
+| known_spell_slot3       | 4    | i32    | Tertiary magic spell index             |
+| is_oversize             | 4    | i32    | Oversize collision flag                |
+| magic_level             | 4    | i32    | Spellcasting potency                   |
+| special_attack          | 4    | i32    | Unique monster skill ID                |
+| special_attack_chance   | 4    | i32    | Percentage likelihood                  |
+| special_attack_duration | 4    | i32    | Effect duration in ticks               |
+| boldness                | 4    | i32    | Retreat threshold metric               |
+| attack_speed            | 4    | i32    | Delay ticks between attacks            |
 
 ### Enumeration Types
 
 **PropertyFlag (is_undead, has_blood):**
+
 - **0**: Absent - Property is false/absent
 - **1**: Present - Property is true/present
 
 **MonsterAiType (ai_type):**
+
 - **0**: Aggressor — Actively seeks and engages the player
 - **1**: HitAndFlee — Attacks then retreats (hit-and-run)
 - **2**: FleeWhenApproached — Runs away when player approaches
@@ -203,117 +208,16 @@ Offset | Size | Field | Description
 
 ### Special Values
 
-- **to_dodge_max/min**: Usually both = 10
-- **magic_level**: Usually = 1
-- **boldness**: Usually = 10
+- **to_dodge_max/min**: Often both = 10
+- **magic_level**: Often = 1
+- **boldness**: Often = 10
 - **is_undead = 1**: Holy weakness, no bleed
 - **has_blood = 0**: No blood effects (golems)
 - **is_oversize = 1**: Large monsters (dragons, etc.)
 
-### Usage in Game
+### File Purpose
 
-1. **Combat System**: Monster stats for battles
-2. **AI System**: Behavior patterns and tactics
-3. **Reward System**: EXP and gold drops
-4. **Spawning System**: Monster placement and variety
-5. **Progression System**: Balanced difficulty curve
-
-### File Characteristics
-
-- **Record Size**: 160 bytes (fixed)
-- **No Header**: Record count derived from file size
-- **Encoding**: EUC-KR for monster names
-- **Structure**: Comprehensive statistical system
-- **Complexity**: 40 fields per monster
-
-### Technical Details
-
-**Text Encoding:**
-- EUC-KR for monster names
-- Null-terminated strings with padding
-- Fixed field size (24 bytes)
-
-**Binary Processing:**
-- Little-endian byte order
-- No header validation
-- Fixed record size parsing
-- Enum conversion for flags
-
-**Database Integration:**
-- Processed by `Monster` struct
-- Uses type-safe enums for flags
-- Stored with all statistical fields
-- Linked to combat and spawning systems
-
-### Combat System Analysis
-
-**Vital Statistics:**
-- HP/MP ranges for variability
-- Walk speed affects movement
-- Accuracy and evasion mechanics
-
-**Damage Systems:**
-- Physical offense/defense
-- Magical attack ranges
-- Special attack mechanics
-
-**Reward Systems:**
-- EXP and gold drop ranges
-- Balanced risk/reward
-- Progression scaling
-
-**AI Systems:**
-- Behavior type patterns
-- Detection and range mechanics
-- Special abilities
-
-### Notes
-
-- File uses binary format with EUC-KR text encoding
-- No header - record count calculated from file size
-- Complex statistical system for balanced combat
-- Integrated with spawning and AI systems
-- **No copyrighted game content** is reproduced or distributed
-
-### Comparison with Other Databases
-
-**Monster.db vs Mondun/Monmap.ref:**
-- **Monster.db**: Monster statistics and AI
-- **Mondun/Monmap.ref**: Monster placements
-- **Monster.db**: Combat properties
-- **Mondun/Monmap.ref**: Spatial positioning
-
-**Monster.db vs Npc.ini:**
-- **Monster.db**: Combat monsters
-- **Npc.ini**: Non-combat NPCs
-- **Monster.db**: Aggressive AI
-- **Npc.ini**: Passive interactions
-
-### File Purpose Summary
-
-Monster.db serves as a comprehensive database for:
-- Monster combat statistics
-- AI behavior patterns
-- Reward systems (EXP/gold)
-- Special abilities and spells
-- Balanced difficulty progression
-
-The file provides a sophisticated system for managing all monster types in the game, supporting diverse combat encounters with varied statistics, behaviors, and reward structures.
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to creature systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any monster data or game content
-- Focuses on **technical organization and combat systems**
-- Explains **statistical mechanics and AI behaviors**
-- Maintains **nominal fair use** for trademark references
+Defines all monster types with combat statistics, AI behavior patterns, and reward systems.
 
 ## Extractor
 

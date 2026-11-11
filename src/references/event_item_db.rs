@@ -4,7 +4,7 @@ use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 
 /// EventItem.db - Quest/Event Specific Items
 ///
@@ -61,7 +61,16 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// descriptions. Used for unique items that trigger
 /// events or are required for quest progression.
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 240)]
 #[patcher(filename = "EventItem.db")]
@@ -94,7 +103,13 @@ pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Res
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;
         for item in event_items {
-            stmt.execute(params![item.id, item.name, item.description, item.padding])?;
+            stmt.execute(params![
+                item.id,
+                item.name,
+                item.description,
+                item.base_price,
+                item.padding
+            ])?;
         }
     }
     tx.commit()?;

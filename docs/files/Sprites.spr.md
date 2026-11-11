@@ -1,236 +1,164 @@
-# *.spr - Sprite File Format
+# *.spr — Sprite File Format
 
-## File Information
+> **DISPEL®** is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
 
-- **Location**: `CharacterInGame/*.spr`, `NpcInGame/*.spr`, `MonsterInGame/*.spr`, `ExtraInGame/*.spr`, basically: `**/.spr`
-- **Format**: Binary (Little-Endian)
-- **Color Format**: RGB565 (2 bytes per pixel)
-- **File Extension**: `.spr`
+## Scope
 
----
+This document describes the `.spr` layout that this project reads and writes.
+All integer values use little-endian byte order.
+
+## File Summary
+
+- **Extension:** `.spr`
+- **Data:** counted sequence records
+- **Pixel data:** one or two bytes per pixel
+- **Two-byte formats:** RGB555 or RGB565
 
 ## File Layout
 
-```
-Offset      Size          Description
-----------  ------------  -------------------------------------------
-0x0000      268 bytes     Unknown file header (skip to offset 268)
-0x010C      variable      Sequence 1
-...         variable      Sequence 2
-...         variable      Sequence N
-```
+| Offset | Size | Description |
+|---|---:|---|
+| `0` | 4 bytes | Sequence-record count (`i32`) |
+| `4` | Variable | Sequence records |
 
-The file ends with the last byte of the last sequence's pixel data. There is no footer or sequence count in the header.
+The file has no footer.
 
----
+## Sequence Record
 
-## Sequence Detection
-
-Sequences are not stored at fixed offsets. They must be found by scanning the file for a valid sequence header pattern. The algorithm reads 15 consecutive i32 values (60 bytes) and checks two valid patterns:
-
-**Pattern A (no leading stamp):**
-
-| Field | Constraint | Meaning |
-|-------|------------|---------|
-| `ints[0]` | `== 0` | No stamp |
-| `ints[1]` | `> 0 && < 255` | Frame count (1-254 frames) |
-| `ints[2]` | `== 0` | Padding |
-| `ints[11]` | `> 0` | First frame width |
-| `ints[12]` | `> 0` | First frame height |
-| `ints[11] * ints[12]` | `== ints[13]` | Width × height == pixel count |
-
-**Pattern B (with leading stamp 8, 0):**
-
-| Field | Constraint | Meaning |
-|-------|------------|---------|
-| `ints[0]` | `== 8` | Stamp byte |
-| `ints[1]` | `== 0` | Stamp padding |
-| `ints[2]` | `> 0 && < 255` | Frame count (1-254 frames) |
-| `ints[3]` | `== 0` | Padding |
-| `ints[12]` | `> 0` | First frame width |
-| `ints[13]` | `> 0` | First frame height |
-| `ints[12] * ints[13]` | `== ints[14]` | Width × height == pixel count |
-
-If neither pattern matches, the scanner advances by 4 bytes (one i32) and retries. A single skip is treated as zero skips (quirk in the original parser).
-
----
-
-## Sequence Header
-
-Once a valid pattern is found, the sequence header is read:
-
-| Offset (relative) | Size | Description |
-|-------------------|------|-------------|
-| `0x00` | `i32` | Stamp: `8` (Pattern B) or `0` (Pattern A) |
-| `0x04` | `i32` | If stamp was `8`: always `0`. If stamp was `0`: frame count |
-| `0x08` | `i32` | Frame count (Pattern A only) |
-| `0x0C` | `i32` | Always `0` (padding) |
-
-After the header, frame metadata begins immediately.
-
----
-
-## Frame Metadata (per frame)
-
-Each frame in the sequence has a metadata block:
+Each sequence record starts with a 268-byte header.
 
 | Offset | Size | Description |
-|--------|------|-------------|
-| `0x00` | `24` | Unknown data (6 × i32, skipped during parsing) |
-| `0x18` | `i32` | `origin_x` — X offset from anchor point |
-| `0x1C` | `i32` | `origin_y` — Y offset from anchor point |
-| `0x20` | `i32` | `width` — frame width in pixels |
-| `0x24` | `i32` | `height` — frame height in pixels |
-| `0x28` | `u32` | `pixel_count` — number of RGB565 pixels (NOT bytes) |
+|---|---:|---|
+| `0` | 4 bytes | Sequence identifier (`i32`) |
+| `4` | 260 bytes | Name or reserved data |
+| `264` | 4 bytes | Group count (`i32`) |
 
-The pixel data size in bytes is: `pixel_count * 2`.
+The group data follows this header.
 
-After the metadata block, pixel data follows immediately.
+## Group Record
 
----
+Each group starts with a 12-byte header.
 
-## Frame Pixel Data
+| Offset | Size | Description |
+|---|---:|---|
+| `0` | 4 bytes | Variant (`i32`) |
+| `4` | 4 bytes | Frame count (`i32`) |
+| `8` | 4 bytes | Reserved data (`i32`) |
 
-Each pixel is stored as RGB565 (16-bit, Little-Endian):
+The frames for this group follow the group header.
 
-| Bits | Channel | Range |
-|------|---------|-------|
-| 15-11 | Red | 5 bits (0-31) |
-| 10-5 | Green | 6 bits (0-63) |
-| 4-0 | Blue | 5 bits (0-31) |
+The parser uses `variant == 1` for one-byte pixels. Other variants use
+two-byte pixels. The parser does not render one-byte pixels because it has no
+palette for them.
 
-**Conversion to 8-bit RGB:**
+## Frame Record
 
+Each frame has a 44-byte header followed by its pixel data.
+
+| Offset | Size | Description |
+|---|---:|---|
+| `0` | 24 bytes | Reserved data |
+| `24` | 4 bytes | Origin X (`i32`) |
+| `28` | 4 bytes | Origin Y (`i32`) |
+| `32` | 4 bytes | Width in pixels (`i32`) |
+| `36` | 4 bytes | Height in pixels (`i32`) |
+| `40` | 4 bytes | Pixel count (`u32`) |
+
+The pixel data begins immediately after the frame header.
+
+Calculate its size as follows:
+
+```text
+pixel_data_size = pixel_count × bytes_per_pixel
 ```
-R = (red_value   << 3)   // 5→8 bits, range 0-248
-G = (green_value << 2)   // 6→8 bits, range 0-252
-B = (blue_value  << 3)   // 5→8 bits, range 0-248
-```
 
-Pixel value `0x0000` is transparent.
+## Two-Byte Pixel Data
 
-Pixels are stored in row-major order (left-to-right, top-to-bottom).
+Two-byte pixels use RGB555 or RGB565 packing.
 
----
+| Format | Red | Green | Blue |
+|---|---|---|---|
+| RGB565 | bits 15–11 | bits 10–5 | bits 4–0 |
+| RGB555 | bits 14–10 | bits 9–5 | bits 4–0 |
 
-## Bounding Rectangle Calculation
+Pixels use row-major order. The first pixel is at the top-left corner.
 
-Frames within a sequence may have different sizes and origins. To render them into a common canvas, a bounding rectangle is computed:
+The default renderer treats `0x0000` as transparent. Use `--preserve-black`
+to export this value as opaque `#000000`.
 
-```
+### Format Selection
+
+The layout has no field that selects RGB555 or RGB565.
+
+The parser uses this rule for an archive with two-byte pixels:
+
+1. If a non-zero pixel has bit 15 set, use RGB565.
+2. Otherwise, use RGB555.
+3. If all pixels are zero, use RGB565.
+
+This rule cannot identify an RGB565 archive that never sets bit 15. Add an
+explicit format option if such a file needs different handling.
+
+## Frame Position
+
+`origin_x` and `origin_y` define the reference point in a frame. Use these
+values to place frames in a common image area.
+
+```text
 max_left  = max(origin_x)
 max_right = max(width - origin_x)
 max_up    = max(origin_y)
 max_down  = max(height - origin_y)
 
-canvas_width  = max_left + max_right   (or single frame width)
-canvas_height = max_up + max_down      (or single frame height)
-```
+canvas_width  = max_left + max_right
+canvas_height = max_up + max_down
 
-Each frame is placed at offset:
-
-```
 x = max_left - origin_x
 y = max_up - origin_y
 ```
 
----
+For a single frame, use its own width and height.
 
-## Reading a File (Step-by-Step)
+## Read a File
 
-1. Open the file, seek to offset 268.
-2. Call `seek_next_sequence()` to find the next valid sequence header. If it returns `false`, you've reached the end of the file.
-3. Call `get_sequence_info()` to parse the header and all frame metadata. This advances the reader past all pixel data to the end of the sequence.
-4. To render frames, seek back to `sequence_start_position` before reading pixel data.
-5. Seek to `sequence_end_position` to continue scanning for the next sequence.
-6. Repeat steps 2-5 until `seek_next_sequence()` returns `false`.
+1. Read the sequence-record count.
+2. Read each sequence header.
+3. Read each group header.
+4. Read the frame headers and pixel data for that group.
+5. Use `pixel_count` and the byte stride to move to the next frame.
 
----
-
-## File Purpose
-
-Stores character sprites, animations, and visual effects for:
-
-- NPCs and monsters
-- Party members
-- Special effects
-- Interactive objects
-
----
-
-## Sprite Types
-
-- Character Sprites
-- Monster Sprites
-- NPC Sprites
-- Objects
-
----
-
-## Origin Points
-
-Each frame has an origin point (`origin_x`, `origin_y`) that defines:
-
-- The reference point for positioning
-- Rotation center
-- Collision detection point
-
----
-
-## Related Files
-
-- `Npc.ini` — NPC definitions referencing sprites
-- `Monster.ini` — Monster definitions referencing sprites
-- `Extra.ini` — Object definitions referencing sprites
-- `*.map` files — Map files containing embedded sprites
-
----
-
-## Extractor
-
-An extractor is available in `src/sprite.rs` to parse this file format.
-
-### CLI Commands
+## Command-Line Use
 
 ```bash
-# Extract individual frames as separate PNG files
-cargo run -- sprite "fixtures/Dispel/CharacterInGame/M_BODY1.spr"
+# Export individual frames.
+cargo run -- sprite "path/to/file.spr"
 
-# Extract animation sequences as horizontal strip PNGs
-cargo run -- sprite "fixtures/Dispel/CharacterInGame/M_BODY1.spr" --mode animation
+# Export animation strips. The exporter aligns frames by their origin values.
+cargo run -- sprite "path/to/file.spr" --mode animation
 
-# Output sprite metadata as JSON (no rendering)
-cargo run -- sprite "fixtures/Dispel/ExtraInGame/Quest.spr" --info
+# Export animation strips without origin alignment.
+cargo run -- sprite "path/to/file.spr" --mode animation --no-origin-offset
+
+# Keep raw 0x0000 pixels as opaque black in exported PNG files.
+cargo run -- sprite "path/to/file.spr" --preserve-black
+
+# Print metadata as JSON.
+cargo run -- sprite "path/to/file.spr" --info
 ```
 
-### Library API
+## Library API
 
 ```rust
 use dispel_core::sprite::{
-    get_sprite_info,         // Get full metadata as JSON-serializable struct
-    get_sprite_metadata,     // Get frame counts per sequence
-    get_sequence_pngs_by_index, // Render a specific sequence to PNG buffers
+    get_sequence_pngs_by_index,
+    get_sprite_info,
+    get_sprite_metadata,
 };
 
-// Get all sequences and frame counts
-let frame_counts = get_sprite_metadata(Path::new("Atack.spr"))?;
-// => [4, 4, 10]
-
-// Get full metadata
-let info = get_sprite_info(Path::new("Atack.spr"))?;
-// => SpriteInfoJson { sequence_count: 3, total_frames: 18, ... }
-
-// Render sequence 0 to PNG buffers
-let pngs = get_sequence_pngs_by_index(Path::new("Atack.spr"), 0)?;
-// => Vec<Vec<u8>> — one PNG buffer per frame
+let frame_counts = get_sprite_metadata(Path::new("file.spr"))?;
+let info = get_sprite_info(Path::new("file.spr"))?;
+let pngs = get_sequence_pngs_by_index(Path::new("file.spr"), 0)?;
 ```
 
-### Animation Sequences
-
-Sprites can contain multiple animation sequences:
-
-- Walking cycles
-- Attack animations
-- Special ability effects
-- Idle animations
-- Death sequences
+`get_sequence_pngs_by_index` returns one PNG buffer for each frame.

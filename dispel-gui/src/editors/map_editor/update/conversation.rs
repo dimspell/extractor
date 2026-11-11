@@ -23,7 +23,11 @@ pub fn start(app: &mut App, tab_id: usize, npc_idx: usize) -> Task<Message> {
     let entry_dialog_id = npc.dialog_id;
     if entry_dialog_id == 0 {
         if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
-            editor.data.status_msg = Some("NPC has no dialog".into());
+            editor.data.notify(
+                gui_widgets::components::toast::Status::Warning,
+                "Conversation",
+                "NPC has no dialog",
+            );
         }
         return Task::none();
     }
@@ -122,7 +126,11 @@ pub fn loaded(app: &mut App, tab_id: usize, result: ConversationLoadResult) -> T
                 editor.view.conversation = Some(conv);
             }
             Err(err) => {
-                editor.data.status_msg = Some(format!("Conversation: {err}"));
+                editor.data.notify(
+                    gui_widgets::components::toast::Status::Danger,
+                    "Error",
+                    format!("Conversation: {err}"),
+                );
             }
         }
     }

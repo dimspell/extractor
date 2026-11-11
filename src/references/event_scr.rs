@@ -594,6 +594,18 @@ pub fn save_event_scripts(
             let map_content = script.map_content.join("\n");
             let chr_content = script.chr_content.join("\n");
             let npc_content = script.npc_content.join("\n");
+            let spr_content = script
+                .spr_content
+                .iter()
+                .map(|s| {
+                    if s.sprite_file.is_empty() {
+                        s.sprite_alias.clone()
+                    } else {
+                        format!("{}({})", s.sprite_alias, s.sprite_file)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
             let wav_content = script.wav_content.join("\n");
 
             // Convert event ID from string to integer
@@ -605,6 +617,7 @@ pub fn save_event_scripts(
                 map_content,
                 chr_content,
                 npc_content,
+                spr_content,
                 wav_content
             ])?;
 

@@ -15,6 +15,7 @@ mod event_script;
 mod misc_item;
 mod party_level;
 mod quest;
+mod save_ifo;
 mod store;
 
 // Auto-generated (binary, via #[derive(RecordPatcher)])
@@ -49,4 +50,5 @@ pub use draw_item::DrawItemPatcher;
 pub use event_script::EventScriptPatcher;
 pub use party_level::PartyLevelDbPatcher;
 pub use quest::QuestPatcher;
+pub use save_ifo::SaveIfoPatcher;
 pub use store::StorePatcher;

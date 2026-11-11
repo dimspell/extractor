@@ -15,6 +15,169 @@ use std::sync::Arc;
 
 // ── Message handlers ─────────────────────────────────────────────────────────
 
+use crate::components::map_render::view_state::MapViewState;
+use crate::editors::map_editor::message::{MapLayer, MapTool, ObjectBrushMode, SelectedEntity};
+use crate::editors::map_editor::state::MapEditAction;
+
+/// Whether a display layer is currently visible.
+pub fn layer_visible(view: &MapViewState, layer: MapLayer) -> bool {
+    match layer {
+        MapLayer::Ground => view.show_ground,
+        MapLayer::Buildings => view.show_buildings,
+        MapLayer::Roofs => view.show_roofs,
+        MapLayer::Shadows => view.show_shadows,
+        MapLayer::InternalSprites => view.show_internal_sprites,
+        MapLayer::Collisions => view.show_collisions,
+        MapLayer::Events => view.show_events,
+        MapLayer::UnderRoofMarkers => view.show_under_roof_markers,
+        MapLayer::NoSpellCastZones => view.show_no_spell_cast_zones,
+        MapLayer::BtlOverlaysInDarkMaps => view.show_btl_overlays_in_dark_maps,
+        MapLayer::Monsters => view.show_monsters,
+        MapLayer::Npcs => view.show_npcs,
+        MapLayer::NpcWaypoints => view.show_npc_waypoints,
+        MapLayer::Objects => view.show_objects,
+        MapLayer::DrawItems => view.show_draw_items,
+        MapLayer::ObjectIds => view.show_object_ids,
+    }
+}
+
+fn set_layer_visible(view: &mut MapViewState, layer: MapLayer, visible: bool) {
+    match layer {
+        MapLayer::Ground => view.show_ground = visible,
+        MapLayer::Buildings => view.show_buildings = visible,
+        MapLayer::Roofs => view.show_roofs = visible,
+        MapLayer::Shadows => view.show_shadows = visible,
+        MapLayer::InternalSprites => view.show_internal_sprites = visible,
+        MapLayer::Collisions => view.show_collisions = visible,
+        MapLayer::Events => view.show_events = visible,
+        MapLayer::UnderRoofMarkers => view.show_under_roof_markers = visible,
+        MapLayer::NoSpellCastZones => view.show_no_spell_cast_zones = visible,
+        MapLayer::BtlOverlaysInDarkMaps => view.show_btl_overlays_in_dark_maps = visible,
+        MapLayer::Monsters => view.show_monsters = visible,
+        MapLayer::Npcs => view.show_npcs = visible,
+        MapLayer::NpcWaypoints => view.show_npc_waypoints = visible,
+        MapLayer::Objects => view.show_objects = visible,
+        MapLayer::DrawItems => view.show_draw_items = visible,
+        MapLayer::ObjectIds => view.show_object_ids = visible,
+    }
+}
+
+/// Select the active canvas tool. If the tool's owning layer is hidden,
+/// force-enable it (visibility ≠ editability: selecting an editing tool
+/// implies you need to see what you edit).
+pub fn select_tool(app: &mut App, tab_id: usize, tool: MapTool) -> Task<Message> {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+        if let Some(layer) = tool.owning_layer()
+            && !layer_visible(&state.view, layer)
+        {
+            set_layer_visible(&mut state.view, layer, true);
+            state.view.overlay_cache.clear();
+            state.view.tile_layer_cache.clear();
+        }
+        state.view.active_tool = tool;
+    }
+    Task::none()
+}
+
+/// Toggle the collision flag on a tile. Returns `true` when the map changed.
+pub fn toggle_collision_at(
+    state: &mut crate::editors::map_editor::state::MapEditorState,
+    tx: i32,
+    ty: i32,
+) -> bool {
+    if !state.data.can_mutate_map_data() {
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Collision",
+            "Cannot edit while save/export is in progress",
+        );
+        return false;
+    }
+    let LoadingState::Loaded(ref mut handle) = state.data.loading_state else {
+        return false;
+    };
+    let map_data =
+        Arc::get_mut(&mut handle.0).expect("MapData Arc has unexpected shared reference");
+    let old = map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
+    map_data.collisions.insert((tx, ty), !old);
+    state.push_undo(MapEditAction {
+        entity: SelectedEntity::CollisionTile(tx, ty),
+        field: "collision".into(),
+        old_value: old.to_string(),
+        new_value: (!old).to_string(),
+    });
+    state.view.selected_entity = None;
+    state.view.overlay_cache.clear();
+    // Replace-in-place: painting a stroke updates one toast, not many.
+    state.data.notify_replace(
+        "Collision",
+        gui_widgets::components::toast::Status::Primary,
+        "Collision",
+        format!(
+            "{} ({},{})",
+            if old { "Unblocked" } else { "Blocked" },
+            tx,
+            ty
+        ),
+    );
+    true
+}
+
+/// Apply the object-id brush to a tile according to the current brush mode.
+///
+/// Paint writes the brush value (overwriting whatever was there); Erase removes
+/// the entry regardless of its current value. Returns `true` when changed.
+pub fn apply_object_id_edit(
+    state: &mut crate::editors::map_editor::state::MapEditorState,
+    tx: i32,
+    ty: i32,
+) -> bool {
+    if !state.data.can_mutate_map_data() {
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Object ID",
+            "Cannot edit while save/export is in progress",
+        );
+        return false;
+    }
+    let LoadingState::Loaded(ref mut handle) = state.data.loading_state else {
+        return false;
+    };
+    let erase = state.view.object_brush_mode == ObjectBrushMode::Erase;
+    let brush = state.data.object_brush.clamp(1, 511);
+    let map_data =
+        Arc::get_mut(&mut handle.0).expect("MapData Arc has unexpected shared reference");
+    let old = map_data.object_ids.get(&(tx, ty)).copied().unwrap_or(0);
+    let new = if erase { 0 } else { brush };
+    if new == 0 {
+        map_data.object_ids.remove(&(tx, ty));
+    } else {
+        map_data.object_ids.insert((tx, ty), new);
+    }
+    state.push_undo(MapEditAction {
+        entity: SelectedEntity::ObjectIdTile(tx, ty),
+        field: "object_id".into(),
+        old_value: old.to_string(),
+        new_value: new.to_string(),
+    });
+    state.view.selected_entity = None;
+    state.view.overlay_cache.clear();
+    state.view.tile_layer_cache.clear();
+    // Replace-in-place: painting a stroke updates one toast, not many.
+    let body = if erase || new == 0 {
+        format!("Erased obj @ ({},{})", tx, ty)
+    } else {
+        format!("Obj {} → ({},{})", new, tx, ty)
+    };
+    state.data.notify_replace(
+        "Object ID",
+        gui_widgets::components::toast::Status::Primary,
+        "Object ID",
+        body,
+    );
+    true
+}
+
 pub fn open(app: &mut App, tab_id: usize, path: PathBuf) -> Task<Message> {
     // Ensure item lookups are loaded for composite-item pickers in the
     // entity-inspector panels (MonsterRef, NPC, ExtraRef).
@@ -112,6 +275,19 @@ pub fn map_loaded(
             seq_handles.sort_by_key(|s| s.sequence_idx);
             state.data.sprite_sequence_handles = seq_handles;
 
+            let loaded_name = state
+                .data
+                .map_path
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            state.data.notify(
+                gui_widgets::components::toast::Status::Success,
+                "Loaded",
+                loaded_name,
+            );
+
             // Convert decoded internal sprites → Iced Handles.
             state.data.internal_sprite_handles = decoded_sprites
                 .into_iter()
@@ -124,6 +300,22 @@ pub fn map_loaded(
                     height: s.height,
                 })
                 .collect();
+
+            // Load the shadow/lighting fade tables for Dark maps (no-op for
+            // Light maps or when no game path is configured).
+            let game_path = app.state.workspace.game_path.clone();
+            let map_stem = state
+                .data
+                .map_path
+                .as_ref()
+                .and_then(|p| p.file_stem())
+                .map(|s| s.to_string_lossy().to_string());
+            state.data.shadow_fog = match (game_path, map_stem) {
+                (Some(gp), Some(stem)) => {
+                    dispel_core::map::render::load_fog_if_dark(&gp, &stem).map(std::sync::Arc::new)
+                }
+                _ => None,
+            };
 
             state.data.loading_state = LoadingState::Loaded(handle);
             state.view.tile_layer_cache.clear();
@@ -230,7 +422,11 @@ pub fn tiles_decoded(
     };
     let game_path = app.state.workspace.game_path.clone();
     if game_path.is_none() {
-        state.data.status_msg = Some("No game path set — entity files not loaded".to_string());
+        state.data.notify(
+            gui_widgets::components::toast::Status::Warning,
+            "Load",
+            "No game path set — entity files not loaded",
+        );
     }
     Task::perform(
         async move { load_entities(&map_path, game_path) },
@@ -783,5 +979,147 @@ mod tests {
         assert_eq!(bundle.draw_items.len(), 0);
         assert_eq!(bundle.all_map_id, None);
         assert_eq!(bundle.monsters.len(), 0);
+    }
+
+    // ── Tool selection & object-id brush ──────────────────────────────────────
+
+    use crate::app::App;
+    use crate::editors::map_editor::state::MapEditorState;
+    use dispel_core::map::{MapData, MapModel};
+
+    const TAB: usize = 7;
+
+    /// App with a map editor tab whose map data is loaded (8×8 tiles).
+    fn app_with_loaded_map(object_ids: HashMap<(i32, i32), i32>) -> App {
+        let mut app = App::new().0;
+        let model = MapModel {
+            border_count: 2,
+            tiled_map_width: 8,
+            tiled_map_height: 8,
+            map_width_in_pixels: 16 * 32,
+            map_height_in_pixels: 16 * 16,
+            map_non_occluded_start_x: 0,
+            map_non_occluded_start_y: 0,
+            occluded_map_in_pixels_width: 8 * 64,
+            occluded_map_in_pixels_height: 8 * 32,
+        };
+        let map_data = MapData {
+            overlay_modes: Vec::new(),
+            model,
+            gtl_tiles: HashMap::new(),
+            btl_tiles: HashMap::new(),
+            access_ref_words: HashMap::new(),
+            collisions: HashMap::new(),
+            events: HashMap::new(),
+            object_ids,
+            tiled_infos: vec![],
+            internal_sprites: vec![],
+            sprite_blocks: vec![],
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_bundles: Vec::new(),
+        };
+        let state = app.state.editors.map_editors.entry(TAB).or_default();
+        state.data.loading_state = LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));
+        app
+    }
+
+    #[test]
+    fn test_select_tool_collision_enables_layer() {
+        let mut app = app_with_loaded_map(HashMap::new());
+        assert!(!layer_visible(
+            &app.state.editors.map_editors[&TAB].view,
+            MapLayer::Collisions
+        ));
+
+        let _ = select_tool(&mut app, TAB, MapTool::Collision);
+
+        let state = &app.state.editors.map_editors[&TAB];
+        assert_eq!(state.view.active_tool, MapTool::Collision);
+        assert!(
+            layer_visible(&state.view, MapLayer::Collisions),
+            "selecting the Collision tool must force-enable the Collisions layer"
+        );
+    }
+
+    #[test]
+    fn test_hide_layer_resets_tool_to_pan() {
+        let mut app = app_with_loaded_map(HashMap::new());
+        let _ = select_tool(&mut app, TAB, MapTool::ObjectId);
+        assert_eq!(
+            app.state.editors.map_editors[&TAB].view.active_tool,
+            MapTool::ObjectId
+        );
+
+        // Hide the layer that owns the active tool via LayerToggled.
+        let msg = MapEditorMessage::LayerToggled(TAB, MapLayer::ObjectIds);
+        let _ = super::super::handle(msg, &mut app);
+
+        assert_eq!(
+            app.state.editors.map_editors[&TAB].view.active_tool,
+            MapTool::Pan,
+            "hiding the owning layer must reset the tool to Pan"
+        );
+    }
+
+    #[test]
+    fn test_object_id_paint_writes_brush() {
+        let mut app = app_with_loaded_map(HashMap::from([((5, 5), 7)]));
+        let state = app.state.editors.map_editors.get_mut(&TAB).unwrap();
+        state.data.object_brush = 3;
+        state.view.object_brush_mode = ObjectBrushMode::Paint;
+
+        assert!(apply_object_id_edit(state, 5, 5));
+        let state = app.state.editors.map_editors.get_mut(&TAB).unwrap();
+        if let LoadingState::Loaded(ref handle) = state.data.loading_state {
+            assert_eq!(
+                handle.0.object_ids.get(&(5, 5)),
+                Some(&3),
+                "paint overwrites existing value"
+            );
+        } else {
+            panic!("map not loaded");
+        }
+        assert_eq!(state.data.undo_stack.len(), 1);
+    }
+
+    #[test]
+    fn test_object_id_erase_removes_any_value() {
+        let mut app = app_with_loaded_map(HashMap::from([((5, 5), 7)]));
+        let state = app.state.editors.map_editors.get_mut(&TAB).unwrap();
+        state.data.object_brush = 7; // same value as existing entry — erase must still remove
+        state.view.object_brush_mode = ObjectBrushMode::Erase;
+
+        assert!(apply_object_id_edit(state, 5, 5));
+        let state = app.state.editors.map_editors.get_mut(&TAB).unwrap();
+        if let LoadingState::Loaded(ref handle) = state.data.loading_state {
+            assert!(
+                !handle.0.object_ids.contains_key(&(5, 5)),
+                "erase removes the entry regardless of its value"
+            );
+        } else {
+            panic!("map not loaded");
+        }
+    }
+
+    #[test]
+    fn test_brush_stepper_clamps_at_bounds() {
+        let mut app = app_with_loaded_map(HashMap::new());
+
+        for v in [999, 600] {
+            let msg = MapEditorMessage::SetObjectBrush(TAB, v);
+            let _ = super::super::handle(msg, &mut app);
+            assert_eq!(app.state.editors.map_editors[&TAB].data.object_brush, 511);
+        }
+        for v in [0, -5] {
+            let msg = MapEditorMessage::SetObjectBrush(TAB, v);
+            let _ = super::super::handle(msg, &mut app);
+            assert_eq!(app.state.editors.map_editors[&TAB].data.object_brush, 1);
+        }
+    }
+
+    #[allow(dead_code)]
+    fn _assert_state_type(s: &MapEditorState) -> &MapEditorState {
+        s
     }
 }

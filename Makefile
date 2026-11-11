@@ -22,13 +22,12 @@
         extract-dialogue-text extract-weapons \
         patch-dry-run patch-in-place patch validate validate-verbose \
         list list-json list-filtered schema template template-pretty \
-        map-help map-tiles map-atlas map-render map-render-full \
+        map-help map-tiles map-atlas map-render \
         map-render-transparent map-render-collisions map-render-events \
         map-render-draw-items map-render-waypoints \
         map-render-noground map-render-nobuildings map-render-noroofs \
         map-render-nomonsters map-render-nonpcs map-render-noobjects \
         map-extract-sprites map-to-json map-to-json-pretty map-to-db \
-        map-from-db map-from-db-with-sprite \
         map-atlas-btl map-atlas-gtl \
         map-all-gtl-tiles map-all-btl-tiles zip-map-tiles \
         database-import database-dialog-texts database-maps \
@@ -62,7 +61,7 @@ cargo_test:
 	cargo test --workspace --all-features --quiet
 
 iced_test:
-	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test app::tests"
+	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test"
 
 # GUI simulations require Iced's CPU renderer when no GPU/window
 # server is available (for example, in CI or headless development shells).
@@ -275,7 +274,6 @@ template-pretty:
 #   map tiles   – Extract every tile as a separate image
 #   map atlas   – Pack tiles into a single atlas PNG
 #   map render  – Render map with layers, overlays, and sprites
-#   map from-db – Render map from SQLite + atlas PNGs
 #   map to-db   – Import .MAP file into SQLite
 #   map sprites – Extract map-internal sprites to PNGs
 #   map to-json – Export map data as JSON
@@ -295,7 +293,6 @@ map-atlas:
 # Optional flags:
 #   --game-path <DIR>      Enable entity overlay (NPCs, monsters, extras)
 #   --save-sprites         Export sub-sprites from the map file
-#   --full-map             Render full canvas (no occlusion viewport)
 #   --transparent          RGBA PNG with alpha channel
 #   --collisions           Show collision overlay
 #   --events               Show event overlay
@@ -316,15 +313,6 @@ map-render:
 		--gtl="$(game_path)/Map/$(map_id).gtl" \
 		--output="map.png" \
 		--game-path="$(game_path)"
-
-map-render-full:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--full-map
 
 map-render-transparent:
 	cargo run -- map render \
@@ -451,25 +439,6 @@ map-to-json-pretty:
 # map to-db --database <DB> --map <.map>
 map-to-db:
 	cargo run -- map to-db --database "$(db_path)" --map "$(INPUT)"
-
-# map from-db --database <DB> --map-id <ID> --gtl-atlas <PNG> --btl-atlas <PNG> --output <PNG>
-#                  [--game-path <DIR>] [--atlas-columns <NUM>]
-map-from-db:
-	cargo run -- map from-db \
-		--database "$(db_path)" \
-		--map-id "$(map_id)" \
-		--gtl-atlas "$(map_id).gtl.png" \
-		--btl-atlas "$(map_id).btl.png" \
-		-o "$(out)_$(map_id).png"
-
-map-from-db-with-sprite:
-	cargo run -- map from-db \
-		--database "$(db_path)" \
-		--map-id "$(map_id)" \
-		--gtl-atlas "$(map_id).gtl.png" \
-		--btl-atlas "$(map_id).btl.png" \
-		-o "$(out)_$(map_id).png" \
-		--game-path "$(game_path)"
 
 # map atlas convenience (shortcut: make atlas from game path + map_id)
 map-atlas-btl:

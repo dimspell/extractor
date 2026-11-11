@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -69,10 +69,10 @@ use serde::{Deserialize, Serialize};
 /// - **Durability**: `durability` (item HP/wear limit)
 /// - **Requirements**: `req_strength`, `req_agility`, `req_wisdom` (minimum stats to equip)
 /// - **Runtime identity**: `weapon_item_id` is overwritten with the zero-based
-///   record index by the game loader.
+///   record index at load time.
 /// - **Reserved**: the seven `reserved_0x*` words are serialized in the file and
-///   copied into inventory items, but are zero in every shipped record and have
-///   no observed runtime use.
+///   copied into inventory items, but are zero by default and have
+///   no observed reader.
 ///
 /// # Special Values
 ///
@@ -80,7 +80,7 @@ use serde::{Deserialize, Serialize};
 /// - `durability`: Item health points before destruction
 /// - `weapon_item_id`: Runtime-only ID; the on-disk value is ignored and replaced
 ///   with the record index when the database loads.
-/// - `reserved_0x*`: Preserved 16-bit values. All are zero in the shipped database.
+/// - `reserved_0x*`: Preserved 16-bit values. All are zero by default.
 /// - Requirements: 0 = no requirement
 ///
 /// # File Purpose
@@ -89,7 +89,16 @@ use serde::{Deserialize, Serialize};
 /// requirements, and durability. Used for equipment
 /// system, character progression, and combat mechanics.
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Localizable,
+    Extractor,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 284)]
 #[patcher(filename = "WeaponItem.db")]
@@ -149,8 +158,8 @@ pub struct WeaponItem {
     /// Item health points or wear limit.
     #[extractor(primitive(type = "i16"))]
     pub durability: i16,
-    /// Reserved serialized word at byte offset `0x108`. It is zero in all
-    /// shipped records and has no observed runtime use.
+    /// Reserved serialized word at byte offset `0x108`. It is zero by default
+    /// with no observed reader.
     #[extractor(padding(count = 1, type = "i16"))]
     pub reserved_0x108: i16,
     /// Reserved serialized word at byte offset `0x10a`.

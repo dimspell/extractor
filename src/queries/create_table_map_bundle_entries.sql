@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS map_bundle_entries (
+    map_id TEXT NOT NULL,
+    bundle_index INTEGER NOT NULL,
+    record_index INTEGER NOT NULL,
+    item_index INTEGER NOT NULL,
+    entry_index INTEGER NOT NULL,
+    bound_x INTEGER NOT NULL,
+    bound_y INTEGER NOT NULL,
+    bound_right INTEGER NOT NULL,
+    bound_bottom INTEGER NOT NULL,
+    anchor_x INTEGER NOT NULL,
+    anchor_y INTEGER NOT NULL,
+    draw_x INTEGER NOT NULL,
+    draw_y INTEGER NOT NULL,
+    grid_width INTEGER NOT NULL,
+    grid_height INTEGER NOT NULL,
+    stored_cell_count INTEGER NOT NULL,
+    extra_bytes BLOB,
+    PRIMARY KEY (map_id, bundle_index, record_index, item_index, entry_index)
+);

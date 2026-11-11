@@ -1,7 +1,7 @@
 use crate::components::editable::EditableRecord;
 use dispel_core::NPC;
 use dispel_core::references::enums::{
-    BooleanFlag, NpcInteractionMode, NpcLookingDirection, NpcMovementMode,
+    BooleanFlag, NpcInteractionMode, NpcLookingDirection, NpcMovementMode, NpcRoleResult,
 };
 
 use crate::editable_record_fields;
@@ -11,7 +11,7 @@ editable_record_fields!(NPC, {
     { npc_ini_id = Integer / "NPC ID:" },
     { name = String / "Name:" },
     { role_description = String / "Role Description:" },
-    { party_member_slot = Integer / "Party Member Slot:" },
+    { role_result = DispEnum(NpcRoleResult, ["NormalDialogue", "PartyMemberDialogue1", "PartyMemberDialogue2", "PartyMemberDialogue3", "PartyMemberDialogue4", "PartyMemberDialogue5", "PartyMemberDialogue6", "PartyMemberDialogue7", "PartyMemberDialogue8", "WeaponShop", "HealMiscShop", "EditItemShop", "Inn"]) / "Role Result:" },
     { show_on_event = Integer / "Show on Event:" },
     { movement_mode = DispEnum(NpcMovementMode, ["Static", "Waypoints", "RandomInActivationRect"]) / "Movement Mode:" },
     { goto1_filled = Enum(BooleanFlag, ["False", "True"]) / "Waypoint 1 Filled:" },

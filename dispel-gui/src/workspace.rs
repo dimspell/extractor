@@ -49,6 +49,19 @@ pub enum EditorType {
     LocalizationManager,
     /// Read-only viewer for Dispel .sav save files.
     SaveFileViewer,
+    /// Save-slot manager for `Save.ifo`: swap slots and edit global tail fields.
+    SaveIfoEditor,
+    /// Editor for `ExtraInGame/fogdata.dat` — map-lighting fade tables
+    /// (123 levels × 512 brightness factors).
+    FogDataEditor,
+    /// Chest spawn editor for multiplayer `.cst` files.
+    ChestSpawnEditor,
+    /// Monster spawn editor for multiplayer `.mon` files.
+    MonsterSpawnEditor,
+    /// Map info editor for multiplayer `.ifm` files.
+    MapInfoMultiEditor,
+    /// Tile grid editor for multiplayer `.dat` files.
+    TileGridEditor,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -92,6 +105,11 @@ impl EditorType {
             "snf" => EditorType::SnfEditor,
             "map" => EditorType::MapEditor,
             "sav" => EditorType::SaveFileViewer,
+            "ifo" => EditorType::SaveIfoEditor,
+            "cst" => EditorType::ChestSpawnEditor,
+            "mon" => EditorType::MonsterSpawnEditor,
+            "ifm" => EditorType::MapInfoMultiEditor,
+            "dat" => EditorType::TileGridEditor,
             _ => EditorType::HexEditor,
         }
     }
@@ -129,6 +147,8 @@ impl EditorType {
             // .scr files (exact stems only; "event*" prefix handled separately)
             m.insert(("scr", "quest"), EditorType::QuestScrEditor);
             m.insert(("scr", "message"), EditorType::MessageScrEditor);
+            // .dat files (exact stems only)
+            m.insert(("dat", "fogdata"), EditorType::FogDataEditor);
             m
         })
     }
@@ -180,10 +200,12 @@ impl EditorType {
         !matches!(
             self,
             EditorType::EventScrEditor
-                | EditorType::MonsterEditor
+                |             EditorType::MonsterEditor
                 | EditorType::MonsterIniEditor
                 | EditorType::NpcIniEditor
+                // Snapshot-based undo (own stacks, no EditHistory component)
                 | EditorType::SpriteViewer
+                | EditorType::FogDataEditor
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor

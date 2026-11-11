@@ -1292,7 +1292,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.name.clone(),
                                     item.description.clone(),
                                     item.base_price.to_string(),
-                                    hex_bytes(&item.reserved_definition_bytes),
+                                    hex_bytes(&item.reserved_mark_tail_bytes),
                                     item.misc_item_id.to_string(),
                                     item.item_category.to_string(),
                                     item.inventory_record_index.to_string(),

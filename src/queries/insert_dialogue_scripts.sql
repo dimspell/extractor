@@ -3,7 +3,7 @@ INSERT OR REPLACE INTO dialogue_scripts(
     id,
     required_event_id,
     next_dialog_to_check,
-    dialog_type_id,
+    dialog_type,
     dialog_owner,
     dialog_id,
     next_dialog_id1,

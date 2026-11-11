@@ -84,12 +84,19 @@ pub fn preview_loaded(
                         dialog_paragraphs: paragraphs,
                     });
                 } else {
-                    state.data.status_msg =
-                        Some("Dialog preview discarded: NPC selection changed".into());
+                    state.data.notify(
+                        gui_widgets::components::toast::Status::Warning,
+                        "Dialog",
+                        "Preview discarded: NPC selection changed",
+                    );
                 }
             }
             Err(err) => {
-                state.data.status_msg = Some(format!("Dialog preview: {err}"));
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Danger,
+                    "Error",
+                    format!("Dialog preview: {err}"),
+                );
             }
         }
     }

@@ -90,6 +90,9 @@ impl PatcherRegistry {
         r.register(DrawItemPatcher::FILENAME, Arc::new(DrawItemPatcher));
         r.register(QuestPatcher::FILENAME, Arc::new(QuestPatcher));
 
+        // Save-slot metadata index (single fixed-size record, tail fields).
+        r.register(SaveIfoPatcher::FILENAME, Arc::new(SaveIfoPatcher));
+
         // Per-file event scripts: every Event*.scr matches. Exact-filename
         // matches for Quest.scr and Message.scr win over this via the
         // by_filename map, so they aren't shadowed.

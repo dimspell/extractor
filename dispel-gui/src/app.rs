@@ -1,6 +1,7 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -314,6 +315,16 @@ impl App {
                 }
                 Task::none()
             }
+            EditorType::FogDataEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .fog_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| FogDataEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
             EditorType::HexEditor => {
                 let scripts_dir = self
                     .state
@@ -355,6 +366,69 @@ impl App {
                         ),
                     ),
                 ))
+            }
+            EditorType::ChestSpawnEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::ChestSpawn::read_file(&path_buf).map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::chest_spawn(
+                            crate::editors::chest_spawn::ChestSpawnEditorMessage::CatalogLoaded(
+                                result,
+                            ),
+                        )
+                    },
+                )
+            }
+            EditorType::MonsterSpawnEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::MonsterSpawn::read_file(&path_buf).map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::monster_spawn(
+                            crate::editors::monster_spawn::MonsterSpawnEditorMessage::CatalogLoaded(
+                                result,
+                            ),
+                        )
+                    },
+                )
+            }
+            EditorType::MapInfoMultiEditor => {
+                let path_buf = path.to_path_buf();
+                Task::perform(
+                    async move {
+                        dispel_core::MapInfoMulti::read_file(&path_buf).map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::map_info_multi(
+                            crate::editors::map_info_multi::MapInfoMultiEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
+            }
+            EditorType::TileGridEditor => {
+                let path_buf = path.to_path_buf();
+                // Chain: (1) load the file, (2) after the catalog is ready,
+                // dispatch FitToWindow so the grid auto-fits the canvas pane
+                // without requiring the user to click "Fit" or resize.
+                let load_task = Task::perform(
+                    async move {
+                        dispel_core::TileGrid::read_file(&path_buf).map_err(|e| e.to_string())
+                    },
+                    |result| {
+                        crate::message::Message::tile_grid(
+                            crate::editors::tile_grid::TileGridEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                );
+                let fit_task = Task::done(crate::message::Message::tile_grid_canvas(
+                    crate::editors::tile_grid::TileGridCanvasMessage::FitToWindow,
+                ));
+                load_task.chain(fit_task)
             }
             EditorType::SaveFileViewer => {
                 let Some(tab_id) = self.active_tab_id() else {

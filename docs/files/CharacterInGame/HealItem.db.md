@@ -1,5 +1,8 @@
 # HealItem.db
 
+> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
+> owner.
+
 ## Purpose
 
 `HealItem.db` stores fixed-size definitions for consumable items that restore health or mana and cure status effects.
@@ -13,20 +16,20 @@
 
 ## Record Layout
 
-| Offset | Size | Field | Type | Description |
-|---|---:|---|---|---|
-| `0x00` | 30 | `name` | string | Null-padded item name. |
-| `0x1E` | 202 | `description` | string | Null-padded item description. |
-| `0xE8` | 4 | `base_price` | `i32` | Item price. |
-| `0xEC` | 4 | `runtime_item_index_slot` | `i32` | Loader-owned index slot. |
-| `0xF0` | 2 | `health_points` | `i16` | Health-point change. |
-| `0xF2` | 2 | `mana_points` | `i16` | Mana-point change. |
-| `0xF4` | 1 | `restores_full_health` | flag | Full-health restore. |
-| `0xF5` | 1 | `restores_full_mana` | flag | Full-mana restore. |
-| `0xF6` | 1 | `cures_poison` | flag | Poison cure. |
-| `0xF7` | 1 | `cures_petrification` | flag | Petrification cure. |
-| `0xF8` | 1 | `cures_polymorph` | flag | Polymorph cure. |
-| `0xF9` | 3 | `reserved_trailer` | bytes | Preserved opaque data. Unused. |
+| Offset | Size | Field                     | Type   | Description                    |
+|--------|-----:|---------------------------|--------|--------------------------------|
+| 0      |   30 | `name`                    | string | Null-padded item name.         |
+| 30     |  202 | `description`             | string | Null-padded item description.  |
+| 232    |    4 | `base_price`              | `i32`  | Item price.                    |
+| 236    |    4 | `runtime_item_index_slot` | `i32`  | Loader-owned index slot.       |
+| 240    |    2 | `health_points`           | `i16`  | Health-point change.           |
+| 242    |    2 | `mana_points`             | `i16`  | Mana-point change.             |
+| 244    |    1 | `restores_full_health`    | flag   | Full-health restore.           |
+| 245    |    1 | `restores_full_mana`      | flag   | Full-mana restore.             |
+| 246    |    1 | `cures_poison`            | flag   | Poison cure.                   |
+| 247    |    1 | `cures_petrification`     | flag   | Petrification cure.            |
+| 248    |    1 | `cures_polymorph`         | flag   | Polymorph cure.                |
+| 249    |    3 | `reserved_trailer`        | bytes  | Preserved opaque data. Unused. |
 
 ## Runtime Behavior
 

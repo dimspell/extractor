@@ -36,7 +36,7 @@ use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 /// # File Purpose
 ///
 /// Master index of all game maps, linking map IDs to filenames and metadata.
-/// Used by the game engine to load the correct map files and associated assets.
+/// Used to resolve the correct map files and associated assets.
 #[derive(
     Debug, Clone, Serialize, Deserialize, Default, TextExtractor, Localizable, TextRecordPatcher,
 )]

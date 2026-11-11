@@ -375,11 +375,31 @@ mod tests {
 
     #[test]
     fn eventnpc_text_record() {
-        use crate::references::event_npc_ref::EventNpcRef;
+        use crate::references::event_npc_ref::{COLUMN_COUNT, EventNpcRef};
         let p = crate::modding::patchers::EventNpcRefPatcher;
-        let blob = b"1,100,Guard Bob\r\n2,200,Merchant\r\n";
+
+        // A well-formed row carries 40 columns.
+        let row = |id: i32, npc_ini_id: i32, name: &str| -> String {
+            let mut columns = vec![
+                id.to_string(),
+                npc_ini_id.to_string(),
+                name.to_string(),
+                "0".to_string(),
+            ];
+            columns.extend(std::iter::repeat_n(
+                "0".to_string(),
+                COLUMN_COUNT - columns.len(),
+            ));
+            columns.join(",")
+        };
+        let blob = format!(
+            "{}\r\n{}\r\n",
+            row(0, 61, "Guard Bob"),
+            row(1, 9, "Merchant")
+        );
+
         let out = p
-            .apply_field(blob, 1, "name", &Value::String("Hero".into()))
+            .apply_field(blob.as_bytes(), 1, "name", &Value::String("Hero".into()))
             .unwrap();
         let recs = EventNpcRef::parse(&mut Cursor::new(&out), out.len() as u64).unwrap();
         assert_eq!(recs[1].name, "Hero");
