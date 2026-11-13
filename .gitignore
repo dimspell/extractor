@@ -11,3 +11,28 @@ skills-lock.json
 /plans
 /plan
 .slim/deepwork/
+# Local-only working artifacts (user-supplied game files, tool output dumps).
+# Kept out of version control: never commit game binaries, saves, or
+# decompiler/disassembler output. This project pursues file-format
+# interoperability via observable behavior, not binary analysis.
+/Save.ifo
+/0.sav
+/1.sav
+/2.sav
+/Shreg_0.sav
+/nuno-0.sav
+# Decompiler/disassembler output (any naming variant)
+/Dispel.psudo.c
+/Dispel.ignore.pseudo.c
+/Dispel_145_wm.pseudo.h
+*.pseudo.c
+*.pseudo.h
+# Game binaries and OS libraries (user-supplied, never redistributed)
+*.exe
+*.dll
+# Ghidra / RE tool project state
+*.gpr
+*.rep
+.ghidra_projects/
+# Agent session transcripts (may contain tool output dumps)
+session-ses_*.md

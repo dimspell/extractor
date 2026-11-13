@@ -15,7 +15,7 @@ role differs.
 | Tile size     | 32×32 px, RGB565                |
 | Tile data     | 2048 bytes per tile (32×32 × 2) |
 | Rendered size | 62×32 px isometric diamond      |
-| Transparency  | RGB(0,0,0) = transparent        |
+| Transparency  | none — the ground pass is an opaque row-copy |
 
 ## File Layout
 
@@ -48,8 +48,11 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 ## Isometric Rendering
 
 Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
-seamlessly. RGB (0,0,0) pixels are treated as transparent, allowing terrain tiles to layer with sprites and building
-tiles.
+seamlessly.
+
+**The ground pass is an opaque row-copy** (kb/11 §10.6, `map_draw_gtl` @0x424208): the 32 rows are copied verbatim, so the
+tile's RGB(0,0,0) pixels are drawn like any other. An atlas that treats black as transparent punches holes in the
+floor — `map atlas` therefore defaults to the opaque mode for `.GTL` files.
 
 ## Relationship to `.map` Files
 

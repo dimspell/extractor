@@ -195,6 +195,13 @@ pub enum MapCommands {
         input: String,
         /// File path for the resulting atlas PNG
         output: String,
+        /// Draw the tiles' black pixels instead of skipping them. The native's
+        /// ground pass is an opaque row-copy (kb/11 §10.6); the BTL pass uses
+        /// the skip-zero blit for the shadowed refs whose per-ref blend byte
+        /// is non-zero. Defaults to the tileset kind: opaque for .GTL,
+        /// skip-zero for .BTL.
+        #[arg(long)]
+        opaque: Option<bool>,
     },
     /// Render a full map from binary data
     #[command(
@@ -235,6 +242,16 @@ pub enum MapCommands {
         /// flagged Dark in AllMap.ini)
         #[arg(long)]
         no_shadows: bool,
+        /// Path to the 500-byte viewport light template (500×1 PNG). The game
+        /// rewrites every tile's light level from this table each frame; the
+        /// map file's own bits are dead data, so a dark map renders pitch
+        /// black without it.
+        #[arg(long)]
+        light_template: Option<String>,
+        /// Camera tile the light template is anchored at ("x,y"). Defaults to
+        /// the middle of the map.
+        #[arg(long)]
+        camera: Option<String>,
         /// Disable internal sprites (embedded in .map file)
         #[arg(long)]
         no_internal_sprites: bool,

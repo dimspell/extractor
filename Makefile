@@ -23,7 +23,7 @@
         patch-dry-run patch-in-place patch validate validate-verbose \
         list list-json list-filtered schema template template-pretty \
         map-help map-tiles map-atlas map-render \
-        map-render-transparent map-render-collisions map-render-events \
+        map-render-lit map-render-transparent map-render-collisions map-render-events \
         map-render-draw-items map-render-waypoints \
         map-render-noground map-render-nobuildings map-render-noroofs \
         map-render-nomonsters map-render-nonpcs map-render-noobjects \
@@ -313,6 +313,23 @@ map-render:
 		--gtl="$(game_path)/Map/$(map_id).gtl" \
 		--output="map.png" \
 		--game-path="$(game_path)"
+
+# Render with the game's viewport light template (500x1 PNG, e.g. from the
+# Godot remake's assets/converted/maps/light_template.png). Without it a
+# dark map renders pitch black: the .map file's own light bits are dead
+# data, overwritten every frame by the world tick.
+#   make map-render-lit map_id=dun01 camera=124,124
+light_template ?= ../dispel-godot/assets/converted/maps/light_template.png
+camera ?=
+map-render-lit:
+	cargo run -- map render \
+		--map="$(game_path)/Map/$(map_id).map" \
+		--btl="$(game_path)/Map/$(map_id).btl" \
+		--gtl="$(game_path)/Map/$(map_id).gtl" \
+		--output="map.png" \
+		--game-path="$(game_path)" \
+		--light-template="$(light_template)" \
+		$(if $(camera),--camera="$(camera)",)
 
 map-render-transparent:
 	cargo run -- map render \

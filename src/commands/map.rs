@@ -22,14 +22,31 @@ impl Command for MapCommand {
                 map::tileset::plot_all_tiles(&tiles, output);
                 Ok(())
             }
-            MapCommands::Atlas { input, output } => {
+            MapCommands::Atlas {
+                input,
+                output,
+                opaque,
+            } => {
                 eprintln!("Rendering map atlas...");
                 eprintln!("Input file: {input:?}");
                 eprintln!("Output file: {output:?}");
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                map::tileset::plot_tileset_map(&tiles, output);
+                // The native's ground pass copies the tile rows opaquely; the
+                // BTL pass skips the black pixels of the shadowed refs whose
+                // per-ref blend byte is non-zero (kb/11 §10.6, §10.9–§10.12).
+                let is_gtl = input.to_ascii_lowercase().ends_with(".gtl");
+                let opaque = opaque.unwrap_or(is_gtl);
+                eprintln!(
+                    "Atlas mode: {}",
+                    if opaque {
+                        "opaque (ground row-copy)"
+                    } else {
+                        "skip-zero (BTL blend)"
+                    }
+                );
+                map::tileset::plot_tileset_map_with(&tiles, output, opaque);
                 Ok(())
             }
             MapCommands::Render {
@@ -43,6 +60,8 @@ impl Command for MapCommand {
                 no_buildings,
                 no_roofs,
                 no_shadows,
+                light_template,
+                camera,
                 no_internal_sprites,
                 no_monsters,
                 no_npcs,
@@ -55,6 +74,9 @@ impl Command for MapCommand {
                 npc_waypoints,
             } => {
                 eprintln!("Rendering map...");
+                if let Some(template_path) = light_template.as_deref() {
+                    eprintln!("Applying light template {template_path}...");
+                }
                 map::extract(
                     Path::new(map),
                     Path::new(btl),
@@ -78,6 +100,16 @@ impl Command for MapCommand {
                         show_npc_waypoints: *npc_waypoints,
                         sprite_frame: *frame,
                     },
+                    light_template
+                        .as_deref()
+                        .map(Path::new)
+                        .map(|p| {
+                            map::light_template::LightTemplate::load(p).map_err(|e| {
+                                format!("ERROR: could not load light template {p:?}: {e}")
+                            })
+                        })
+                        .transpose()?,
+                    camera.as_deref(),
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;
                 Ok(())

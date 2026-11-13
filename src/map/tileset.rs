@@ -276,6 +276,12 @@ pub fn plot_tile_opaque(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i3
 /// * `tiles` - Vector of Tile structs
 /// * `out_path` - Output file path for the atlas PNG
 pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
+    plot_tileset_map_with(tiles, out_path, false)
+}
+
+/// Writes the atlas PNG. `opaque` draws the tiles' black pixels (the native's
+/// GTL row-copy); otherwise they are skipped (the BTL skip-zero blit).
+pub fn plot_tileset_map_with(tiles: &[Tile], out_path: &str, opaque: bool) {
     // Flexible atlas size to make it square
     // let count = tiles.len() as f64;
     // let w = count.sqrt().ceil() as u32;
@@ -311,14 +317,15 @@ pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
             let dest_y: u32 = y * TILE_HEIGHT + offset_y;
             let dest_y: i32 = dest_y.try_into().unwrap_or(0);
 
-            plot_tile_rgba(&mut bitmap, tile.colors, dest_x, dest_y)
+            plot_tile_rgba_opaque(&mut bitmap, tile.colors, dest_x, dest_y, opaque)
         }
     }
 
     let _ = bitmap.save(out_path);
 }
 
-/// Plots a single tile onto an RGBA image buffer
+/// Plots a single tile onto an RGBA image buffer, skipping its RGB(0,0,0)
+/// pixels (the native's BTL skip-zero blit).
 ///
 /// # Arguments
 ///
@@ -327,6 +334,23 @@ pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
 /// * `dest_x` - X coordinate to plot the tile
 /// * `dest_y` - Y coordinate to plot the tile
 pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
+    plot_tile_rgba_opaque(imgbuf, colors, dest_x, dest_y, false)
+}
+
+/// Blits one tile into an RGBA atlas.
+///
+/// `opaque` selects the native's GTL behaviour (kb/11 §10.6): the ground pass
+/// is a plain opaque row-copy, so the tile's black pixels are drawn like any
+/// other. With `opaque == false` the RGB(0,0,0) pixels are skipped — the
+/// BTL "skip-zero blit" mode the native uses for the shadowed refs whose
+/// per-ref blend byte is non-zero.
+pub fn plot_tile_rgba_opaque(
+    imgbuf: &mut RgbaImage,
+    colors: [Color; 1024],
+    dest_x: i32,
+    dest_y: i32,
+    opaque: bool,
+) {
     let img_w = imgbuf.width() as i32;
     let img_h = imgbuf.height() as i32;
 
@@ -346,7 +370,7 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
             let pixel: Color = colors[i];
             i += 1;
 
-            if pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
+            if !opaque && pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
                 continue;
             }
 
