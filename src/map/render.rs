@@ -430,7 +430,11 @@ pub fn plot_base(
                 sx -= model.map_non_occluded_start_x;
                 sy -= model.map_non_occluded_start_y;
 
-                plot_tile(image, gtl_tile.colors, sx, sy);
+                // The ground pass copies the tile rows opaquely; the ground tile's
+                // black pixels are drawn
+                // like any other. The skip-zero variant belongs to the BTL
+                // pass, which picks the mode per ref.
+                plot_tile_opaque(image, gtl_tile.colors, sx, sy);
             }
         }
     }
@@ -531,11 +535,20 @@ pub fn plot_roofs(
 //                    but read past the fade tables = undefined; levels
 //                    ≥ 200 are simply not darkened)
 //   level == 0     → span diamond filled solid black (fog of war)
-//   level 1..=123  → per pixel pair, red and green are scaled by f/32 where
-//                    f = fogdata.dat[(level-1)*512 + pair]; blue is never
-//                    modified. Flag bits 30–31 mark tiles whose factor is
-//                    blended with dynamic entity lights via max(); statically
-//                    we render the tile's own pattern.
+//   level 1..=123  → per pixel pair, red, green and blue are scaled by f/32
+//                    where f = fogdata.dat[(level-1)*512 + pair]. The
+//                    channel set is cited from the fade object's masks
+//                    (16bpp mode): maskB
+//                    (fade+4) = 0x07E0F81F covers red + blue, maskA
+//                    (fade+8) = 0xF81F07E0 covers green, and the blend at
+//                    each masked channel is scaled by f/32. An
+//                    earlier reading ("blue is never modified") was a hedge
+//                    that turned out to be wrong: with the fogdata's
+//                    minimum factor of 2 it painted every shadowed pixel
+//                    deep blue instead of near-black. Flag bits 30–31 mark
+//                    tiles whose factor is blended with dynamic entity
+//                    lights via max(); statically we render the tile's own
+//                    pattern.
 // --------------------------------------------------------------------------
 
 /// Per-row `(x_start, width)` spans of the shadow mask (32 rows). The rows
@@ -703,9 +716,12 @@ fn plot_shadows(
                         if let Some(pixel) =
                             image.get_pixel_mut_checked((x0 + dx) as u32, py_row as u32)
                         {
+                            // The native blend scales red, green AND blue by
+                            // f/32 (masks: red+blue in
+                            // maskB, green in maskA).
                             pixel[0] = (u32::from(pixel[0]) * f / 32) as u8;
                             pixel[1] = (u32::from(pixel[1]) * f / 32) as u8;
-                            // Blue stays untouched, as observed.
+                            pixel[2] = (u32::from(pixel[2]) * f / 32) as u8;
                         }
                     }
                 }
@@ -1619,7 +1635,7 @@ fn level_zero_tile_is_blacked_out_inside_spans_only() {
 }
 
 #[test]
-fn lit_tiles_scale_red_green_pairwise_and_keep_blue() {
+fn lit_tiles_scale_all_channels_pairwise() {
     // Level 1 → fogdata row 0. Give each pair its own factor to prove the
     // pair index walks the spans and both pixels share it.
     let mut data = vec![0u8; super::fogdata::EXPECTED_LEN];
@@ -1638,7 +1654,7 @@ fn lit_tiles_scale_red_green_pairwise_and_keep_blue() {
     let left = img.get_pixel((px + 30) as u32, py as u32);
     assert_eq!(left[0], (200 * f0 / 32) as u8, "red scaled by f/32");
     assert_eq!(left[1], (100 * f0 / 32) as u8, "green scaled by f/32");
-    assert_eq!(left[2], 50, "blue must stay untouched");
+    assert_eq!(left[2], (50 * f0 / 32) as u8, "blue scaled by f/32");
 
     // A later pair (row 15's first pair) uses its own factor byte.
     let &(start, _) = &SHADOW_SPANS[15];
@@ -1650,7 +1666,7 @@ fn lit_tiles_scale_red_green_pairwise_and_keep_blue() {
     let p = img.get_pixel((px + start) as u32, (py + 15) as u32);
     assert_eq!(p[0], (200 * f / 32) as u8);
     assert_eq!(p[1], (100 * f / 32) as u8);
-    assert_eq!(p[2], 50);
+    assert_eq!(p[2], (50 * f / 32) as u8);
 }
 
 #[test]

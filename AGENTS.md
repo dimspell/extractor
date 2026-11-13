@@ -121,7 +121,7 @@ dispel-extractor/
 `Map`, `MapIni`, `Event`, `Extra`, `MonsterIni`, `NpcIni`, `WaveIni`, `Message`, `PartyRef`
 
 **Manually implemented parsers:**
-`PartyLevelNpc` (+ `PartyLevelRecord`), `DrawItem`, `Quest`, `EventScript`, `DialogueScript`, `DialogueParagraph`, **`EventNpcRef`, `SaveFile`, `SaveIfo`
+`PartyLevelNpc` (+ `PartyLevelRecord`), `DrawItem`, `Quest`, `EventScript`, `DialogueScript`, `DialogueParagraph`, **`EventNpcRef`**, **`SaveFile`**, **`SaveIfo`**
 
 ---
 

@@ -104,6 +104,7 @@
 // Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
 pub mod fogdata;
+pub mod light_template;
 pub mod model;
 pub mod reader;
 pub mod render;
@@ -522,6 +523,24 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 ///
 /// Coordinates use an isometric system where each tile is 32×32 pixels,
 /// with special offsets for proper isometric rendering.
+/// Parses a "x,y" camera-tile specification.
+fn parse_camera(spec: &str) -> IoResult<types::Coords> {
+    let (x, y) = spec.split_once(',').ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("camera must be \"x,y\", got {spec:?}"),
+        )
+    })?;
+    let x = x.trim().parse::<i32>().map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("camera x: {e}"))
+    })?;
+    let y = y.trim().parse::<i32>().map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("camera y: {e}"))
+    })?;
+    Ok((x, y))
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn extract(
     input_map_file: &Path,
     input_btl_file: &Path,
@@ -530,14 +549,31 @@ pub fn extract(
     save_map_sprites: bool,
     game_path: Option<&Path>,
     toggles: LayerToggles,
+    light_template: Option<light_template::LightTemplate>,
+    camera: Option<&str>,
 ) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
-    let map_data = read_map_data(&mut reader)?;
+    let mut map_data = read_map_data(&mut reader)?;
     let map_id = input_map_file
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("map");
+
+    // The map file's own light bits are dead data — the game rewrites them
+    // every frame from the viewport template. Apply the template so a dark
+    // map renders the lighting the game actually draws.
+    if let Some(template) = light_template.as_ref() {
+        let camera = match camera {
+            Some(spec) => parse_camera(spec)?,
+            None => (
+                map_data.model.tiled_map_width / 2,
+                map_data.model.tiled_map_height / 2,
+            ),
+        };
+        eprintln!("Light template anchored at tile {camera:?}");
+        template.apply(&mut map_data.access_ref_words, camera);
+    }
 
     if save_map_sprites {
         for (i, sprite) in map_data.internal_sprites.iter().enumerate() {

@@ -9,9 +9,11 @@
 //!
 //! Each byte is a brightness factor `f` in `0..=[MAX_FACTOR]` (31), i.e. a
 //! 5-bit fixed-point value: the effective multiplier on shadowed tile pixels
-//! is `f/32`, applied to the **red and green channels only** (blue stays
-//! untouched). Rows are animated flicker patterns — values are *not*
-//! monotonic in level.
+//! is `f/32`, applied to **all three colour channels** (the native fade
+//! object's masks — red+blue in `maskB`, green in `maskA`, set by
+//! Scales every masked channel; an earlier
+//! "red and green only" reading was a hedge that turned out to be wrong).
+//! Rows are animated flicker patterns — values are *not* monotonic in level.
 //!
 //! A consumer indexes the file as `byte[(level-1)*512 + pair]` where `pair`
 //! is the pixel-pair index (`0..512`) within a tile; each factor byte covers

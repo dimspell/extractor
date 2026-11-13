@@ -15,7 +15,7 @@ semantic role differs.
 | Tile size     | 32×32 px, RGB565                |
 | Tile data     | 2048 bytes per tile (32×32 × 2) |
 | Rendered size | 62×32 px isometric diamond      |
-| Transparency  | RGB(0,0,0) = transparent        |
+| Transparency  | per ref: opaque copy, or skip-zero blit |
 
 ## File Layout
 
@@ -48,7 +48,13 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 ## Isometric Rendering
 
 Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
-seamlessly. RGB (0,0,0) pixels are treated as transparent, allowing building tiles to layer over terrain.
+seamlessly.
+
+The blit mode is chosen per ref: the per-ref byte pair at obj+0x1AC
+gives byte0 = the mode (0 → opaque copy, non-zero → skip-zero blit that copies only the non-zero source pixels) and
+byte1 = the shadow flag (non-zero → the cell is drawn at all). Only the shadowed cells are drawn by this pass. An
+atlas therefore bakes in one mode — `map atlas` uses the skip-zero blit for `.BTL` files, which matches the shadow art
+but drops the black pixels of the opaque-mode refs (764 of 1419 in `dun01`).
 
 ## Relationship to `.map` Files
 
