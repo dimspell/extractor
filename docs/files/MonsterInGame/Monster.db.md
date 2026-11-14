@@ -96,9 +96,9 @@ systems for the game's monster spawning and combat AI.
 | known_spell_slot3       | 4    | i32    | Tertiary magic spell index             |
 | is_oversize             | 4    | i32    | Oversize collision flag                |
 | magic_level             | 4    | i32    | Spellcasting potency                   |
-| special_attack          | 4    | i32    | Unique monster skill ID                |
-| special_attack_chance   | 4    | i32    | Percentage likelihood                  |
-| special_attack_duration | 4    | i32    | Effect duration in ticks               |
+| special_attack          | 4    | i32    | Attack-rider status type: 1 = poison, 2 = paralysis (0 = rider off) |
+| special_attack_chance   | 4    | i32    | Rider trigger chance in percent (roll: `rand() % 100 <= value`) |
+| special_attack_duration | 4    | i32    | Status duration in fixed scheduler ticks (1 tick = 55 ms) |
 | boldness                | 4    | i32    | Retreat threshold metric               |
 | attack_speed            | 4    | i32    | Delay ticks between attacks            |
 
@@ -156,9 +156,9 @@ pub struct Monster {
     known_spell_slot3: i32,   // Spell 3 ID
     is_oversize: i32,         // Large monster flag
     magic_level: i32,         // Magic potency (usually 1)
-    special_attack: i32,      // Special attack ID
-    special_attack_chance: i32, // Special attack probability
-    special_attack_duration: i32, // Special attack duration
+    special_attack: i32,      // Attack-rider status type (1=poison, 2=paralysis)
+    special_attack_chance: i32, // Rider trigger chance in percent
+    special_attack_duration: i32, // Status duration in 55 ms ticks
     boldness: i32,            // Courage/retreat threshold (usually 10)
     attack_speed: i32,       // Attack cooldown
 }
@@ -214,6 +214,10 @@ Offset | Size | Field | Description
 - **is_undead = 1**: Holy weakness, no bleed
 - **has_blood = 0**: No blood effects (golems)
 - **is_oversize = 1**: Large monsters (dragons, etc.)
+- **special_attack != 0**: The attack carries a poison (1) or paralysis (2)
+  status rider — see the *Special-attack rider* section under Field
+  Definitions. `special_attack_chance` is a percent roll against the victim,
+  `special_attack_duration` counts 55 ms scheduler ticks.
 
 ### File Purpose
 
