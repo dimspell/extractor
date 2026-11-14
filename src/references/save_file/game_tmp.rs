@@ -356,13 +356,15 @@ pub struct MonsterRecord {
     pub saved_sprite_frame_id: u32,
     /// Render direction saved before a temporary animation replaces it.
     pub saved_render_direction: u32,
-    /// Special attack ID from Monster.db.
+    /// Special attack ID from Monster.db (attack-rider status type:
+    /// 1 = poison, 2 = paralysis; 0 = rider off).
     pub special_attack: u32,
-    /// Chance that the monster uses its special attack.
+    /// Rider trigger chance in percent (roll: `rand() % 100 <= value`).
     pub special_attack_chance: u32,
-    /// Duration of the special attack.
+    /// Status duration in fixed 55 ms scheduler ticks.
     pub special_attack_duration: u32,
-    /// Remaining ticks for the special-attack visual effect.
+    /// Remaining ticks for the special-attack visual effect (the journalled
+    /// rider countdown on the victim).
     pub special_attack_effect_ticks_remaining: u32,
     /// Current frame of the special-attack visual effect.
     pub special_attack_effect_frame: u32,
