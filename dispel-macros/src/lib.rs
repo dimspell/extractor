@@ -6,6 +6,7 @@ mod extractor_impl;
 mod layout_impl;
 mod localizable_impl;
 mod record_patcher_impl;
+mod schema;
 mod text_extractor_impl;
 mod text_record_patcher_impl;
 
