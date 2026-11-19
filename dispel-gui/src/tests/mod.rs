@@ -27,6 +27,7 @@ pub(crate) mod common;
 pub(crate) mod editor_field_edit;
 pub(crate) mod editor_registry;
 pub(crate) mod error_dialog;
+pub(crate) mod file_catalog;
 pub(crate) mod file_tree;
 pub(crate) mod fog_data;
 pub(crate) mod generic_editor_edge;

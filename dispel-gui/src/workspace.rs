@@ -70,7 +70,11 @@ pub enum EditorType {
 }
 
 impl EditorType {
-    /// Infer editor type from file extension and stem
+    /// Infer editor type from a path.
+    ///
+    /// The shared file-type catalog in `dispel-core` is the single source of
+    /// truth for filename/extension detection. Only GUI-specific names that
+    /// have no catalog entry are handled locally.
     pub fn from_path(path: &std::path::Path) -> Self {
         let ext = path
             .extension()
@@ -82,72 +86,77 @@ impl EditorType {
             .map(|s| s.to_string_lossy().to_lowercase())
             .unwrap_or_default();
 
-        // Try direct (ext, stem) lookup first
-        if let Some(&et) = Self::editor_map().get(&(ext.as_str(), stem.as_str())) {
+        // GUI-only names (no corresponding catalog key).
+        if let Some(&et) = Self::gui_only_map().get(&(ext.as_str(), stem.as_str())) {
             return et;
         }
 
-        // Fallback: prefix-based patterns (cannot be exact-matched)
-        match ext.as_str() {
-            "ref" if stem.starts_with("npc") => return EditorType::NpcRefEditor,
-            "ref" if stem.starts_with("mon") => return EditorType::MonsterRefEditor,
-            "ref" if stem.starts_with("ext") => return EditorType::ExtraRefEditor,
-            "scr" if stem.starts_with("event") => return EditorType::EventScrEditor,
-            _ => {}
+        // Shared catalog detection.
+        if let dispel_core::commands::registry::DetectResult::Single(ft) =
+            dispel_core::commands::registry::detect(path)
+            && let Some(et) = Self::from_catalog_editor(ft.editor)
+        {
+            return et;
         }
 
-        // Extension-only fallthroughs
+        // GUI-only formats the catalog doesn't describe.
         match ext.as_str() {
-            "btl" | "gtl" => EditorType::TilesetEditor,
-            "dlg" => EditorType::DialogueScriptEditor,
-            "pgp" => EditorType::DialogueTextEditor,
-            "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
-            "map" => EditorType::MapEditor,
-            "sav" => EditorType::SaveFileViewer,
-            "ifo" => EditorType::SaveIfoEditor,
-            "cst" => EditorType::ChestSpawnEditor,
-            "mon" => EditorType::MonsterSpawnEditor,
-            "ifm" => EditorType::MapInfoMultiEditor,
-            "dat" => EditorType::TileGridEditor,
             _ => EditorType::HexEditor,
         }
     }
 
-    /// Static map of (extension, stem) -> EditorType for exact-match lookups.
-    fn editor_map() -> &'static HashMap<(&'static str, &'static str), EditorType> {
+    /// Map a catalog `editor` id to its GUI variant.
+    pub(crate) fn from_catalog_editor(id: &str) -> Option<Self> {
+        Some(match id {
+            "AllMapIniEditor" => Self::AllMapIniEditor,
+            "MapIniEditor" => Self::MapIniEditor,
+            "ExtraIniEditor" => Self::ExtraIniEditor,
+            "EventIniEditor" => Self::EventIniEditor,
+            "MonsterIniEditor" => Self::MonsterIniEditor,
+            "NpcIniEditor" => Self::NpcIniEditor,
+            "WaveIniEditor" => Self::WaveIniEditor,
+            "WeaponEditor" => Self::WeaponEditor,
+            "MonsterEditor" => Self::MonsterEditor,
+            "MagicEditor" => Self::MagicEditor,
+            "StoreEditor" => Self::StoreEditor,
+            "MiscItemEditor" => Self::MiscItemEditor,
+            "HealItemEditor" => Self::HealItemEditor,
+            "EventItemEditor" => Self::EventItemEditor,
+            "EditItemEditor" => Self::EditItemEditor,
+            "PartyLevelDbEditor" => Self::PartyLevelDbEditor,
+            "PartyIniEditor" => Self::PartyIniEditor,
+            "ChDataEditor" => Self::ChDataEditor,
+            "PartyRefEditor" => Self::PartyRefEditor,
+            "DrawItemEditor" => Self::DrawItemEditor,
+            "NpcRefEditor" => Self::NpcRefEditor,
+            "MonsterRefEditor" => Self::MonsterRefEditor,
+            "ExtraRefEditor" => Self::ExtraRefEditor,
+            "EventNpcRefEditor" => Self::EventNpcRefEditor,
+            "DialogueScriptEditor" => Self::DialogueScriptEditor,
+            "DialogueTextEditor" => Self::DialogueTextEditor,
+            "QuestScrEditor" => Self::QuestScrEditor,
+            "MessageScrEditor" => Self::MessageScrEditor,
+            "EventScrEditor" => Self::EventScrEditor,
+            "MapEditor" => Self::MapEditor,
+            "TilesetEditor" => Self::TilesetEditor,
+            "SpriteViewer" => Self::SpriteViewer,
+            "SaveIfoEditor" => Self::SaveIfoEditor,
+            "ChestSpawnEditor" => Self::ChestSpawnEditor,
+            "MonsterSpawnEditor" => Self::MonsterSpawnEditor,
+            "MapInfoMultiEditor" => Self::MapInfoMultiEditor,
+            "TileGridEditor" => Self::TileGridEditor,
+            "SaveFileViewer" => Self::SaveFileViewer,
+            _ => return None,
+        })
+    }
+
+    /// Exact (extension, stem) pairs that have no catalog entry.
+    fn gui_only_map() -> &'static HashMap<(&'static str, &'static str), EditorType> {
         static MAP: OnceLock<HashMap<(&'static str, &'static str), EditorType>> = OnceLock::new();
         MAP.get_or_init(|| {
             let mut m = HashMap::new();
-            // .db files
-            m.insert(("db", "weaponitem"), EditorType::WeaponEditor);
-            m.insert(("db", "monster"), EditorType::MonsterEditor);
-            m.insert(("db", "healitem"), EditorType::HealItemEditor);
-            m.insert(("db", "miscitem"), EditorType::MiscItemEditor);
-            m.insert(("db", "edititem"), EditorType::EditItemEditor);
-            m.insert(("db", "eventitem"), EditorType::EventItemEditor);
-            m.insert(("db", "store"), EditorType::StoreEditor);
-            m.insert(("db", "magic"), EditorType::MagicEditor);
-            m.insert(("db", "chdata"), EditorType::ChDataEditor);
-            m.insert(("db", "prtlevel"), EditorType::PartyLevelDbEditor);
-            m.insert(("db", "prtini"), EditorType::PartyIniEditor);
-            // .ini files
-            m.insert(("ini", "allmap"), EditorType::AllMapIniEditor);
-            m.insert(("ini", "map"), EditorType::MapIniEditor);
-            m.insert(("ini", "extra"), EditorType::ExtraIniEditor);
-            m.insert(("ini", "event"), EditorType::EventIniEditor);
-            m.insert(("ini", "monster"), EditorType::MonsterIniEditor);
-            m.insert(("ini", "npc"), EditorType::NpcIniEditor);
             m.insert(("ini", "npcini"), EditorType::NpcIniEditor);
-            m.insert(("ini", "wave"), EditorType::WaveIniEditor);
-            // .ref files (exact stems only; prefix-based handled separately)
-            m.insert(("ref", "partyref"), EditorType::PartyRefEditor);
-            m.insert(("ref", "drawitem"), EditorType::DrawItemEditor);
-            m.insert(("ref", "eventnpc"), EditorType::EventNpcRefEditor);
-            // .scr files (exact stems only; "event*" prefix handled separately)
-            m.insert(("scr", "quest"), EditorType::QuestScrEditor);
-            m.insert(("scr", "message"), EditorType::MessageScrEditor);
-            // .dat files (exact stems only)
             m.insert(("dat", "fogdata"), EditorType::FogDataEditor);
             m
         })

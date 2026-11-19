@@ -1,6 +1,6 @@
 use super::Command;
 use crate::cli::MapCommands;
-use dispel_core::map;
+use crate::map;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -139,12 +139,12 @@ impl Command for MapCommand {
                 use std::io::BufReader;
                 let file = File::open(map).map_err(|e| format!("Failed to open map file: {e}"))?;
                 let mut reader = BufReader::new(file);
-                let map_data = dispel_core::map::read_map_data(&mut reader)
+                let map_data = crate::map::read_map_data(&mut reader)
                     .map_err(|e| format!("Failed to parse map: {e}"))?;
                 let output_dir = std::path::Path::new(output);
                 std::fs::create_dir_all(output_dir)
                     .map_err(|e| format!("Failed to create output directory: {e}"))?;
-                dispel_core::map::tmx::export_tmx(
+                crate::map::tmx::export_tmx(
                     &map_data,
                     std::path::Path::new(gtl),
                     std::path::Path::new(btl),

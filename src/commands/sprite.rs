@@ -1,6 +1,6 @@
 use super::Command;
 use crate::cli::SpriteMode as CliSpriteMode;
-use dispel_core::sprite;
+use crate::sprite;
 use std::error::Error;
 use std::path::Path;
 

@@ -580,7 +580,11 @@ impl<'a> RecordSchema<'a> {
 /// How a generated patcher is registered with the patcher registry.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum PatcherKey {
-    Filename(String),
+    Filename {
+        filename: String,
+        /// Additional filenames that share the primary filename's record format.
+        aliases: Vec<String>,
+    },
     Pattern {
         extension: String,
         stem_prefix: String,
@@ -592,6 +596,7 @@ impl PatcherKey {
         let mut filename = None;
         let mut extension = None;
         let mut stem_prefix = None;
+        let mut aliases: Vec<String> = Vec::new();
 
         for attr in &input.attrs {
             if attr.path().is_ident("patcher") {
@@ -599,6 +604,9 @@ impl PatcherKey {
                     if meta.path.is_ident("filename") {
                         let value = meta.value()?;
                         filename = Some(value.parse::<LitStr>()?.value());
+                    } else if meta.path.is_ident("alias") {
+                        let value = meta.value()?;
+                        aliases.push(value.parse::<LitStr>()?.value());
                     } else if meta.path.is_ident("extension") {
                         let value = meta.value()?;
                         extension = Some(value.parse::<LitStr>()?.value());
@@ -613,7 +621,10 @@ impl PatcherKey {
         }
 
         match (filename, extension, stem_prefix) {
-            (Some(f), None, None) => Self::Filename(f),
+            (Some(f), None, None) => Self::Filename {
+                filename: f,
+                aliases,
+            },
             (None, Some(ext), Some(prefix)) => Self::Pattern {
                 extension: ext,
                 stem_prefix: prefix,
@@ -886,7 +897,21 @@ mod tests {
         let by_filename =
             parse_struct("#[patcher(filename = \"MiscItem.db\")] struct MiscItem { value: i32 }");
         match PatcherKey::parse(&by_filename, "RecordPatcher") {
-            PatcherKey::Filename(name) => assert_eq!(name, "MiscItem.db"),
+            PatcherKey::Filename { filename, aliases } => {
+                assert_eq!(filename, "MiscItem.db");
+                assert!(aliases.is_empty());
+            }
+            other => panic!("expected Filename, got {other:?}"),
+        }
+
+        let with_alias = parse_struct(
+            "#[patcher(filename = \"Magic.db\", alias = \"MulMagic.db\")] struct MagicSpell { value: i32 }",
+        );
+        match PatcherKey::parse(&with_alias, "RecordPatcher") {
+            PatcherKey::Filename { filename, aliases } => {
+                assert_eq!(filename, "Magic.db");
+                assert_eq!(aliases, vec!["MulMagic.db"]);
+            }
             other => panic!("expected Filename, got {other:?}"),
         }
 

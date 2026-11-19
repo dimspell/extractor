@@ -1,20 +1,19 @@
-mod cli;
-mod commands;
-
 use clap::Parser;
-use cli::{Cli, Commands};
-use commands::Command;
-use commands::database::DatabaseCommand;
-use commands::dialog::DialogCommand;
-use commands::list::ListCommand;
-use commands::map::MapCommand;
-use commands::pack::ModPackCommand;
-use commands::schema::SchemaCommand;
-use commands::sound::SoundCommand;
-use commands::sprite::SpriteCommand;
-use commands::template::TemplateCommand;
-use commands::unified::{ExtractCommand, PatchCommand};
-use commands::validate::ValidateCommand;
+use dispel_core::cli::{Cli, Commands};
+use dispel_core::commands::{
+    Command,
+    database::DatabaseCommand,
+    dialog::DialogCommand,
+    list::ListCommand,
+    map::MapCommand,
+    pack::ModPackCommand,
+    schema::SchemaCommand,
+    sound::SoundCommand,
+    sprite::SpriteCommand,
+    template::TemplateCommand,
+    unified::{ExtractCommand, PatchCommand},
+    validate::ValidateCommand,
+};
 
 fn main() {
     let cli = Cli::parse();

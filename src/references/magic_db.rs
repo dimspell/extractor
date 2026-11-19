@@ -72,7 +72,7 @@ use serde::{Deserialize, Serialize};
 /// magic combat, and spell learning mechanics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher, RecordLayout)]
 #[extractor(property_item_size = 88, counter_size = 0)]
-#[patcher(filename = "Magic.db")]
+#[patcher(filename = "Magic.db", alias = "MulMagic.db")]
 pub struct MagicSpell {
     /// Record index (0-based)
     #[extractor(index)]
