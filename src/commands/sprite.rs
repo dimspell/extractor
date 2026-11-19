@@ -24,18 +24,23 @@ impl Command for SpriteArgs {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("sprite");
-                sprite::extract_with_black(
+                sprite::extract_with_options(
                     Path::new(&self.input),
                     prefix.to_string(),
-                    self.preserve_black,
+                    sprite::SpriteRenderOptions {
+                        preserve_black: self.preserve_black,
+                        ..Default::default()
+                    },
                 )
                 .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
             SpriteMode::Animation => {
-                sprite::animation_with_black(
+                sprite::animation_with_options(
                     Path::new(&self.input),
-                    !self.no_origin_offset,
-                    self.preserve_black,
+                    sprite::SpriteRenderOptions {
+                        preserve_black: self.preserve_black,
+                        apply_origin_offsets: !self.no_origin_offset,
+                    },
                 )
                 .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }

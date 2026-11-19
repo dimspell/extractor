@@ -576,7 +576,13 @@ pub fn extract(
 
     if save_map_sprites {
         for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
-            crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, map_id)?;
+            crate::sprite::save_sequence_with_options(
+                &mut reader,
+                &sprite.frame_infos,
+                i as i32,
+                map_id,
+                crate::sprite::SpriteRenderOptions::default(),
+            )?;
         }
     }
 
@@ -636,7 +642,13 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
 
     for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
         let prefix = format!("{}/{}", output_dir_str, map_id);
-        crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, &prefix)?;
+        crate::sprite::save_sequence_with_options(
+            &mut reader,
+            &sprite.frame_infos,
+            i as i32,
+            &prefix,
+            crate::sprite::SpriteRenderOptions::default(),
+        )?;
     }
     Ok(())
 }

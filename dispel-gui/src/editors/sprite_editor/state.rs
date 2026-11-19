@@ -1,5 +1,5 @@
 use crate::editors::sprite_editor::ExportFormat;
-use dispel_core::sprite::{SpriteFile, read_sprite_file};
+use dispel_core::sprite::{SpriteFile, SpriteRenderOptions, read_sprite_file};
 use std::path::{Path, PathBuf};
 
 /// A decoded sprite frame ready for display, editing, and export.
@@ -225,7 +225,10 @@ impl SpriteViewerState {
                 let w = frame.width.max(0) as u32;
                 let h = frame.height.max(0) as u32;
                 let rgba = if w > 0 && h > 0 {
-                    frame.decode_to_rgba_with_black(self.preserve_black)
+                    frame.decode_to_rgba_with_options(SpriteRenderOptions {
+                        preserve_black: self.preserve_black,
+                        ..Default::default()
+                    })
                 } else {
                     Vec::new()
                 };

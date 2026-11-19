@@ -571,13 +571,14 @@ pub fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<()
                         if fi.width <= 0 || fi.height <= 0 {
                             continue;
                         }
-                        let img = match crate::sprite::render_frame_to_rgba(
+                        let img = match crate::sprite::render_frame_to_rgba_with_options(
                             &mut reader,
                             fi,
                             fi.width.unsigned_abs(),
                             fi.height.unsigned_abs(),
                             0,
                             0,
+                            crate::sprite::SpriteRenderOptions::default(),
                         ) {
                             Ok(img) => img,
                             Err(e) => {
