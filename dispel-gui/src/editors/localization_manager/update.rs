@@ -1,15 +1,15 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
-use crate::editors::localization_manager::LocalizationMessage;
+use crate::editors::localization_manager::{LocalizationMessage, PackageResult};
 use crate::message::MessageExt;
-use dispel_core::localization::Localizable;
+use dispel_core::localization::{Localizable, TruncationStatus};
+use dispel_core::modding::{ChangeAction, ChangeOp, ModManifest, Modding};
 use dispel_core::{
     DialogueParagraph, EditItem, EventItem, EventNpcRef, ExtraRef, Extractor, HealItem, Map,
-    Message, MiscItem, MonsterIni, NPC, PartyIniNpc, PartyRef, Quest, Store, TextEntry,
-    TruncationStatus, WeaponItem, export_csv, export_po, import_csv, import_po,
+    Message, MiscItem, MonsterIni, NPC, PartyIniNpc, PartyRef, Quest, Store, TextEntry, WeaponItem,
+    export_csv, export_po, import_csv, import_po,
 };
 use iced::Task;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::message::Message> {
@@ -349,8 +349,17 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         LocalizationMessage::Applied(result) => {
             let state = &mut app.state.editors.localization_manager;
             match result {
-                Ok((ref path, ref warnings)) => {
-                    state.status_msg = applied_status_msg(path, warnings);
+                Ok(ref packaged) => {
+                    // Surface both the per-file truncation warnings (round-5
+                    // behaviour) and the core pipeline's total truncated count.
+                    let mut msg = applied_status_msg(&packaged.path, &packaged.warnings);
+                    if packaged.truncated > 0 {
+                        msg.push_str(&format!(
+                            " — {} translation(s) were truncated to fit their field.",
+                            packaged.truncated
+                        ));
+                    }
+                    state.status_msg = msg;
                     state.loading_state = LoadingState::Loaded(());
                 }
                 Err(ref e) => {
@@ -605,21 +614,16 @@ fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>>
 
 // ─── Apply & Package ──────────────────────────────────────────────────────────
 
-/// Standalone bulk-translation packaging. Deliberately *not* routed through
-/// `dispel_core::modding`: the core pipeline applies per-record `RecordPatcher`
-/// changes to a versioned `changes.json`, while this flow edits every
-/// `Localizable` field at once and writes whole game files into a flat zip
-/// with a legacy `manifest.json` (`files` / `backup_dir`). Its backup/restore
-/// flow is likewise whole-file, not per-record. Core's package reader will
-/// deserialize the manifest but see an empty changelog, i.e. applying this zip
-/// through the core importer would be a no-op — so this is a separate,
-/// manually-installable translation package, not a core mod package. Keep it
-/// isolated until the manifest and backup semantics are unified.
+/// Apply translated strings to the game files, then package the result through
+/// the core modding facade so the produced zip is the same
+/// `manifest.json` / `changes.json` / `files` layout the Mod Manager imports —
+/// no second, incompatible zip/manifest pipeline here. Truncation is reported
+/// two ways: a per-file warning list and a total count.
 fn apply_and_package(
     game_path: &Path,
     entries: &[TextEntry],
     meta: &crate::editors::mod_packager::state::ModMetadata,
-) -> Result<(PathBuf, Vec<String>), String> {
+) -> Result<PackageResult, String> {
     let mod_name = meta.name.trim().replace(' ', "_");
     let backup_dir = game_path.join("mods").join(&mod_name).join("backup");
     std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
@@ -638,6 +642,7 @@ fn apply_and_package(
     }
 
     let mut warnings: Vec<String> = Vec::new();
+    let mut truncated = 0usize;
     for (rel_path, file_entries) in &by_file {
         let abs_path = game_path.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
         if !abs_path.exists() {
@@ -655,47 +660,46 @@ fn apply_and_package(
         if !backup_path.exists() {
             std::fs::copy(&abs_path, &backup_path).map_err(|e| e.to_string())?;
         }
-        let truncated = apply_entries_to_file(&abs_path, rel_path, file_entries)?;
-        if truncated > 0 {
-            warnings.push(format!("{rel_path}: {truncated} field(s) truncated"));
+        let file_truncated = apply_entries_to_file(&abs_path, rel_path, file_entries)?;
+        truncated += file_truncated;
+        if file_truncated > 0 {
+            warnings.push(format!("{rel_path}: {file_truncated} field(s) truncated"));
         }
     }
 
-    // Package as zip — use rel_path as entry name to preserve directory structure (A4)
-    let output_dir = game_path.join("mod_output");
-    std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
-    let zip_path = output_dir.join(format!("{}.zip", mod_name));
-    let file = std::fs::File::create(&zip_path).map_err(|e| e.to_string())?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
+    // Route packaging through the single core modding facade. The resulting
+    // zip has the same manifest.json / changes.json / files layout the Mod
+    // Manager imports — no second, incompatible zip/manifest pipeline here.
+    let workspace_root = game_path.join(".dispel-mods");
+    let pipeline = Modding::open(&workspace_root, game_path).map_err(|e| e.to_string())?;
+    let mut manifest = ModManifest::new(meta.name.trim());
+    manifest.version = meta.version.clone();
+    manifest.author = meta.author.clone();
+    manifest.description = meta.description.clone();
+    let slug = pipeline.create_mod(manifest).map_err(|e| e.to_string())?;
 
     for rel_path in by_file.keys() {
         let abs_path = game_path.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
-        if abs_path.exists() {
-            // Use rel_path as zip entry name — preserves directory structure
-            zip.start_file(*rel_path, options)
-                .map_err(|e| e.to_string())?;
-            let data = std::fs::read(&abs_path).map_err(|e| e.to_string())?;
-            zip.write_all(&data).map_err(|e| e.to_string())?;
+        if !abs_path.exists() {
+            continue;
         }
+        let content = std::fs::read(&abs_path).map_err(|e| e.to_string())?;
+        let action = ChangeAction::new(*rel_path, ChangeOp::FileReplace { content });
+        pipeline.append(&slug, action).map_err(|e| e.to_string())?;
     }
 
-    let manifest = serde_json::json!({
-        "name": meta.name,
-        "version": meta.version,
-        "author": meta.author,
-        "description": meta.description,
-        "files": by_file.keys().collect::<Vec<_>>(),
-        "backup_dir": backup_dir.to_string_lossy(),
-    });
-    zip.start_file("manifest.json", options)
+    let output_dir = game_path.join("mod_output");
+    std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
+    let zip_path = output_dir.join(format!("{mod_name}.zip"));
+    pipeline
+        .export_zip(&slug, &zip_path)
         .map_err(|e| e.to_string())?;
-    zip.write_all(&serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    zip.finish().map_err(|e| e.to_string())?;
 
-    Ok((zip_path, warnings))
+    Ok(PackageResult {
+        path: zip_path,
+        truncated,
+        warnings,
+    })
 }
 
 /// Status text shown after packaging. Truncation warnings are appended so a

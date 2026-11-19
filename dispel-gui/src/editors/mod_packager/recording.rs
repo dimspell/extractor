@@ -3,14 +3,15 @@
 //! The `define_standard_editor!` macro calls [`observe_field_change`] right
 //! after a successful `FieldChanged` edit. If a recording session is active,
 //! we dispatch a [`ModPackagerMessage::RecordingObserved`] message carrying
-//! just the raw `(file, record_id, field, old, new)` tuple. The Mod Manager
+//! a domain-level [`dispel_core::modding::FieldChange`] event — one canonical
+//! [`dispel_core::modding::FieldKey`] plus the old/new values. The Mod Manager
 //! handler then debounces those observations per key and only persists the
 //! coalesced result after an idle interval has elapsed.
 //!
 //! When no session is active, `observe_field_change` is a no-op returning
 //! `Task::none()` — callers pay only an `Option::is_some()` check.
 
-use dispel_core::modding::{ChangeAction, ChangeOp, Value, Workspace, make_delta};
+use dispel_core::modding::{ChangeOp, FieldChange, FieldKey, Modding, Value, decide_file_op};
 use iced::Task;
 
 use crate::app::App;
@@ -18,29 +19,15 @@ use crate::components::editable::EditableRecord;
 use crate::components::generic_editor::MultiFileEditorState;
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
-use crate::state::RecordingKey;
 
 /// Idle time after the last keystroke before a pending edit is persisted.
 pub const DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(800);
 
-/// If the bsdiff delta is at least this fraction of the full file size, we
-/// emit `FileReplace` instead of `BinaryDelta` — the patch is no longer a
-/// space win and a full replace is simpler to inspect.
-const DELTA_KEEP_THRESHOLD: f64 = 0.7;
-
 /// Decide between [`ChangeOp::BinaryDelta`] and [`ChangeOp::FileReplace`]
-/// based on the relative size of the qbsdiff patch.
+/// based on the relative size of the qbsdiff patch. The decision itself is
+/// owned by the core facade; this wrapper keeps the GUI call sites stable.
 pub fn decide_op(vanilla: &[u8], current: &[u8]) -> Result<ChangeOp, String> {
-    let delta = make_delta(vanilla, current).map_err(|e| e.to_string())?;
-    let keep_delta =
-        !current.is_empty() && (delta.len() as f64) < (current.len() as f64) * DELTA_KEEP_THRESHOLD;
-    if keep_delta {
-        Ok(ChangeOp::BinaryDelta { patch_bytes: delta })
-    } else {
-        Ok(ChangeOp::FileReplace {
-            content: current.to_vec(),
-        })
-    }
+    Ok(decide_file_op(vanilla, current))
 }
 
 /// Record a file replacement into the active mod session.
@@ -56,16 +43,9 @@ pub fn record_file_replace(
     relative_path: &str,
     new_bytes: &[u8],
 ) -> Result<(), String> {
-    let ws = Workspace::open(workspace_root.to_path_buf()).map_err(|e| e.to_string())?;
-    let vanilla_bytes = ws
-        .vanilla()
-        .ensure_snapshot(game_dir, relative_path)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Vanilla file not present on disk; cannot diff.".to_string())?;
-
-    let op = decide_op(&vanilla_bytes, new_bytes)?;
-    let action = ChangeAction::new(relative_path, op);
-    ws.append_action(mod_slug, action)
+    let pipeline = Modding::open(workspace_root, game_dir).map_err(|e| e.to_string())?;
+    pipeline
+        .record_file(mod_slug, relative_path, new_bytes)
         .map_err(|e| e.to_string())
 }
 
@@ -83,26 +63,41 @@ pub fn observe_field_change(
     if app.state.recording.is_none() {
         return Task::none();
     }
-    let key = RecordingKey {
-        file_path: file_path.into(),
-        record_id,
-        field: field.to_owned(),
-    };
+    let key = FieldKey::new(file_path, record_id, field);
     Task::done(Message::mod_packager(
-        ModPackagerMessage::RecordingObserved(ObservedAction {
+        ModPackagerMessage::RecordingObserved(FieldChange::new(
             key,
-            old: Value::String(old),
-            new: Value::String(new),
-        }),
+            Value::String(old),
+            Value::String(new),
+        )),
     ))
 }
 
-/// Payload for [`ModPackagerMessage::RecordingObserved`].
-#[derive(Debug, Clone)]
-pub struct ObservedAction {
-    pub key: RecordingKey,
-    pub old: Value,
-    pub new: Value,
+/// Payload for [`ModPackagerMessage::RecordingObserved`] — a domain event
+/// owned by `dispel-core`, not a GUI-specific struct.
+pub use dispel_core::modding::FieldChange as ObservedAction;
+
+/// Typed snapshot of the field an editor just changed. Replaces the old
+/// untyped `(old_value, record_id, file_path)` triple.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldEditContext {
+    /// Value before the edit, stable across keystrokes.
+    pub old: String,
+    /// Canonical field identity shared with the whole modding pipeline.
+    pub key: FieldKey,
+}
+
+/// Convenience for editor macros: emit a domain field-change event from a
+/// captured context and the newly committed value.
+pub fn observe_field_edit(app: &App, context: FieldEditContext, new: String) -> Task<Message> {
+    observe_field_change(
+        app,
+        context.key.file_path,
+        context.key.record_id,
+        &context.key.field,
+        context.old,
+        new,
+    )
 }
 
 /// Snapshot needed to record a `FieldChanged` against a multi-file editor.
@@ -120,7 +115,7 @@ pub fn capture_field_recording_context<R: EditableRecord>(
     index: usize,
     field: &str,
     shared_game_path: &str,
-) -> Option<(String, u32, String)> {
+) -> Option<FieldEditContext> {
     let editor = editor?;
     let (orig_idx, record) = editor.editor.filtered.get(index)?;
     let absolute_path = editor.current_file.as_ref()?;
@@ -133,7 +128,10 @@ pub fn capture_field_recording_context<R: EditableRecord>(
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_else(|_| absolute_path.to_string_lossy().into_owned())
     };
-    Some((record.get_field(field), *orig_idx as u32, relative_path))
+    Some(FieldEditContext {
+        old: record.get_field(field),
+        key: FieldKey::new(relative_path, *orig_idx as u32, field),
+    })
 }
 
 #[cfg(test)]
@@ -195,9 +193,10 @@ mod tests {
 
         let result = capture_field_recording_context(Some(&editor), 0, "name", "/game");
 
-        assert!(result.is_some());
-        let (_, _, file_path) = result.unwrap();
-        assert_eq!(file_path, "MonsterInGame/Mondun01.ref");
+        let ctx = result.expect("context should be captured");
+        assert_eq!(ctx.key.file_path, "MonsterInGame/Mondun01.ref");
+        assert_eq!(ctx.key.record_id, 0);
+        assert_eq!(ctx.key.field, "name");
     }
 
     #[test]
@@ -218,9 +217,8 @@ mod tests {
 
         let result = capture_field_recording_context(Some(&editor), 0, "name", "");
 
-        assert!(result.is_some());
-        let (_, _, file_path) = result.unwrap();
-        assert_eq!(file_path, "/game/MonsterInGame/Mondun01.ref");
+        let ctx = result.expect("context should be captured");
+        assert_eq!(ctx.key.file_path, "/game/MonsterInGame/Mondun01.ref");
     }
 
     #[test]
@@ -241,8 +239,7 @@ mod tests {
 
         let result = capture_field_recording_context(Some(&editor), 0, "name", "/game");
 
-        assert!(result.is_some());
-        let (_, _, file_path) = result.unwrap();
-        assert_eq!(file_path, "/some/other/path/Mondun01.ref");
+        let ctx = result.expect("context should be captured");
+        assert_eq!(ctx.key.file_path, "/some/other/path/Mondun01.ref");
     }
 }

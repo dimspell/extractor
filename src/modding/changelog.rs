@@ -79,26 +79,24 @@ impl ChangeLog {
     /// Returns the number of actions removed.
     pub fn flatten_field_deltas(&mut self) -> usize {
         use crate::modding::change::ChangeOp;
+        use crate::modding::resolution::FieldKey;
         use crate::modding::value::Value;
         use std::collections::HashMap;
 
-        // Map (file, record, field) -> index of the last FieldDelta seen.
-        let mut last_seen: HashMap<(String, u32, String), usize> = HashMap::new();
+        // FieldKey -> index of the last FieldDelta seen. One key type is
+        // shared with conflict detection, pins and apply.
+        let mut last_seen: HashMap<FieldKey, usize> = HashMap::new();
         // Carries the original `old` forward as we walk; keyed identically.
-        let mut original_old: HashMap<(String, u32, String), Value> = HashMap::new();
+        let mut original_old: HashMap<FieldKey, Value> = HashMap::new();
         let mut to_drop: Vec<usize> = Vec::new();
 
         for (idx, action) in self.actions.iter().enumerate() {
-            let ChangeOp::FieldDelta {
-                record_id,
-                field,
-                old,
-                ..
-            } = &action.op
-            else {
+            let ChangeOp::FieldDelta { old, .. } = &action.op else {
                 continue;
             };
-            let key = (action.file_path.clone(), *record_id, field.clone());
+            let Some(key) = action.op.field_key(&action.file_path) else {
+                continue;
+            };
             if let Some(prev_idx) = last_seen.insert(key.clone(), idx) {
                 to_drop.push(prev_idx);
             } else {
@@ -108,9 +106,8 @@ impl ChangeLog {
 
         // Rewrite surviving entries' `old` to the original captured at the
         // first occurrence.
-        for (&(ref file, record_id, ref field), &idx) in last_seen.iter() {
-            let key = (file.clone(), record_id, field.clone());
-            let Some(orig) = original_old.get(&key) else {
+        for (key, &idx) in last_seen.iter() {
+            let Some(orig) = original_old.get(key) else {
                 continue;
             };
             if let ChangeOp::FieldDelta { old, .. } = &mut self.actions[idx].op {

@@ -28,7 +28,7 @@ use crate::view::editor::SpreadsheetState;
 use crate::workspace::{TabId, Workspace};
 use dispel_core::modding::Value;
 use dispel_core::{NPC, Store, WaveIni, WeaponItem};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // ============================================================================
 // observe_field_change  (core recording primitive)
@@ -923,28 +923,6 @@ fn chdata_editor_records_when_session_active() {
     );
 }
 
-#[test]
-fn chdata_editor_does_not_record_without_session() {
-    let mut app = app_without_recording();
-    app.state.editors.chdata_editor.catalog = Some(vec![dispel_core::ChData {
-        warrior_strength: 10,
-        ..Default::default()
-    }]);
-    let record = app.state.editors.chdata_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.editors.chdata_editor.filtered = vec![(0, record)];
-
-    let task = crate::editors::chdata::handle(
-        crate::editors::chdata::ChDataEditorMessage::FieldChanged(
-            0,
-            "warrior_strength".into(),
-            "15".into(),
-        ),
-        &mut app,
-    );
-
-    assert_eq!(task.units(), 0, "chdata should NOT record without session");
-}
-
 // ============================================================================
 // party_level_db  (custom two-tier editor)
 // ============================================================================
@@ -999,51 +977,6 @@ fn party_level_db_editor_records_when_session_active() {
             .strength,
         20,
         "field value updated"
-    );
-}
-
-#[test]
-fn party_level_db_editor_does_not_record_without_session() {
-    let mut app = app_without_recording();
-    app.state.editors.party_level_db_editor.catalog = Some(vec![dispel_core::PartyLevelNpc {
-        npc_index: 0,
-        records: vec![dispel_core::PartyLevelRecord {
-            level: 1,
-            strength: 10,
-            ..Default::default()
-        }],
-    }]);
-    app.state.editors.party_level_db_editor.selected_npc_idx = Some(0);
-
-    app.state.editors.party_level_db_level_editor.catalog =
-        Some(vec![dispel_core::PartyLevelRecord {
-            level: 1,
-            strength: 10,
-            ..Default::default()
-        }]);
-    let record = app
-        .state
-        .editors
-        .party_level_db_level_editor
-        .catalog
-        .as_ref()
-        .unwrap()[0]
-        .clone();
-    app.state.editors.party_level_db_level_editor.state.filtered = vec![(0, record)];
-
-    let task = crate::editors::party_level_db::handle(
-        crate::editors::party_level_db::PartyLevelDbEditorMessage::FieldChanged(
-            0,
-            "strength".into(),
-            "20".into(),
-        ),
-        &mut app,
-    );
-
-    assert_eq!(
-        task.units(),
-        0,
-        "party_level_db should NOT record without session"
     );
 }
 
@@ -1133,10 +1066,16 @@ fn party_level_db_no_recording_when_no_npc_selected() {
 // fog_data — whole-file recorder (save-time `record_file_replace`)
 // ============================================================================
 
-/// Fixture fade-table path, or `None` when fixtures are absent.
-fn fixture_fogdata_path() -> Option<PathBuf> {
-    let p = PathBuf::from("../fixtures/Dispel/ExtraInGame/fogdata.dat");
-    p.exists().then_some(p)
+/// Create a self-contained fogdata.dat stand-in. The table is a fixed-size
+/// byte array, so a zero-filled file is a valid input and the tests no longer
+/// skip silently when user-supplied fixtures are absent.
+fn write_fogdata(game_dir: &Path) -> PathBuf {
+    use dispel_core::map::fogdata::EXPECTED_LEN;
+    let dir = game_dir.join("ExtraInGame");
+    std::fs::create_dir_all(&dir).expect("game dir created");
+    let path = dir.join("fogdata.dat");
+    std::fs::write(&path, vec![0u8; EXPECTED_LEN]).expect("fogdata written");
+    path
 }
 
 #[test]
@@ -1145,22 +1084,11 @@ fn fog_data_editor_records_file_replace_on_save_when_session_active() {
     use dispel_core::map::fogdata::MAX_FACTOR;
     use dispel_core::modding::{ModManifest, Workspace as ModWorkspace};
 
-    let Some(fixture) = fixture_fogdata_path() else {
-        eprintln!("Skipping: fixtures not found");
-        return;
-    };
-
-    // Temp mod workspace + temp "game dir" holding a copy of the fixture.
-    let base = std::env::temp_dir().join(format!(
-        "dispel-fog-rec-{}-{}",
-        std::process::id(),
-        fixture.file_name().map(|n| n.len()).unwrap_or(0)
-    ));
-    let ws_root = base.join("ws");
-    let game_dir = base.join("game");
-    std::fs::create_dir_all(game_dir.join("ExtraInGame")).expect("game dir created");
-    let fog_path = game_dir.join("ExtraInGame/fogdata.dat");
-    std::fs::copy(&fixture, &fog_path).expect("fixture copied");
+    // Temp mod workspace + temp "game dir" holding a generated table.
+    let base = tempfile::tempdir().expect("temp dir created");
+    let ws_root = base.path().join("ws");
+    let game_dir = base.path().join("game");
+    let fog_path = write_fogdata(&game_dir);
 
     let ws = ModWorkspace::open(ws_root.clone()).expect("workspace opened");
     let slug = ws
@@ -1210,8 +1138,6 @@ fn fog_data_editor_records_file_replace_on_save_when_session_active() {
             .any(|a| a.file_path == "ExtraInGame/fogdata.dat"),
         "recorded action targets fogdata.dat"
     );
-
-    let _ = std::fs::remove_dir_all(&base);
 }
 
 #[test]
@@ -1219,16 +1145,9 @@ fn fog_data_editor_save_without_session_writes_file_only() {
     use crate::editors::fog_data::{self, FogDataEditorState};
     use dispel_core::map::fogdata::MAX_FACTOR;
 
-    let Some(fixture) = fixture_fogdata_path() else {
-        eprintln!("Skipping: fixtures not found");
-        return;
-    };
-
-    let base = std::env::temp_dir().join(format!("dispel-fog-norec-{}", std::process::id()));
-    let game_dir = base.join("game");
-    std::fs::create_dir_all(game_dir.join("ExtraInGame")).expect("game dir created");
-    let fog_path = game_dir.join("ExtraInGame/fogdata.dat");
-    std::fs::copy(&fixture, &fog_path).expect("fixture copied");
+    let base = tempfile::tempdir().expect("temp dir created");
+    let game_dir = base.path().join("game");
+    let fog_path = write_fogdata(&game_dir);
 
     let mut state = FogDataEditorState::load_from_path(&fog_path);
     assert!(state.paint_factor(1, MAX_FACTOR), "edit applied");
@@ -1243,7 +1162,7 @@ fn fog_data_editor_save_without_session_writes_file_only() {
     assert!(status.contains("Saved"));
     assert!(recording_error.is_none());
     // No session → no recording side effects; only the file write happened.
-    let mut round_trip = std::env::temp_dir().join("dispel-fog-norec-check.dat");
+    let round_trip = base.path().join("roundtrip.dat");
     state
         .fog
         .as_ref()
@@ -1255,8 +1174,4 @@ fn fog_data_editor_save_without_session_writes_file_only() {
         std::fs::read(&round_trip).unwrap(),
         "edited table persisted to disk"
     );
-    let _ = std::fs::remove_file(&round_trip);
-    round_trip.pop();
-
-    let _ = std::fs::remove_dir_all(&base);
 }

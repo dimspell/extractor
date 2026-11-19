@@ -97,8 +97,9 @@ pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
 /// Same as [`detect_conflicts`] but annotates field conflicts with the
 /// current pin (if any) from `resolutions`.
 pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap) -> Vec<Conflict> {
-    // Field map: (file, record, field) -> Vec<participant>
-    let mut field_map: BTreeMap<(String, u32, String), Vec<ConflictParticipant>> = BTreeMap::new();
+    // Field map: FieldKey -> Vec<participant>. One key type is shared with
+    // resolution pins and the apply engine.
+    let mut field_map: BTreeMap<FieldKey, Vec<ConflictParticipant>> = BTreeMap::new();
     // Binary / whole-file: file -> Vec<participant>
     let mut binary_map: BTreeMap<String, Vec<ConflictParticipant>> = BTreeMap::new();
     let mut whole_map: BTreeMap<String, Vec<ConflictParticipant>> = BTreeMap::new();
@@ -111,13 +112,11 @@ pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap)
         let mod_id = entry.mod_id.to_owned();
         for action in entry.changes.actions() {
             match &action.op {
-                ChangeOp::FieldDelta {
-                    record_id,
-                    field,
-                    new,
-                    ..
-                } => {
-                    let key = (action.file_path.clone(), *record_id, field.clone());
+                ChangeOp::FieldDelta { new, .. } => {
+                    let key = action
+                        .op
+                        .field_key(&action.file_path)
+                        .expect("FieldDelta always has a field key");
                     let participants = field_map.entry(key).or_default();
                     upsert(participants, &mod_id, "FieldDelta", Some(new.clone()));
                 }
@@ -135,19 +134,18 @@ pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap)
 
     let mut out: Vec<Conflict> = Vec::new();
 
-    for ((file, record_id, field), participants) in field_map {
+    for (key, participants) in field_map {
         if !is_real_field_conflict(&participants) {
             continue;
         }
-        let pinned_to = resolutions
-            .winner(&FieldKey {
-                file_path: file.clone(),
-                record_id,
-                field: field.clone(),
-            })
-            .map(str::to_owned);
+        let pinned_to = resolutions.winner(&key).map(str::to_owned);
+        let FieldKey {
+            file_path,
+            record_id,
+            field,
+        } = key;
         out.push(Conflict {
-            file_path: file,
+            file_path,
             kind: ConflictKind::Field { record_id, field },
             participants,
             pinned_to,

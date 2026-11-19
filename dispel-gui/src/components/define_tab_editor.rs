@@ -81,9 +81,11 @@ macro_rules! define_tab_editor {
                             &mut app.state.editors.$field, tab_id, index, field.clone(), value,
                         );
                         let observe = match captured {
-                            Some((old_value, orig_idx, file_path)) if old_value != new_value => {
-                                $crate::editors::mod_packager::recording::observe_field_change(
-                                    app, file_path, orig_idx, &field, old_value, new_value,
+                            Some(ctx)
+                                if ctx.old != new_value =>
+                            {
+                                $crate::editors::mod_packager::recording::observe_field_edit(
+                                    app, ctx, new_value,
                                 )
                             }
                             _ => ::iced::Task::none(),
