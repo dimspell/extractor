@@ -5,8 +5,8 @@ use crate::message::MessageExt;
 use dispel_core::localization::Localizable;
 use dispel_core::{
     DialogueParagraph, EditItem, EventItem, EventNpcRef, ExtraRef, Extractor, HealItem, Map,
-    Message, MiscItem, MonsterIni, NPC, PartyIniNpc, PartyRef, Quest, Store, TextEntry, WeaponItem,
-    export_csv, export_po, import_csv, import_po,
+    Message, MiscItem, MonsterIni, NPC, PartyIniNpc, PartyRef, Quest, Store, TextEntry,
+    TruncationStatus, WeaponItem, export_csv, export_po, import_csv, import_po,
 };
 use iced::Task;
 use std::io::Write;
@@ -349,8 +349,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         LocalizationMessage::Applied(result) => {
             let state = &mut app.state.editors.localization_manager;
             match result {
-                Ok(ref path) => {
-                    state.status_msg = format!("Done. Mod saved to {}", path.display());
+                Ok((ref path, ref warnings)) => {
+                    state.status_msg = applied_status_msg(path, warnings);
                     state.loading_state = LoadingState::Loaded(());
                 }
                 Err(ref e) => {
@@ -605,11 +605,21 @@ fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>>
 
 // ─── Apply & Package ──────────────────────────────────────────────────────────
 
+/// Standalone bulk-translation packaging. Deliberately *not* routed through
+/// `dispel_core::modding`: the core pipeline applies per-record `RecordPatcher`
+/// changes to a versioned `changes.json`, while this flow edits every
+/// `Localizable` field at once and writes whole game files into a flat zip
+/// with a legacy `manifest.json` (`files` / `backup_dir`). Its backup/restore
+/// flow is likewise whole-file, not per-record. Core's package reader will
+/// deserialize the manifest but see an empty changelog, i.e. applying this zip
+/// through the core importer would be a no-op — so this is a separate,
+/// manually-installable translation package, not a core mod package. Keep it
+/// isolated until the manifest and backup semantics are unified.
 fn apply_and_package(
     game_path: &Path,
     entries: &[TextEntry],
     meta: &crate::editors::mod_packager::state::ModMetadata,
-) -> Result<PathBuf, String> {
+) -> Result<(PathBuf, Vec<String>), String> {
     let mod_name = meta.name.trim().replace(' ', "_");
     let backup_dir = game_path.join("mods").join(&mod_name).join("backup");
     std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
@@ -627,6 +637,7 @@ fn apply_and_package(
         return Err("No translated strings to apply.".into());
     }
 
+    let mut warnings: Vec<String> = Vec::new();
     for (rel_path, file_entries) in &by_file {
         let abs_path = game_path.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
         if !abs_path.exists() {
@@ -644,7 +655,10 @@ fn apply_and_package(
         if !backup_path.exists() {
             std::fs::copy(&abs_path, &backup_path).map_err(|e| e.to_string())?;
         }
-        apply_entries_to_file(&abs_path, rel_path, file_entries)?;
+        let truncated = apply_entries_to_file(&abs_path, rel_path, file_entries)?;
+        if truncated > 0 {
+            warnings.push(format!("{rel_path}: {truncated} field(s) truncated"));
+        }
     }
 
     // Package as zip — use rel_path as entry name to preserve directory structure (A4)
@@ -681,29 +695,54 @@ fn apply_and_package(
         .map_err(|e| e.to_string())?;
     zip.finish().map_err(|e| e.to_string())?;
 
-    Ok(zip_path)
+    Ok((zip_path, warnings))
+}
+
+/// Status text shown after packaging. Truncation warnings are appended so a
+/// shortened translation is never reported as a clean success.
+fn applied_status_msg(path: &Path, warnings: &[String]) -> String {
+    let mut msg = format!("Done. Mod saved to {}", path.display());
+    if !warnings.is_empty() {
+        msg.push_str(&format!(
+            " WARNING: {} — translations were truncated to the game's byte limits; check the Overlong filter.",
+            warnings.join("; ")
+        ));
+    }
+    msg
+}
+
+/// Count `TruncationStatus::Truncated` results — a translated field that did
+/// not fit the game's fixed byte width was silently shortened by the core
+/// `Localizable` implementation. Report it instead of discarding it.
+fn count_truncated(statuses: &[TruncationStatus]) -> usize {
+    statuses
+        .iter()
+        .filter(|s| matches!(s, TruncationStatus::Truncated { .. }))
+        .count()
 }
 
 // A2: generic helper eliminates repeated read→apply→save pattern
 fn apply_one<T: Extractor + Localizable>(
     abs_path: &Path,
     by_record: &std::collections::HashMap<usize, Vec<&TextEntry>>,
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let mut records = T::read_file(abs_path).map_err(|e| e.to_string())?;
+    let mut truncated = 0;
     for (i, record) in records.iter_mut().enumerate() {
         if let Some(entries) = by_record.get(&i) {
             let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
-            record.apply_texts(&owned);
+            truncated += count_truncated(&record.apply_texts(&owned));
         }
     }
-    T::save_file(&records, abs_path).map_err(|e| e.to_string())
+    T::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+    Ok(truncated)
 }
 
 fn apply_entries_to_file(
     abs_path: &Path,
     rel_path: &str,
     file_entries: &[&TextEntry],
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let mut by_record: std::collections::HashMap<usize, Vec<&TextEntry>> =
         std::collections::HashMap::new();
     for e in file_entries {
@@ -715,14 +754,16 @@ fn apply_entries_to_file(
     if lower.ends_with("store.db") {
         // Store uses record.index as the logical ID, not position
         let mut records = Store::read_file(abs_path).map_err(|e| e.to_string())?;
+        let mut truncated = 0;
         for record in &mut records {
             let idx = record.index as usize;
             if let Some(entries) = by_record.get(&idx) {
                 let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
-                record.apply_texts(&owned);
+                truncated += count_truncated(&record.apply_texts(&owned));
             }
         }
-        Store::save_file(&records, abs_path).map_err(|e| e.to_string())
+        Store::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+        Ok(truncated)
     } else if lower.ends_with("weaponitem.db") {
         apply_one::<WeaponItem>(abs_path, &by_record)
     } else if lower.ends_with("healitem.db") {
@@ -754,7 +795,7 @@ fn apply_entries_to_file(
     } else if lower.ends_with("partyref.ref") {
         apply_one::<PartyRef>(abs_path, &by_record)
     } else {
-        Ok(())
+        Ok(0)
     }
 }
 
@@ -777,4 +818,62 @@ fn revert_from_backup(game_path: &Path, backup_dir: &Path) -> Result<(), String>
             .map_err(|e| format!("Failed to restore {}: {e}", dest.display()))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_count_truncated_ignores_ok_statuses() {
+        assert_eq!(count_truncated(&[]), 0);
+        assert_eq!(
+            count_truncated(&[TruncationStatus::Ok, TruncationStatus::Ok]),
+            0
+        );
+    }
+
+    #[test]
+    fn test_count_truncated_counts_only_truncated_statuses() {
+        let statuses = [
+            TruncationStatus::Ok,
+            TruncationStatus::Truncated {
+                original_bytes: 128,
+            },
+            TruncationStatus::Truncated { original_bytes: 20 },
+        ];
+        assert_eq!(count_truncated(&statuses), 2);
+    }
+
+    #[test]
+    fn test_applied_status_msg_without_warnings_reports_success_only() {
+        let msg = applied_status_msg(Path::new("mod_output/my_mod.zip"), &[]);
+        assert_eq!(msg, "Done. Mod saved to mod_output/my_mod.zip");
+    }
+
+    #[test]
+    fn test_applied_status_msg_with_warnings_surfaces_truncation() {
+        let msg = applied_status_msg(
+            Path::new("mod_output/my_mod.zip"),
+            &["Store.db: 2 field(s) truncated".to_string()],
+        );
+        assert!(msg.starts_with("Done. Mod saved to mod_output/my_mod.zip"));
+        assert!(msg.contains("WARNING"));
+        assert!(msg.contains("Store.db: 2 field(s) truncated"));
+        assert!(msg.contains("Overlong filter"));
+    }
+
+    #[test]
+    fn test_applied_status_msg_joins_multiple_file_warnings() {
+        let msg = applied_status_msg(
+            Path::new("out.zip"),
+            &[
+                "Store.db: 1 field(s) truncated".to_string(),
+                "WeaponItem.db: 3 field(s) truncated".to_string(),
+            ],
+        );
+        assert!(
+            msg.contains("Store.db: 1 field(s) truncated; WeaponItem.db: 3 field(s) truncated")
+        );
+    }
 }

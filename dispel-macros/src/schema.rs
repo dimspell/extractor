@@ -11,7 +11,7 @@
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
+use syn::{Data, DeriveInput, Fields, Ident, LitInt, LitStr};
 
 // ---------------------------------------------------------------------------
 // Codegen configuration — every emitted path/type name flows through here.
@@ -189,12 +189,6 @@ pub(crate) enum FieldInfo<'a> {
         ident: &'a Ident,
         size: usize,
     },
-    Nested {
-        ident: &'a Ident,
-        item_ty: &'a Type,
-        max_items: usize,
-        item_size: i32,
-    },
     Skip,
 }
 
@@ -215,8 +209,7 @@ impl FieldInfo<'_> {
             | FieldInfo::EnumFromI32FromU8 { ident, .. }
             | FieldInfo::Padding { ident, .. }
             | FieldInfo::Array { ident, .. }
-            | FieldInfo::VecU8 { ident, .. }
-            | FieldInfo::Nested { ident, .. } => Some(ident),
+            | FieldInfo::VecU8 { ident, .. } => Some(ident),
             FieldInfo::Skip => None,
         }
     }
@@ -253,14 +246,6 @@ impl FieldInfo<'_> {
             FieldInfo::Array { size, ty, .. } => {
                 Some(((*size as u32) * scalar(ty), format!("[{ty}; {size}]")))
             }
-            FieldInfo::Nested {
-                item_size,
-                max_items,
-                ..
-            } => Some((
-                (*max_items as u32) * (*item_size as u32),
-                format!("Nested(max={max_items}, item_size={item_size})"),
-            )),
         }
     }
 }
@@ -272,13 +257,10 @@ impl FieldInfo<'_> {
 pub(crate) fn parse_extractor_attr<'a>(
     attr: &'a syn::Attribute,
     ident: &'a Ident,
-    ty: &'a Type,
 ) -> (Option<FieldInfo<'a>>, Option<u8>, Option<i32>) {
     let mut field_info = None;
     let mut counter_size = None;
     let mut property_item_size = None;
-    let mut nested_max_items: Option<usize> = None;
-    let mut nested_item_size: Option<i32> = None;
 
     attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("id") {
@@ -444,20 +426,6 @@ pub(crate) fn parse_extractor_attr<'a>(
             })?;
             let size = size.expect("vec_u8 requires size");
             field_info = Some(FieldInfo::VecU8 { ident, size });
-        } else if meta.path.is_ident("nested") {
-            // `nested` is a flag (no parens). `max_items` / `item_size` are
-            // top-level metas on the same attribute (handled below).
-        } else if meta.path.is_ident("max_items") {
-            let value = meta.value()?;
-            let lit: LitInt = value.parse()?;
-            nested_max_items = Some(
-                lit.base10_parse::<usize>()
-                    .expect("max_items must be usize"),
-            );
-        } else if meta.path.is_ident("item_size") {
-            let value = meta.value()?;
-            let lit: LitInt = value.parse()?;
-            nested_item_size = Some(lit.base10_parse::<i32>().expect("item_size must be i32"));
         } else if meta.path.is_ident("skip") {
             field_info = Some(FieldInfo::Skip);
         } else if meta.path.is_ident("inventory_item") {
@@ -488,36 +456,7 @@ pub(crate) fn parse_extractor_attr<'a>(
     })
     .expect("Failed to parse #[extractor(...)] arguments");
 
-    if let (Some(max_items), Some(item_size)) = (nested_max_items, nested_item_size) {
-        field_info = Some(FieldInfo::Nested {
-            ident,
-            item_ty: ty,
-            max_items,
-            item_size,
-        });
-    }
-
     (field_info, counter_size, property_item_size)
-}
-
-/// Extract the inner `T` from a field declared as `Vec<T>`.
-pub(crate) fn extract_vec_inner(ty: &Type) -> Option<&Type> {
-    let Type::Path(type_path) = ty else {
-        return None;
-    };
-    let last = type_path.path.segments.last()?;
-    if last.ident != "Vec" {
-        return None;
-    }
-    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-        return None;
-    };
-    let inner = args.args.first()?;
-    if let syn::GenericArgument::Type(inner_ty) = inner {
-        Some(inner_ty)
-    } else {
-        None
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -578,8 +517,7 @@ impl<'a> RecordSchema<'a> {
             let Some(attr) = field.attrs.iter().find(|a| a.path().is_ident("extractor")) else {
                 continue;
             };
-            let (info, field_counter, field_item_size) =
-                parse_extractor_attr(attr, ident, &field.ty);
+            let (info, field_counter, field_item_size) = parse_extractor_attr(attr, ident);
             if let Some(cs) = field_counter {
                 counter_size = cs;
             }
@@ -691,7 +629,6 @@ impl PatcherKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use syn::parse_quote;
 
     fn parse_struct(src: &str) -> DeriveInput {
         syn::parse_str(src).expect("fixture must parse")
@@ -725,13 +662,6 @@ mod tests {
             }
             FieldInfo::Array { size, ty, .. } => format!("array({size},{ty})"),
             FieldInfo::VecU8 { size, .. } => format!("vec_u8({size})"),
-            FieldInfo::Nested {
-                max_items,
-                item_size,
-                ..
-            } => {
-                format!("nested({max_items},{item_size})")
-            }
             FieldInfo::Skip => "skip".into(),
         }
     }
@@ -783,10 +713,6 @@ mod tests {
             ),
             ("#[extractor(vec_u8(size = 8))] raw: Vec<u8>,", "vec_u8(8)"),
             ("#[extractor(skip)] ignored: u32,", "skip"),
-            (
-                "#[extractor(nested, max_items = 3, item_size = 12)] items: Vec<Inner>,",
-                "nested(3,12)",
-            ),
         ];
 
         for (field_src, expected) in cases {
@@ -794,7 +720,7 @@ mod tests {
             let (_, field) = single_field(&src);
             let attr = field.attrs.first().unwrap();
             let (info, counter, item_size) =
-                parse_extractor_attr(attr, field.ident.as_ref().unwrap(), &field.ty);
+                parse_extractor_attr(attr, field.ident.as_ref().unwrap());
             let info = info.unwrap_or_else(|| panic!("no FieldInfo for {field_src}"));
             assert_eq!(info_tokens(&info), expected, "for `{field_src}`");
             assert_eq!(counter, None);
@@ -808,8 +734,7 @@ mod tests {
             "struct S { #[extractor(primitive(type = \"i16\"), counter_size = 2, property_item_size = 84)] x: i16 }",
         );
         let attr = field.attrs.first().unwrap();
-        let (info, counter, item_size) =
-            parse_extractor_attr(attr, field.ident.as_ref().unwrap(), &field.ty);
+        let (info, counter, item_size) = parse_extractor_attr(attr, field.ident.as_ref().unwrap());
         assert_eq!(info_tokens(&info.unwrap()), "primitive(i16)");
         assert_eq!(counter, Some(2));
         assert_eq!(item_size, Some(84));
@@ -867,15 +792,6 @@ mod tests {
             "#,
         );
         RecordSchema::parse(&input).assert_layout_consistent("Rec");
-    }
-
-    #[test]
-    fn test_extract_vec_inner_only_accepts_vec_of_one_type() {
-        let ty: Type = parse_quote! { Vec<Inner> };
-        let inner = extract_vec_inner(&ty).expect("Vec<Inner>");
-        assert_eq!(quote! { #inner }.to_string(), "Inner");
-        let not_vec: Type = parse_quote! { Option<u8> };
-        assert!(extract_vec_inner(&not_vec).is_none());
     }
 
     #[test]
