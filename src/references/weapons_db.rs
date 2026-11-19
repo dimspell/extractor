@@ -198,7 +198,7 @@ pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {
 pub fn save_weapons(conn: &mut Connection, weapons: &[WeaponItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_weapon.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("weapons"))?;
         for weapon in weapons {
             stmt.execute(params![
                 weapon.id,

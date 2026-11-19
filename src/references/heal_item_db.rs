@@ -140,7 +140,7 @@ pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
 pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_heal_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("heal_items"))?;
         for item in heal_items {
             stmt.execute(params![
                 item.id,

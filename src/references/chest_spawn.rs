@@ -52,9 +52,7 @@ pub fn read_chest_spawn(source_path: &Path) -> std::io::Result<Vec<ChestSpawn>> 
 pub fn save_chest_spawns(conn: &mut Connection, spawns: &[ChestSpawn]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO chest_spawns (serial, x, y, direction, item_group, gold_class) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        )?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("chest_spawns"))?;
         for spawn in spawns {
             stmt.execute(params![
                 spawn.serial,

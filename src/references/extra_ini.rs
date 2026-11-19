@@ -77,7 +77,7 @@ pub fn read_extra_ini(source_path: &Path) -> std::io::Result<Vec<Extra>> {
 pub fn save_extras(conn: &mut Connection, extras: &[Extra]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_extra.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("extras"))?;
         for extra in extras {
             stmt.execute(params![
                 extra.id,

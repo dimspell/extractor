@@ -1,4 +1,4 @@
-CREATE TABLE monster_refs
+CREATE TABLE IF NOT EXISTS monster_refs
 (
     file_id         INTEGER NOT NULL,
     id              INTEGER,

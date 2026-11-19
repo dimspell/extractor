@@ -180,7 +180,7 @@ pub fn read_magic_db(source_path: &Path) -> std::io::Result<Vec<MagicSpell>> {
 pub fn save_magic_spells(conn: &mut Connection, spells: &[MagicSpell]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_magic_spell.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("magic_spells"))?;
         for spell in spells {
             stmt.execute(params![
                 spell.id,

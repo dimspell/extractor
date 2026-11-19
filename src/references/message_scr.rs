@@ -63,7 +63,7 @@ pub fn read_messages(path: &Path) -> std::io::Result<Vec<Message>> {
 pub fn save_messages(conn: &mut Connection, messages: &[Message]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_message.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("messages"))?;
         for message in messages {
             stmt.execute(params![
                 message.id,

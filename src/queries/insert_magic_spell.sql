@@ -1,4 +1,4 @@
-INSERT INTO magic_spells (
+INSERT OR REPLACE INTO magic_spells (
     id,
     enabled,
     effect_visual_blends_with_background,

@@ -127,7 +127,7 @@ pub fn save_monster_refs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monster_refs"))?;
         for monster_ref in monster_refs {
             stmt.execute(params![
                 file_id,

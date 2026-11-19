@@ -197,9 +197,7 @@ pub fn read_map_info_multi(source_path: &Path) -> std::io::Result<Vec<MapInfoMul
 pub fn save_map_info_multi(conn: &mut Connection, info: &[MapInfoMulti]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO map_info_multi (id, self_name, anchor_tile_index, stride, row_step, start_pos_a_x, start_pos_a_y, start_pos_b_x, start_pos_b_y, transition_target, mon_filename, npc_spawns_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        )?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_info_multi"))?;
         for item in info {
             stmt.execute(params![
                 item.id,
@@ -213,7 +211,8 @@ pub fn save_map_info_multi(conn: &mut Connection, info: &[MapInfoMulti]) -> Resu
                 item.start_pos_b_y,
                 item.transition_target,
                 item.mon_filename,
-                serde_json::to_string(&item.npc_spawns).unwrap_or_default(),
+                serde_json::to_string(&item.npc_spawns)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ])?;
         }
     }

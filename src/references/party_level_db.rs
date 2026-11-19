@@ -130,7 +130,7 @@ pub fn read_party_level_db(source_path: &Path) -> Result<Vec<PartyLevelNpc>> {
 
 pub fn save_party_levels(conn: &mut Connection, npcs: &[PartyLevelNpc]) -> DbResult<()> {
     let tx = conn.transaction()?;
-    let mut stmt = tx.prepare(include_str!("../queries/insert_party_level.sql"))?;
+    let mut stmt = tx.prepare(crate::database::insert_sql("party_levels"))?;
     for npc in npcs {
         for record in &npc.records {
             stmt.execute(params![

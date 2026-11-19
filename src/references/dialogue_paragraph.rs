@@ -183,7 +183,7 @@ pub fn save_dialogue_paragraphs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("dialogue_paragraphs"))?;
         for text in texts {
             stmt.execute(params![
                 file_id,

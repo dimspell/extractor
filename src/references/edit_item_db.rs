@@ -172,7 +172,7 @@ pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {
 pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_edit_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("edit_items"))?;
         for item in edit_items {
             stmt.execute(params![
                 item.index,

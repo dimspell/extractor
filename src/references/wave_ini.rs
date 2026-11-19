@@ -85,7 +85,7 @@ pub fn read_wave_ini(source_path: &Path) -> std::io::Result<Vec<WaveIni>> {
 pub fn save_wave_inis(conn: &mut Connection, wave_inis: &[WaveIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_wave_ini.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("wave_inis"))?;
         for wave_ini in wave_inis {
             stmt.execute(params![
                 wave_ini.id,

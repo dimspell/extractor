@@ -243,8 +243,8 @@ pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
 pub fn save_stores(conn: &mut Connection, stores: &[Store]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt_store = tx.prepare(include_str!("../queries/insert_store.sql"))?;
-        let mut stmt_product = tx.prepare(include_str!("../queries/insert_store_product.sql"))?;
+        let mut stmt_store = tx.prepare(crate::database::insert_sql("stores"))?;
+        let mut stmt_product = tx.prepare(crate::database::insert_sql("store_products"))?;
 
         for store in stores {
             stmt_store.execute(params![

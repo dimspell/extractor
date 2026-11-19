@@ -58,9 +58,7 @@ pub fn read_monster_spawn(source_path: &Path) -> std::io::Result<Vec<MonsterSpaw
 pub fn save_monster_spawns(conn: &mut Connection, spawns: &[MonsterSpawn]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO monster_spawns (serial, monster_no, x, y, persistent, burrow, item_group, drop_attribute) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        )?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monster_spawns"))?;
         for spawn in spawns {
             stmt.execute(params![
                 spawn.serial,

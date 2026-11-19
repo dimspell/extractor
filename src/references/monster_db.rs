@@ -249,7 +249,7 @@ pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
 pub fn save_monsters(conn: &mut Connection, monsters: &[Monster]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_monster.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monsters"))?;
         for monster in monsters {
             stmt.execute(params![
                 monster.id,

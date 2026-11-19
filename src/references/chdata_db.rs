@@ -96,7 +96,7 @@ pub fn read_chdata(source_path: &Path) -> std::io::Result<Vec<ChData>> {
 pub fn save_chdatas(conn: &mut Connection, records: &[ChData]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_chdata.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("ch_datas"))?;
         for record in records {
             stmt.execute(params![
                 record.unused_name,
