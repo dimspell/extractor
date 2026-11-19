@@ -12,9 +12,9 @@
 //! 4. Write the resulting bytes back to the game directory (or delete the
 //!    file if the final state is "absent").
 //!
-//! Conflict detection is intentionally absent in Phase 2 — last-writer-wins
-//! is enough to verify correctness end-to-end. Phase 5 layers a real
-//! conflict surface on top of this same engine.
+//! Conflict detection is intentionally absent here — last-writer-wins is
+//! enough to verify correctness end-to-end. A real conflict surface can be
+//! layered on top of this same engine.
 //!
 //! [`VanillaStore`]: super::vanilla::VanillaStore
 
