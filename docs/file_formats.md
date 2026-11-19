@@ -121,7 +121,7 @@ Simple contiguous array of raw pixels.
 - Loop until EOF: Read 32*32*2 bytes.
 
 ### Isometry Mask
-The code procedurally generates a diamond-shape mask (`create_mask`) to render the 32x32 square tile into a 62x32 isometric projection.
+The code procedurally generates a diamond-shape mask (`decode::tile_mask()` in `src/decode.rs`) to render the 32x32 square tile into a 62x32 isometric projection.
 
 ---
 

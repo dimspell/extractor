@@ -1,6 +1,6 @@
 use crate::editors::tileset::TileExportFormat;
+use dispel_core::decode::tile_colors_to_rgba;
 use dispel_core::map::tileset::{TILE_HEIGHT, TILE_WIDTH, extract};
-use dispel_core::sprite::Color;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -68,7 +68,7 @@ impl TilesetEditorState {
                 let tiles = raw_tiles
                     .iter()
                     .map(|tile| {
-                        let rgba = colors_to_rgba(&tile.colors);
+                        let rgba = tile_colors_to_rgba(&tile.colors);
                         TileHandle {
                             image: iced::widget::image::Handle::from_rgba(
                                 TILE_WIDTH,
@@ -101,52 +101,6 @@ impl TilesetEditorState {
     }
 }
 
-/// Convert a tile's decoded color array to a 62×32 RGBA byte buffer.
-/// Uses the same isometric diamond mask as tileset::plot_tile_rgba but without
-/// the image crate dependency (avoids version conflicts with dispel_core).
-fn colors_to_rgba(colors: &[Color; 1024]) -> Vec<u8> {
-    let w = TILE_WIDTH as usize;
-    let h = TILE_HEIGHT as usize;
-    let mut rgba = vec![0u8; w * h * 4];
-
-    let mask = build_mask();
-    let mut src = 0usize;
-    for (y, row) in mask.iter().enumerate() {
-        let x_off = row[0] as usize;
-        let width = row[1] as usize;
-        for x in 0..width {
-            let c = colors[src];
-            src += 1;
-            if c.r == 0 && c.g == 0 && c.b == 0 {
-                continue;
-            }
-            let px = x_off + x;
-            let dst = (y * w + px) * 4;
-            rgba[dst] = c.r;
-            rgba[dst + 1] = c.g;
-            rgba[dst + 2] = c.b;
-            rgba[dst + 3] = 255;
-        }
-    }
-    rgba
-}
-
-/// Builds the isometric diamond mask: [[x_offset, width]; 32].
-fn build_mask() -> [[i32; 2]; 32] {
-    let mut mask = [[0i32; 2]; TILE_HEIGHT as usize];
-    let mut pixels_x: i32 = 1;
-    let step: i32 = 2;
-    let mut direction: i32 = 1;
-    let limit = 31;
-
-    for row in mask.iter_mut() {
-        row[0] = (TILE_WIDTH as i32) / 2 - pixels_x;
-        row[1] = pixels_x * 2;
-        pixels_x += step * direction;
-        if pixels_x > limit {
-            direction = -1;
-            pixels_x = limit;
-        }
-    }
-    mask
-}
+// The 62×32 RGBA conversion and its diamond mask are owned by
+// `dispel_core::decode::tile_colors_to_rgba`; the former local copies
+// (`colors_to_rgba` / `build_mask`) were removed.

@@ -80,23 +80,10 @@ pub struct SequenceInfo {
     pub frame_infos: Vec<ImageInfo>,
 }
 
-/// An RGB color decoded from a 16-bit sprite pixel value.
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-    /// Red component (0-255).
-    pub r: u8,
-    /// Green component (0-255).
-    pub g: u8,
-    /// Blue component (0-255).
-    pub b: u8,
-}
-
-/// Channel layout of a 16-bit sprite pixel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum SpritePixelFormat {
-    Rgb555,
-    Rgb565,
-}
+// Color conversion and the 16-bit channel packing are owned by `crate::decode`
+// (the version-agnostic rendering abstraction). Re-exported here so all
+// existing `sprite::Color` / `sprite::SpritePixelFormat` paths keep working.
+pub use crate::decode::{Color, SpritePixelFormat};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FrameInfoJson {
@@ -127,44 +114,13 @@ pub struct SpriteInfoJson {
 // Low-level parsing
 // ===========================================================================
 
-/// Decodes a 16-bit RGB565 pixel value into an 8-bit RGB `Color`.
-///
-/// The RGB565 format uses 5 bits for red, 6 for green, and 5 for blue.
-/// Values are expanded to 8-bit by left-shifting: R<<3, G<<2, B<<3.
-///
-/// A pixel value of `0` represents transparency and should be skipped
-/// during rendering.
-pub fn rgb16_565_produce_color(pixel: u16) -> Color {
-    let red_mask: u16 = 0xF800;
-    let green_mask: u16 = 0x7E0;
-    let blue_mask: u16 = 0x1F;
-
-    let red_value = (pixel & red_mask) >> 11;
-    let green_value = (pixel & green_mask) >> 5;
-    let blue_value = pixel & blue_mask;
-
-    Color {
-        r: (red_value << 3) as u8,
-        g: (green_value << 2) as u8,
-        b: (blue_value << 3) as u8,
-    }
-}
-
-/// Decode a 16-bit RGB555 pixel into an 8-bit RGB [`Color`].
-pub fn rgb16_555_produce_color(pixel: u16) -> Color {
-    Color {
-        r: (((pixel & 0x7C00) >> 10) << 3) as u8,
-        g: (((pixel & 0x03E0) >> 5) << 3) as u8,
-        b: ((pixel & 0x001F) << 3) as u8,
-    }
-}
-
-pub fn rgb16_produce_color(pixel: u16, pixel_format: SpritePixelFormat) -> Color {
-    match pixel_format {
-        SpritePixelFormat::Rgb555 => rgb16_555_produce_color(pixel),
-        SpritePixelFormat::Rgb565 => rgb16_565_produce_color(pixel),
-    }
-}
+// The 16-bit → RGB888 conversion lives in `crate::decode` and is shared with
+// the tileset renderer and the GUI. These aliases preserve the historical
+// names used across the codebase (and by external doc comments).
+pub use crate::decode::{
+    rgb16_to_color as rgb16_produce_color, rgb555_to_color as rgb16_555_produce_color,
+    rgb565_to_color as rgb16_565_produce_color,
+};
 
 fn get_image_info_with_pixel_stride<R: Read + Seek>(
     reader: &mut BufReader<R>,
@@ -1303,7 +1259,7 @@ mod tests {
     #[test]
     fn rgb555_decodes_five_bit_green() {
         let color = rgb16_produce_color(0x03E0, SpritePixelFormat::Rgb555);
-        assert_eq!((color.r, color.g, color.b), (0, 248, 0));
+        assert_eq!((color.r, color.g, color.b), (0, 255, 0));
     }
 
     #[test]
@@ -1339,16 +1295,17 @@ mod tests {
 
     #[test]
     fn rgba_to_rgb565_decode_round_trip() {
-        // Encode a known color → decode back → verify color values
+        // Encode a known color → decode back → verify the 5/6/5 fields survive.
+        // Decode expands to the full 0..=255 range (16 → 132, not 16 << 3).
         let encoded = rgba_to_rgb565_bytes(128, 64, 192, 255);
         let pixel = u16::from_le_bytes(encoded);
         let color = rgb16_565_produce_color(pixel);
-        // 128 >> 3 = 16, 16 << 3 = 128
-        assert_eq!(color.r, 128);
-        // 64 >> 2 = 16, 16 << 2 = 64
-        assert_eq!(color.g, 64);
-        // 192 >> 3 = 24, 24 << 3 = 192
-        assert_eq!(color.b, 192);
+        assert_eq!(color.r, 132); // r5 = 16
+        assert_eq!(color.g, 65); // g6 = 16
+        assert_eq!(color.b, 197); // b5 = 24
+        assert_eq!(u16::from(color.r) >> 3, 16);
+        assert_eq!(u16::from(color.g) >> 2, 16);
+        assert_eq!(u16::from(color.b) >> 3, 24);
     }
 
     #[test]
@@ -1374,13 +1331,10 @@ mod tests {
         // Decode back
         let decoded = frame.decode_to_rgba();
         assert_eq!(decoded.len(), 64, "4×4 pixels × 4 bytes RGBA");
-        // First pixel should be R=248 (after 5-bit rounding), G=64, B=64
-        assert_eq!(decoded[0], 248); // R (255→31→248)
-        assert_eq!(decoded[1], 128); // G (128→32→128) wait...
-        // Actually: 128 >> 2 = 32, 32 << 2 = 128
-        // Let me verify:
-        // 64 >> 2 = 16, 16 << 2 = 64
-        // Let me just check the first pixel is non-zero and alpha is 255
+        // R=255 → r5=31 → 255; G=128 → g6=32 → 130; B=64 → b5=8 → 66.
+        assert_eq!(decoded[0], 255);
+        assert_eq!(decoded[1], 130);
+        assert_eq!(decoded[2], 66);
         assert_eq!(decoded[3], 255);
     }
 
@@ -1519,59 +1473,6 @@ mod tests {
         let _ = std::fs::remove_file(&tmp);
     }
 
-    #[test]
-    fn color_black() {
-        let color = rgb16_565_produce_color(0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_red_max() {
-        let color = rgb16_565_produce_color(0xF800);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_green_max() {
-        let color = rgb16_565_produce_color(0x07E0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_blue_max() {
-        let color = rgb16_565_produce_color(0x001F);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_white() {
-        let color = rgb16_565_produce_color(0xFFFF);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_magenta() {
-        let color = rgb16_565_produce_color(0xF81F);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_cyan() {
-        let color = rgb16_565_produce_color(0x07FF);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 248);
-    }
+    // Golden RGB565/RGB555 values and channel invariants now live in
+    // `crate::decode::tests`; the old per-format copies were removed.
 }

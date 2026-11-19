@@ -501,6 +501,7 @@ fn decode_internal_map_sprites(
     reader: &mut std::io::BufReader<std::fs::File>,
     map_data: &dispel_core::map::MapData,
 ) -> Vec<DecodedMapSprite> {
+    use dispel_core::decode::rgb16_to_color;
     use std::io::{Read, Seek, SeekFrom};
 
     let mut result = Vec::new();
@@ -530,19 +531,16 @@ fn decode_internal_map_sprites(
             continue;
         }
 
+        // Channel expansion is owned by `dispel_core::decode`.
         let mut pixels = vec![0u8; pixel_count * 4];
         for i in 0..pixel_count {
-            let lo = raw[i * 2] as u16;
-            let hi = raw[i * 2 + 1] as u16;
-            let pixel = lo | (hi << 8);
+            let pixel = u16::from_le_bytes([raw[i * 2], raw[i * 2 + 1]]);
             if pixel > 0 {
-                let r5 = ((pixel >> 11) & 0x1F) as u32;
-                let g6 = ((pixel >> 5) & 0x3F) as u32;
-                let b5 = (pixel & 0x1F) as u32;
+                let color = rgb16_to_color(pixel, frame.pixel_format);
                 let idx = i * 4;
-                pixels[idx] = (r5 * 255 / 31) as u8;
-                pixels[idx + 1] = (g6 * 255 / 63) as u8;
-                pixels[idx + 2] = (b5 * 255 / 31) as u8;
+                pixels[idx] = color.r;
+                pixels[idx + 1] = color.g;
+                pixels[idx + 2] = color.b;
                 pixels[idx + 3] = 255;
             }
         }

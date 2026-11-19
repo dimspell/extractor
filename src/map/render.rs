@@ -1482,43 +1482,8 @@ fn plot_npc_waypoints_overlay(
     }
 }
 
-#[test]
-fn rgb16_565_produce_color_test() {
-    let color = rgb16_565_produce_color(0);
-    assert_eq!(color.r as i16 + color.g as i16 + color.b as i16, 0);
-}
-
-#[test]
-fn rgb16_565_red_max() {
-    let color = rgb16_565_produce_color(0xF800);
-    assert_eq!(color.r, 248);
-    assert_eq!(color.g, 0);
-    assert_eq!(color.b, 0);
-}
-
-#[test]
-fn rgb16_565_green_max() {
-    let color = rgb16_565_produce_color(0x07E0);
-    assert_eq!(color.r, 0);
-    assert_eq!(color.g, 252);
-    assert_eq!(color.b, 0);
-}
-
-#[test]
-fn rgb16_565_blue_max() {
-    let color = rgb16_565_produce_color(0x001F);
-    assert_eq!(color.r, 0);
-    assert_eq!(color.g, 0);
-    assert_eq!(color.b, 248);
-}
-
-#[test]
-fn rgb16_565_white() {
-    let color = rgb16_565_produce_color(0xFFFF);
-    assert_eq!(color.r, 248);
-    assert_eq!(color.g, 252);
-    assert_eq!(color.b, 248);
-}
+// RGB565 golden-value tests live in `crate::decode::tests` now; these render
+// tests cover the renderer-specific blending/geometry that remains here.
 
 #[test]
 fn test_blend_rgb() {

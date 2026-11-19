@@ -59,11 +59,10 @@ use std::io::{BufReader, Result, Seek};
 use std::{fs::File, path::Path};
 
 use crate::map::types::TILE_PIXEL_NUMBER;
-use crate::sprite::Color;
-
-// Constants for tile dimensions and pixel count
-pub const TILE_WIDTH: u32 = 62;
-pub const TILE_HEIGHT: u32 = 32;
+// Tile geometry and color conversion are owned by the version-agnostic decode
+// abstraction. TILE_WIDTH/TILE_HEIGHT are re-exported to keep existing paths.
+use crate::decode::{Color, rgb565_to_color};
+pub use crate::decode::{TILE_HEIGHT, TILE_WIDTH};
 
 /// Represents a single tile with its color data
 #[derive(Debug, Clone)]
@@ -125,7 +124,7 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
         let mut pixels: [Color; 1024] = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_NUMBER as usize];
         for p in 0..TILE_PIXEL_NUMBER {
             let pixel = reader.read_u16::<LittleEndian>()?;
-            let color = rgb16_565_produce_color(pixel);
+            let color = rgb565_to_color(pixel);
             pixels[p as usize] = color;
         }
 
@@ -134,37 +133,6 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     }
 
     Ok(tiles)
-}
-
-/// Creates a mask for isometric tile rendering.
-///
-/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the
-/// 32-row tile. The mask describes a 62px-wide ([`TILE_WIDTH`]) diamond:
-/// narrow at top/bottom, full-width across the two middle rows. Row widths
-/// run 2, 6, …, 62, 62, …, 6, 2 and consume exactly `TILE_PIXEL_NUMBER`
-/// (1024) texels per tile.
-///
-/// Tiling geometry: diagonal neighbours step (±32, ∓16) and abut
-/// edge-to-edge; horizontal neighbours step 64px, leaving a 2px seam
-/// between the widest rows (the visible isometric grid line).
-fn create_mask() -> [[i32; 2]; 32] {
-    let mut mask = [[0i32; 2]; TILE_HEIGHT as usize];
-    let mut pixels_x: i32 = 1;
-    let step: i32 = 2;
-    let mut direction: i32 = 1;
-    let limit = 31;
-
-    for row in mask.iter_mut() {
-        row[0] = (TILE_WIDTH as i32) / 2 - pixels_x; // x_offset
-        row[1] = pixels_x * 2; // width
-        pixels_x += step * direction;
-        if pixels_x > limit {
-            direction = -1;
-            pixels_x = limit;
-        }
-    }
-
-    mask
 }
 
 /// Plots all tiles as individual PNG files
@@ -208,7 +176,7 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
         return;
     }
 
-    let mask = create_mask();
+    let mask = crate::decode::tile_mask();
     let mut i = 0;
     for (y, row) in mask.iter().enumerate() {
         for x in 0..row[1] {
@@ -248,7 +216,7 @@ pub fn plot_tile_opaque(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i3
         return;
     }
 
-    let mask = create_mask();
+    let mask = crate::decode::tile_mask();
     let mut i = 0;
     for (y, row) in mask.iter().enumerate() {
         for x in 0..row[1] {
@@ -360,7 +328,7 @@ pub fn plot_tile_rgba_opaque(
         return;
     }
 
-    let mask = create_mask();
+    let mask = crate::decode::tile_mask();
     let mut i = 0;
     for (y, row) in mask.iter().enumerate() {
         for x in 0..row[1] {
@@ -410,71 +378,9 @@ pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024
     pixels
 }
 
-/// Converts RGB565 color format to RGB888
-///
-/// # Arguments
-///
-/// * `pixel` - RGB565 color value
-///
-/// # Returns
-///
-/// Color struct with RGB888 values
-fn rgb16_565_produce_color(pixel: u16) -> Color {
-    let r = ((pixel >> 11) & 0x1F) as u8;
-    let g = ((pixel >> 5) & 0x3F) as u8;
-    let b = (pixel & 0x1F) as u8;
-
-    // Scale to 8-bit
-    let r = (r as f32 * 255.0 / 31.0).round() as u8;
-    let g = (g as f32 * 255.0 / 63.0).round() as u8;
-    let b = (b as f32 * 255.0 / 31.0).round() as u8;
-
-    Color { r, g, b }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_rgb16_565_black() {
-        let color = rgb16_565_produce_color(0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn test_rgb16_565_red() {
-        let color = rgb16_565_produce_color(0xF800);
-        assert_eq!(color.r, 255);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn test_rgb16_565_green() {
-        let color = rgb16_565_produce_color(0x07E0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 255);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn test_rgb16_565_blue() {
-        let color = rgb16_565_produce_color(0x001F);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 255);
-    }
-
-    #[test]
-    fn test_rgb16_565_white() {
-        let color = rgb16_565_produce_color(0xFFFF);
-        assert_eq!(color.r, 255);
-        assert_eq!(color.g, 255);
-        assert_eq!(color.b, 255);
-    }
 
     #[test]
     fn test_mix_color() {
@@ -488,28 +394,6 @@ mod tests {
         assert_eq!(result[0].r, 127);
     }
 
-    #[test]
-    fn test_create_mask() {
-        let mask = create_mask();
-        // 32 scanlines, each with [x_offset, width]
-        assert_eq!(mask.len(), 32);
-        assert_eq!(mask[0].len(), 2);
-
-        // Top row: narrowest (width=2, offset=30)
-        assert_eq!(mask[0][1], 2, "top row width should be 2");
-        assert_eq!(mask[0][0], 30, "top row offset should be 30");
-
-        // Middle rows (y=15 and y=16): widest (width=62, offset=0)
-        assert_eq!(mask[15][1], 62, "middle row width should be 62");
-        assert_eq!(mask[15][0], 0, "middle row offset should be 0");
-        assert_eq!(mask[16][1], 62, "second middle row width should be 62");
-
-        // Bottom row: narrowest again
-        assert_eq!(mask[31][1], 2, "bottom row width should be 2");
-        assert_eq!(mask[31][0], 30, "bottom row offset should be 30");
-
-        // Total pixels must equal 1024
-        let total: i32 = mask.iter().map(|row| row[1]).sum();
-        assert_eq!(total, 1024, "total pixels across all rows must be 1024");
-    }
+    // RGB565 golden values and the diamond-mask geometry test moved to
+    // `crate::decode::tests` — the single abstraction boundary.
 }
