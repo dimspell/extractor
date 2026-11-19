@@ -64,7 +64,6 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "npc_refs",
         "party_inis",
         "party_levels",
-        "party_pgps",
         "party_refs",
         "quests",
         "sprite_frames",

@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, Ident};
 
-use crate::schema::{CodegenConfig, FieldInfo, RecordSchema, extract_vec_inner};
+use crate::schema::{CodegenConfig, FieldInfo, RecordSchema};
 
 pub fn expand(input: DeriveInput) -> TokenStream2 {
     codegen(&input, &CodegenConfig::default())
@@ -139,30 +139,6 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let mut #ident = vec![0u8; #size];
                     reader.read_exact(&mut #ident)?;
-                });
-                struct_field_inits.push(quote! { #ident: #ident, });
-            }
-            FieldInfo::Nested {
-                ident,
-                item_ty,
-                max_items,
-                item_size: _,
-            } => {
-                let inner_ty = extract_vec_inner(item_ty).unwrap_or_else(|| {
-                    panic!(
-                        "#[extractor(nested)] requires the field type to be Vec<T>; got `{}`",
-                        quote! { #item_ty }
-                    )
-                });
-                let inner_ty_tokens = quote! { #inner_ty };
-                parse_stmts.push(quote! {
-                    let mut #ident: Vec<#inner_ty_tokens> = Vec::with_capacity(#max_items);
-                    for _ in 0..#max_items {
-                        match <#inner_ty_tokens as #extractor_trait>::parse_one(reader)? {
-                            Some(item) => #ident.push(item),
-                            None => break,
-                        }
-                    }
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
@@ -318,34 +294,6 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     writer.write_all(&record.#ident)?;
                 });
             }
-            FieldInfo::Nested {
-                ident,
-                item_ty,
-                max_items,
-                item_size,
-            } => {
-                let inner_ty = extract_vec_inner(item_ty).unwrap_or_else(|| {
-                    panic!(
-                        "#[extractor(nested)] requires the field type to be Vec<T>; got `{}`",
-                        quote! { #item_ty }
-                    )
-                });
-                let inner_ty_tokens = quote! { #inner_ty };
-                let total_size = *max_items as i32 * *item_size;
-                write_stmts.push(quote! {
-                    for item in record.#ident.iter() {
-                        <#inner_ty_tokens as #extractor_trait>::write_one(item, writer)?;
-                    }
-                    let written = (record.#ident.len() as i32) * (#item_size as i32);
-                    let remaining_slots = ((#total_size as i32 - written) / #item_size as i32) as usize;
-                    if remaining_slots > 0 {
-                        let pad = vec![0u8; #item_size as usize];
-                        for _ in 0..remaining_slots {
-                            writer.write_all(&pad)?;
-                        }
-                    }
-                });
-            }
             FieldInfo::InventoryItem { ident, wire_type } => {
                 let write_stmt = match wire_type.as_str() {
                     "u16" => {
@@ -401,8 +349,6 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     // Generate the full implementation
     let expanded = quote! {
         impl #extractor_trait for #name {
-            const ITEM_SIZE: i32 = #property_item_size;
-
             fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
                 const COUNTER_SIZE: u8 = #counter_size;
                 const PROPERTY_ITEM_SIZE: i32 = #property_item_size;
@@ -436,22 +382,6 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 }
 
                 Ok(())
-            }
-
-            fn parse_one<R: std::io::Read + std::io::Seek>(reader: &mut R) -> std::io::Result<Option<Self>> {
-                const ITEM_SIZE: usize = #property_item_size as usize;
-                let mut buf = vec![0u8; ITEM_SIZE];
-                reader.read_exact(&mut buf)?;
-                if buf.iter().all(|&b| b == 0) {
-                    return Ok(None);
-                }
-                let mut cursor = std::io::Cursor::new(buf);
-                let mut parsed = Self::parse(&mut cursor, ITEM_SIZE as u64)?;
-                Ok(parsed.pop())
-            }
-
-            fn write_one<W: std::io::Write>(record: &Self, writer: &mut W) -> std::io::Result<()> {
-                Self::to_writer(std::slice::from_ref(record), writer)
             }
         }
     };

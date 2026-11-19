@@ -110,7 +110,7 @@ pub enum Commands {
     /// Dialog flow visualization
     #[command(
         about = "Print dialog flow from DLG and PGP files",
-        long_about = "Reads a DLG (dialog configuration) file and optionally a PGP (dialog text) file, then prints the complete dialog flow as a tree.\n\nUsage Examples:\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref --database database.sqlite"
+        long_about = "Reads a DLG (dialog configuration) file and optionally a PGP (dialog text) file, then prints the complete dialog flow as a tree.\n\nUsage Examples:\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref --database-path database.sqlite"
     )]
     Dialog {
         /// Path to the DLG file (dialog configuration)

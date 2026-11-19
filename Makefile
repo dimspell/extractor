@@ -12,7 +12,7 @@
 
 .PHONY: help fmt cargo_test iced_test hexedit_test clippy run run-custom-context-menu \
         check build hexedit \
-        extract-help extract-file extract-file-pretty \
+        extract-help extracts-help extract-file extract-file-pretty \
         extract-all-maps extract-map extract-monsters extract-heal-item \
         extract-draw-item extract-misc-item extract-edit-item \
         extract-event-item extract-store-db extract-extra-ref \
@@ -22,7 +22,7 @@
         extract-dialogue-text extract-weapons \
         patch-dry-run patch-in-place patch validate validate-verbose \
         list list-json list-filtered schema template template-pretty \
-        map-help map-tiles map-atlas map-render \
+        map-help map-tiles map-atlas map-render map-render-legacy \
         map-render-lit map-render-transparent map-render-collisions map-render-events \
         map-render-draw-items map-render-waypoints \
         map-render-noground map-render-nobuildings map-render-noroofs \
@@ -32,10 +32,9 @@
         map-all-gtl-tiles map-all-btl-tiles zip-map-tiles \
         database-import database-dialog-texts database-maps \
         database-databases database-refs database-rest \
-        sprite sprite-animation sprite-info \
-        sound dialog dialog-basic dialogs \
-        mod-pack mod-pack-pretty mod-pack-single \
-        test-hello
+        sprite sprite-animation sprite-animation-legacy sprite-sprite sprite-info \
+        sound sound-legacy dialog dialog-basic dialogs \
+        mod-pack mod-pack-pretty mod-pack-single
 
 # ============================================================================
 # Configuration variables (overridable via `make TARGET var=val`)
@@ -540,11 +539,11 @@ sprite-animation-legacy:
 # Usage: sound <INPUT> <OUTPUT>
 
 sound:
-	cargo run -- sound "$(INPUT)" "$(OUTPUT)"
+	cargo run -- sound to-wav "$(INPUT)" "$(OUTPUT)"
 
 # (Legacy convenience)
 sound-legacy:
-	cargo run -- sound --input notexist.snf --output Piach.wav
+	cargo run -- sound to-wav notexist.snf Piach.wav
 
 # ============================================================================
 # dialog — Print dialog flow from DLG/PGP files
@@ -563,7 +562,7 @@ dialogs:
 	cargo run -- dialog "$(game_path)/NpcInGame/Dlgcat1.dlg" \
 		-p "$(game_path)/NpcInGame/Pgpcat1.pgp" \
 		-n "$(game_path)/NpcInGame/Npccat1.ref" \
-		--database-path "$(db_path)"
+		-d "$(db_path)"
 
 # ============================================================================
 # mod-pack — Export event scripts to JSON (for Godot etc.)
@@ -581,11 +580,3 @@ mod-pack-pretty:
 
 mod-pack-single:
 	cargo run -- mod-pack -g "$(game_path)" -o "$(OUTPUT)" --single-file
-
-# ============================================================================
-# test — CLI smoke test
-# ============================================================================
-# Usage: test [-m/--message <TEXT>] (default: "Hello from test command!")
-
-test-hello:
-	cargo run -- test -m "$(MESSAGE)"

@@ -149,14 +149,6 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     )));
                 }
             },
-            FieldInfo::Nested { .. } => quote! {
-                #field_name => {
-                    return Err(#malformed(format!(
-                        "{}.{} is nested and cannot be patched",
-                        Self::RECORD_NAME, #field_name
-                    )));
-                }
-            },
             FieldInfo::Skip => continue,
         };
         field_arms.push(arm);

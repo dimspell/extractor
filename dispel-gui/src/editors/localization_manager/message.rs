@@ -26,7 +26,8 @@ pub enum LocalizationMessage {
     ModVersionChanged(String),
     ModAuthorChanged(String),
     ApplyAndPackage,
-    Applied(Result<PathBuf, String>),
+    /// `(package path, per-file truncation warnings)`
+    Applied(Result<(PathBuf, Vec<String>), String>),
     Revert,
     Reverted(Result<(), String>),
 }
