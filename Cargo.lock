@@ -1325,12 +1325,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dispel-encodings"
+version = "0.9.3"
+dependencies = [
+ "encoding_rs",
+ "serde",
+]
+
+[[package]]
 name = "dispel-extractor"
 version = "0.9.3"
 dependencies = [
  "byteorder",
  "clap",
  "csv",
+ "dispel-encodings",
  "dispel-macros",
  "encoding_rs",
  "encoding_rs_io",
@@ -1387,6 +1396,7 @@ dependencies = [
 name = "dispel-macros"
 version = "0.9.3"
 dependencies = [
+ "dispel-encodings",
  "proc-macro2",
  "quote",
  "syn 2.0.119",

@@ -76,37 +76,62 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
+                let conversion = crate::wire_enum::from_wire_tokens(
+                    &config.wire_value_trait(),
+                    enum_ty,
+                    "u8",
+                    quote! { #bo::ReadBytesExt::read_u8(reader)? },
+                );
                 parse_stmts.push(quote! {
-                    let #ident = #enum_ident::from_u8(#bo::ReadBytesExt::read_u8(reader)?).unwrap_or_default();
+                    let #ident = #conversion;
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
             FieldInfo::EnumFromU32 { ident, enum_ty } => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
+                let conversion = crate::wire_enum::from_wire_tokens(
+                    &config.wire_value_trait(),
+                    enum_ty,
+                    "u32",
+                    quote! { #bo::ReadBytesExt::read_u32::<#bo::LittleEndian>(reader)? },
+                );
                 parse_stmts.push(quote! {
-                    let #ident = #enum_ident::from_u32(#bo::ReadBytesExt::read_u32::<#bo::LittleEndian>(reader)?).unwrap_or_default();
+                    let #ident = #conversion;
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
             FieldInfo::EnumFromI16 { ident, enum_ty } => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
+                let conversion = crate::wire_enum::from_wire_tokens(
+                    &config.wire_value_trait(),
+                    enum_ty,
+                    "i16",
+                    quote! { #bo::ReadBytesExt::read_i16::<#bo::LittleEndian>(reader)? },
+                );
                 parse_stmts.push(quote! {
-                    let #ident = #enum_ident::from_i16(#bo::ReadBytesExt::read_i16::<#bo::LittleEndian>(reader)?).unwrap_or_default();
+                    let #ident = #conversion;
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
             FieldInfo::EnumFromI32 { ident, enum_ty } => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
+                let conversion = crate::wire_enum::from_wire_tokens(
+                    &config.wire_value_trait(),
+                    enum_ty,
+                    "i32",
+                    quote! { #bo::ReadBytesExt::read_i32::<#bo::LittleEndian>(reader)? },
+                );
                 parse_stmts.push(quote! {
-                    let #ident = #enum_ident::from_i32(#bo::ReadBytesExt::read_i32::<#bo::LittleEndian>(reader)?).unwrap_or_default();
+                    let #ident = #conversion;
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
             FieldInfo::EnumFromI32FromU8 { ident, enum_ty } => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
+                let conversion = crate::wire_enum::from_wire_tokens(
+                    &config.wire_value_trait(),
+                    enum_ty,
+                    "u8",
+                    quote! { #bo::ReadBytesExt::read_u8(reader)? },
+                );
                 parse_stmts.push(quote! {
-                    let #ident = #enum_ident::from_u8(#bo::ReadBytesExt::read_u8(reader)?).unwrap_or_default();
+                    let #ident = #conversion;
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }

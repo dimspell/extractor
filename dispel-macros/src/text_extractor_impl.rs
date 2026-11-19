@@ -1,4 +1,3 @@
-use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
@@ -32,6 +31,8 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 if meta.path.is_ident("encoding") {
                     let value = meta.value()?;
                     let lit: LitStr = value.parse()?;
+                    // Keep the raw spelling; `CodegenConfig::encoding_constant`
+                    // resolves it through the shared encoding registry.
                     encoding_name = lit.value();
                 } else if meta.path.is_ident("delimiter") {
                     let value = meta.value()?;
@@ -75,33 +76,41 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     field_infos.sort_by_key(|f| f.index);
 
     // Generate parse statements
-    let parse_arms: Vec<TokenStream2> = field_infos.iter().map(|info| {
-        let field_ident = &info.ident;
-        let index = info.index;
-        match &info.ty {
-            TextFieldType::I32 => {
-                quote! {
-                    #field_ident: parts[#index].trim().parse::<i32>().unwrap_or_default(),
+    let parse_arms: Vec<TokenStream2> = field_infos
+        .iter()
+        .map(|info| {
+            let field_ident = &info.ident;
+            let index = info.index;
+            match &info.ty {
+                TextFieldType::I32 => {
+                    quote! {
+                        #field_ident: parts[#index].trim().parse::<i32>().unwrap_or_default(),
+                    }
+                }
+                TextFieldType::String => {
+                    quote! {
+                        #field_ident: parts[#index].trim().to_string(),
+                    }
+                }
+                TextFieldType::OptionString => {
+                    quote! {
+                        #field_ident: #parse_null(parts[#index].trim()),
+                    }
+                }
+                TextFieldType::EnumFromI32(enum_ty) => {
+                    let conversion = crate::wire_enum::from_wire_tokens(
+                        &config.wire_value_trait(),
+                        enum_ty,
+                        "i32",
+                        quote! { parts[#index].trim().parse::<i32>().unwrap_or_default() },
+                    );
+                    quote! {
+                        #field_ident: #conversion,
+                    }
                 }
             }
-            TextFieldType::String => {
-                quote! {
-                    #field_ident: parts[#index].trim().to_string(),
-                }
-            }
-            TextFieldType::OptionString => {
-                quote! {
-                    #field_ident: #parse_null(parts[#index].trim()),
-                }
-            }
-            TextFieldType::EnumFromI32(enum_ty) => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
-                quote! {
-                    #field_ident: #enum_ident::from_i32(parts[#index].trim().parse::<i32>().unwrap_or_default()).unwrap_or_default(),
-                }
-            }
-        }
-    }).collect();
+        })
+        .collect();
 
     // Generate write format string
     let field_count = field_infos.len();

@@ -111,15 +111,23 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 },
             },
             TextFieldType::EnumFromI32(enum_ty) => {
-                let enum_ident = Ident::new(&enum_ty, Span::call_site());
+                let wire_value = config.wire_value_trait();
+                let from_i64 = crate::wire_enum::from_wire_tokens(
+                    &wire_value,
+                    &enum_ty,
+                    "i32",
+                    quote! { (*v) as i32 },
+                );
+                let from_string =
+                    crate::wire_enum::from_wire_tokens(&wire_value, &enum_ty, "i32", quote! { v });
                 let expected = format!("i32 (discriminant of {enum_ty})");
                 quote! {
                     #field_name => match new {
                         #value::I64(v) => {
-                            rec.#field_ident = #enum_ident::from_i32((*v) as i32).unwrap_or_default();
+                            rec.#field_ident = #from_i64;
                         }
                         #value::String(s) => match s.trim().parse::<i32>() {
-                            Ok(v) => rec.#field_ident = #enum_ident::from_i32(v).unwrap_or_default(),
+                            Ok(v) => rec.#field_ident = #from_string,
                             Err(_) => return Err(#wrong_type(
                                 Self::RECORD_NAME, #field_name, #expected, new,
                             )),

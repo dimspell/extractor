@@ -84,19 +84,19 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 },
             },
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, enum_ty, "u8", "from_u8", config)
+                enum_arm(&field_name, ident, enum_ty, "u8", config)
             }
             FieldInfo::EnumFromU32 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, enum_ty, "u32", "from_u32", config)
+                enum_arm(&field_name, ident, enum_ty, "u32", config)
             }
             FieldInfo::EnumFromI16 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, enum_ty, "i16", "from_i16", config)
+                enum_arm(&field_name, ident, enum_ty, "i16", config)
             }
             FieldInfo::EnumFromI32 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, enum_ty, "i32", "from_i32", config)
+                enum_arm(&field_name, ident, enum_ty, "i32", config)
             }
             FieldInfo::EnumFromI32FromU8 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, enum_ty, "u8", "from_u8", config)
+                enum_arm(&field_name, ident, enum_ty, "u8", config)
             }
             FieldInfo::Array { ident, size, ty } => {
                 if ty != "u8" {
@@ -247,30 +247,36 @@ fn primitive_arm(
 }
 
 /// Generate a `match` arm for an enum field. Accepts `Value::I64` (cast to
-/// the wire type, then `from_X`) and `Value::String` (parsed as the wire
-/// type). Falls back to `Default::default()` if the discriminant is invalid,
-/// matching the parse-side behavior in `Extractor`.
+/// the wire type, then converted) and `Value::String` (parsed as the wire
+/// type). Both routes use the same `WireValue::from_wire` fallback as the
+/// parse side in `Extractor`.
 fn enum_arm(
     field_name: &str,
     ident: &Ident,
     enum_ty: &str,
     wire_ty: &str,
-    from_fn: &str,
     config: &CodegenConfig,
 ) -> TokenStream2 {
-    let enum_ident = Ident::new(enum_ty, Span::call_site());
     let wire_ident = Ident::new(wire_ty, Span::call_site());
-    let from_ident = Ident::new(from_fn, Span::call_site());
+    let wire_value = config.wire_value_trait();
+    let from_i64 = crate::wire_enum::from_wire_tokens(
+        &wire_value,
+        enum_ty,
+        wire_ty,
+        quote! { (*v) as #wire_ident },
+    );
+    let from_string =
+        crate::wire_enum::from_wire_tokens(&wire_value, enum_ty, wire_ty, quote! { v });
     let expected = format!("i64 (discriminant of {})", enum_ty);
     let value = config.modding(&["value", "Value"]);
     let wrong_type = config.modding(&["patcher", "wrong_type"]);
     quote! {
         #field_name => match new {
             #value::I64(v) => {
-                rec.#ident = #enum_ident::#from_ident((*v) as #wire_ident).unwrap_or_default();
+                rec.#ident = #from_i64;
             }
             #value::String(s) => match s.trim().parse::<#wire_ident>() {
-                Ok(v) => rec.#ident = #enum_ident::#from_ident(v).unwrap_or_default(),
+                Ok(v) => rec.#ident = #from_string,
                 Err(_) => return Err(#wrong_type(
                     Self::RECORD_NAME, #field_name, #expected, new,
                 )),

@@ -95,6 +95,11 @@ impl CodegenConfig {
     pub(crate) fn localization(&self, parts: &[&str]) -> TokenStream2 {
         self.crate_path(&self.localization_mod, parts)
     }
+    /// `crate::references::enums::WireValue` — the fallback policy shared by
+    /// every derive that reads an enum discriminant.
+    pub(crate) fn wire_value_trait(&self) -> TokenStream2 {
+        self.crate_path(&self.references_mod, &[&self.enums_mod, "WireValue"])
+    }
     /// `byteorder` path prefix (used as `#bo::ReadBytesExt` etc.).
     pub(crate) fn byteorder(&self) -> Ident {
         Self::ident(&self.byteorder_crate)
@@ -109,31 +114,19 @@ impl CodegenConfig {
     }
 
     /// `encoding_rs::WINDOWS_1250` / `EUC_KR` / `UTF_8` for a textual encoding
-    /// name. Both the hyphenated (`EUC-KR`) and underscore (`EUC_KR`) spellings
-    /// are accepted, as used by the different derive macros.
+    /// name. Spellings are resolved by the shared `dispel-encodings` registry
+    /// (via `crate::encoding`); only the emitted crate path comes from this
+    /// config, so there is exactly one encoding table and one path config.
     pub(crate) fn encoding_constant(&self, encoding: &str) -> TokenStream2 {
-        let constant = match encoding {
-            "WINDOWS-1250" | "WINDOWS_1250" => "WINDOWS_1250",
-            "EUC-KR" | "EUC_KR" => "EUC_KR",
-            "UTF-8" | "UTF_8" => "UTF_8",
-            other => panic!("Unknown encoding '{other}'; expected WINDOWS-1250, EUC-KR, or UTF-8"),
-        };
         let enc = self.encoding_rs();
-        let constant = Self::ident(constant);
-        quote! { #enc::#constant }
+        crate::encoding::encoding_rs_tokens(encoding, &enc)
     }
 
     /// `crate::localization::TextEncoding::<variant>` for a textual encoding.
+    /// The variant name also comes from the shared encoding registry.
     pub(crate) fn text_encoding(&self, encoding: &str) -> TokenStream2 {
-        let variant = match encoding {
-            "WINDOWS-1250" | "WINDOWS_1250" => "Windows1250",
-            "EUC-KR" | "EUC_KR" => "EucKr",
-            "UTF-8" | "UTF_8" => "Utf8",
-            other => panic!(
-                "Unknown encoding '{other}' in #[translatable]; expected WINDOWS-1250, EUC-KR, or UTF-8"
-            ),
-        };
-        self.localization(&["TextEncoding", variant])
+        let path = self.localization(&["TextEncoding"]);
+        crate::encoding::text_encoding_tokens(encoding, &path)
     }
 }
 
