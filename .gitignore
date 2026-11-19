@@ -13,7 +13,6 @@ skills-lock.json
 .slim/deepwork/
 # Local-only working artifacts (user-supplied files, dumps).
 # Kept out of version control.
-# interoperability via observable behavior, not binary analysis.
 *.exe
 *.dll
 session-ses_*.md
