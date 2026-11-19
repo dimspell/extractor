@@ -17,12 +17,7 @@ fn te(m: TilesetEditorMessage) -> Message {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(editor) = app.state.editors.tileset_editors.get(&tab_id) else {
         return container(text("Tileset not loaded").size(14))

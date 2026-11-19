@@ -174,7 +174,18 @@ macro_rules! undo_redo_dispatch {
                 .get_mut(&$tab_id)
                 .and_then(|e| e.$action()),
 
-            _ => None,
+            // Editors without undo/redo. Listed explicitly (no wildcard) so
+            // the compiler forces a decision whenever a variant is added.
+            EditorType::EventScrEditor
+            | EditorType::SnfEditor
+            | EditorType::DbViewer
+            | EditorType::TilesetEditor
+            | EditorType::MapEditor
+            | EditorType::ModPackager
+            | EditorType::LocalizationManager
+            | EditorType::SaveFileViewer
+            | EditorType::HexEditor
+            | EditorType::Unknown => None,
         }
     }};
 }
@@ -387,11 +398,24 @@ impl EditorRegistry {
                 .get(&tab_id)
                 .map(|ed| ed.edit_history()),
 
-            // Safety net: has_edit_history() returned true but we're missing
-            // an arm. This is a programming error.
-            _ => unreachable!(
-                "get_active_edit_history: {editor_type:?} claims has_edit_history() but has no arm"
-            ),
+            // Editors whose undo uses snapshots / custom stacks, or which do
+            // not expose an EditHistory component at all. Listed explicitly so
+            // adding a variant cannot silently fall through.
+            EditorType::EventScrEditor
+            | EditorType::MonsterEditor
+            | EditorType::MonsterIniEditor
+            | EditorType::NpcIniEditor
+            | EditorType::SpriteViewer
+            | EditorType::FogDataEditor
+            | EditorType::SnfEditor
+            | EditorType::DbViewer
+            | EditorType::TilesetEditor
+            | EditorType::MapEditor
+            | EditorType::ModPackager
+            | EditorType::LocalizationManager
+            | EditorType::SaveFileViewer
+            | EditorType::HexEditor
+            | EditorType::Unknown => None,
         }
     }
 

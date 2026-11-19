@@ -13,12 +13,7 @@ use iced::Task;
 const TICK_MS: f32 = 16.0;
 
 pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(viewer) = app.state.editors.sprite_viewers.get_mut(&tab_id) else {
         return Task::none();

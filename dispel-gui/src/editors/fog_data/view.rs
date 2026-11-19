@@ -27,12 +27,7 @@ fn error_text(theme: &iced::Theme) -> text::Style {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(editor) = app.state.editors.fog_editors.get(&tab_id) else {
         return container(text("Fog data not loaded").size(14))

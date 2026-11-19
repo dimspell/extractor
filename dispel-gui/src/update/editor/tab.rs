@@ -5,13 +5,13 @@ use crate::components::generic_editor::{MultiFileEditorState, TabbedEditor};
 use crate::components::loading_state::LoadingState;
 use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
-use crate::workspace::Workspace;
+use crate::workspace::{TabId, Workspace};
 use dispel_core::Extractor;
 use iced::Task;
 use iced::widget::pane_grid;
 
-pub fn get_tab_id(workspace: &Workspace) -> usize {
-    workspace.active().map(|t| t.id).unwrap_or(usize::MAX)
+pub fn get_tab_id(workspace: &Workspace) -> TabId {
+    workspace.active_tab_id()
 }
 
 pub fn select<T: EditableRecord + Extractor>(

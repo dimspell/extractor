@@ -368,63 +368,32 @@ impl App {
                 ))
             }
             EditorType::ChestSpawnEditor => {
-                let path_buf = path.to_path_buf();
-                Task::perform(
-                    async move {
-                        dispel_core::ChestSpawn::read_file(&path_buf).map_err(|e| e.to_string())
-                    },
-                    |result| {
-                        crate::message::Message::chest_spawn(
-                            crate::editors::chest_spawn::ChestSpawnEditorMessage::CatalogLoaded(
-                                result,
-                            ),
-                        )
-                    },
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::ChestSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::chest_spawn,
                 )
             }
             EditorType::MonsterSpawnEditor => {
-                let path_buf = path.to_path_buf();
-                Task::perform(
-                    async move {
-                        dispel_core::MonsterSpawn::read_file(&path_buf).map_err(|e| e.to_string())
-                    },
-                    |result| {
-                        crate::message::Message::monster_spawn(
-                            crate::editors::monster_spawn::MonsterSpawnEditorMessage::CatalogLoaded(
-                                result,
-                            ),
-                        )
-                    },
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MonsterSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::monster_spawn,
                 )
             }
             EditorType::MapInfoMultiEditor => {
-                let path_buf = path.to_path_buf();
-                Task::perform(
-                    async move {
-                        dispel_core::MapInfoMulti::read_file(&path_buf).map_err(|e| e.to_string())
-                    },
-                    |result| {
-                        crate::message::Message::map_info_multi(
-                            crate::editors::map_info_multi::MapInfoMultiEditorMessage::CatalogLoaded(result),
-                        )
-                    },
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MapInfoMulti, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::map_info_multi,
                 )
             }
             EditorType::TileGridEditor => {
-                let path_buf = path.to_path_buf();
                 // Chain: (1) load the file, (2) after the catalog is ready,
                 // dispatch FitToWindow so the grid auto-fits the canvas pane
                 // without requiring the user to click "Fit" or resize.
-                let load_task = Task::perform(
-                    async move {
-                        dispel_core::TileGrid::read_file(&path_buf).map_err(|e| e.to_string())
-                    },
-                    |result| {
-                        crate::message::Message::tile_grid(
-                            crate::editors::tile_grid::TileGridEditorMessage::CatalogLoaded(result),
-                        )
-                    },
-                );
+                let load_task =
+                    crate::editor_catalog::load_catalog_from_path::<dispel_core::TileGrid, _>(
+                        path.to_path_buf(),
+                        crate::message::Message::tile_grid,
+                    );
                 let fit_task = Task::done(crate::message::Message::tile_grid_canvas(
                     crate::editors::tile_grid::TileGridCanvasMessage::FitToWindow,
                 ));
