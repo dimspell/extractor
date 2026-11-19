@@ -6,67 +6,35 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 
-/// Editor type identifier for workspace tabs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EditorType {
-    WeaponEditor,
-    MonsterEditor,
-    MonsterIniEditor,
-    HealItemEditor,
-    MiscItemEditor,
-    EditItemEditor,
-    EventItemEditor,
-    MagicEditor,
-    StoreEditor,
-    ChDataEditor,
-    PartyLevelDbEditor,
-    DialogueScriptEditor,
-    DialogueTextEditor,
-    DrawItemEditor,
-    EventIniEditor,
-    EventNpcRefEditor,
-    ExtraIniEditor,
-    ExtraRefEditor,
-    MapIniEditor,
-    MessageScrEditor,
-    MonsterRefEditor,
-    NpcIniEditor,
-    NpcRefEditor,
-    PartyRefEditor,
-    PartyIniEditor,
-    QuestScrEditor,
-    EventScrEditor,
-    WaveIniEditor,
-    AllMapIniEditor,
-    SpriteViewer,
-    SnfEditor,
-    DbViewer,
-    /// Tileset browser (file-based, opens .btl/.gtl files)
-    TilesetEditor,
-    /// Visual map editor (file-based, opens .map files)
-    MapEditor,
-    ModPackager,
-    LocalizationManager,
-    /// Read-only viewer for Dispel .sav save files.
-    SaveFileViewer,
-    /// Save-slot manager for `Save.ifo`: swap slots and edit global tail fields.
-    SaveIfoEditor,
-    /// Editor for `ExtraInGame/fogdata.dat` — map-lighting fade tables
-    /// (123 levels × 512 brightness factors).
-    FogDataEditor,
-    /// Chest spawn editor for multiplayer `.cst` files.
-    ChestSpawnEditor,
-    /// Monster spawn editor for multiplayer `.mon` files.
-    MonsterSpawnEditor,
-    /// Map info editor for multiplayer `.ifm` files.
-    MapInfoMultiEditor,
-    /// Tile grid editor for multiplayer `.dat` files.
-    TileGridEditor,
-    /// Universal fallback editor for any binary file no dedicated editor
-    /// claims. Also reachable via "Open as Hex" from the file tree.
-    HexEditor,
-    #[serde(other)]
-    Unknown,
+/// Editor type identifier for workspace tabs.
+///
+/// The enum itself is generated from the authoritative editor catalog; all
+/// capability predicates and descriptor-driven dispatch live in
+/// `crate::editor_catalog`. It is re-exported here to preserve the historical
+/// `crate::workspace::EditorType` path used throughout the crate.
+pub use crate::editor_catalog::EditorType;
+
+/// A typed workspace-tab identifier.
+///
+/// The old code used the raw `usize::MAX` sentinel for "no active tab" in
+/// fifteen-plus places. `TabId` contains that sentinel in one place (see
+/// [`TabId::NONE`]) and gives callers an explicit opt-in via [`TabId::NONE`] or
+/// [`Workspace::active_tab_id`]. Handlers that only use the id as a `HashMap`
+/// key can convert with [`TabId::as_usize`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TabId(pub usize);
+
+impl TabId {
+    /// Sentinel for "no active tab". Previously spelled `usize::MAX`.
+    pub const NONE: TabId = TabId(usize::MAX);
+
+    pub fn as_usize(self) -> usize {
+        self.0
+    }
+
+    pub fn is_none(self) -> bool {
+        self == TabId::NONE
+    }
 }
 
 impl EditorType {
@@ -162,70 +130,9 @@ impl EditorType {
         })
     }
 
-    /// Returns `true` if this editor type supports Ctrl+S saving.
-    ///
-    /// This is the **single source of truth** for save capability.  Both
-    /// `save_task_for_editor()` and the test iterate this method.  When adding
-    /// a new saving editor, add its variant here *and* add a dispatch arm in
-    /// `save_task_for_editor()` (which will panic at runtime if you forget).
-    pub fn supports_save(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
-
-    /// Returns `true` if this editor type supports undo/redo.
-    ///
-    /// Single source of truth for `undo_redo_dispatch!` — every type that
-    /// returns `true` must also have a match arm in the macro.
-    pub fn supports_undo_redo(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::EventScrEditor
-                | EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::MapEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
-
-    /// Returns `true` if this editor type exposes an edit history panel.
-    ///
-    /// Single source of truth for `get_active_edit_history()`.
-    pub fn has_edit_history(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::EventScrEditor
-                |             EditorType::MonsterEditor
-                | EditorType::MonsterIniEditor
-                | EditorType::NpcIniEditor
-                // Snapshot-based undo (own stacks, no EditHistory component)
-                | EditorType::SpriteViewer
-                | EditorType::FogDataEditor
-                | EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::MapEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
+    // Capability predicates (supports_save / supports_undo_redo /
+    // has_edit_history / auto_load_catalog) are generated from the authoritative
+    // editor catalog in `crate::editor_catalog`.
 }
 
 /// A workspace tab that can hold any editor or view.
@@ -476,6 +383,12 @@ impl Workspace {
 
     pub fn active_index(&self) -> Option<usize> {
         self.active_tab
+    }
+
+    /// Typed id of the active tab, or [`TabId::NONE`] when no tab is active.
+    /// This is the single, typed replacement for the old `usize::MAX` sentinel.
+    pub fn active_tab_id(&self) -> TabId {
+        self.active().map(|t| TabId(t.id)).unwrap_or(TabId::NONE)
     }
 
     pub fn mark_modified(&mut self) {

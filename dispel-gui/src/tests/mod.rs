@@ -20,10 +20,10 @@ pub(crate) fn app_with_tab(editor_type: EditorType) -> App {
     App::test_new(workspace)
 }
 
-pub(crate) mod capability_crosscheck;
 pub(crate) mod clear_all;
 pub(crate) mod command_palette;
 pub(crate) mod common;
+pub(crate) mod editor_catalog;
 pub(crate) mod editor_field_edit;
 pub(crate) mod editor_registry;
 pub(crate) mod error_dialog;
@@ -37,14 +37,12 @@ pub(crate) mod indexation;
 pub(crate) mod map_editor;
 pub(crate) mod message_routing;
 pub(crate) mod pane_grid;
-pub(crate) mod save_dispatch;
 pub(crate) mod snf_editor;
 pub(crate) mod sprite_viewer;
 pub(crate) mod start_page;
 pub(crate) mod system_messages;
 pub(crate) mod tabbed_editor;
 pub(crate) mod undo_redo;
-pub(crate) mod view_dispatch;
 pub(crate) mod workspace;
 pub(crate) mod workspace_handler;
 pub(crate) mod workspace_unit;

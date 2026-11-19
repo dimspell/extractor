@@ -268,8 +268,7 @@ mod sprite_viewer_tests {
     fn test_sprite_viewer_no_active_tab_returns_none() {
         let mut app = App::test_new(Workspace::new());
         // No active tab, no sprite viewers inserted
-        // handle() calls active() which returns None → tab_id = usize::MAX
-        // → sprite_viewers.get_mut(usize::MAX) returns None → Task::none()
+        // handle() gets TabId::NONE for the tab id -> no viewer is found -> Task::none()
         let task = crate::editors::sprite_editor::handle(SpriteViewerMessage::Play, &mut app);
         assert_eq!(task.units(), 0, "no-op with no active tab");
     }

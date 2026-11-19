@@ -213,7 +213,7 @@ mod tabbed_editor_message_routing_tests {
     #[test]
     fn monster_ref_message_unknown_tab_is_noop() {
         let mut app = App::test_new(Workspace::new());
-        // No active tab → handle_core receives usize::MAX as tab_id → no-op
+        // No active tab -> handle_core receives TabId::NONE as tab id -> no-op
         let msg = MonsterRefEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
         let task = crate::editors::monster_ref::handle(msg, &mut app);
         assert_eq!(task.units(), 0, "no-op with no active tab");

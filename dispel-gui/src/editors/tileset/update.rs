@@ -6,12 +6,7 @@ use iced::Task;
 use std::path::PathBuf;
 
 pub fn handle(message: TilesetEditorMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(editor) = app.state.editors.tileset_editors.get_mut(&tab_id) else {
         return Task::none();

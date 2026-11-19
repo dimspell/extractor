@@ -25,7 +25,7 @@ use crate::editors::weapon::{self, WeaponEditorMessage};
 use crate::state::RecordingKey;
 use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
-use crate::workspace::Workspace;
+use crate::workspace::{TabId, Workspace};
 use dispel_core::modding::Value;
 use dispel_core::{NPC, Store, WaveIni, WeaponItem};
 use std::path::PathBuf;
@@ -232,7 +232,7 @@ fn store_editor_does_not_record_without_session() {
 #[test]
 fn npc_ref_editor_records_when_session_active() {
     let mut app = app_with_recording();
-    let tab_id = usize::MAX; // Workspace has no active tab → get_tab_id returns MAX
+    let tab_id = TabId::NONE.as_usize(); // Workspace has no active tab -> sentinel
 
     app.state.editors.npc_ref_editor.editors.insert(
         tab_id,
@@ -287,7 +287,7 @@ fn npc_ref_editor_records_when_session_active() {
 #[test]
 fn npc_ref_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
-    let tab_id = usize::MAX;
+    let tab_id = TabId::NONE.as_usize();
 
     app.state.editors.npc_ref_editor.editors.insert(
         tab_id,

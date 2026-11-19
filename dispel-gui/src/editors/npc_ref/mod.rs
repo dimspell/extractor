@@ -27,7 +27,7 @@ mod view;
 pub use view::view;
 
 pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<Message> {
-    let tab_id = tab::get_tab_id(&app.state.workspace);
+    let tab_id = tab::get_tab_id(&app.state.workspace).as_usize();
 
     match msg {
         NpcRefEditorMessage::LoadCatalog(path) => {

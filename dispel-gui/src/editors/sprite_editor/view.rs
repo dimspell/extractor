@@ -21,12 +21,7 @@ fn sv(m: SpriteViewerMessage) -> Message {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(viewer) = app.state.editors.sprite_viewers.get(&tab_id) else {
         return container(text("Sprite not loaded").size(14))
