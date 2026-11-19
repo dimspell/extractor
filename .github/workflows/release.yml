@@ -31,9 +31,22 @@ jobs:
     outputs:
       version: ${{ env.VERSION }}
 
+  build-matrix:
+    name: build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.render.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+
+      - name: Read canonical build matrix
+        id: render
+        run: echo "matrix=$(jq -c '.' .github/build-matrix.json)" >> "$GITHUB_OUTPUT"
+
   build-release:
     name: build-release
-    needs: ["create-release"]
+    needs: ["create-release", "build-matrix"]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -51,33 +64,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - build: cli-windows
-            app: cli
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-          - build: gui-windows
-            app: gui
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-          - build: gui-linux
-            app: gui
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-          - build: cli-linux
-            app: cli
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-          - build: gui-macos-arm
-            app: gui
-            os: macos-latest
-            rust: stable
-            target: aarch64-apple-darwin
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
 
     steps:
       - name: Checkout repository

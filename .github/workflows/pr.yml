@@ -56,46 +56,46 @@ jobs:
             pr-verify-target-${{ runner.os }}-${{ env.RUST_TOOLCHAIN }}-
 
       - name: Check formatting
-        run: cargo fmt --all --check
+        run: bash scripts/ci-commands.sh fmt-check
 
       - name: Verify forked-iced pin/back-end consistency
-        run: bash scripts/check-iced-config.sh
+        run: bash scripts/ci-commands.sh check-iced-config
+
+      - name: Verify project metadata consistency
+        run: bash scripts/ci-commands.sh check-metadata
+
+      - name: Test the metadata validator
+        run: bash scripts/ci-commands.sh check-metadata-test
 
       - name: Run Clippy
-        run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+        run: bash scripts/ci-commands.sh clippy
 
       - name: Run full test suite
-        run: cargo test --workspace --all-features
+        run: bash scripts/ci-commands.sh test
+
+  build-matrix:
+    name: build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.render.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+        with:
+          persist-credentials: false
+
+      - name: Read canonical build matrix
+        id: render
+        run: echo "matrix=$(jq -c '.' .github/build-matrix.json)" >> "$GITHUB_OUTPUT"
 
   build-release-binaries:
     name: ${{ matrix.build }}
-    needs: verify
+    needs: [verify, build-matrix]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - build: cli-windows
-            app: cli
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - build: gui-windows
-            app: gui
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - build: gui-linux
-            app: gui
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - build: cli-linux
-            app: cli
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - build: gui-macos-arm
-            app: gui
-            os: macos-latest
-            target: aarch64-apple-darwin
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -112,7 +112,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
 
       - name: Cache Cargo dependencies

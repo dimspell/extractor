@@ -6,18 +6,19 @@
 
 ## Project Overview
 
-This workspace is a **5-crate Cargo workspace** (Rust edition 2024) versioned `0.9.3`:
+This workspace is a **6-crate Cargo workspace** (Rust edition 2024) versioned `0.9.3`:
 
 | Crate | Type | Role |
 |---|---|---|
 | `dispel-extractor` (root) | lib + bin | `dispel-core` library + CLI binary. Game logic only. |
+| `dispel-encodings` | lib | Single source of truth for text-encoding spellings/labels, consumed at compile time by `dispel-macros` and at runtime by `dispel-core`. |
 | `dispel-gui` | bin only | Iced desktop GUI (git fork of iced). No `lib.rs` — pure binary crate. |
 | `dispel-macros` | proc-macro | 7 derive macros used by `dispel-core`. |
 | `gui-widgets` | lib | Reusable custom Iced widgets (ContextMenu, modal, popover, toast, ParagraphCache…). |
 | `hexedit` | lib + bin | Full hex editor with Lua scripting — used by `dispel-gui` as a tab type. Single binary: `hexedit`. |
 
 **Separation of concerns:**
-- `dispel-core` + `dispel-macros`: game logic only. Zero GUI/presentation code.
+- `dispel-core` + `dispel-macros` + `dispel-encodings`: game logic only. Zero GUI/presentation code.
 - `dispel-gui` + `gui-widgets` + `hexedit`: UI only. Zero game logic (they consume `dispel-core`).
 - `dispel-extractor` (root `main.rs`): thin CLI wrapper around the library.
 
@@ -35,11 +36,12 @@ dispel-extractor/
 │   ├── localization.rs       # Text export/import, Localizable trait
 │   ├── sprite.rs             # .spr parser
 │   ├── snf.rs                # .snf audio parser
-│   ├── references/           # ~35 game data file parsers incl. save_file/, save_ifo/, layout.rs
+│   ├── references/           # 51 source files: game data parsers incl. save_file/, save_ifo/, layout.rs
 │   ├── map/                  # .map parser + isometric renderer + TMX export (tmx.rs)
 │   ├── modding/              # Mod authoring pipeline (+ patchers/ per-format record patchers)
 │   ├── commands/             # CLI command implementations
-│   └── queries/              # 90 SQL files (45 schema DDL + 45 INSERTs)
+│   └── queries/              # 118 SQL files (59 schema DDL + 59 INSERTs)
+├── dispel-encodings/         # encoding-name registry shared by macros and core
 ├── dispel-macros/            # proc-macro crate
 │   └── src/                  # 7 derive macros
 ├── gui-widgets/              # Iced widgets library
@@ -50,11 +52,12 @@ dispel-extractor/
 │   └── src/
 │       ├── app.rs            # App (transient UI state; embeds AppState)
 │       ├── state.rs          # AppState (persistent model) + RecordingSession
-│       ├── workspace.rs      # Tabs, EditorType enum (40 named variants + Unknown)
-│       ├── editor_registry.rs # All ~46 editor states
+│       ├── workspace.rs      # Tabs; re-exports EditorType from editor_catalog/
+│       ├── editor_catalog/   # define_editor_catalog! — 44 named variants + Unknown (EDITOR_COUNT = 45)
+│       ├── editor_registry.rs # All 46 editor state fields
 │       ├── platform.rs       # OS-specific ops
 │       ├── style.rs + style/ # Iced style functions ("Medieval" theme), split per component
-│       ├── editors/          # ~38 editor subdirectories
+│       ├── editors/          # 44 editor subdirectories
 │       ├── components/       # Reusable UI components
 │       ├── message/          # Message enum hierarchy + macros
 │       ├── update/           # Message handlers (domain logic)
@@ -63,14 +66,15 @@ dispel-extractor/
 │       ├── dispatch_table.rs # Editor message dispatch table
 │       ├── binary_layout.rs  # Binary layout helpers
 │       ├── indexation/       # File/asset caching + full-text search
-│       ├── tests/            # Dedicated GUI test suite (27 test files)
+│       ├── tests/            # Dedicated GUI test suite (28 test files)
 │       └── recording_tests.rs # Mod recording integration tests (38 tests)
 ├── examples/                 # e.g. check_save_roundtrip.rs
-├── docs/                     # Overview .md files + docs/files/ (36 per-format .md in subdirs)
+├── docs/                     # Overview .md files + docs/files/ (36 per-format + CROSS_REFERENCES.md = 37)
 ├── fixtures/                 # Local-only, git-ignored test files (user-supplied; never committed)
-├── scripts/release.sh        # Automated release script
-├── Makefile                  # Dev/extract targets (~120 targets)
-└── .github/workflows/        # CI: test.yml (build only), pr.yml (multi-OS PR matrix), release.yml (5 platforms)
+├── scripts/                  # ci-commands.sh, check-iced-config.sh, check-project-metadata.sh, release.sh
+├── Makefile                  # Dev/extract targets (98 targets, incl. metadata checks)
+├── .github/build-matrix.json # Canonical 5-entry release/build matrix (shared by pr.yml + release.yml)
+└── .github/workflows/        # CI: test.yml (master verify), pr.yml (verify + matrix), release.yml (matrix + publish)
 ```
 
 ---
@@ -170,10 +174,10 @@ Core modules: `apply`, `bsdiff`, `change`, `changelog`, `conflicts`, `manifest`,
 - Enum wire-value fallback (`from_X(v).unwrap_or_default()`) lives once in `references/enums.rs::WireValue::from_wire`; the derive macros call it so parse and patch agree
 
 ### SQLite schema (`src/queries/`)
-90 SQL files: 45 `create_table_*.sql` (schema DDL) + 45 parameterized `insert_*.sql`. Run by `database.rs` to drop and recreate the schema. **No foreign keys** — relationships are enforced in code, not SQL constraints.
+118 SQL files: 59 `create_table_*.sql` (schema DDL) + 59 parameterized `insert_*.sql`. Run by `database.rs` to drop and recreate the schema. **No foreign keys** — relationships are enforced in code, not SQL constraints.
 
 ### Tests
-**~70 `#[cfg(test)]` blocks across ~65 files** in the root crate. Parsers have hardcoded-byte-slice unit tests; save-file round-trip checking lives in `examples/check_save_roundtrip.rs`.
+**88 `#[cfg(test)]` blocks across 81 `.rs` files** in the root crate. Parsers have hardcoded-byte-slice unit tests; save-file round-trip checking lives in `examples/check_save_roundtrip.rs`.
 
 ---
 
@@ -224,7 +228,7 @@ Structure:
 - Top level: `app.rs`, `config.rs`, `state.rs`, `message.rs`, `lua_engine.rs`, `main.rs`
 - `domain/` (~16 files): editing, goto, pattern, provider, search, selection, vanilla_diff, …
 - `ui/`: coloring, inspector, update, view/, theme
-- `tests/`: 17 dedicated test files (**24 files with `#[cfg(test)]` total**)
+- `tests/`: 17 dedicated test files (**25 `.rs` files with `#[cfg(test)]` total**)
 
 **Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via the domain-level `SavePort` (`SaveRequest` → `SaveOutcome`) in `hex_save.rs`.
 
@@ -254,7 +258,7 @@ Structure:
 
 | Lives on `App` (transient UI) | Lives on `AppState` (persistent model) |
 |---|---|
-| `file_tree` (UI tree) | `editors: EditorRegistry` (all ~46 editor states) |
+| `file_tree` (UI tree) | `editors: EditorRegistry` (all 46 state fields) |
 | `window_id`, `app_mode` | `workspace: Workspace` (tabs, game path, recent) |
 | `search_index` (full-text) | `status_msg`, `shared_game_path` |
 | `command_palette`, `error_dialog` | `is_running`, `recording: Option<RecordingSession>` |
@@ -271,7 +275,7 @@ Top-level `Message` enum (`message/mod.rs`) has 6 variants:
 | Variant | Routes to | Contents |
 |---|---|---|
 | `Workspace(InternalWorkspaceMessage)` | `update/workspace.rs` | Tab bar, sidebar, command palette, global search, pane grid, tool tabs |
-| `Editor(EditorMessage)` | `update/editor/mod.rs` | ~46 per-editor messages |
+| `Editor(EditorMessage)` | `update/editor/mod.rs` | per-editor messages (one family per catalog entry) |
 | `FileTree(FileTreeMessage)` | `update/file_tree.rs` | File tree actions |
 | `Viewer(ViewerMessage)` | (DbViewer handler) | SQLite DB viewer queries, pagination, CSV export |
 | `System(SystemMessage)` | `update/system.rs` | Undo, Redo, Save, index, errors, file scan |
@@ -279,9 +283,9 @@ Top-level `Message` enum (`message/mod.rs`) has 6 variants:
 
 **`MessageExt` trait** (`message/ext.rs`, generated by `define_message_ext!` macro) provides shorthand constructors like `Message::weapon(WeaponEditorMessage::LoadCatalog)`.
 
-### Editor System — ~46 editor types
+### Editor System — 45 editor types / 46 registry state fields
 
-The `EditorType` enum (`workspace.rs`) has 40 named variants + `Unknown` (with `#[serde(other)]`). Variants are suffixed `Editor` (e.g. `WeaponEditor`, `SaveIfoEditor`); new since v0.7: `SaveFileViewer`, `SaveIfoEditor`, `HexEditor`, `DialogueTextEditor`.
+`EditorType` is generated by `define_editor_catalog!` in `editor_catalog/mod.rs` (re-exported from `workspace.rs`); it has 44 named variants + `Unknown` (with `#[serde(other)]`), and `EDITOR_COUNT` is 45. Variants are suffixed `Editor` (e.g. `WeaponEditor`, `SaveIfoEditor`); new since v0.7: `SaveFileViewer`, `SaveIfoEditor`, `HexEditor`, `DialogueTextEditor`.
 
 **Standard editors (20)** — macro-generated via `define_standard_editor!`, invoked in each editor's own `editors/<name>/mod.rs`:
 `weapon`, `monster`, `heal_item`, `misc_item`, `edit_item`, `event_item`, `party_ref`, `all_map_ini`, `event_ini`, `draw_item`, `chdata`, `event_npc_ref`, `map_ini`, `npc_ini`, `message_scr`, `extra_ini`, `magic`, `quest_scr`, `monster_ini`, `party_ini`
@@ -366,7 +370,7 @@ pub struct Workspace {
 | `App::view_sidebar()` | `view/mod.rs` | File tree + tools section |
 | `App::view_recent_files()` | `view/mod.rs` | Recent files list (10 most recent) |
 | `view_history_panel()` | `view/history_panel.rs` | Undo/redo stack display |
-| Per-editor `view()` | `editors/*/view.rs` | Editor-specific content (~46 editors) |
+| Per-editor `view()` | `editors/*/view.rs` | Editor-specific content (one per catalog entry) |
 
 ### Mod Recording
 
@@ -429,27 +433,33 @@ pub struct Workspace {
 | `docs/database_and_references.md` | SQLite schema overview |
 | `docs/iced-overlay-system.md` | Overlay system notes for the forked iced |
 | `docs/iced-fork-config.md` | Single iced fork pin set, feature matrix, headless test backend, consistency check |
-| `docs/files/*.md` | **36 per-format docs** organized in subdirectories (`CharacterInGame/`, `MonsterInGame/`, `NpcInGame/`, `Ref/`, `Map/`, `ExtraInGame/`, `MagicInGame/`) + `CROSS_REFERENCES.md` |
+| `docs/files/*.md` | **36 per-format docs** (in subdirectories `CharacterInGame/`, `MonsterInGame/`, `NpcInGame/`, `Ref/`, `Map/`, `ExtraInGame/`, `MagicInGame/` and at the top level) + `CROSS_REFERENCES.md` — 37 files total |
 
 Always read the relevant `docs/files/*.md` before modifying a parser.
 
 ## Build System & CI
 
-### Makefile targets (~120 total)
-- Basic dev: `fmt`, `check`, `build`, `cargo_test`, `clippy`, `run`, `help`
-- `iced_test` — `cargo test -p dispel-gui --features "iced_test app::tests"`
-- `hexedit`, `hexedit_test` — build/test the hex editor crate
-- Extraction/render: `sound`, `sprite-*`, `map-render` (+ ~15 `map-render-*` variants), `map-atlas-gtl/btl`, `map-to-db` / `map-from-db`
+### Makefile targets (98 total)
+- Basic dev: `fmt`, `check`, `build`, `cargo_test`, `clippy`, `run`, `help`, `check_iced_config`, `check_metadata`, `check_metadata_test`
+- All fmt/clippy/test recipes delegate to **`scripts/ci-commands.sh`** — the one canonical command set shared with CI. Set `ICED_TEST_BACKEND=software` where Iced simulations need the CPU renderer.
+- `iced_test`, `hexedit_test` — headless GUI/hexedit test suites
+- `hexedit` — launch the hex editor
+- Extraction/render: `sound`, `sprite-*`, `map-render` (+ 13 `map-render-*` flavors), `map-atlas-gtl/btl`, `map-to-db` / `map-from-db`
+  - Every `map-render*` flavor is generated from **one** recipe plus a flag table (`MAP_RENDER_ARGS`, per-flavor `MAP_RENDER_EXTRA`) and the `MAP_RENDER_TARGETS` list. A common flag change touches `MAP_RENDER_ARGS` only.
+  - `light_template` is configurable (`make map-render-lit light_template=/path/to/light_template.png`); the default is `$(game_path)/Map/light_template.png` and assumes no sibling repo.
 - `extract-*` (~24 targets) — extract individual game files to JSON
 - `database-*` — SQLite import (maps, databases, refs, rest, dialog-texts)
 - `template*`, `patch-*`, `list-json`, `sprite-info`, `dialogs`, `mod-pack-*` — misc pipelines
 
-Run `make help` for the authoritative list.
+`make help` lists CLI subcommands; the Makefile's `.PHONY` list is kept in sync with real recipes by `scripts/check-project-metadata.sh`.
 
 ### GitHub Actions
-- `.github/workflows/test.yml` — CI on push to `master`: `cargo build` on ubuntu-latest (tests NOT run in CI)
-- `.github/workflows/pr.yml` — multi-OS PR build matrix
-- `.github/workflows/release.yml` — Release on tag `v*.*.*`: 5 builds (CLI Win/Linux, GUI Win/Linux/macOS ARM), archives with SHA256, uploads to GitHub release (draft)
+- `.github/workflows/test.yml` — CI on push to `master`: fmt, iced-config + metadata checks, clippy, full test suite, build on ubuntu-latest
+- `.github/workflows/pr.yml` — same verify job, then a 5-build release-binary matrix
+- `.github/workflows/release.yml` — Release on tag `v*.*.*`: the same 5 builds, archives with SHA256, uploads to GitHub release (draft)
+- Both matrix workflows read the **single** matrix definition in `.github/build-matrix.json` via a `build-matrix` job and `fromJSON(needs.build-matrix.outputs.matrix)` — target lists cannot drift between PR and release.
+- All three workflows use `dtolnay/rust-toolchain@stable` and call `scripts/ci-commands.sh` for fmt/clippy/test.
+- `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects seven independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
 
 ### Release script
 `scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo check --workspace` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions. (Master-branch and clean-tree checks are currently commented out.)
@@ -469,7 +479,7 @@ Run `make help` for the authoritative list.
 - Always use `Task::perform` for async work — never block
 
 ### Code Quality
-- Clippy: zero warnings (`rtk cargo clippy --workspace --all-features --test -- -D warnings`)
+- Clippy: zero warnings (`rtk cargo clippy --workspace --all-features --all-targets -- -D warnings`, or `make clippy`)
 - Compiler warnings: use `rtk cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
 - Format: `cargo fmt --all` before commit
 - Validate all binary bounds before indexing
@@ -477,13 +487,13 @@ Run `make help` for the authoritative list.
 ### Testing
 **Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
 
-- **dispel-core**: unit test every new parser with hardcoded byte slices (~70 `#[cfg(test)]` blocks)
-- **dispel-gui**: write iced_test integration tests that simulate real user flows (open tabs, edit data, undo/redo, save). Test state transitions and behaviors, not visuals. Dedicated suite in `dispel-gui/src/tests/` (27 files) plus co-located `#[cfg(test)]` blocks.
+- **dispel-core**: unit test every new parser with hardcoded byte slices (88 `#[cfg(test)]` blocks across 81 `.rs` files)
+- **dispel-gui**: write iced_test integration tests that simulate real user flows (open tabs, edit data, undo/redo, save). Test state transitions and behaviors, not visuals. Dedicated suite in `dispel-gui/src/tests/` (28 files) plus co-located `#[cfg(test)]` blocks.
 - **Round-trip checks**: `examples/check_save_roundtrip.rs` (parse → write → compare)
 - **Test naming**: `test_${scenario}_${condition}` e.g. `test_undo_weapon_editor_empty_history`
 - **Test helpers**: tests in `$module/tests.rs` (co-located), separate `recording_tests.rs` for recording
 - **Property tests**: use `proptest` for invariants
-- Run before every commit: `rtk cargo test --workspace --all-features`
+- Run before every commit: `make cargo_test` (canonical: `ICED_TEST_BACKEND=software rtk cargo test --workspace --all-features`)
 
 ### Tools
 - `cargo check --message-format=short`: fast compile errors
@@ -555,15 +565,22 @@ Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, tem
 ## Quick Commands
 
 ```bash
-cargo build --workspace                              # Build all
-cargo test --workspace --all-features --quiet        # Test all
+make build                                           # Build all
+make cargo_test                                      # Test all (software Iced backend)
+make clippy                                          # Lint (canonical command via ci-commands.sh)
+make fmt                                             # Format
+make check                                           # Check all
+make check_iced_config check_metadata                # Consistency validators
+make check_metadata_test                             # Self-test the metadata validator
 cargo test --workspace --all-features --no-run       # Compile all crates including tests (catches compiler warnings fast)
-cargo clippy --workspace -- -D warnings              # Lint
-cargo fmt --all                                      # Format
 cargo check -p dispel-gui --message-format=short     # Fast GUI errors
 cargo run -p dispel-gui                              # Launch GUI
 make iced_test                                       # Iced UI simulation tests
 ```
+
+`make fmt`, `make clippy`, `make cargo_test`, `make check`, `make iced_test` and
+`make hexedit_test` are thin wrappers around `scripts/ci-commands.sh`; CI calls
+the same subcommands. Never introduce a second inline spelling of these commands.
 
 ### rtk (Rust Token Killer)
 
@@ -608,5 +625,6 @@ row![
 
 ---
 
-*Last updated: 2026-08-22*  
+*Last updated: 2026-11-19*
+
 **DISPEL®** is a registered trademark. This project is **not affiliated with, endorsed by, or sponsored by** the trademark owner.

@@ -663,13 +663,26 @@ mod tests {
 
     /// The Makefile is a second consumer of the command surface: every
     /// `cargo run -- <cmd>` invocation must name a registered command.
+    ///
+    /// Only real invocation lines are examined. Comment text (such as the
+    /// explanatory `cargo run -- <cmd>` example) is not an invocation, and Make
+    /// variables / placeholders (`$(...)`, `<...>`) are not command names. The
+    /// parameterized `map render $(MAP_RENDER_ARGS) $(MAP_RENDER_EXTRA)` recipe
+    /// still carries its literal `map` command token, and recipes routed through
+    /// `scripts/ci-commands.sh` contain no `cargo run --` at all — both are
+    /// handled without weakening the guard.
     #[test]
     fn test_makefile_invocations_reference_registered_commands() {
         let invoked: Vec<&str> = MAKEFILE
             .lines()
+            .filter(|line| !line.trim_start().starts_with('#')) // comments are not invocations
             .filter_map(|line| line.split_once("cargo run -- ").map(|(_, rest)| rest))
             .filter_map(|rest| rest.split_whitespace().next())
-            .filter(|token| !token.starts_with('-')) // e.g. `cargo run -- --help`
+            // Skip global flags (`--help`, `--list-commands`), Make variables
+            // (`$(...)`) and placeholders (`<cmd>`): none is a command name.
+            .filter(|token| {
+                !token.starts_with('-') && !token.starts_with('$') && !token.starts_with('<')
+            })
             .collect();
 
         assert!(!invoked.is_empty(), "no CLI invocations found in Makefile");

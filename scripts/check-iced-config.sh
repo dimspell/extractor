@@ -6,6 +6,8 @@
 #   * the shared accessibility feature is enabled consistently
 #
 # See docs/iced-fork-config.md for the full feature matrix and rationale.
+# Doc counts, Makefile target parity and CI command parity are covered by the
+# companion scripts/check-project-metadata.sh.
 # Run locally with `make check_iced_config` (or `bash scripts/check-iced-config.sh`).
 set -euo pipefail
 
@@ -41,9 +43,15 @@ lock_revs="$(grep -oE 'dimspell/iced\?rev=[0-9a-f]{40}' Cargo.lock | sed 's/.*re
 grep -Eq "iced-rs/winit\.git.*rev = \"$WINIT_REV\"" Cargo.toml \
   || fail "winit patch rev in Cargo.toml does not match '$WINIT_REV'"
 
-# 4. GUI/hexedit test targets must request the headless software backend.
-[ "$(grep -cE '^[[:space:]]*ICED_TEST_BACKEND=software cargo test' Makefile)" -ge 2 ] \
-  || fail "Makefile iced_test/hexedit_test targets must set ICED_TEST_BACKEND=software"
+# 4. GUI/hexedit test commands must request the headless software backend.
+#    Commands are defined once in scripts/ci-commands.sh and called by both the
+#    Makefile and CI (enforced by scripts/check-project-metadata.sh).
+grep -qF 'ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test"' scripts/ci-commands.sh \
+  || fail "ci-commands.sh iced-test must set ICED_TEST_BACKEND=software"
+grep -qF 'ICED_TEST_BACKEND=software cargo test -p hexedit --quiet' scripts/ci-commands.sh \
+  || fail "ci-commands.sh hexedit-test must set ICED_TEST_BACKEND=software"
+grep -qF 'ICED_TEST_BACKEND=software cargo test --workspace --all-features' scripts/ci-commands.sh \
+  || fail "ci-commands.sh test must set ICED_TEST_BACKEND=software"
 
 # 5. The software backend needs tiny-skia compiled in on both iced_test paths.
 grep -q 'iced/tiny-skia' dispel-gui/Cargo.toml \

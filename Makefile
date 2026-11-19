@@ -10,11 +10,20 @@
 #   db_path    = database.sqlite
 #   out        = out
 
-# Keep in sync with the target list below. The Rust `test_makefile_invocations_*`
-# tests in src/cli.rs validate every CLI invocation in the recipes below against
-# the declarative command specification.
+# Single source of truth for the map-render flavors. The generated recipe below
+# and .PHONY both derive from this list; adding a flavor touches one place only.
+MAP_RENDER_TARGETS := map-render map-render-legacy map-render-lit \
+                      map-render-transparent map-render-collisions map-render-events \
+                      map-render-draw-items map-render-waypoints \
+                      map-render-noground map-render-nobuildings map-render-noroofs \
+                      map-render-nomonsters map-render-nonpcs map-render-noobjects
+
+# The Rust `test_makefile_invocations_*` tests in src/cli.rs validate every
+# `cargo run -- <cmd>` invocation below against the declarative command spec.
+# scripts/check-project-metadata.sh verifies .PHONY matches the real recipes and
+# that every fmt/clippy/test command routes through scripts/ci-commands.sh.
 .PHONY: help command-list fmt cargo_test iced_test hexedit_test clippy check build run \
-        run-custom-context-menu hexedit check_iced_config \
+        run-custom-context-menu hexedit check_iced_config check_metadata check_metadata_test \
         extract-help extracts-help extract-file extract-file-pretty \
         extract-all-maps extract-map extract-monsters extract-heal-item \
         extract-draw-item extract-misc-item extract-edit-item \
@@ -25,11 +34,7 @@
         extract-dialogue-text extract-weapons \
         patch-dry-run patch-in-place patch validate validate-verbose \
         list list-json list-filtered schema template template-pretty \
-        map-help map-tiles map-atlas map-render map-render-legacy \
-        map-render-lit map-render-transparent map-render-collisions map-render-events \
-        map-render-draw-items map-render-waypoints \
-        map-render-noground map-render-nobuildings map-render-noroofs \
-        map-render-nomonsters map-render-nonpcs map-render-noobjects \
+        map-help map-tiles map-atlas $(MAP_RENDER_TARGETS) \
         map-extract-sprites map-to-json map-to-json-pretty map-to-db \
         map-atlas-btl map-atlas-gtl \
         map-all-gtl-tiles map-all-btl-tiles zip-map-tiles \
@@ -61,28 +66,36 @@ command-list:
 	cargo run -- --list-commands
 
 fmt:
-	cargo fmt --all
+	bash scripts/ci-commands.sh fmt
 
 cargo_test:
-	cargo test --workspace --all-features --quiet
+	bash scripts/ci-commands.sh test
 
 iced_test:
-	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test"
+	bash scripts/ci-commands.sh iced-test
 
-# GUI simulations require Iced's CPU renderer when no GPU/window
-# server is available (for example, in CI or headless development shells).
 hexedit_test:
-	ICED_TEST_BACKEND=software cargo test -p hexedit --quiet
+	bash scripts/ci-commands.sh hexedit-test
 
+# All fmt/clippy/test commands live in scripts/ci-commands.sh so local `make`
+# and GitHub Actions cannot silently diverge.
 clippy:
-	cargo clippy --workspace -- -D warnings
+	bash scripts/ci-commands.sh clippy
 
 check:
-	cargo check --workspace --message-format=short
+	bash scripts/ci-commands.sh check
 
 # Verify the forked-iced pin set / feature matrix / test backend are coherent.
 check_iced_config:
-	bash scripts/check-iced-config.sh
+	bash scripts/ci-commands.sh check-iced-config
+
+# Verify AGENTS.md counts, .PHONY parity, CI command parity and the shared matrix.
+check_metadata:
+	bash scripts/ci-commands.sh check-metadata
+
+# Self-test the validator by injecting drift into a scratch copy of the tree.
+check_metadata_test:
+	bash scripts/ci-commands.sh check-metadata-test
 
 build:
 	cargo build --workspace
@@ -316,139 +329,41 @@ map-atlas:
 #   --no-npcs              Hide external NPC rendering
 #   --no-objects           Hide external objects (extras) rendering
 
-map-render:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)"
+# One canonical argument list, one per-flavor flag table, one recipe. Every
+# name in $(MAP_RENDER_TARGETS) keeps working; a common flag change touches
+# MAP_RENDER_ARGS only. Add a flavor by appending it to MAP_RENDER_TARGETS and
+# (if needed) giving it a MAP_RENDER_EXTRA value below.
+MAP_RENDER_ARGS = --map="$(game_path)/Map/$(map_id).map" \
+                  --btl="$(game_path)/Map/$(map_id).btl" \
+                  --gtl="$(game_path)/Map/$(map_id).gtl" \
+                  --output="map.png" \
+                  --game-path="$(game_path)"
 
-# Render with the game's viewport light template (500x1 PNG, e.g. from the
-# Godot remake's assets/converted/maps/light_template.png). Without it a
-# dark map renders pitch black: the .map file's own light bits are dead
-# data, overwritten every frame by the world tick.
+# Render with the game's viewport light template (500x1 PNG). Without it a dark
+# map renders pitch black: the .map file's own light bits are dead data,
+# overwritten every frame by the world tick.
 #   make map-render-lit map_id=dun01 camera=124,124
-light_template ?= ../dispel-godot/assets/converted/maps/light_template.png
+# The asset location is configurable; no sibling-repo checkout is assumed.
+#   make map-render-lit light_template=/path/to/light_template.png
+light_template ?= $(game_path)/Map/light_template.png
 camera ?=
-map-render-lit:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--light-template="$(light_template)" \
-		$(if $(camera),--camera="$(camera)",)
 
-map-render-transparent:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--transparent
+# Flavor flag table (empty for map-render and its legacy alias).
+map-render-lit: MAP_RENDER_EXTRA = --light-template="$(light_template)" $(if $(camera),--camera="$(camera)",)
+map-render-transparent: MAP_RENDER_EXTRA = --transparent
+map-render-collisions: MAP_RENDER_EXTRA = --collisions
+map-render-events: MAP_RENDER_EXTRA = --events
+map-render-draw-items: MAP_RENDER_EXTRA = --draw-items
+map-render-waypoints: MAP_RENDER_EXTRA = --npc-waypoints
+map-render-noground: MAP_RENDER_EXTRA = --no-ground
+map-render-nobuildings: MAP_RENDER_EXTRA = --no-buildings
+map-render-noroofs: MAP_RENDER_EXTRA = --no-roofs
+map-render-nomonsters: MAP_RENDER_EXTRA = --no-monsters
+map-render-nonpcs: MAP_RENDER_EXTRA = --no-npcs
+map-render-noobjects: MAP_RENDER_EXTRA = --no-objects
 
-map-render-collisions:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--collisions
-
-map-render-events:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--events
-
-map-render-draw-items:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--draw-items
-
-map-render-waypoints:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--npc-waypoints
-
-# Layer visibility toggles
-map-render-noground:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-ground
-
-map-render-nobuildings:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-buildings
-
-map-render-noroofs:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-roofs
-
-map-render-nomonsters:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-monsters
-
-map-render-nonpcs:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-npcs
-
-map-render-noobjects:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)" \
-		--no-objects
-
-# (Legacy alias: maps that used the old direct CLI style)
-map-render-legacy:
-	cargo run -- map render \
-		--map="$(game_path)/Map/$(map_id).map" \
-		--btl="$(game_path)/Map/$(map_id).btl" \
-		--gtl="$(game_path)/Map/$(map_id).gtl" \
-		--output="map.png" \
-		--game-path="$(game_path)"
+$(MAP_RENDER_TARGETS):
+	cargo run -- map render $(MAP_RENDER_ARGS) $(MAP_RENDER_EXTRA)
 
 # map sprites <INPUT> [--output <DIR>]
 map-extract-sprites:
