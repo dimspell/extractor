@@ -1,3 +1,6 @@
+use super::codec::{
+    CountWidth, read_counted_records, read_records, write_counted_records, write_records,
+};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
@@ -39,23 +42,14 @@ pub struct EventRecord {
 }
 
 pub(super) fn read_events<R: Read>(reader: &mut R) -> std::io::Result<Vec<EventRecord>> {
-    let mut events = Vec::with_capacity(EVENT_COUNT);
-    for _ in 0..EVENT_COUNT {
-        let mut data = [0u8; EVENT_RECORD_SIZE];
-        reader.read_exact(&mut data)?;
-        events.push(EventRecord::parse(&data)?);
-    }
-    Ok(events)
+    read_records(reader, EVENT_COUNT, EVENT_RECORD_SIZE, EventRecord::parse)
 }
 
 pub(super) fn write_events<W: Write>(
     events: &[EventRecord],
     writer: &mut W,
 ) -> std::io::Result<()> {
-    for event in events {
-        event.write(writer)?;
-    }
-    Ok(())
+    write_records(writer, events, |event, writer| event.write(writer))
 }
 
 /// Data block between events and journal sections.
@@ -102,8 +96,18 @@ impl PostEventsData {
         let shake_active = reader.read_u32::<LittleEndian>()?;
         let shake_frames_remaining = reader.read_u32::<LittleEndian>()?;
 
-        let walk_milestones = read_records(reader, WalkMilestoneRecord::parse)?;
-        let walk_completions = read_records(reader, WalkCompletionRecord::parse)?;
+        let walk_milestones = read_counted_records(
+            reader,
+            CountWidth::U32,
+            POST_EVENTS_RECORD_SIZE,
+            WalkMilestoneRecord::parse,
+        )?;
+        let walk_completions = read_counted_records(
+            reader,
+            CountWidth::U32,
+            POST_EVENTS_RECORD_SIZE,
+            WalkCompletionRecord::parse,
+        )?;
 
         let mut recruitable_companion_world_presence = [0u32; RECRUITABLE_COMPANION_COUNT];
         for presence in &mut recruitable_companion_world_presence {
@@ -132,12 +136,22 @@ impl PostEventsData {
         writer.write_u32::<LittleEndian>(self.shake_active)?;
         writer.write_u32::<LittleEndian>(self.shake_frames_remaining)?;
 
-        write_records(writer, &self.walk_milestones, |record, writer| {
-            record.write(writer)
-        })?;
-        write_records(writer, &self.walk_completions, |record, writer| {
-            record.write(writer)
-        })?;
+        write_counted_records(
+            writer,
+            CountWidth::U32,
+            &self.walk_milestones,
+            "post-events",
+            "walk milestone count",
+            |record, writer| record.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U32,
+            &self.walk_completions,
+            "post-events",
+            "walk completion count",
+            |record, writer| record.write(writer),
+        )?;
 
         for presence in &self.recruitable_companion_world_presence {
             writer.write_u32::<LittleEndian>(*presence)?;
@@ -192,30 +206,4 @@ pub struct WalkCompletionRecord {
     pub x: u32,
     /// Y coordinate.
     pub y: u32,
-}
-
-fn read_records<R: Read, T>(
-    reader: &mut R,
-    parse: impl Fn(&[u8]) -> std::io::Result<T>,
-) -> std::io::Result<Vec<T>> {
-    let count = reader.read_u32::<LittleEndian>()? as usize;
-    let mut records = Vec::with_capacity(count);
-    for _ in 0..count {
-        let mut data = [0u8; POST_EVENTS_RECORD_SIZE];
-        reader.read_exact(&mut data)?;
-        records.push(parse(&data)?);
-    }
-    Ok(records)
-}
-
-fn write_records<W: Write, T>(
-    writer: &mut W,
-    records: &[T],
-    write: impl Fn(&T, &mut W) -> std::io::Result<()>,
-) -> std::io::Result<()> {
-    writer.write_u32::<LittleEndian>(records.len() as u32)?;
-    for record in records {
-        write(record, writer)?;
-    }
-    Ok(())
 }

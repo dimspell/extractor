@@ -1,3 +1,4 @@
+use super::codec::{CountWidth, write_count};
 use crate::references::extractor::read_null_terminated_windows_1250;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
@@ -435,11 +436,14 @@ impl PartyMember {
     }
 }
 
+/// Read an already-parsed count of variable-length companion records.
+/// The count prefix itself is read by the shared codec (`CountWidth::U32`) in
+/// the top-level reader so every count has exactly one width definition.
 pub(super) fn read_party_members<R: Read>(
     reader: &mut R,
     count: u32,
 ) -> std::io::Result<Vec<PartyMember>> {
-    let mut members = Vec::with_capacity(count as usize);
+    let mut members = Vec::new();
     for _ in 0..count {
         members.push(PartyMember::read_from(reader)?);
     }
@@ -450,7 +454,13 @@ pub(super) fn write_party_members<W: Write>(
     members: &[PartyMember],
     writer: &mut W,
 ) -> std::io::Result<()> {
-    writer.write_u32::<LittleEndian>(members.len() as u32)?;
+    write_count(
+        writer,
+        CountWidth::U32,
+        "party members",
+        "party-member count",
+        members.len(),
+    )?;
     for member in members {
         member.write(writer)?;
     }

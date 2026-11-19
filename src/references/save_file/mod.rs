@@ -1,6 +1,7 @@
 // Save file extraction and serialization for Dispel RPG.
 
 pub mod character;
+mod codec;
 pub mod events;
 pub mod game_tmp;
 pub mod inventory;
