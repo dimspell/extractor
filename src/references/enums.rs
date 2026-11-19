@@ -7,6 +7,67 @@
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
+/// Shared wire-value → enum conversion policy.
+///
+/// The `#[derive(Extractor)]`, `#[derive(TextExtractor)]`,
+/// `#[derive(RecordPatcher)]` and `#[derive(TextRecordPatcher)]` macros all
+/// call [`WireValue::from_wire`] instead of spelling out
+/// `from_X(value).unwrap_or_default()` themselves. That keeps the parse side
+/// and the patch side guaranteed to agree, and leaves exactly one place where
+/// an out-of-range discriminant is turned into a value.
+pub trait WireValue<W>: Sized + Default {
+    /// Strict conversion: `None` for a discriminant the enum does not know.
+    fn from_wire_checked(value: W) -> Option<Self>;
+
+    /// The single fallback policy: unknown discriminants become `Default`.
+    fn from_wire(value: W) -> Self {
+        Self::from_wire_checked(value).unwrap_or_default()
+    }
+}
+
+/// Generate a [`WireValue`] impl from an existing `from_<wire>` constructor.
+macro_rules! impl_wire_value {
+    ($ty:ty, $wire:ty, $from:ident) => {
+        impl WireValue<$wire> for $ty {
+            fn from_wire_checked(value: $wire) -> Option<Self> {
+                <$ty>::$from(value)
+            }
+        }
+    };
+}
+
+// Every enum that participates in derive-generated conversions is registered
+// here. The fallback itself lives only in `WireValue::from_wire` above.
+impl_wire_value!(EventType, i32, from_i32);
+impl_wire_value!(MonsterAiType, i32, from_i32);
+impl_wire_value!(PropertyFlag, i32, from_i32);
+impl_wire_value!(MapLighting, i32, from_i32);
+impl_wire_value!(EditItemModification, u8, from_u8);
+impl_wire_value!(EditItemEffect, i16, from_i16);
+impl_wire_value!(ExtraObjectType, u8, from_u8);
+impl_wire_value!(ItemTypeId, u8, from_u8);
+impl_wire_value!(BooleanFlag, i32, from_i32);
+impl_wire_value!(BooleanFlag, u8, from_u8);
+impl_wire_value!(Unknown012, i32, from_i32);
+impl_wire_value!(NpcMovementMode, i32, from_i32);
+impl_wire_value!(NpcRoleResult, i32, from_i32);
+impl_wire_value!(NpcInteractionMode, i32, from_i32);
+impl_wire_value!(Unknown0to7, i32, from_i32);
+impl_wire_value!(Unknown0110, i32, from_i32);
+impl_wire_value!(TriStateFlag, i32, from_i32);
+impl_wire_value!(ByteFlag, u8, from_u8);
+impl_wire_value!(Special9999Flag, i32, from_i32);
+impl_wire_value!(SmallRange0to3, i32, from_i32);
+impl_wire_value!(SmallRange0to3, u8, from_u8);
+impl_wire_value!(SpecialPatternFlag, i32, from_i32);
+impl_wire_value!(HealItemFlag, u8, from_u8);
+impl_wire_value!(MagicType, u32, from_u32);
+impl_wire_value!(SpellTargetType, u32, from_u32);
+impl_wire_value!(MagicSpellFlag, u32, from_u32);
+impl_wire_value!(MagicSpellConstant, u32, from_u32);
+impl_wire_value!(NpcLookingDirection, i32, from_i32);
+impl_wire_value!(ProductType, i32, from_i32);
+
 /// Event types for game scripting and quest progression
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -2276,5 +2337,121 @@ mod tests {
 
         assert_eq!(i32::from(NpcLookingDirection::UpLeft), 7);
         assert_eq!(NpcLookingDirection::UpLeft.value(), 7);
+    }
+
+    // ── Shared fallback policy ───────────────────────────────────────────────
+
+    /// Assert that the strict conversion, the shared fallback and `Default`
+    /// all agree for one registered `(enum, wire type)` pair.
+    macro_rules! assert_wire_fallback {
+        ($ty:ty, $wire:ty, $from:ident, $valid:expr, $invalid:expr) => {{
+            type E = $ty;
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire_checked($valid),
+                E::$from($valid),
+                "checked conversion must match from_{} for {}",
+                stringify!($from),
+                stringify!($ty)
+            );
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire($valid),
+                E::$from($valid).expect("valid discriminant"),
+            );
+            // The policy is `from_X(value).unwrap_or_default()`: strict enums
+            // fall back to Default, catch-all enums (Unknown/Other/Invalid)
+            // keep their own mapping. Both paths use this exact expression.
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire($invalid),
+                E::$from($invalid).unwrap_or_default(),
+                "fallback must match the shared policy for {}",
+                stringify!($ty)
+            );
+        }};
+    }
+
+    #[test]
+    fn every_enum_fallback_matches_default_and_strict_conversion() {
+        // i32/i16/u32/u8 sentinels below are outside every enum's defined range.
+        assert_wire_fallback!(EventType, i32, from_i32, 2, i32::MIN);
+        assert_wire_fallback!(MonsterAiType, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(PropertyFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(MapLighting, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(EditItemModification, u8, from_u8, 1, 254);
+        assert_wire_fallback!(EditItemEffect, i16, from_i16, 1, i16::MIN);
+        assert_wire_fallback!(ExtraObjectType, u8, from_u8, 2, 254);
+        assert_wire_fallback!(ItemTypeId, u8, from_u8, 1, 254);
+        assert_wire_fallback!(BooleanFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(BooleanFlag, u8, from_u8, 1, 254);
+        assert_wire_fallback!(Unknown012, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(NpcMovementMode, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(NpcRoleResult, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(NpcInteractionMode, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(Unknown0to7, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(Unknown0110, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(TriStateFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(ByteFlag, u8, from_u8, 0, 254);
+        assert_wire_fallback!(Special9999Flag, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(SmallRange0to3, i32, from_i32, 3, i32::MIN);
+        assert_wire_fallback!(SmallRange0to3, u8, from_u8, 3, 254);
+        assert_wire_fallback!(SpecialPatternFlag, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(HealItemFlag, u8, from_u8, 1, 254);
+        assert_wire_fallback!(MagicType, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(SpellTargetType, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(MagicSpellFlag, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(MagicSpellConstant, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(NpcLookingDirection, i32, from_i32, 7, i32::MIN);
+        assert_wire_fallback!(ProductType, i32, from_i32, 2, i32::MIN);
+    }
+
+    /// Real `#[derive(Extractor)]` + `#[derive(RecordPatcher)]` probe: the
+    /// generated parse path and the generated patch path must both land on
+    /// `Default` for an out-of-range discriminant.
+    #[derive(
+        Debug,
+        Clone,
+        Copy,
+        Default,
+        PartialEq,
+        Eq,
+        dispel_macros::Extractor,
+        dispel_macros::RecordPatcher,
+    )]
+    #[extractor(property_item_size = 5)]
+    #[patcher(filename = "wire_enum_probe.db")]
+    struct WireEnumProbe {
+        #[extractor(enum_from_i32(type = "EventType"))]
+        event: EventType,
+        #[extractor(enum_from_u8(type = "BooleanFlag"))]
+        flag: BooleanFlag,
+    }
+
+    #[test]
+    fn parse_side_and_patch_side_fallback_agree() {
+        use crate::modding::patcher::RecordPatcher as _;
+        use crate::modding::value::Value;
+        use crate::references::extractor::Extractor as _;
+        use std::io::Cursor;
+
+        let mut blob = 1i32.to_le_bytes().to_vec();
+        blob.extend_from_slice(&12345i32.to_le_bytes()); // invalid EventType
+        blob.push(254); // invalid BooleanFlag
+
+        // Parse side.
+        let parsed = WireEnumProbe::parse(&mut Cursor::new(&blob), blob.len() as u64).unwrap();
+        assert_eq!(parsed[0].event, EventType::default());
+        assert_eq!(parsed[0].flag, BooleanFlag::default());
+
+        // Patch side, through both accepted `Value` shapes.
+        let patcher = WireEnumProbePatcher;
+        let out = patcher
+            .apply_field(&blob, 0, "event", &Value::I64(12345))
+            .unwrap();
+        let out2 = patcher
+            .apply_field(&blob, 0, "flag", &Value::String("254".into()))
+            .unwrap();
+        let patched = WireEnumProbe::parse(&mut Cursor::new(&out), out.len() as u64).unwrap();
+        let patched2 = WireEnumProbe::parse(&mut Cursor::new(&out2), out2.len() as u64).unwrap();
+        assert_eq!(patched[0].event, EventType::default());
+        assert_eq!(patched2[0].flag, BooleanFlag::default());
     }
 }

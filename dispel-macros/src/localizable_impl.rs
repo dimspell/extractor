@@ -151,6 +151,8 @@ fn parse_translatable_args(attr: &syn::Attribute) -> (String, usize) {
     let encoding = encoding.expect("#[translatable] requires encoding = \"...\"");
     let max_bytes = max_bytes.expect("#[translatable] requires max_bytes = N");
 
+    // Token generation stays in `codegen`, where `CodegenConfig` resolves the
+    // spelling through the shared encoding registry and supplies the module path.
     (encoding, max_bytes)
 }
 

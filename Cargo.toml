@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
+members = [".", "dispel-encodings", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -32,6 +32,7 @@ clap = { version = "4.4.10", features = ["derive"] }
 serde_json = { version = "1.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 dispel-macros = { path = "dispel-macros" }
+dispel-encodings = { path = "dispel-encodings" }
 csv = "1.3"
 qbsdiff = "1.4"
 uuid = { version = "1", features = ["v4", "serde"] }

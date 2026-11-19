@@ -2,6 +2,7 @@ use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
 mod binary_record_impl;
+mod encoding;
 mod extractor_impl;
 mod layout_impl;
 mod localizable_impl;
@@ -9,6 +10,7 @@ mod record_patcher_impl;
 mod schema;
 mod text_extractor_impl;
 mod text_record_patcher_impl;
+mod wire_enum;
 
 /// Derive macro that generates a `Localizable` impl for a struct.
 ///
@@ -75,7 +77,8 @@ pub fn derive_record_layout(input: TokenStream) -> TokenStream {
 /// Derive macro that generates an `Extractor` impl for text/CSV files.
 ///
 /// Struct-level attributes:
-/// - `#[extractor(encoding = "EUC_KR|WINDOWS_1250|UTF_8")]`
+/// - `#[extractor(encoding = "EUC-KR|WINDOWS-1250|UTF-8")]` (hyphen or
+///   underscore spelling, case-insensitive; see the `dispel-encodings` registry)
 /// - `#[extractor(delimiter = ",")]`
 /// - `#[extractor(comment_char = ";")]`
 ///

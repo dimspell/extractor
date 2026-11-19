@@ -163,9 +163,11 @@ Core modules: `apply`, `bsdiff`, `change`, `changelog`, `conflicts`, `manifest`,
 - Other modules use `std::io::Result` / `rusqlite::Result` directly (plus thiserror errors in `dispel-gui`'s indexation/file-tree modules).
 
 ### Encoding helpers
-- `read_null_terminated_windows_1250(bytes)` — in `references/extractor.rs`
-- `TextEncoding` enum (`Windows1250`, `EucKr`, `Utf8`) + `encoding_rs_for()`, `encoded_len()` in `localization.rs`
-- `WINDOWS_1250` / `EUC_KR` used directly from `encoding_rs` crate
+- `dispel-encodings` crate — single source of truth for accepted spellings (`WINDOWS-1250`/`WINDOWS_1250`, `EUC-KR`/`EUC_KR`, `UTF-8`/`UTF_8`, case-insensitive), CSV/PO labels and the `encoding_rs` mapping. Both `dispel-macros` (compile time) and `dispel-core` (runtime) consume it.
+- `TextEncoding` — re-exported from `localization.rs` (defined in `dispel-encodings`); `encoding_rs_for()`, `encoded_len()` in `localization.rs`
+- `read_null_terminated(bytes, &TextEncoding)` — in `references/extractor.rs`; `read_null_terminated_windows_1250()` is its backward-compatible wrapper
+- `WINDOWS_1250` / `EUC_KR` still used directly in a few hand-written parsers/patchers (not yet routed through the registry)
+- Enum wire-value fallback (`from_X(v).unwrap_or_default()`) lives once in `references/enums.rs::WireValue::from_wire`; the derive macros call it so parse and patch agree
 
 ### SQLite schema (`src/queries/`)
 90 SQL files: 45 `create_table_*.sql` (schema DDL) + 45 parameterized `insert_*.sql`. Run by `database.rs` to drop and recreate the schema. **No foreign keys** — relationships are enforced in code, not SQL constraints.
