@@ -137,38 +137,44 @@ pub fn validate_relative(path: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::tempdir;
+    use crate::modding::fs::MemFs;
+    use std::sync::Arc;
+
+    fn store() -> (Arc<MemFs>, VanillaStore) {
+        let fs = Arc::new(MemFs::new());
+        let root = PathBuf::from("/vault");
+        fs.create_dir_all(&root).unwrap();
+        let store = VanillaStore::with_fs(root, fs.clone());
+        (fs, store)
+    }
 
     #[test]
     fn snapshot_then_read() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let (fs, store) = store();
+        let game = Path::new("/game");
+        fs.create_dir_all(game).unwrap();
 
         let rel = "CharacterInGame/MiscItem.db";
-        let abs = game.path().join(rel);
-        fs::create_dir_all(abs.parent().unwrap()).unwrap();
-        fs::write(&abs, b"original").unwrap();
+        let abs = game.join(rel);
+        fs.write(&abs, b"original").unwrap();
 
-        let snap = store.ensure_snapshot(game.path(), rel).unwrap();
+        let snap = store.ensure_snapshot(game, rel).unwrap();
         assert_eq!(snap.as_deref(), Some(&b"original"[..]));
         assert!(store.has(rel));
 
         // Mutate the source; snapshot must still return original bytes.
-        fs::write(&abs, b"mutated").unwrap();
-        let again = store.ensure_snapshot(game.path(), rel).unwrap();
+        fs.write(&abs, b"mutated").unwrap();
+        let again = store.ensure_snapshot(game, rel).unwrap();
         assert_eq!(again.as_deref(), Some(&b"original"[..]));
     }
 
     #[test]
     fn missing_source_returns_none() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
-
+        let (fs, store) = store();
+        let game = Path::new("/game");
+        fs.create_dir_all(game).unwrap();
         let rel = "Map/never_existed.map";
-        let snap = store.ensure_snapshot(game.path(), rel).unwrap();
+        let snap = store.ensure_snapshot(game, rel).unwrap();
         assert!(snap.is_none());
         assert!(!store.has(rel));
     }
@@ -187,5 +193,14 @@ mod tests {
         assert_eq!(normalise("./foo/bar"), PathBuf::from("foo/bar"));
         // ParentDir components are stripped (defence-in-depth).
         assert_eq!(normalise("foo/../bar"), PathBuf::from("foo/bar"));
+    }
+
+    #[test]
+    fn store_uses_the_port_for_reads() {
+        let (fs, store) = store();
+        let mirror = store.root().join("Map/seeded.map");
+        fs.create_dir_all(mirror.parent().unwrap()).unwrap();
+        fs.write(&mirror, b"seeded").unwrap();
+        assert_eq!(store.read("Map/seeded.map").unwrap().unwrap(), b"seeded");
     }
 }

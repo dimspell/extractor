@@ -314,34 +314,34 @@ mod tests {
             .collect()
     }
 
-    fn facade(root: &Path, game: &Path, fs: Arc<MemFs>) -> Modding {
+    fn seeded(fs: &Arc<MemFs>, root: &str, game: &str) -> Modding {
+        let game = Path::new(game);
+        fs.create_dir_all(game).unwrap();
+        fs.write(&game.join(REL), &misc_bytes("Helt", 15)).unwrap();
         Modding::with_patchers(
-            root.to_path_buf(),
+            PathBuf::from(root),
             game.to_path_buf(),
-            fs,
+            fs.clone(),
             PatcherRegistry::with_defaults(),
         )
         .unwrap()
     }
 
+    fn field_change(new: &str) -> FieldChange {
+        FieldChange::new(
+            FieldKey::new(REL, 0, "name"),
+            Value::String("Helt".into()),
+            Value::String(new.into()),
+        )
+    }
+
     #[test]
     fn test_record_then_reconcile_asserts_final_changelog_and_apply() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game = Path::new("/virtual/game");
         let fs = Arc::new(MemFs::new());
-        fs.write(&game.join(REL), &misc_bytes("Helt", 15)).unwrap();
-
-        let m = facade(tmp.path(), game, fs.clone());
+        let game = Path::new("/virtual/game1");
+        let m = seeded(&fs, "/virtual/ws1", "/virtual/game1");
         let slug = m.create_mod(ModManifest::new("spelling")).unwrap();
-        m.record(
-            &slug,
-            FieldChange::new(
-                FieldKey::new(REL, 0, "name"),
-                Value::String("Helt".into()),
-                Value::String("Helmet".into()),
-            ),
-        )
-        .unwrap();
+        m.record(&slug, field_change("Helmet")).unwrap();
         m.set_enabled(&slug, true).unwrap();
 
         // Assert the final ChangeLog, not a pending-map check.
@@ -379,24 +379,13 @@ mod tests {
 
     #[test]
     fn test_detect_pin_apply_agree_on_same_field() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game = Path::new("/virtual/game2");
         let fs = Arc::new(MemFs::new());
-        fs.write(&game.join(REL), &misc_bytes("Helt", 15)).unwrap();
-
-        let m = facade(tmp.path(), game, fs.clone());
+        let game = Path::new("/virtual/game2");
+        let m = seeded(&fs, "/virtual/ws2", "/virtual/game2");
         let a = m.create_mod(ModManifest::new("a")).unwrap();
         let b = m.create_mod(ModManifest::new("b")).unwrap();
         for (slug, new) in [(&a, "Helmet"), (&b, "Hat")] {
-            m.record(
-                slug,
-                FieldChange::new(
-                    FieldKey::new(REL, 0, "name"),
-                    Value::String("Helt".into()),
-                    Value::String(new.into()),
-                ),
-            )
-            .unwrap();
+            m.record(slug, field_change(new)).unwrap();
             m.set_enabled(slug, true).unwrap();
         }
 
@@ -407,7 +396,14 @@ mod tests {
         m.apply().unwrap();
         assert_eq!(names(&fs.read(&game.join(REL)).unwrap()), vec!["Hat"]);
 
+        // Reordering flips the winner and the applied bytes together.
+        m.workspace().move_up(&b).unwrap();
+        let report = m.reconcile().unwrap();
+        assert_eq!(report.conflicts[0].winner(), a);
+        assert_eq!(names(&fs.read(&game.join(REL)).unwrap()), vec!["Helmet"]);
+
         // Pin to a: both the conflict view and the apply engine must agree.
+        m.workspace().move_down(&b).unwrap();
         m.pin(FieldKey::new(REL, 0, "name"), &a).unwrap();
         let report = m.reconcile().unwrap();
         assert_eq!(report.conflicts[0].winner(), a);
@@ -423,12 +419,8 @@ mod tests {
 
     #[test]
     fn test_record_many_flattens_to_final_changelog() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game = Path::new("/virtual/game3");
         let fs = Arc::new(MemFs::new());
-        fs.write(&game.join(REL), &misc_bytes("Helt", 15)).unwrap();
-
-        let m = facade(tmp.path(), game, fs.clone());
+        let m = seeded(&fs, "/virtual/ws3", "/virtual/game3");
         let slug = m.create_mod(ModManifest::new("typing")).unwrap();
         let removed = m
             .record_many(
@@ -461,15 +453,113 @@ mod tests {
 
     #[test]
     fn test_file_change_records_full_replace_when_delta_is_not_worth_it() {
-        let tmp = tempfile::tempdir().unwrap();
-        let game = Path::new("/virtual/game4");
         let fs = Arc::new(MemFs::new());
+        let m = Modding::with_patchers(
+            PathBuf::from("/virtual/ws4"),
+            PathBuf::from("/virtual/game4"),
+            fs.clone(),
+            PatcherRegistry::with_defaults(),
+        )
+        .unwrap();
         let vanilla: Vec<u8> = (0u8..64).collect();
         let current: Vec<u8> = (0u8..64).map(|b| 255 - b).collect();
-        fs.write(&game.join("Sprite/new.spr"), &vanilla).unwrap();
+        fs.write(Path::new("/virtual/game4/Sprite/new.spr"), &vanilla)
+            .unwrap();
 
-        let m = facade(tmp.path(), game, fs);
         let action = m.file_change("Sprite/new.spr", &current).unwrap();
         assert!(matches!(action.op, ChangeOp::FileReplace { .. }));
+    }
+
+    #[test]
+    fn test_unflattened_changelog_winner_matches_applied_bytes() {
+        // A changelog written by an older tool can contain several edits to the
+        // same field. Write one straight into the package directory (bypassing
+        // the normalizing append path) and assert that conflict detection and
+        // apply still agree about the winning value.
+        let fs = Arc::new(MemFs::new());
+        let game = Path::new("/virtual/game5");
+        let m = seeded(&fs, "/virtual/ws5", "/virtual/game5");
+        let a = m.create_mod(ModManifest::new("a")).unwrap();
+        let b = m.create_mod(ModManifest::new("b")).unwrap();
+        m.record(&b, field_change("Hat")).unwrap();
+
+        let unflattened = vec![
+            ChangeAction::new(
+                REL,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "name".into(),
+                    old: Value::String("Helt".into()),
+                    new: Value::String("Hel".into()),
+                },
+            ),
+            ChangeAction::new(
+                REL,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "name".into(),
+                    old: Value::String("Hel".into()),
+                    new: Value::String("Helmet".into()),
+                },
+            ),
+        ];
+        fs.write(
+            Path::new("/virtual/ws5/mods/a/changes.json"),
+            &serde_json::to_vec_pretty(&unflattened).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(m.changelog(&a).unwrap().len(), 2);
+
+        m.set_enabled(&a, true).unwrap();
+        m.set_enabled(&b, true).unwrap();
+
+        // Last mod in load order wins, and its value is what gets written.
+        let report = m.reconcile().unwrap();
+        assert_eq!(report.conflicts[0].winner(), b);
+        assert_eq!(names(&fs.read(&game.join(REL)).unwrap()), vec!["Hat"]);
+
+        // Pin to a: a's *last* unflattened edit (Helmet) becomes the winner,
+        // and those exact bytes land in the game file.
+        m.pin(FieldKey::new(REL, 0, "name"), &a).unwrap();
+        let report = m.reconcile().unwrap();
+        assert_eq!(report.conflicts[0].winner(), a);
+        assert_eq!(
+            report.conflicts[0].participants[0].field_new,
+            Some(Value::String("Helmet".into()))
+        );
+        assert_eq!(names(&fs.read(&game.join(REL)).unwrap()), vec!["Helmet"]);
+    }
+
+    #[test]
+    fn test_mod_lifecycle_boundary_create_enable_export_import_disable_delete() {
+        // The whole lifecycle runs against MemFs: no real directory is made.
+        let fs = Arc::new(MemFs::new());
+        let m = seeded(&fs, "/virtual/ws6", "/virtual/game6");
+        let a = m.create_mod(ModManifest::new("alpha")).unwrap();
+        assert_eq!(a, "alpha");
+        assert!(fs.is_dir(Path::new("/virtual/ws6/mods/alpha")));
+
+        m.set_enabled(&a, true).unwrap();
+        assert_eq!(m.workspace().enabled_order().unwrap(), vec![a.clone()]);
+
+        let zip = Path::new("/virtual/exports/alpha.zip");
+        m.export_zip(&a, zip).unwrap();
+        assert!(fs.is_file(zip));
+
+        let copy = m.import_zip(zip).unwrap();
+        assert_eq!(copy, "alpha-2");
+        assert_eq!(m.list_mods().unwrap().len(), 2);
+        m.set_enabled(&copy, true).unwrap();
+        assert_eq!(
+            m.workspace().enabled_order().unwrap(),
+            vec![a.clone(), copy.clone()]
+        );
+
+        m.set_enabled(&copy, false).unwrap();
+        assert_eq!(m.workspace().enabled_order().unwrap(), vec![a.clone()]);
+
+        m.delete_mod(&copy).unwrap();
+        assert!(!fs.exists(Path::new("/virtual/ws6/mods/alpha-2")));
+        assert_eq!(m.list_mods().unwrap().len(), 1);
     }
 }

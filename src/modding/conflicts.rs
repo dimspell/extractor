@@ -15,11 +15,12 @@
 //! * [`ConflictKind::FileWhole`] — multiple mods carry `FileReplace` /
 //!   `FileAdd` / `FileDelete` for the same file. Hard for the same reason.
 //!
-//! Same-mod repeated edits are *not* conflicts; flatten passes (see
-//! [`ChangeLog::flatten_field_deltas`]) collapse intra-mod redundancy.
+//! Same-mod repeated edits are *not* conflicts: [`effective_actions`] keeps
+//! only a mod's last contribution to each destination, and the apply engine
+//! replays that same view.
 //!
 //! [`ChangeOp::BinaryDelta`]: super::change::ChangeOp::BinaryDelta
-//! [`ChangeLog::flatten_field_deltas`]: super::changelog::ChangeLog::flatten_field_deltas
+//! [`effective_actions`]: super::changelog::effective_actions
 
 use std::collections::BTreeMap;
 
@@ -105,28 +106,42 @@ pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap)
     let mut whole_map: BTreeMap<String, Vec<ConflictParticipant>> = BTreeMap::new();
 
     for entry in mods {
-        // Per-mod dedupe: only the *last* contribution from any one mod on a
-        // given key counts (prevents flagging intra-mod redundancy as a
-        // conflict). The flatten pass should already have done this for
-        // FieldDelta, but it's free insurance and matters for binary too.
+        // Per-mod dedup lives in `effective_actions`, which is also what the
+        // apply engine replays. Keeping that decision in one place makes the
+        // reported winner agree with the bytes that get written even for a
+        // changelog that was never flattened on disk.
         let mod_id = entry.mod_id.to_owned();
-        for action in entry.changes.actions() {
+        for action in super::changelog::effective_actions(entry.changes.actions()) {
             match &action.op {
                 ChangeOp::FieldDelta { new, .. } => {
                     let key = action
                         .op
                         .field_key(&action.file_path)
                         .expect("FieldDelta always has a field key");
-                    let participants = field_map.entry(key).or_default();
-                    upsert(participants, &mod_id, "FieldDelta", Some(new.clone()));
+                    field_map.entry(key).or_default().push(ConflictParticipant {
+                        mod_id: mod_id.clone(),
+                        op: "FieldDelta",
+                        field_new: Some(new.clone()),
+                    });
                 }
                 ChangeOp::BinaryDelta { .. } => {
-                    let participants = binary_map.entry(action.file_path.clone()).or_default();
-                    upsert(participants, &mod_id, "BinaryDelta", None);
+                    binary_map
+                        .entry(action.file_path.clone())
+                        .or_default()
+                        .push(ConflictParticipant {
+                            mod_id: mod_id.clone(),
+                            op: "BinaryDelta",
+                            field_new: None,
+                        });
                 }
                 ChangeOp::FileReplace { .. } | ChangeOp::FileAdd { .. } | ChangeOp::FileDelete => {
-                    let participants = whole_map.entry(action.file_path.clone()).or_default();
-                    upsert(participants, &mod_id, action.op.variant_name(), None);
+                    whole_map.entry(action.file_path.clone()).or_default().push(
+                        ConflictParticipant {
+                            mod_id: mod_id.clone(),
+                            op: action.op.variant_name(),
+                            field_new: None,
+                        },
+                    );
                 }
             }
         }
@@ -180,24 +195,6 @@ pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap)
             .then_with(|| kind_order(&a.kind).cmp(&kind_order(&b.kind)))
     });
     out
-}
-
-fn upsert(
-    participants: &mut Vec<ConflictParticipant>,
-    mod_id: &str,
-    op: &'static str,
-    field_new: Option<Value>,
-) {
-    if let Some(existing) = participants.iter_mut().find(|p| p.mod_id == mod_id) {
-        existing.op = op;
-        existing.field_new = field_new;
-    } else {
-        participants.push(ConflictParticipant {
-            mod_id: mod_id.to_owned(),
-            op,
-            field_new,
-        });
-    }
 }
 
 /// A field key is only a *real* conflict if at least two distinct mods

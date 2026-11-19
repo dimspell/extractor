@@ -54,4 +54,3 @@ overflow-checks = false
 
 [dev-dependencies]
 proptest = "1.4"
-tempfile = "3.8"

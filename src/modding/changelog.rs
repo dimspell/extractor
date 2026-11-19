@@ -1,9 +1,63 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
-use super::change::ChangeAction;
+use super::change::{ChangeAction, ChangeOp};
+use super::resolution::FieldKey;
+use super::value::Value;
 
 /// Per-mod cap on retained actions. Adding a 101st action drops the oldest.
 pub const HISTORY_CAP: usize = 100;
+
+/// The destination a change contributes to, used to decide which of a mod's
+/// several edits to the same place is the effective one.
+///
+/// This is the single key derivation shared by changelog flattening, conflict
+/// detection and the apply engine. Field edits are keyed by field identity;
+/// each whole-file op family is keyed by file path so a mod's last edit to a
+/// file wins without erasing unrelated field edits on that same file.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChangeTarget {
+    Field(FieldKey),
+    Binary(String),
+    WholeFile(String),
+}
+
+impl ChangeTarget {
+    pub fn of(action: &ChangeAction) -> Option<Self> {
+        match &action.op {
+            ChangeOp::FieldDelta { .. } => action.op.field_key(&action.file_path).map(Self::Field),
+            ChangeOp::BinaryDelta { .. } => Some(Self::Binary(action.file_path.clone())),
+            ChangeOp::FileReplace { .. } | ChangeOp::FileAdd { .. } | ChangeOp::FileDelete => {
+                Some(Self::WholeFile(action.file_path.clone()))
+            }
+        }
+    }
+}
+
+/// The actions of one mod that are still effective after per-mod dedup: the
+/// *last* action for each [`ChangeTarget`] wins.
+///
+/// Conflict detection and the apply engine both consume this view, so the
+/// reported winner is always the contribution whose bytes get written — even
+/// for a changelog loaded from disk that was never flattened. Writers flatten
+/// the stored changelog through [`ChangeLog::flatten_field_deltas`]; readers
+/// rely on this function instead.
+pub fn effective_actions(actions: &[ChangeAction]) -> Vec<&ChangeAction> {
+    let mut last: HashMap<ChangeTarget, usize> = HashMap::with_capacity(actions.len());
+    let mut keep: Vec<usize> = Vec::with_capacity(actions.len());
+    for (idx, action) in actions.iter().enumerate() {
+        match ChangeTarget::of(action) {
+            Some(target) => {
+                last.insert(target, idx);
+            }
+            None => keep.push(idx),
+        }
+    }
+    keep.extend(last.into_values());
+    keep.sort_unstable();
+    keep.into_iter().map(|idx| &actions[idx]).collect()
+}
 
 /// Linear, append-only history of [`ChangeAction`]s for a single mod.
 ///
@@ -78,13 +132,8 @@ impl ChangeLog {
     ///
     /// Returns the number of actions removed.
     pub fn flatten_field_deltas(&mut self) -> usize {
-        use crate::modding::change::ChangeOp;
-        use crate::modding::resolution::FieldKey;
-        use crate::modding::value::Value;
-        use std::collections::HashMap;
-
-        // FieldKey -> index of the last FieldDelta seen. One key type is
-        // shared with conflict detection, pins and apply.
+        // FieldKey -> index of the last FieldDelta seen. The key derivation is
+        // the same one `effective_actions` uses for conflict detection/apply.
         let mut last_seen: HashMap<FieldKey, usize> = HashMap::new();
         // Carries the original `old` forward as we walk; keyed identically.
         let mut original_old: HashMap<FieldKey, Value> = HashMap::new();
@@ -94,7 +143,7 @@ impl ChangeLog {
             let ChangeOp::FieldDelta { old, .. } = &action.op else {
                 continue;
             };
-            let Some(key) = action.op.field_key(&action.file_path) else {
+            let Some(ChangeTarget::Field(key)) = ChangeTarget::of(action) else {
                 continue;
             };
             if let Some(prev_idx) = last_seen.insert(key.clone(), idx) {
@@ -348,5 +397,106 @@ mod tests {
         assert!(json.starts_with('['));
         let back: ChangeLog = serde_json::from_str(&json).unwrap();
         assert_eq!(log, back);
+    }
+
+    #[test]
+    fn effective_actions_keep_only_last_per_target() {
+        let first = fd(
+            "MiscItem.db",
+            1,
+            "name",
+            Value::String("a".into()),
+            Value::String("b".into()),
+        );
+        let last = fd(
+            "MiscItem.db",
+            1,
+            "name",
+            Value::String("b".into()),
+            Value::String("c".into()),
+        );
+        let binary = ChangeAction::new(
+            "Sprite/x.spr",
+            ChangeOp::BinaryDelta {
+                patch_bytes: vec![1],
+            },
+        );
+        let old_binary_id = binary.id;
+        let binary2 = ChangeAction::new(
+            "Sprite/x.spr",
+            ChangeOp::BinaryDelta {
+                patch_bytes: vec![2],
+            },
+        );
+        let last_id = last.id;
+        let actions = [first, last, binary, binary2];
+        let keep = effective_actions(&actions);
+        assert_eq!(keep.len(), 2);
+        assert_eq!(keep[0].id, last_id);
+        assert_ne!(keep[1].id, old_binary_id);
+    }
+
+    #[test]
+    fn effective_actions_preserve_distinct_targets_and_position() {
+        let name = fd(
+            "MiscItem.db",
+            1,
+            "name",
+            Value::Null,
+            Value::String("Helmet".into()),
+        );
+        let price = fd("MiscItem.db", 1, "price", Value::Null, Value::I64(9));
+        let whole = ChangeAction::new("MiscItem.db", ChangeOp::FileDelete);
+        let name_id = name.id;
+        let price_id = price.id;
+        let whole_id = whole.id;
+        let actions = [name.clone(), price, whole, name];
+        let keep = effective_actions(&actions);
+        assert_eq!(keep.len(), 3);
+        assert_eq!(keep[0].id, price_id);
+        assert_eq!(keep[1].id, whole_id);
+        assert_eq!(keep[2].id, name_id);
+    }
+
+    #[test]
+    fn effective_actions_agree_with_flattened_log() {
+        let actions = vec![
+            fd(
+                "MiscItem.db",
+                1,
+                "name",
+                Value::String("a".into()),
+                Value::String("b".into()),
+            ),
+            fd(
+                "MiscItem.db",
+                2,
+                "name",
+                Value::String("x".into()),
+                Value::String("y".into()),
+            ),
+            fd(
+                "MiscItem.db",
+                1,
+                "name",
+                Value::String("b".into()),
+                Value::String("c".into()),
+            ),
+        ];
+        let mut log = ChangeLog::from_actions(actions.clone());
+        log.flatten_field_deltas();
+        let effective = effective_actions(&actions);
+        assert_eq!(effective.len(), log.len());
+        for (action, flattened) in effective.iter().zip(log.actions()) {
+            // Flattening additionally rewrites `old` to the earliest captured
+            // value; the identity and the final `new` must still line up.
+            assert_eq!(action.id, flattened.id);
+            let (ChangeOp::FieldDelta { new: a, .. }, ChangeOp::FieldDelta { new: b, .. }) =
+                (&action.op, &flattened.op)
+            else {
+                panic!("expected field deltas");
+            };
+            assert_eq!(a, b);
+        }
     }
 }

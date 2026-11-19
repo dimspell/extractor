@@ -13,7 +13,6 @@
 //! The `patches/` and `files/` directories only appear when relevant actions
 //! are present. Field-only mods produce a two-file zip.
 
-use std::fs;
 use std::io::{Read, Seek, Write};
 use std::path::Path;
 
@@ -23,6 +22,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 use super::change::{BlobKind, ChangeAction};
 use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, OsFs};
 use super::manifest::{MANIFEST_VERSION, ModManifest};
 
 pub const MANIFEST_ENTRY: &str = "manifest.json";
@@ -124,34 +124,39 @@ fn blob_entry_name(kind: BlobKind, action: &ChangeAction) -> String {
 /// `manifest.json`, `changes.json`, `patches/`, and `files/` entries are
 /// overwritten (other files in `dir` are left alone).
 pub fn write_dir(dir: &Path, package: &ModPackage) -> Result<()> {
-    fs::create_dir_all(dir)?;
+    write_dir_with_fs(&OsFs, dir, package)
+}
+
+/// Same as [`write_dir`], but through an explicit filesystem port.
+pub fn write_dir_with_fs(fs: &dyn Fs, dir: &Path, package: &ModPackage) -> Result<()> {
+    fs.create_dir_all(dir)?;
 
     let manifest_path = dir.join(MANIFEST_ENTRY);
-    fs::write(
+    fs.write(
         &manifest_path,
-        serde_json::to_vec_pretty(&package.manifest)?,
+        &serde_json::to_vec_pretty(&package.manifest)?,
     )?;
 
     let changes_path = dir.join(CHANGES_ENTRY);
-    fs::write(
+    fs.write(
         &changes_path,
-        serde_json::to_vec_pretty(package.changes.actions())?,
+        &serde_json::to_vec_pretty(package.changes.actions())?,
     )?;
 
     // Wipe any stale blob dirs first so removed actions don't leave orphans.
     for sub in ["patches", "files"] {
         let p = dir.join(sub);
-        if p.is_dir() {
-            fs::remove_dir_all(&p)?;
+        if fs.is_dir(&p) {
+            fs.remove_dir_all(&p)?;
         }
     }
 
     for action in package.changes.actions() {
         if let Some((kind, bytes)) = action.op.out_of_line_bytes() {
             let blob_dir = dir.join(kind.dir_name());
-            fs::create_dir_all(&blob_dir)?;
+            fs.create_dir_all(&blob_dir)?;
             let path = blob_dir.join(format!("{}.bin", action.id));
-            fs::write(&path, bytes)?;
+            fs.write(&path, bytes)?;
         }
     }
 
@@ -160,7 +165,12 @@ pub fn write_dir(dir: &Path, package: &ModPackage) -> Result<()> {
 
 /// Read a mod package from a directory written by [`write_dir`].
 pub fn read_dir(dir: &Path) -> Result<ModPackage> {
-    if !dir.is_dir() {
+    read_dir_with_fs(&OsFs, dir)
+}
+
+/// Same as [`read_dir`], but through an explicit filesystem port.
+pub fn read_dir_with_fs(fs: &dyn Fs, dir: &Path) -> Result<ModPackage> {
+    if !fs.is_dir(dir) {
         return Err(ModdingError::Malformed(format!(
             "not a directory: {}",
             dir.display()
@@ -168,10 +178,10 @@ pub fn read_dir(dir: &Path) -> Result<ModPackage> {
     }
 
     let manifest_path = dir.join(MANIFEST_ENTRY);
-    if !manifest_path.is_file() {
+    if !fs.is_file(&manifest_path) {
         return Err(ModdingError::MissingEntry(MANIFEST_ENTRY.into()));
     }
-    let manifest: ModManifest = serde_json::from_slice(&fs::read(&manifest_path)?)?;
+    let manifest: ModManifest = serde_json::from_slice(&fs.read(&manifest_path)?)?;
     if manifest.manifest_version > MANIFEST_VERSION {
         return Err(ModdingError::UnsupportedManifestVersion(
             manifest.manifest_version,
@@ -179,8 +189,8 @@ pub fn read_dir(dir: &Path) -> Result<ModPackage> {
     }
 
     let changes_path = dir.join(CHANGES_ENTRY);
-    let mut actions: Vec<ChangeAction> = if changes_path.is_file() {
-        serde_json::from_slice(&fs::read(&changes_path)?)?
+    let mut actions: Vec<ChangeAction> = if fs.is_file(&changes_path) {
+        serde_json::from_slice(&fs.read(&changes_path)?)?
     } else {
         Vec::new()
     };
@@ -190,14 +200,14 @@ pub fn read_dir(dir: &Path) -> Result<ModPackage> {
             continue;
         };
         let blob_path = dir.join(kind.dir_name()).join(format!("{}.bin", action.id));
-        if !blob_path.is_file() {
+        if !fs.is_file(&blob_path) {
             return Err(ModdingError::MissingEntry(format!(
                 "{}/{}.bin",
                 kind.dir_name(),
                 action.id
             )));
         }
-        action.op.attach_blob(fs::read(&blob_path)?);
+        action.op.attach_blob(fs.read(&blob_path)?);
     }
 
     Ok(ModPackage::new(manifest, ChangeLog::from_actions(actions)))
@@ -357,33 +367,35 @@ mod tests {
                 delete_action(),
             ]),
         );
-        let tmp = tempfile::tempdir().unwrap();
-        super::write_dir(tmp.path(), &pkg).unwrap();
-        let back = super::read_dir(tmp.path()).unwrap();
+        let fs = crate::modding::fs::MemFs::new();
+        let dir = std::path::Path::new("/mods/dir-test");
+        super::write_dir_with_fs(&fs, dir, &pkg).unwrap();
+        let back = super::read_dir_with_fs(&fs, dir).unwrap();
         assert_eq!(pkg, back);
     }
 
     #[test]
     fn dir_overwrites_stale_blobs() {
-        let tmp = tempfile::tempdir().unwrap();
+        let fs = crate::modding::fs::MemFs::new();
+        let dir = std::path::Path::new("/mods/versioned");
         let p1 = ModPackage::new(
             ModManifest::new("v1"),
             ChangeLog::from_actions(vec![binary_action(vec![1, 2, 3])]),
         );
-        super::write_dir(tmp.path(), &p1).unwrap();
+        super::write_dir_with_fs(&fs, dir, &p1).unwrap();
         // Now write a different package — old blob must not linger.
         let p2 = ModPackage::new(
             ModManifest::new("v2"),
             ChangeLog::from_actions(vec![field_action()]),
         );
-        super::write_dir(tmp.path(), &p2).unwrap();
+        super::write_dir_with_fs(&fs, dir, &p2).unwrap();
 
         // patches/ either gone or empty.
-        let patches = tmp.path().join("patches");
-        if patches.exists() {
-            assert!(std::fs::read_dir(&patches).unwrap().next().is_none());
+        let patches = dir.join("patches");
+        if fs.is_dir(&patches) {
+            assert!(fs.read_dir(&patches).unwrap().is_empty());
         }
-        let back = super::read_dir(tmp.path()).unwrap();
+        let back = super::read_dir_with_fs(&fs, dir).unwrap();
         assert_eq!(back.changes.len(), 1);
     }
 
