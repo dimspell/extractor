@@ -4,6 +4,7 @@
 //! It's used by both the CLI extractor and the GUI editor.
 
 pub mod database;
+pub mod decode;
 pub mod localization;
 pub mod map;
 pub mod modding;
