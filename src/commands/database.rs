@@ -1,6 +1,6 @@
 use super::Command;
 use crate::cli::DatabaseCommands;
-use dispel_core::database::{
+use crate::database::{
     bootstrap, create_all, import_all, import_databases, import_dialogues_paragraphs, import_maps,
     import_refs, import_rest, import_sprite_files,
 };
@@ -8,7 +8,7 @@ use rusqlite::Connection;
 use std::error::Error;
 use std::path::Path;
 
-/// Thin CLI wrapper around `dispel_core::database`.
+/// Thin CLI wrapper around the `crate::database` module.
 ///
 /// All schema knowledge, INSERT statements and import orchestration live in
 /// the core library. This file only opens the connection, ensures the schema

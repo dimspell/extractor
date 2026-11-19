@@ -81,7 +81,9 @@ struct TypeInfo {
     name: &'static str,
     description: &'static str,
     extensions: Vec<&'static str>,
-    record_type: String,
+    record_type: &'static str,
+    editor: &'static str,
+    fields: Vec<String>,
 }
 
 impl From<&FileType> for TypeInfo {
@@ -90,7 +92,9 @@ impl From<&FileType> for TypeInfo {
             name: ft.key,
             description: ft.description,
             extensions: ft.extensions.to_vec(),
-            record_type: ft.key.to_string(),
+            record_type: ft.record_type,
+            editor: ft.editor,
+            fields: ft.field_names().map(str::to_string).collect(),
         }
     }
 }

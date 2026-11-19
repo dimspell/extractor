@@ -17,7 +17,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     let name_str = name.to_string();
 
     let key_consts = match PatcherKey::parse(input, "TextRecordPatcher") {
-        PatcherKey::Filename(filename) => quote! {
+        PatcherKey::Filename { filename, .. } => quote! {
             pub const FILENAME: &'static str = #filename;
         },
         PatcherKey::Pattern {

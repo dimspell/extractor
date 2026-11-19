@@ -46,10 +46,12 @@ impl PatcherRegistry {
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
         r.register(MonsterPatcher::FILENAME, Arc::new(MonsterPatcher));
         r.register(WeaponItemPatcher::FILENAME, Arc::new(WeaponItemPatcher));
-        r.register(MagicSpellPatcher::FILENAME, Arc::new(MagicSpellPatcher));
-        // Magic.db has a sibling MulMagic.db with the same record format —
-        // route both filenames to the same patcher.
-        r.register("MulMagic.db", Arc::new(MagicSpellPatcher));
+        // Magic.db's sibling filenames (e.g. MulMagic.db) share the record
+        // format and come from the same `#[patcher]` attribute the catalog
+        // uses for detection — keep this list single-sourced.
+        for name in MagicSpellPatcher::FILENAMES {
+            r.register(name, Arc::new(MagicSpellPatcher));
+        }
         r.register(PartyIniNpcPatcher::FILENAME, Arc::new(PartyIniNpcPatcher));
 
         // Binary catalogs (.db) — hand-written.

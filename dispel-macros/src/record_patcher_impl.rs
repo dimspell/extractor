@@ -16,10 +16,19 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     let name_str = name.to_string();
 
     let key_consts = match PatcherKey::parse(input, "RecordPatcher") {
-        PatcherKey::Filename(filename) => quote! {
-            /// The relative filename this patcher targets (exact match).
-            pub const FILENAME: &'static str = #filename;
-        },
+        PatcherKey::Filename { filename, aliases } => {
+            let all_names: Vec<String> = std::iter::once(filename.clone())
+                .chain(aliases.iter().cloned())
+                .collect();
+            quote! {
+                /// The relative filename this patcher targets (exact match).
+                pub const FILENAME: &'static str = #filename;
+                /// Additional filenames sharing this record format.
+                pub const ALIASES: &'static [&'static str] = &[#(#aliases),*];
+                /// Every filename routed to this patcher (primary + aliases).
+                pub const FILENAMES: &'static [&'static str] = &[#(#all_names),*];
+            }
+        }
         PatcherKey::Pattern {
             extension,
             stem_prefix,
@@ -309,6 +318,29 @@ mod tests {
             "{tokens}"
         );
         assert!(tokens.contains("pub const FILENAME : & 'static str = \"Sample.db\""));
+    }
+
+    #[test]
+    fn test_generated_patcher_emits_alias_filename_consts() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 4)]
+            #[patcher(filename = "Magic.db", alias = "MulMagic.db")]
+            struct MagicSpell {
+                #[extractor(primitive(type = "i32"))]
+                value: i32,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(tokens.contains("pub const FILENAME : & 'static str = \"Magic.db\""));
+        assert!(
+            tokens.contains("pub const ALIASES : & 'static [& 'static str] = & [\"MulMagic.db\"]")
+        );
+        assert!(
+            tokens.contains(
+                "pub const FILENAMES : & 'static [& 'static str] = & [\"Magic.db\" , \"MulMagic.db\"]"
+            ),
+            "{tokens}"
+        );
     }
 
     #[test]

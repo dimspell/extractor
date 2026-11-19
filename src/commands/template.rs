@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use crate::commands::Command;
-use crate::commands::registry::{self, FileType};
+use crate::commands::registry::{self, FieldSpec, FieldType, FileType};
 
 #[derive(clap::Args, Clone)]
 pub struct TemplateArgs {
@@ -43,25 +43,22 @@ impl Command for TemplateCommand {
 }
 
 fn generate_template(ft: &FileType) -> serde_json::Value {
-    let fields = registry::get_type_fields(ft.key);
-
     let mut template = serde_json::Map::new();
-    for field in &fields {
-        template.insert(field.clone(), default_value_for_field(field));
+    for field in &ft.fields {
+        template.insert(field.name.to_string(), default_value_for(field));
     }
 
     serde_json::Value::Object(template)
 }
 
-fn default_value_for_field(field: &str) -> serde_json::Value {
-    if field == "id" {
-        return serde_json::json!(0);
+fn default_value_for(field: &FieldSpec) -> serde_json::Value {
+    match field.ty {
+        FieldType::String => serde_json::json!(""),
+        FieldType::Integer => serde_json::json!(0),
+        FieldType::Number => serde_json::json!(0.0),
+        FieldType::Boolean => serde_json::json!(false),
+        FieldType::Array => serde_json::json!([]),
+        FieldType::Object => serde_json::json!({}),
+        FieldType::Null => serde_json::Value::Null,
     }
-    if field.contains("name") || field.contains("description") || field.contains("filename") {
-        return serde_json::json!("");
-    }
-    if field.contains("flag") || field.starts_with("is_") || field.starts_with("has_") {
-        return serde_json::json!(false);
-    }
-    serde_json::json!(0)
 }

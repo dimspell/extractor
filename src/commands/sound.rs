@@ -1,6 +1,6 @@
 use super::Command;
 use crate::cli::SoundCommands;
-use dispel_core::snf;
+use crate::snf;
 use std::error::Error;
 use std::path::Path;
 

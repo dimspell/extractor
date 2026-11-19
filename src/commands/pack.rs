@@ -2,8 +2,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dispel_core::references::event_scr::EventScript;
-use dispel_core::references::extractor::Extractor;
+use crate::references::event_scr::EventScript;
+use crate::references::extractor::Extractor;
 
 use crate::commands::Command;
 

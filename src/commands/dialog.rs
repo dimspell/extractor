@@ -1,8 +1,8 @@
 use super::Command;
-use dispel_core::DialogType;
-use dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs;
-use dispel_core::references::dialogue_script::{DialogueScript, read_dialogs};
-use dispel_core::references::npc_ref::read_npc_ref;
+use crate::DialogType;
+use crate::references::dialogue_paragraph::read_dialogue_paragraphs;
+use crate::references::dialogue_script::{DialogueScript, read_dialogs};
+use crate::references::npc_ref::read_npc_ref;
 use rusqlite::{Connection, Result as SqlResult};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -681,8 +681,8 @@ fn print_node_recursive(
     let owner = dialog
         .dialog_owner
         .map(|o| match o {
-            dispel_core::DialogOwner::Player => "Player",
-            dispel_core::DialogOwner::Npc => "NPC",
+            crate::DialogOwner::Player => "Player",
+            crate::DialogOwner::Npc => "NPC",
         })
         .unwrap_or("Unknown");
 
