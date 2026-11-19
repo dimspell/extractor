@@ -11,7 +11,7 @@
 
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Ident, LitInt, LitStr};
+use syn::{Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
 
 // ---------------------------------------------------------------------------
 // Codegen configuration — every emitted path/type name flows through here.
@@ -248,6 +248,150 @@ impl FieldInfo<'_> {
             }
         }
     }
+
+    /// Byte size contributed by a field in a `BinaryRecord`.
+    ///
+    /// This is the single source of truth for both the generated
+    /// `<NAME>_RECORD_SIZE` constant and the data-length check in `parse`.
+    pub(crate) fn binary_record_size(&self) -> usize {
+        match self {
+            FieldInfo::String { size, .. } => *size,
+            FieldInfo::InventoryItem { wire_type, .. } => match wire_type.as_str() {
+                "i32" => 4,
+                "i16" => 2,
+                other => panic!("Unsupported wire_type for InventoryItem: {other}"),
+            },
+            FieldInfo::Primitive { ty, .. } => match ty.as_str() {
+                "i16" | "u16" => 2,
+                "i32" | "u32" => 4,
+                "u8" | "i8" => 1,
+                other => panic!("Unsupported primitive type: {other}"),
+            },
+            FieldInfo::VecU8 { size, .. } => *size,
+            FieldInfo::Array { size, .. } => *size,
+            FieldInfo::Padding { count, ty, .. } => {
+                let per = match ty.as_str() {
+                    "i16" => 2,
+                    "i32" => 4,
+                    "u8" => 1,
+                    other => panic!("Unsupported padding type: {other}"),
+                };
+                per * count
+            }
+            FieldInfo::Skip => 0,
+            FieldInfo::Id { .. }
+            | FieldInfo::Index { .. }
+            | FieldInfo::EnumFromU8 { .. }
+            | FieldInfo::EnumFromU32 { .. }
+            | FieldInfo::EnumFromI16 { .. }
+            | FieldInfo::EnumFromI32 { .. }
+            | FieldInfo::EnumFromI32FromU8 { .. } => {
+                panic!("BinaryRecord does not support this field kind")
+            }
+        }
+    }
+}
+
+/// Emit the value assigned to a padding field after its bytes are consumed.
+///
+/// Shared by the `Extractor` and `BinaryRecord` codegens; both used to carry
+/// a byte-for-byte identical copy of this expression.
+pub(crate) fn padding_default_value_expr(ty: &str, default_value: Option<&str>) -> TokenStream2 {
+    if let Some(dv) = default_value {
+        match ty {
+            "i16" => {
+                let val = dv.parse::<i16>().expect("default_value must be i16");
+                quote! { #val }
+            }
+            "i32" => {
+                let val = dv.parse::<i32>().expect("default_value must be i32");
+                quote! { #val }
+            }
+            "u8" => {
+                let val = dv.parse::<u8>().expect("default_value must be u8");
+                quote! { #val }
+            }
+            _ => panic!("Unsupported padding type: {ty}"),
+        }
+    } else {
+        match ty {
+            "i16" => quote! { 0i16 },
+            "i32" => quote! { 0i32 },
+            "u8" => quote! { 0u8 },
+            _ => panic!("Unsupported padding type: {ty}"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared nested-argument parsers. Every derive that accepts a
+// `string(...)`, `padding(...)` or `inventory_item(...)` argument routes
+// through these helpers, so the grammar lives in exactly one place.
+// ---------------------------------------------------------------------------
+
+fn parse_string_args(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<(String, usize)> {
+    let mut encoding = None;
+    let mut size = None;
+    meta.parse_nested_meta(|string_meta| {
+        if string_meta.path.is_ident("encoding") {
+            let value = string_meta.value()?;
+            let lit: LitStr = value.parse()?;
+            encoding = Some(lit.value());
+        } else if string_meta.path.is_ident("size") {
+            let value = string_meta.value()?;
+            let lit: LitInt = value.parse()?;
+            size = Some(lit.base10_parse::<usize>().expect("size must be usize"));
+        }
+        Ok(())
+    })?;
+    Ok((
+        encoding.expect("string requires encoding"),
+        size.expect("string requires size"),
+    ))
+}
+
+fn parse_padding_args(
+    meta: &syn::meta::ParseNestedMeta<'_>,
+) -> syn::Result<(usize, String, Option<String>)> {
+    let mut count = None;
+    let mut padding_ty = None;
+    let mut default_value = None;
+    meta.parse_nested_meta(|pad_meta| {
+        if pad_meta.path.is_ident("count") {
+            let value = pad_meta.value()?;
+            let lit: LitInt = value.parse()?;
+            count = Some(lit.base10_parse::<usize>().expect("count must be usize"));
+        } else if pad_meta.path.is_ident("type") {
+            let value = pad_meta.value()?;
+            let lit: LitStr = value.parse()?;
+            padding_ty = Some(lit.value());
+        } else if pad_meta.path.is_ident("default_value") {
+            let value = pad_meta.value()?;
+            let lit: LitStr = value.parse()?;
+            default_value = Some(lit.value());
+        }
+        Ok(())
+    })?;
+    Ok((
+        count.expect("padding requires count"),
+        padding_ty.expect("padding requires type"),
+        default_value,
+    ))
+}
+
+/// Returns `None` when `wire_type` was omitted (the `Extract` grammar requires
+/// it; `BinaryRecord` falls back to `i32`).
+fn parse_inventory_wire_type(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<Option<String>> {
+    let mut wire_type = None;
+    meta.parse_nested_meta(|inv_meta| {
+        if inv_meta.path.is_ident("wire_type") {
+            let value = inv_meta.value()?;
+            let lit: LitStr = value.parse()?;
+            wire_type = Some(lit.value());
+        }
+        Ok(())
+    })?;
+    Ok(wire_type)
 }
 
 /// Parse a single field-level `#[extractor(...)]` attribute.
@@ -268,22 +412,7 @@ pub(crate) fn parse_extractor_attr<'a>(
         } else if meta.path.is_ident("index") {
             field_info = Some(FieldInfo::Index { ident });
         } else if meta.path.is_ident("string") {
-            let mut encoding = None;
-            let mut size = None;
-            meta.parse_nested_meta(|string_meta| {
-                if string_meta.path.is_ident("encoding") {
-                    let value = string_meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    encoding = Some(lit.value());
-                } else if string_meta.path.is_ident("size") {
-                    let value = string_meta.value()?;
-                    let lit: LitInt = value.parse()?;
-                    size = Some(lit.base10_parse::<usize>().expect("size must be usize"));
-                }
-                Ok(())
-            })?;
-            let encoding = encoding.expect("string requires encoding");
-            let size = size.expect("string requires size");
+            let (encoding, size) = parse_string_args(&meta)?;
             field_info = Some(FieldInfo::String {
                 ident,
                 encoding,
@@ -365,31 +494,11 @@ pub(crate) fn parse_extractor_attr<'a>(
             let enum_ty = enum_ty.expect("enum_from_i32_from_u8 requires type");
             field_info = Some(FieldInfo::EnumFromI32FromU8 { ident, enum_ty });
         } else if meta.path.is_ident("padding") {
-            let mut count = None;
-            let mut padding_ty = None;
-            let mut default_value = None;
-            meta.parse_nested_meta(|pad_meta| {
-                if pad_meta.path.is_ident("count") {
-                    let value = pad_meta.value()?;
-                    let lit: LitInt = value.parse()?;
-                    count = Some(lit.base10_parse::<usize>().expect("count must be usize"));
-                } else if pad_meta.path.is_ident("type") {
-                    let value = pad_meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    padding_ty = Some(lit.value());
-                } else if pad_meta.path.is_ident("default_value") {
-                    let value = pad_meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    default_value = Some(lit.value());
-                }
-                Ok(())
-            })?;
-            let count = count.expect("padding requires count");
-            let padding_ty = padding_ty.expect("padding requires type");
+            let (count, ty, default_value) = parse_padding_args(&meta)?;
             field_info = Some(FieldInfo::Padding {
                 ident,
                 count,
-                ty: padding_ty,
+                ty,
                 default_value,
             });
         } else if meta.path.is_ident("array") {
@@ -429,16 +538,8 @@ pub(crate) fn parse_extractor_attr<'a>(
         } else if meta.path.is_ident("skip") {
             field_info = Some(FieldInfo::Skip);
         } else if meta.path.is_ident("inventory_item") {
-            let mut wire_type = None;
-            meta.parse_nested_meta(|inv_meta| {
-                if inv_meta.path.is_ident("wire_type") {
-                    let value = inv_meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    wire_type = Some(lit.value());
-                }
-                Ok(())
-            })?;
-            let wire_type = wire_type.expect("inventory_item requires wire_type");
+            let wire_type =
+                parse_inventory_wire_type(&meta)?.expect("inventory_item requires wire_type");
             field_info = Some(FieldInfo::InventoryItem { ident, wire_type });
         } else if meta.path.is_ident("counter_size") {
             let value = meta.value()?;
@@ -571,6 +672,133 @@ impl<'a> RecordSchema<'a> {
             "RecordLayout fields for {type_name} occupy {occupied} bytes, but property_item_size is {declared}"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// `BinaryRecord` field grammar.
+//
+// The derive historically used a different attribute name (`binary_record`),
+// accepted a bare `size = N`, defaulted `inventory_item` to an i32 wire type,
+// and auto-detected fields from their Rust type when no attribute was present.
+// Those are *grammar* differences only: the resulting metadata is the very
+// same `FieldInfo` used by every other binary codegen path.
+// ---------------------------------------------------------------------------
+
+/// Parse a `#[binary_record(...)]` field attribute into shared metadata.
+fn parse_binary_record_attr<'a>(attr: &syn::Attribute, ident: &'a Ident) -> Option<FieldInfo<'a>> {
+    let mut field_info = None;
+
+    attr.parse_nested_meta(|meta| {
+        if meta.path.is_ident("string") {
+            let (encoding, size) = parse_string_args(&meta)?;
+            field_info = Some(FieldInfo::String {
+                ident,
+                encoding,
+                size,
+            });
+        } else if meta.path.is_ident("size") {
+            let value = meta.value()?;
+            let lit: LitInt = value.parse()?;
+            let size = lit.base10_parse::<usize>().expect("size must be usize");
+            field_info = Some(FieldInfo::VecU8 { ident, size });
+        } else if meta.path.is_ident("padding") {
+            let (count, ty, default_value) = parse_padding_args(&meta)?;
+            field_info = Some(FieldInfo::Padding {
+                ident,
+                count,
+                ty,
+                default_value,
+            });
+        } else if meta.path.is_ident("inventory_item") {
+            let wire_type = parse_inventory_wire_type(&meta)?.unwrap_or_else(|| "i32".to_string());
+            field_info = Some(FieldInfo::InventoryItem { ident, wire_type });
+        } else if meta.path.is_ident("skip") {
+            field_info = Some(FieldInfo::Skip);
+        }
+        Ok(())
+    })
+    .expect("Failed to parse #[binary_record(...)] arguments");
+
+    field_info
+}
+
+/// Infer shared field metadata from the Rust type when a `BinaryRecord` field
+/// has no `#[binary_record(...)]` attribute.
+fn auto_detect_binary_record_field<'a>(ident: &'a Ident, ty: &Type) -> Option<FieldInfo<'a>> {
+    // `[u8; N]` — fixed byte array.
+    if let Type::Array(arr) = ty
+        && let Type::Path(elem_path) = arr.elem.as_ref()
+        && elem_path.path.is_ident("u8")
+        && let syn::Expr::Lit(lit) = &arr.len
+        && let syn::Lit::Int(n) = &lit.lit
+    {
+        let size = n.base10_parse::<usize>().expect("array size must be usize");
+        return Some(FieldInfo::Array {
+            ident,
+            size,
+            ty: "u8".to_string(),
+        });
+    }
+
+    // `Vec<u8>` requires an explicit size annotation.
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+        && segment.ident == "Vec"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(Type::Path(elem))) = args.args.first()
+        && elem.path.is_ident("u8")
+    {
+        panic!("Field `{ident}` is Vec<u8> but has no #[binary_record(size = N)] annotation");
+    }
+
+    // Primitives, InventoryItem, and the diagnostic for a bare String.
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        let type_name = segment.ident.to_string();
+        match type_name.as_str() {
+            "i16" | "i32" | "i8" | "u8" | "u16" | "u32" => {
+                return Some(FieldInfo::Primitive {
+                    ident,
+                    ty: type_name,
+                });
+            }
+            "InventoryItem" => {
+                return Some(FieldInfo::InventoryItem {
+                    ident,
+                    wire_type: "i32".to_string(),
+                });
+            }
+            "String" => {
+                panic!(
+                    "Field `{ident}` is `String` but has no #[binary_record(string(...))] annotation"
+                );
+            }
+            _ => return None,
+        }
+    }
+
+    None
+}
+
+/// Parse every field of a `BinaryRecord` into the shared `FieldInfo` metadata.
+pub(crate) fn parse_binary_record_fields(input: &DeriveInput) -> Vec<FieldInfo<'_>> {
+    let mut fields = Vec::new();
+    for field in named_fields(input, "BinaryRecord") {
+        let ident = field.ident.as_ref().expect("named field");
+        let info = match field
+            .attrs
+            .iter()
+            .find(|a| a.path().is_ident("binary_record"))
+        {
+            Some(attr) => parse_binary_record_attr(attr, ident),
+            None => auto_detect_binary_record_field(ident, &field.ty),
+        };
+        if let Some(info) = info {
+            fields.push(info);
+        }
+    }
+    fields
 }
 
 // ---------------------------------------------------------------------------

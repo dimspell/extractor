@@ -16,10 +16,24 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     let patcher_ident = Ident::new(&format!("{name}Patcher"), Span::call_site());
     let name_str = name.to_string();
 
+    // Keep registration in lockstep with the binary `RecordPatcher`: aliases
+    // must be exposed as `ALIASES`/`FILENAMES` here too, otherwise a text
+    // catalog annotated with `#[patcher(alias = "...")]` would silently lose
+    // its alternate filenames.
     let key_consts = match PatcherKey::parse(input, "TextRecordPatcher") {
-        PatcherKey::Filename { filename, .. } => quote! {
-            pub const FILENAME: &'static str = #filename;
-        },
+        PatcherKey::Filename { filename, aliases } => {
+            let all_names: Vec<String> = std::iter::once(filename.clone())
+                .chain(aliases.iter().cloned())
+                .collect();
+            quote! {
+                /// The relative filename this patcher targets (exact match).
+                pub const FILENAME: &'static str = #filename;
+                /// Additional filenames sharing this record format.
+                pub const ALIASES: &'static [&'static str] = &[#(#aliases),*];
+                /// Every filename routed to this patcher (primary + aliases).
+                pub const FILENAMES: &'static [&'static str] = &[#(#all_names),*];
+            }
+        }
         PatcherKey::Pattern {
             extension,
             stem_prefix,
@@ -61,7 +75,10 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
             None => continue,
         };
 
-        // Field 0 is the row id by convention; reject patches.
+        // Format-wide convention for derived text catalogs: field 0 is the
+        // positional row id (see e.g. `NpcIni::id`, `Map::id`, `Event::event_id`).
+        // It identifies the row rather than describing it, so patches that
+        // rewrite it would corrupt row lookup and are rejected here.
         if info.index == 0 {
             field_arms.push(quote! {
                 #field_name => {
@@ -192,4 +209,97 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
     };
 
     expanded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn sample() -> DeriveInput {
+        parse_quote! {
+            #[extractor(encoding = "EUC-KR")]
+            #[patcher(filename = "Npc.ini")]
+            struct NpcIni {
+                #[extractor(field = 0)]
+                id: i32,
+                #[extractor(field = 1, parse_null)]
+                sprite: Option<String>,
+                #[extractor(field = 2, enum_from_i32(type = "NpcKind"))]
+                kind: NpcKind,
+            }
+        }
+    }
+
+    #[test]
+    fn test_text_patcher_emits_alias_constants_like_binary_patcher() {
+        let input: DeriveInput = parse_quote! {
+            #[patcher(filename = "Foo.ini", alias = "Bar.ini", alias = "Baz.ini")]
+            struct Foo {
+                #[extractor(field = 1)]
+                value: String,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(tokens.contains("pub const FILENAME"), "{tokens}");
+        assert!(tokens.contains("pub const ALIASES"), "{tokens}");
+        assert!(tokens.contains("pub const FILENAMES"), "{tokens}");
+        assert!(tokens.contains("\"Bar.ini\""), "{tokens}");
+        assert!(tokens.contains("\"Baz.ini\""), "{tokens}");
+        assert!(tokens.contains("\"Foo.ini\""), "{tokens}");
+
+        // A text patcher with no aliases still exposes the empty slice.
+        let no_alias = codegen(&sample(), &CodegenConfig::default()).to_string();
+        assert!(no_alias.contains("pub const ALIASES"), "{no_alias}");
+        assert!(no_alias.contains("& []"), "{no_alias}");
+    }
+
+    #[test]
+    fn test_text_patcher_rejects_positional_field_zero() {
+        let tokens = codegen(&sample(), &CodegenConfig::default()).to_string();
+        assert!(
+            tokens.contains("is positional and cannot be patched"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("Self :: RECORD_NAME , \"id\""), "{tokens}");
+        // Non-positional fields still get real apply arms.
+        assert!(tokens.contains("rec . sprite ="), "{tokens}");
+        assert!(tokens.contains("rec . kind ="), "{tokens}");
+    }
+
+    #[test]
+    fn test_text_patcher_pattern_key_emits_extension_and_stem_prefix() {
+        let input: DeriveInput = parse_quote! {
+            #[patcher(extension = "ref", stem_prefix = "ext")]
+            struct ExtraRef {
+                #[extractor(field = 1)]
+                value: String,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(tokens.contains("pub const EXTENSION"), "{tokens}");
+        assert!(tokens.contains("pub const STEM_PREFIX"), "{tokens}");
+        assert!(tokens.contains("\"ref\""), "{tokens}");
+        assert!(tokens.contains("\"ext\""), "{tokens}");
+    }
+
+    #[test]
+    fn test_text_patcher_paths_follow_config_without_changing_behavior() {
+        let input = sample();
+        let default = codegen(&input, &CodegenConfig::default()).to_string();
+
+        let renamed = CodegenConfig {
+            modding_mod: "mods".into(),
+            references_mod: "refs".into(),
+            ..CodegenConfig::default()
+        };
+        let renamed_tokens = codegen(&input, &renamed).to_string();
+        assert!(renamed_tokens.contains("crate :: mods :: patcher :: RecordPatcher"));
+        assert!(renamed_tokens.contains("crate :: refs :: enums :: WireValue"));
+
+        let normalized = renamed_tokens
+            .replace("crate :: mods ::", "crate :: modding ::")
+            .replace("crate :: refs ::", "crate :: references ::");
+        assert_eq!(default, normalized);
+    }
 }

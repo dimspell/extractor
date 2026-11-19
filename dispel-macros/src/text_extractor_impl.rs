@@ -1,3 +1,4 @@
+use dispel_encodings::TextEncoding;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
@@ -20,8 +21,10 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
         _ => panic!("TextExtractor can only be derived for structs"),
     };
 
-    // Parse struct-level attributes
-    let mut encoding_name = "EUC-KR".to_string();
+    // Parse struct-level attributes. The default comes from the shared
+    // `dispel-encodings` registry (not a literal) so every derive agrees on
+    // both the canonical spelling and the emitted `encoding_rs` constant.
+    let mut encoding_name = TextEncoding::EucKr.label().to_string();
     let mut delimiter = quote! { "," };
     let mut comment_char = quote! { ";" };
 
@@ -258,4 +261,100 @@ pub(crate) fn parse_text_extractor_attr(
         index,
         ty: field_ty,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn sample() -> DeriveInput {
+        parse_quote! {
+            #[extractor(encoding = "WINDOWS_1250", delimiter = "|", comment_char = "#")]
+            struct Row {
+                #[extractor(field = 0)]
+                id: i32,
+                #[extractor(field = 1, parse_null)]
+                name: Option<String>,
+                #[extractor(field = 2, enum_from_i32(type = "RowKind"))]
+                kind: RowKind,
+            }
+        }
+    }
+
+    #[test]
+    fn test_text_extractor_default_encoding_comes_from_registry() {
+        let input: DeriveInput = parse_quote! {
+            struct NoEncoding {
+                #[extractor(field = 0)]
+                value: String,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(tokens.contains("encoding_rs :: EUC_KR"), "{tokens}");
+    }
+
+    #[test]
+    fn test_text_extractor_resolves_explicit_encoding_spellings() {
+        for (spelling, constant) in [
+            ("WINDOWS-1250", "WINDOWS_1250"),
+            ("WINDOWS_1250", "WINDOWS_1250"),
+            ("EUC_KR", "EUC_KR"),
+        ] {
+            let input: DeriveInput = parse_quote! {
+                #[extractor(encoding = #spelling)]
+                struct Enc {
+                    #[extractor(field = 0)]
+                    value: String,
+                }
+            };
+            let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+            assert!(
+                tokens.contains(&format!("encoding_rs :: {constant}")),
+                "{tokens}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_text_extractor_emits_all_field_type_arms() {
+        let tokens = codegen(&sample(), &CodegenConfig::default()).to_string();
+        assert!(
+            tokens.contains("parts [0usize] . trim () . parse :: < i32 > ()"),
+            "{tokens}"
+        );
+        assert!(
+            tokens.contains("parse_null (parts [1usize] . trim ())"),
+            "{tokens}"
+        );
+        assert!(
+            tokens.contains("RowKind as crate :: references :: enums :: WireValue < i32 >>"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("\"|\""), "{tokens}");
+        assert!(tokens.contains("\"#\""), "{tokens}");
+    }
+
+    #[test]
+    fn test_text_extractor_paths_follow_config_without_changing_behavior() {
+        let input = sample();
+        let default = codegen(&input, &CodegenConfig::default()).to_string();
+
+        let renamed = CodegenConfig {
+            references_mod: "refs".into(),
+            encoding_rs_crate: "rs_encoding".into(),
+            encoding_rs_io_crate: "rs_encoding_io".into(),
+            ..CodegenConfig::default()
+        };
+        let renamed_tokens = codegen(&input, &renamed).to_string();
+        assert!(renamed_tokens.contains("crate :: refs :: extractor :: Extractor"));
+        assert!(renamed_tokens.contains("crate :: refs :: extractor :: parse_null"));
+        assert!(renamed_tokens.contains("rs_encoding_io :: DecodeReaderBytesBuilder"));
+
+        let normalized = renamed_tokens
+            .replace("crate :: refs ::", "crate :: references ::")
+            .replace("rs_encoding_io ::", "encoding_rs_io ::")
+            .replace("rs_encoding ::", "encoding_rs ::");
+        assert_eq!(default, normalized);
+    }
 }

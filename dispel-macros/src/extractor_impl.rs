@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{DeriveInput, Ident};
 
-use crate::schema::{CodegenConfig, FieldInfo, RecordSchema};
+use crate::schema::{CodegenConfig, FieldInfo, RecordSchema, padding_default_value_expr};
 
 pub fn expand(input: DeriveInput) -> TokenStream2 {
     codegen(&input, &CodegenConfig::default())
@@ -166,30 +166,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 ty,
                 default_value,
             } => {
-                let default_expr = if let Some(dv) = default_value {
-                    match ty.as_str() {
-                        "i16" => {
-                            let val = dv.parse::<i16>().expect("default_value must be i16");
-                            quote! { #val }
-                        }
-                        "i32" => {
-                            let val = dv.parse::<i32>().expect("default_value must be i32");
-                            quote! { #val }
-                        }
-                        "u8" => {
-                            let val = dv.parse::<u8>().expect("default_value must be u8");
-                            quote! { #val }
-                        }
-                        _ => panic!("Unsupported padding type: {}", ty),
-                    }
-                } else {
-                    match ty.as_str() {
-                        "i16" => quote! { 0i16 },
-                        "i32" => quote! { 0i32 },
-                        "u8" => quote! { 0u8 },
-                        _ => panic!("Unsupported padding type: {}", ty),
-                    }
-                };
+                let default_expr = padding_default_value_expr(ty, default_value.as_deref());
                 for _ in 0..*count {
                     let read_stmt = match ty.as_str() {
                         "i16" => {

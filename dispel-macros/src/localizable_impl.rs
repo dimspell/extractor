@@ -164,3 +164,67 @@ fn is_option_string(ty: &Type) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn sample() -> DeriveInput {
+        parse_quote! {
+            struct Entry {
+                #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
+                name: String,
+                #[translatable(encoding = "EUC_KR", max_bytes = 32)]
+                note: Option<String>,
+                ignored: i32,
+            }
+        }
+    }
+
+    #[test]
+    fn test_localizable_emits_extract_and_apply_arms_for_both_field_shapes() {
+        let tokens = codegen(&sample(), &CodegenConfig::default()).to_string();
+        // Plain String: direct clone on extract, direct assign on apply.
+        assert!(
+            tokens.contains("original : self . name . clone ()"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("self . name = text"), "{tokens}");
+        // Option<String>: guarded extract and Some(..) assign on apply.
+        assert!(
+            tokens.contains("if let Some (ref text) = self . note"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("self . note = Some (text)"), "{tokens}");
+        // Unannotated field is ignored, and the encoding registry is used.
+        assert!(!tokens.contains("self . ignored"), "{tokens}");
+        assert!(
+            tokens.contains("crate :: localization :: TextEncoding :: Windows1250"),
+            "{tokens}"
+        );
+        assert!(
+            tokens.contains("crate :: localization :: TextEncoding :: EucKr"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("202usize"), "{tokens}");
+    }
+
+    #[test]
+    fn test_localizable_paths_follow_config_without_changing_behavior() {
+        let input = sample();
+        let default = codegen(&input, &CodegenConfig::default()).to_string();
+
+        let renamed = CodegenConfig {
+            localization_mod: "i18n".into(),
+            ..CodegenConfig::default()
+        };
+        let renamed_tokens = codegen(&input, &renamed).to_string();
+        assert!(renamed_tokens.contains("crate :: i18n :: Localizable"));
+        assert!(renamed_tokens.contains("crate :: i18n :: TextEntry"));
+        assert!(renamed_tokens.contains("crate :: i18n :: TruncationStatus"));
+
+        let normalized = renamed_tokens.replace("crate :: i18n ::", "crate :: localization ::");
+        assert_eq!(default, normalized);
+    }
+}

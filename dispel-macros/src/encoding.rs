@@ -45,3 +45,49 @@ pub(crate) fn text_encoding_tokens(
     );
     quote! { #text_encoding_path::#variant }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quote::quote;
+    use syn::parse_quote;
+
+    #[test]
+    fn test_encoding_rs_tokens_cover_every_registry_spelling() {
+        let enc: Ident = parse_quote!(renamed_encoding_rs);
+        for spelling in TextEncoding::ALL.into_iter().flat_map(|e| e.spellings()) {
+            let expected = TextEncoding::from_spelling(spelling)
+                .unwrap()
+                .encoding_rs_name();
+            let tokens = encoding_rs_tokens(spelling, &enc).to_string();
+            assert_eq!(
+                tokens,
+                format!("renamed_encoding_rs :: {expected}"),
+                "spelling {spelling}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_text_encoding_tokens_cover_every_registry_spelling() {
+        let path: TokenStream2 = quote! { crate::localization::TextEncoding };
+        for spelling in TextEncoding::ALL.into_iter().flat_map(|e| e.spellings()) {
+            let expected = TextEncoding::from_spelling(spelling)
+                .unwrap()
+                .variant_name();
+            let tokens = text_encoding_tokens(spelling, &path).to_string();
+            assert_eq!(
+                tokens,
+                format!("crate :: localization :: TextEncoding :: {expected}"),
+                "spelling {spelling}"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "Unknown encoding")]
+    fn test_unknown_encoding_is_rejected() {
+        let enc: Ident = parse_quote!(encoding_rs);
+        encoding_rs_tokens("ISO-8859-2", &enc);
+    }
+}

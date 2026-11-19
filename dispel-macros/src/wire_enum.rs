@@ -25,3 +25,20 @@ pub(crate) fn from_wire_tokens(
         <#enum_ident as #wire_value_trait<#wire_ident>>::from_wire(#value)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quote::quote;
+
+    #[test]
+    fn test_from_wire_tokens_emits_configured_trait_path() {
+        let trait_path: TokenStream2 = quote! { crate::enums::WireValue };
+        let value: TokenStream2 = quote! { reader.read_u8()? };
+        let tokens = from_wire_tokens(&trait_path, "BooleanFlag", "u8", value).to_string();
+        assert_eq!(
+            tokens,
+            "< BooleanFlag as crate :: enums :: WireValue < u8 >> :: from_wire (reader . read_u8 () ?)"
+        );
+    }
+}
