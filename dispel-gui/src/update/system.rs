@@ -52,10 +52,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
             let result = app.state.undo_active(editor_type, tab_id);
-            if result.is_some() {
-                app.state
-                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
-            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
             Task::none()
         }
@@ -70,10 +66,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
             let result = app.state.redo_active(editor_type, tab_id);
-            if result.is_some() {
-                app.state
-                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
-            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
             Task::none()
         }

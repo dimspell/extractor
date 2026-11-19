@@ -48,9 +48,11 @@ impl<T: EditableRecord + Extractor> StandardEditor<T> {
     /// Shadows `GenericEditorState::undo` for code that holds a `StandardEditor`.
     pub fn undo(&mut self, lookups: &HashMap<String, Vec<(String, String)>>) -> Option<String> {
         let result = self.state.undo();
-        if let Some(ref catalog) = self.state.catalog {
-            self.spreadsheet.compute_all_caches(catalog, lookups);
-        }
+        crate::components::generic_editor::refresh_spreadsheet_caches(
+            &mut self.spreadsheet,
+            self.state.catalog.as_ref(),
+            lookups,
+        );
         result
     }
 
@@ -58,9 +60,11 @@ impl<T: EditableRecord + Extractor> StandardEditor<T> {
     /// Shadows `GenericEditorState::redo` for code that holds a `StandardEditor`.
     pub fn redo(&mut self, lookups: &HashMap<String, Vec<(String, String)>>) -> Option<String> {
         let result = self.state.redo();
-        if let Some(ref catalog) = self.state.catalog {
-            self.spreadsheet.compute_all_caches(catalog, lookups);
-        }
+        crate::components::generic_editor::refresh_spreadsheet_caches(
+            &mut self.spreadsheet,
+            self.state.catalog.as_ref(),
+            lookups,
+        );
         result
     }
 }

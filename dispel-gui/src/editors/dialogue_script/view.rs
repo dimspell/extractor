@@ -36,7 +36,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     view_spreadsheet(
         &editor.editor,
         spreadsheet,
-        Message::dialogue_script(DialogueScriptEditorMessage::LoadCatalog),
+        Message::dialogue_script(DialogueScriptEditorMessage::LoadCatalog(
+            editor.current_file.clone().unwrap_or_default(),
+        )),
         Message::dialogue_script(DialogueScriptEditorMessage::Save),
         |idx| Message::dialogue_script(DialogueScriptEditorMessage::Select(idx)),
         |idx, field, value| {

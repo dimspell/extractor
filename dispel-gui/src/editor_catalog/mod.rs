@@ -14,10 +14,10 @@
 //!   [`save_task_for_editor`], [`catalog_load_task`],
 //!   [`spreadsheet_nav_msg`], [`from_catalog_editor`]).
 //!
-//! The descriptor's `lifecycle` field is the single owner of the six
-//! `EditorRegistry` lifecycle operations (undo/redo, `remove_tab`,
-//! `close_all_tabs`, `refresh_spreadsheet`, `get_active_edit_history` and
-//! `clear_all`) that used to be six hand-maintained field lists.
+//! The descriptor's `lifecycle` field is the single owner of the five
+//! `EditorRegistry` lifecycle operations (undo/redo — including spreadsheet
+//! cache refresh —, `remove_tab`, `close_all_tabs`, `get_active_edit_history`
+//! and `clear_all`) that used to be hand-maintained field lists.
 //!
 //! Adding a new editor therefore requires touching **one** entry here. The
 //! compiler then rejects every non-exhaustive `match` over `EditorType`
@@ -60,8 +60,8 @@ pub struct EditorDescriptor {
     pub sheet: Option<SheetFn>,
     /// `None` when "Extract to JSON" is unsupported for the editor's file.
     pub extract: Option<ExtractFn>,
-    /// Homogeneous lifecycle operations (undo/redo, tab removal/reset,
-    /// spreadsheet cache refresh, edit-history lookup and full reset).
+    /// Homogeneous lifecycle operations (undo/redo — including spreadsheet
+    /// cache refresh —, tab removal/reset, edit-history lookup and full reset).
     ///
     /// Declared once per editor here, so adding a HashMap/tabbed/boxed editor
     /// no longer requires editing the seven hand-maintained tables that used

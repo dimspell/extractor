@@ -1,10 +1,23 @@
-/// Generates state type alias, message enum, and `handle_core` for a tab editor.
+/// Generates the state type, message enum and message routing for a tabbed
+/// (multi-file) spreadsheet editor.
 ///
-/// Always creates: `AddEntry`, `RemoveEntry(usize)`, `Saved(Result<(), String>)` in
-/// the message enum and matching arms in `handle_core`. Unused variants are harmless.
+/// All five tabbed editors share the *same* catalog-load implementation: the
+/// macro generates `LoadCatalog(PathBuf)` / `CatalogLoaded(tab_id, result)`
+/// variants and routes them through
+/// [`$crate::update::editor::tab::load_catalog`] and
+/// [`$crate::update::editor::tab::catalog_loaded`].  The tab id is captured
+/// when the async read is spawned and re-validated on completion, so switching
+/// tabs mid-load cannot misdirect the catalog.
 ///
-/// The caller still writes `component.rs`, `mod.rs`, `view.rs`, and a thin
-/// `handle()` wrapper in their `mod.rs`.
+/// Generates:
+/// - `pub type {Name}EditorState = MultiFileEditorState<T>`
+/// - `pub enum {Name}EditorMessage` (standard variants + catalog load)
+/// - `pub fn handle(msg, app) -> Task<Message>`
+/// - `pub fn handle_core(msg, app, tab_id) -> Task<Message>`
+///
+/// An optional `extension` block adds one extra enum variant and routes it to
+/// a caller-supplied handler.  Use it for editor-specific messages such as
+/// monster/NPC name lookups; the catalog-load flow itself is never duplicated.
 ///
 /// # Example
 /// ```ignore
@@ -13,16 +26,17 @@
 ///     name_pascal: ExtraRef,
 ///     record: ExtraRef,
 ///     field: extra_ref_editor,
-///     empty_text: "Extra ref file not loaded",
+///     loaded_prefix: "Extra ref catalog loaded: ",
+///     error_prefix: "Error loading extra ref catalog: ",
 ///     save_success_msg: "Extra refs saved successfully.",
 ///     save_error_msg: "Error saving extra refs",
-///     extra_variants: {
-///         NpcNamesLoaded(Result<Vec<(String, String)>, String>),
+///     extension: {                       // optional
+///         message: MyExtraMsg,
+///         handle: handle_extra,
+///         after_load: after_load,
 ///     },
 /// }
 /// ```
-///
-/// `extra_variants` is optional — extra enum variants injected as-is.
 #[macro_export]
 macro_rules! define_tab_editor {
     (
@@ -30,10 +44,15 @@ macro_rules! define_tab_editor {
         name_pascal: $Name:ident,
         record: $Record:ty,
         field: $field:ident,
-        empty_text: $empty_text:expr,
+        loaded_prefix: $loaded_prefix:expr,
+        error_prefix: $error_prefix:expr,
         save_success_msg: $save_success_msg:expr,
         save_error_msg: $save_error_msg:expr,
-        $(extra_variants: { $($extra_variants:tt)* })?
+        $( extension: {
+            message: $Ext:path,
+            handle: $ext_handle:path,
+            after_load: $after_load:path,
+        } )?
         $(,)?
     ) => {
         ::paste::paste! {
@@ -54,10 +73,70 @@ macro_rules! define_tab_editor {
                 AddEntry,
                 RemoveEntry(usize),
                 Saved(Result<(), String>),
-                $($($extra_variants)*)?
+                /// Start a catalog read. Carries the path so the async result
+                /// can be tied back to the tab that requested it.
+                LoadCatalog(std::path::PathBuf),
+                /// Completion of a catalog read. The tab id is captured when
+                /// the task is spawned, never read from the active tab here.
+                CatalogLoaded(usize, Result<Vec<$Record>, String>),
+                $( Extension($Ext), )?
+            }
+
+            // ── handle ──
+            //
+            // Routes the catalog-load variants through the single shared
+            // implementation, lets an editor extension handle its own extra
+            // messages, and delegates everything else to `handle_core`.
+            pub fn handle(
+                msg: [<$Name EditorMessage>],
+                app: &mut $crate::app::App,
+            ) -> ::iced::Task<$crate::message::Message> {
+                use $crate::message::MessageExt;
+
+                let tab_id = $crate::update::editor::tab::get_tab_id(&app.state.workspace)
+                    .as_usize();
+
+                match msg {
+                    [<$Name EditorMessage>]::LoadCatalog(path) => {
+                        let task = $crate::update::editor::tab::load_catalog(
+                            path,
+                            &mut app.state.editors.$field,
+                            tab_id,
+                            &app.state.shared_game_path,
+                            &mut app.state.lookups,
+                            |id, result| $crate::message::Message::$name(
+                                [<$Name EditorMessage>]::CatalogLoaded(id, result)
+                            ),
+                        );
+                        $(
+                            let task = task.chain($after_load(app));
+                        )?
+                        task
+                    }
+                    [<$Name EditorMessage>]::CatalogLoaded(id, result) => {
+                        $crate::update::editor::tab::catalog_loaded(
+                            id,
+                            result,
+                            &mut app.state.editors.$field,
+                            &app.state.lookups,
+                            $loaded_prefix,
+                            $error_prefix,
+                        );
+                        ::iced::Task::none()
+                    }
+                    $(
+                        [<$Name EditorMessage>]::Extension(ext) => $ext_handle(ext, app, tab_id),
+                    )?
+                    other => handle_core(other, app, tab_id),
+                }
             }
 
             // ── handle_core ──
+            //
+            // Standard editor interactions (selection, field edits, saving,
+            // pane layout, spreadsheet messages). An unrecognised variant is
+            // ignored rather than panicking — a message must never be able to
+            // crash the UI.
             pub fn handle_core(
                 msg: [<$Name EditorMessage>],
                 app: &mut $crate::app::App,
@@ -133,7 +212,9 @@ macro_rules! define_tab_editor {
                     [<$Name EditorMessage>]::Saved(_) => {
                         ::iced::Task::none()
                     }
-                    _ => ::core::panic!("handle_core: unhandled message variant"),
+                    // LoadCatalog / CatalogLoaded / Extension are handled by
+                    // `handle`; anything else is a no-op, never a panic.
+                    _ => ::iced::Task::none(),
                 }
             }
         }

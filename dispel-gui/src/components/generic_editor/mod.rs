@@ -17,6 +17,21 @@ pub trait UndoRedo {
     fn edit_history(&self) -> &EditHistory;
 }
 
+/// Rebuild a spreadsheet's display caches from its catalog.
+///
+/// Single source of truth for the "catalog changed → caches are stale"
+/// invariant, shared by `StandardEditor` (bundled spreadsheet) and
+/// `TabbedEditor` (spreadsheet stored in a parallel map).
+pub fn refresh_spreadsheet_caches<R: EditableRecord + Extractor>(
+    spreadsheet: &mut crate::view::editor::SpreadsheetState,
+    catalog: Option<&Vec<R>>,
+    lookups: &std::collections::HashMap<String, Vec<(String, String)>>,
+) {
+    if let Some(catalog) = catalog {
+        spreadsheet.compute_all_caches(catalog, lookups);
+    }
+}
+
 /// Generic editor state that works with any `EditableRecord` type.
 ///
 /// Replaces the 28 duplicated `*EditorState` structs with a single
@@ -604,6 +619,51 @@ impl<T: EditableRecord> TabbedEditor<T> {
 
     pub fn is_empty(&self) -> bool {
         self.editors.is_empty()
+    }
+}
+
+impl<T: EditableRecord + Extractor> TabbedEditor<T> {
+    /// Undo an edit in one tab and refresh that tab's spreadsheet caches in
+    /// the same operation. Returns the status message when anything changed.
+    pub fn undo_with_cache(
+        &mut self,
+        tab_id: usize,
+        lookups: &std::collections::HashMap<String, Vec<(String, String)>>,
+    ) -> Option<String> {
+        let result = self
+            .editors
+            .get_mut(&tab_id)
+            .and_then(|editor| editor.undo());
+        if result.is_some()
+            && let (Some(editor), Some(spreadsheet)) = (
+                self.editors.get(&tab_id),
+                self.spreadsheets.get_mut(&tab_id),
+            )
+        {
+            refresh_spreadsheet_caches(spreadsheet, editor.editor.catalog.as_ref(), lookups);
+        }
+        result
+    }
+
+    /// Redo an edit in one tab and refresh that tab's spreadsheet caches.
+    pub fn redo_with_cache(
+        &mut self,
+        tab_id: usize,
+        lookups: &std::collections::HashMap<String, Vec<(String, String)>>,
+    ) -> Option<String> {
+        let result = self
+            .editors
+            .get_mut(&tab_id)
+            .and_then(|editor| editor.redo());
+        if result.is_some()
+            && let (Some(editor), Some(spreadsheet)) = (
+                self.editors.get(&tab_id),
+                self.spreadsheets.get_mut(&tab_id),
+            )
+        {
+            refresh_spreadsheet_caches(spreadsheet, editor.editor.catalog.as_ref(), lookups);
+        }
+        result
     }
 }
 

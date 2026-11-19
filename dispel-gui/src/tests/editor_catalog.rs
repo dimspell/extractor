@@ -133,9 +133,11 @@ mod exhaustive {
     // ── Lifecycle-table agreement ───────────────────────────────────────────
 
     /// Every lifecycle operation declared by every catalog entry must be
-    /// callable on a fresh registry. This is the agreement test for the six
+    /// callable on a fresh registry. This is the agreement test for the
     /// tables that used to be hand-maintained in `editor_registry`: a new
-    /// editor with a missing/no-op entry is caught here.
+    /// editor with a missing/no-op entry is caught here. Spreadsheet caches
+    /// are refreshed inside `undo_redo` itself, so there is no separate
+    /// refresh operation to exercise here.
     #[test]
     fn every_lifecycle_operation_is_callable_for_every_editor() {
         let lookups = HashMap::new();
@@ -146,7 +148,6 @@ mod exhaustive {
             let _ = (life.undo_redo)(&mut registry, 0, &lookups, UndoRedoOp::Redo);
             (life.remove_tab)(&mut registry, 0);
             (life.clear_tabs)(&mut registry);
-            (life.refresh_sheet)(&mut registry, 0, &lookups);
             let _ = (life.edit_history)(&registry, 0);
             (life.clear)(&mut registry);
         }

@@ -42,10 +42,12 @@ use hexedit::HexEditorState;
 // ===========================================================================
 //
 // Every EditorType declares one `LifecycleFns` value in the authoritative
-// editor catalog.  The six operations below used to be six hand-maintained
-// match/field lists in this file; they drifted (see the "boxed editors that
-// were missing from reset" block that had to be bolted onto `clear_all`).
-// Now each editor field is named exactly once, in its catalog entry.
+// editor catalog.  The operations below used to be hand-maintained match/field
+// lists in this file; they drifted (see the "boxed editors that were missing
+// from reset" block that had to be bolted onto `clear_all`).  Now each editor
+// field is named exactly once, in its catalog entry.  Spreadsheet caches are
+// refreshed inside the undo/redo operation itself (via the shared
+// `refresh_spreadsheet_caches` helper), so no separate refresh pass is needed.
 
 /// Lookup table passed to undo/redo for display-name resolution.
 pub type Lookups = HashMap<String, Vec<(String, String)>>;
@@ -62,8 +64,8 @@ pub enum UndoRedoOp {
 /// Stored once per editor in [`crate::editor_catalog::EditorDescriptor`].  The
 /// closures are non-capturing (they coerce to `fn` pointers) and receive the
 /// registry plus the active tab id, so a single catalog entry is enough to
-/// drive undo/redo, tab removal/reset, spreadsheet cache refresh, edit-history
-/// lookup and full reset.
+/// drive undo/redo (including spreadsheet cache refresh), tab removal/reset,
+/// edit-history lookup and full reset.
 #[derive(Clone, Copy)]
 pub struct LifecycleFns {
     /// Capabilities, declared once alongside the operations so the catalog's
@@ -75,7 +77,6 @@ pub struct LifecycleFns {
     pub undo_redo: fn(&mut EditorRegistry, usize, &Lookups, UndoRedoOp) -> Option<String>,
     pub remove_tab: fn(&mut EditorRegistry, usize),
     pub clear_tabs: fn(&mut EditorRegistry),
-    pub refresh_sheet: fn(&mut EditorRegistry, usize, &Lookups),
     pub edit_history: for<'a> fn(&'a EditorRegistry, usize) -> Option<&'a EditHistory>,
     pub clear: fn(&mut EditorRegistry),
 }
@@ -90,7 +91,6 @@ pub(crate) fn noop_undo_redo(
 }
 pub(crate) fn noop_remove_tab(_: &mut EditorRegistry, _: usize) {}
 pub(crate) fn noop_clear_tabs(_: &mut EditorRegistry) {}
-pub(crate) fn noop_refresh_sheet(_: &mut EditorRegistry, _: usize, _: &Lookups) {}
 pub(crate) fn noop_edit_history(_: &EditorRegistry, _: usize) -> Option<&EditHistory> {
     None
 }
@@ -115,9 +115,6 @@ macro_rules! lc_standard {
             },
             remove_tab: |_: &mut crate::editor_registry::EditorRegistry, _: usize| {},
             clear_tabs: |_: &mut crate::editor_registry::EditorRegistry| {},
-            refresh_sheet: |_: &mut crate::editor_registry::EditorRegistry,
-                            _: usize,
-                            _: &crate::editor_registry::Lookups| {},
             edit_history: |r: &crate::editor_registry::EditorRegistry,
                            _tab: usize|
              -> Option<&crate::components::edit_history::EditHistory> {
@@ -182,9 +179,6 @@ macro_rules! lc_box_undo {
             },
             remove_tab: |_: &mut crate::editor_registry::EditorRegistry, _: usize| {},
             clear_tabs: |_: &mut crate::editor_registry::EditorRegistry| {},
-            refresh_sheet: |_: &mut crate::editor_registry::EditorRegistry,
-                            _: usize,
-                            _: &crate::editor_registry::Lookups| {},
             edit_history: |r: &crate::editor_registry::EditorRegistry,
                            _tab: usize|
              -> Option<&crate::components::edit_history::EditHistory> {
@@ -200,6 +194,10 @@ macro_rules! lc_box_undo {
 pub(crate) use lc_box_undo;
 
 /// `TabbedEditor<T>`: per-tab undo/redo, edit history and spreadsheet caches.
+///
+/// Undo/redo go through `undo_with_cache` / `redo_with_cache`, which refresh
+/// that tab's spreadsheet caches via the shared `refresh_spreadsheet_caches`
+/// helper in the same operation — no separate refresh pass is needed.
 macro_rules! lc_tabbed {
     ($field:ident) => {
         crate::editor_registry::LifecycleFns {
@@ -208,29 +206,22 @@ macro_rules! lc_tabbed {
             has_tab_state: true,
             undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
                         tab: usize,
-                        _lookups: &crate::editor_registry::Lookups,
+                        lookups: &crate::editor_registry::Lookups,
                         op: crate::editor_registry::UndoRedoOp| {
-                r.$field.editors.get_mut(&tab).and_then(|e| match op {
-                    crate::editor_registry::UndoRedoOp::Undo => e.undo(),
-                    crate::editor_registry::UndoRedoOp::Redo => e.redo(),
-                })
+                match op {
+                    crate::editor_registry::UndoRedoOp::Undo => {
+                        r.$field.undo_with_cache(tab, lookups)
+                    }
+                    crate::editor_registry::UndoRedoOp::Redo => {
+                        r.$field.redo_with_cache(tab, lookups)
+                    }
+                }
             },
             remove_tab: |r: &mut crate::editor_registry::EditorRegistry, tab: usize| {
                 r.$field.remove(&tab);
             },
             clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
-            },
-            refresh_sheet: |r: &mut crate::editor_registry::EditorRegistry,
-                            tab: usize,
-                            lookups: &crate::editor_registry::Lookups| {
-                if let (Some(editor), Some(sheet)) = (
-                    r.$field.editors.get(&tab),
-                    r.$field.spreadsheets.get_mut(&tab),
-                ) && let Some(ref catalog) = editor.editor.catalog
-                {
-                    sheet.compute_all_caches(catalog, lookups);
-                }
             },
             edit_history: |r: &crate::editor_registry::EditorRegistry,
                            tab: usize|
@@ -259,7 +250,6 @@ macro_rules! lc_hash_map {
             clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
             },
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
@@ -294,7 +284,6 @@ macro_rules! lc_sprite_map {
             clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
             },
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
@@ -329,7 +318,6 @@ macro_rules! lc_fog_map {
             clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
             },
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field.clear();
@@ -349,7 +337,6 @@ macro_rules! lc_owned {
             undo_redo: crate::editor_registry::noop_undo_redo,
             remove_tab: crate::editor_registry::noop_remove_tab,
             clear_tabs: crate::editor_registry::noop_clear_tabs,
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: |r: &mut crate::editor_registry::EditorRegistry| {
                 r.$field = Default::default();
@@ -369,7 +356,6 @@ macro_rules! lc_owned_box {
             undo_redo: crate::editor_registry::noop_undo_redo,
             remove_tab: crate::editor_registry::noop_remove_tab,
             clear_tabs: crate::editor_registry::noop_clear_tabs,
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: |r: &mut crate::editor_registry::EditorRegistry| {
                 *r.$field = Default::default();
@@ -389,7 +375,6 @@ macro_rules! lc_none {
             undo_redo: crate::editor_registry::noop_undo_redo,
             remove_tab: crate::editor_registry::noop_remove_tab,
             clear_tabs: crate::editor_registry::noop_clear_tabs,
-            refresh_sheet: crate::editor_registry::noop_refresh_sheet,
             edit_history: crate::editor_registry::noop_edit_history,
             clear: crate::editor_registry::noop_clear,
         }
@@ -513,19 +498,6 @@ impl EditorRegistry {
             return None;
         }
         (editor_type.descriptor().lifecycle.undo_redo)(self, tab_id, lookups, UndoRedoOp::Redo)
-    }
-
-    /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    ///
-    /// `MultiFileEditorState::undo` / `redo` does not own the
-    /// `SpreadsheetState`, so caches go stale — refresh them here.
-    pub fn refresh_spreadsheet(
-        &mut self,
-        editor_type: EditorType,
-        tab_id: usize,
-        lookups: &HashMap<String, Vec<(String, String)>>,
-    ) {
-        (editor_type.descriptor().lifecycle.refresh_sheet)(self, tab_id, lookups);
     }
 
     // ─── Edit-history lookup ────────────────────────────────────────────────

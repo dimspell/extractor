@@ -33,7 +33,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into();
     };
 
-    let scan_msg = Message::dialogue_paragraph(DialogueParagraphEditorMessage::ScanCatalog);
+    let scan_msg = Message::dialogue_paragraph(DialogueParagraphEditorMessage::LoadCatalog(
+        editor.current_file.clone().unwrap_or_default(),
+    ));
 
     view_spreadsheet(
         &editor.editor,

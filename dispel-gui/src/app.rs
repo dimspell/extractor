@@ -10,7 +10,6 @@ use crate::message::MessageExt;
 use crate::message::SystemMessage;
 use crate::state::AppState;
 use crate::workspace::EditorType;
-use dispel_core::Extractor;
 use hexedit::HexEditorState;
 use iced::Task;
 use std::path::Path;
@@ -216,64 +215,19 @@ impl App {
         self.save_workspace();
 
         match EditorType::from_path(path) {
-            EditorType::DialogueScriptEditor => {
-                let Some(tab_id) = self.active_tab_id() else {
-                    return Task::none();
-                };
-                let path_buf = path.to_path_buf();
-                self.state.editors.dialogue_script_editor.editors.insert(
-                    tab_id,
-                    crate::components::generic_editor::MultiFileEditorState {
-                        current_file: Some(path_buf.clone()),
-                        ..Default::default()
-                    },
-                );
-                self.state
-                    .editors
-                    .dialogue_script_editor
-                    .spreadsheets
-                    .insert(tab_id, Default::default());
-                Task::perform(
-                    async move {
-                        dispel_core::DialogueScript::read_file(&path_buf)
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    move |result| {
-                        crate::message::Message::dialogue_script(
-                            crate::editors::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
-                        )
-                    },
-                )
-            }
-            EditorType::DialogueTextEditor => {
-                let Some(tab_id) = self.active_tab_id() else {
-                    return Task::none();
-                };
-                let path_buf = path.to_path_buf();
-                self.state.editors.dialogue_paragraph_editor.editors.insert(
-                    tab_id,
-                    crate::components::generic_editor::MultiFileEditorState {
-                        current_file: Some(path_buf.clone()),
-                        ..Default::default()
-                    },
-                );
-                self.state
-                    .editors
-                    .dialogue_paragraph_editor
-                    .spreadsheets
-                    .insert(tab_id, Default::default());
-                Task::perform(
-                    async move {
-                        dispel_core::DialogueParagraph::read_file(&path_buf)
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    move |result| {
-                        crate::message::Message::dialogue_paragraph(
-                            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
-                        )
-                    },
-                )
-            }
+            // Catalog loading for every tabbed editor goes through the shared
+            // `LoadCatalog` path: one async read, tab id captured at spawn time,
+            // and identical cache-refresh behaviour.
+            EditorType::DialogueScriptEditor => Task::done(Message::dialogue_script(
+                crate::editors::dialogue_script::DialogueScriptEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
+            EditorType::DialogueTextEditor => Task::done(Message::dialogue_paragraph(
+                crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
             EditorType::NpcRefEditor => Task::done(Message::npc_ref(
                 crate::editors::npc_ref::NpcRefEditorMessage::LoadCatalog(path.to_path_buf()),
             )),

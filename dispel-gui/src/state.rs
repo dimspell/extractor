@@ -234,12 +234,6 @@ impl AppState {
     pub fn redo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
         self.editors.redo_active(editor_type, tab_id, &self.lookups)
     }
-
-    /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    pub fn refresh_spreadsheet_after_undo_redo(&mut self, editor_type: EditorType, tab_id: usize) {
-        self.editors
-            .refresh_spreadsheet(editor_type, tab_id, &self.lookups);
-    }
 }
 
 impl Default for AppState {
