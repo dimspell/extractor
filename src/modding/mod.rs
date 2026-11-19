@@ -2,9 +2,8 @@
 //!
 //! Pure data + I/O. No GUI dependencies.
 //!
-//! Phase 0 introduces the data model ([`change`], [`changelog`], [`manifest`],
-//! [`value`]). Phase 1 layers [`package`] read/write of the on-disk `mod.zip`
-//! format on top.
+//! The data model ([`change`], [`changelog`], [`manifest`], [`value`]) and
+//! [`package`] read/write of the on-disk `mod.zip` format live here.
 
 pub mod apply;
 pub mod bsdiff;
