@@ -8,7 +8,7 @@
 //!
 //! ## Addressing
 //!
-//! The trait gives us one `record_id: u32` but the native shape is
+//! The trait gives us one `record_id: u32` but the record is addressed by
 //! `(npc_index, level)`. We pack:
 //!
 //! ```text

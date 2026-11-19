@@ -62,8 +62,8 @@ use serde::{Deserialize, Serialize};
 /// `range`, `cast_duration`, `magic_type`, `animation_set_id`, and
 /// `effect_visual_id`. Effective mana cost is reduced by the caster's
 /// magic-school skill, with a minimum of 5; effective success chance also
-/// includes that skill. Offset-based names are retained only for effect
-/// configuration words whose behavior remains unconfirmed.
+/// includes that skill. Offset-based names are retained for the effect
+/// configuration words whose purpose has not been established.
 ///
 /// # File Purpose
 ///

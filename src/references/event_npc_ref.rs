@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 
 /// Number of comma-separated columns in one `Eventnpc.ref` row.
 ///
-/// The game's loader (`eventnpc_ref_load` in `Dispel_145_wm.exe`) reads the
-/// file with `strtok` over a comma delimiter and consumes exactly 40 tokens
+/// The file is read with `strtok` over a comma delimiter and consumes exactly
+/// 40 tokens
 /// per row: one row id, one NPC archetype id, two strings, three flags, four
 /// waypoint blocks of six values each, the activation rectangle, and the
 /// interaction block.
@@ -24,8 +24,7 @@ pub const COLUMN_COUNT: usize = 40;
 ///
 /// Stores the full placement record for NPCs that exist only while a
 /// scripted event runs. The row layout mirrors the 672-byte binary
-/// `NpcInGame/Npccat*.ref` record, because the game's `eventnpc_ref_load`
-/// feeds the same runtime NPC structure that the binary loader fills in.
+/// `NpcInGame/Npccat*.ref` record.
 /// See `docs/files/NpcInGame/Eventnpc.ref.md` for the column table.
 ///
 /// Reads file: `NpcInGame/Eventnpc.ref`

@@ -941,8 +941,8 @@ impl SpriteFrameData {
         rgba
     }
 
-    /// Encode RGBA bytes (width×height×4) into this frame's native 16-bit
-    /// packing, replacing pixel data.
+    /// Encode RGBA bytes (width×height×4) into this frame's 16-bit packing,
+    /// replacing pixel data.
     pub fn encode_from_rgba(&mut self, rgba: &[u8]) {
         let count = self.pixel_count();
         let mut raw = vec![0u8; count * 2];

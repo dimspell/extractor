@@ -49,7 +49,7 @@ All fields are little-endian `u32`; the record ID is its zero-based position.
 ## File Purpose
 
 Defines spell combat parameters, cast timing, and visual configuration. Effect-configuration words at offsets 48–56
-remain intentionally offset-named until their runtime behavior is confirmed.
+retain offset-based names because their purpose has not been established.
 
 ## Implementation
 

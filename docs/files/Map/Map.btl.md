@@ -50,11 +50,12 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
 seamlessly.
 
-The blit mode is chosen **per ref** (kb/11 §10.9–§10.12, `map_draw_btl` @0x424375): the per-ref byte pair at obj+0x1AC
-gives byte0 = the mode (0 → opaque copy, non-zero → skip-zero blit that copies only the non-zero source pixels) and
-byte1 = the shadow flag (non-zero → the cell is drawn at all). Only the shadowed cells are drawn by this pass. An
-atlas therefore bakes in one mode — `map atlas` uses the skip-zero blit for `.BTL` files, which matches the shadow art
-but drops the black pixels of the opaque-mode refs (764 of 1419 in `dun01`).
+The blit mode is chosen **per ref**, from the transparency and draw-enable bytes of the
+building overlay's map entry: transparency 0 means opaque copy, non-zero means a skip-zero blit
+that copies only the non-zero source pixels; the draw-enable byte must be set for the cell to be
+drawn at all. Only the shadowed cells are drawn by this pass. An atlas therefore bakes in one mode —
+`map atlas` uses the skip-zero blit for `.BTL` files, which matches the shadow art but drops the
+black pixels of the opaque-mode refs (764 of 1419 in `dun01`).
 
 ## Relationship to `.map` Files
 

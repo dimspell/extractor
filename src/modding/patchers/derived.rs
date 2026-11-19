@@ -229,11 +229,12 @@ mod tests {
     }
 
     #[test]
-    fn extra_ref_enum_from_i32_from_u8() {
-        // activation_effect_id uses enum_from_i32_from_u8(ActivationEffectId) — wire is u8.
+    fn extra_ref_wide_enum_wire_is_u8() {
+        // open_sfx_id is a plain u8 Wave.ini index (record +0xAC); the old
+        // ActivationEffectId enum collapsed unknown indices to 255.
         let p = crate::modding::patchers::ExtraRefPatcher;
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "activation_effect_id", &Value::I64(1))
+            .apply_field(&extra_ref_blob(), 0, "open_sfx_id", &Value::I64(1))
             .unwrap();
         // Round-trip should not panic; just verify parse succeeds.
         assert!(!parse_extra(&out).is_empty());

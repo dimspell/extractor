@@ -61,12 +61,7 @@ Levels above 123 would read past the table; tooling must clamp or skip.
 Each byte is a brightness factor `f` in `0..=31` — a 5-bit fixed-point value:
 
 - Effective multiplier on shadowed pixels: `f / 32`.
-- Applied to **all three colour channels**. The native fade object carries two channel masks
-  for the 16bpp mode — `maskB` (`fade+4`) = `0x07E0F81F` covering red + blue and `maskA`
-  (`fade+8`) = `0xF81F07E0` covering green (`fade_init_luts` @`0x41AEB1`) — and the blend at
-  @`0x424CAF` scales every masked channel by `f/32`. An earlier reading ("red and green only,
-  blue untouched") was a hedge that proved wrong: with the table's minimum factor of 2 it
-  painted every shadowed pixel deep blue instead of near-black.
+- Applied to **all three colour channels**.
 - `f = 0` → pixel pair blacked out; `f = 31` → nearly full brightness.
 - Values are **not monotonic in level**: each row is an animated flicker pattern, so adjacent
   levels can have very different brightness at the same pair index.
@@ -78,10 +73,9 @@ shadowed tiles on Dark maps, producing an animated torch-light falloff.
 
 ### Rendering Dark Maps
 
-The `.map` file's own light-level bits (access-ref word bits 15–29) are **dead data**: the
-game's world tick rewrites them every frame from a static 500-byte viewport template
-(`DAT_004a2c68`), indexed by visible slot. A static render that uses the file's bits
-therefore shows every dark map as pitch black.
+The `.map` file's own light-level bits (access-ref word bits 15–29) are not used for
+rendering: a fixed 500-byte viewport template is applied per visible slot instead. A
+static render that uses the file's bits therefore shows every dark map as pitch black.
 
 `map render --light-template <png> [--camera x,y]` applies that template before the fog
 pass and reproduces the lighting the game draws (the template is the 500×1 grayscale PNG the

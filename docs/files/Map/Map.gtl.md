@@ -50,7 +50,7 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
 seamlessly.
 
-**The ground pass is an opaque row-copy** (kb/11 §10.6, `map_draw_gtl` @0x424208): the 32 rows are copied verbatim, so the
+**The ground pass is an opaque row-copy**: the 32 rows are copied verbatim, so the
 tile's RGB(0,0,0) pixels are drawn like any other. An atlas that treats black as transparent punches holes in the
 floor — `map atlas` therefore defaults to the opaque mode for `.GTL` files.
 

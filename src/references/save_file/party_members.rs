@@ -124,7 +124,7 @@ pub struct PartyMemberBinaryRecord {
     /// Remaining bytes of the four-byte selected-map-object snapshot.
     #[binary_record(size = 2)]
     pub selected_map_object_snapshot_tail: Vec<u8>,
-    /// Inferred phase value for the active movement animation.
+    /// Phase value for the active movement animation.
     pub movement_animation_phase: u32,
     /// Number of animation frames processed in the current action.
     pub animation_tick_count: u32,

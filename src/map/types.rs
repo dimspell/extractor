@@ -124,8 +124,8 @@ pub fn btl_overlay_draws_in_dark_map(access_ref_word: u32) -> bool {
     (access_ref_word & 0x7FFF) != 0 && (access_ref_word & 0xFFFF_8000) != 0
 }
 
-/// Returns true when a spell-gate marker falls in the native visible diamond
-/// rooted at `anchor`.
+/// Returns true when a spell-gate marker falls in the visible diamond rooted
+/// at `anchor`.
 ///
 /// The game scans 500 tiles in 32 rows before it allows a spell to arm. The
 /// callback receives each map coordinate in that camera-relative footprint and
@@ -197,7 +197,7 @@ mod event_block_tests {
     }
 
     #[test]
-    fn visible_spell_gate_uses_the_native_500_tile_diamond() {
+    fn visible_spell_gate_uses_the_500_tile_diamond() {
         let anchor = (10, 20);
         let mut scanned = 0;
         assert!(!super::no_spell_cast_zone_blocks_at_anchor(anchor, |_| {
