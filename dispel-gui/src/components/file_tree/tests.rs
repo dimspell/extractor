@@ -4,7 +4,7 @@
 use super::data::FileTree;
 use super::message::FileTreeMessage;
 use super::tree_node::GameFileNode;
-use gui_widgets::components::TreeNode;
+use gui_widgets::TreeNode;
 use lucide_icons::Icon;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;

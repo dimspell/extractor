@@ -55,6 +55,9 @@ pub mod widget_trait_impl;
 #[cfg(test)]
 pub mod tests;
 
+#[cfg(all(test, feature = "accessibility"))]
+mod accessibility_tests;
+
 // Re-exports for public API
 pub use state::TableState;
 pub use types::RowFlags;

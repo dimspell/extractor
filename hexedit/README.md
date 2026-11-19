@@ -424,22 +424,30 @@ pub enum SaveOutcome {
     Failed(String), // error description
 }
 
-// config.rs — the host-facing port. The host receives a SaveRequest and
+// config.rs — the host-facing ports. The host receives a SaveRequest and
 // returns a task producing a SaveOutcome; the editor maps that onto its own
-// internal `SavedIntoRecording(SaveOutcome)` message.
+// internal `SavedIntoRecording(SaveOutcome)` message. No hexedit message type
+// crosses either boundary.
 pub type SavePort = Arc<dyn Fn(SaveRequest) -> Task<SaveOutcome> + Send + Sync>;
+pub type WriteModeCallback = Arc<dyn Fn(WriteMode) + Send + Sync>; // domain value only
 
 pub struct HexEditorConfig {
-    pub pane_gap: u16,                                    // default: 4
-    pub on_save: Option<SavePort>,                        // None hides save button
-    pub save_label: String,                               // e.g. "Save into my-mod"
-    pub can_save: bool,                                   // prerequisites met?
-    pub save_hint: String,                                // why save is disabled
-    pub extra_entries: Vec<InspectorEntry>,                // host-specific decoders
-    pub custom_encodings: Vec<EncodingEntry>,              // persisted by host
-    pub on_write_mode_changed: Option<Arc<dyn Fn(WriteMode) -> Task<HexEditorMessage> + Send + Sync>>,
+    pub pane_gap: u16,                        // default: 4
+    pub on_save: Option<SavePort>,            // None hides save button
+    pub save_label: String,                   // e.g. "Save into my-mod"
+    pub can_save: bool,                       // prerequisites met?
+    pub save_hint: String,                    // why save is disabled
+    pub extra_entries: Vec<InspectorEntry>,   // host-specific decoders
+    pub custom_encodings: Vec<EncodingEntry>, // persisted by host
+    pub on_write_mode_changed: Option<WriteModeCallback>,
 }
 ```
+
+Assemble the config with `HexEditorConfig::new()` and its chainable setters
+(`pane_gap`, `on_save`, `save_label`, `can_save`, `save_hint`, `extra_entries`,
+`custom_encodings`, `on_write_mode_changed`). Both embedders use this one
+builder; the standalone binary additionally uses the shared
+`standalone_config(...)` helper so its defaults cannot drift from the GUI's.
 
 Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can_save && on_save.is_some() && dirty_count > 0`).
 

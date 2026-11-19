@@ -48,10 +48,14 @@ Notes:
 - `dispel-gui/debug = ["iced/hot"]` enables the fork's experimental hot
   reload. `cargo test --workspace --all-features` therefore compiles hot
   reload *and* `iced_test` together.
-- `dispel-gui/iced_test = ["dep:iced_test", "iced/tiny-skia"]` and hexedit's
-  `iced_renderer` dev-dep (`features = ["tiny-skia"]`) both make the software
-  renderer available; either path is enough for feature unification, but both
-  are kept so each crate's tests work standalone.
+- `dispel-gui/iced_test = ["dep:iced_test", "iced/tiny-skia"]`, hexedit's
+  `iced_renderer` dev-dep (`features = ["tiny-skia"]`) and the identical
+  `gui-widgets` dev-dep all make the software renderer available; any one path
+  is enough for feature unification, but each is kept so the crate's tests work
+  standalone.
+- `gui-widgets` also enables `iced_test/accessibility` as a dev-dependency so
+  its widget tests can inspect accessibility trees and dispatch accesskit
+  actions. It matches the crate's default-on `accessibility` feature.
 
 ## 3. Test backend
 
@@ -64,7 +68,8 @@ Consequences:
 
 - Every iced UI-simulation test target sets `ICED_TEST_BACKEND=software` in the
   Makefile (`iced_test`, `hexedit_test`). Use those targets, or export the
-  variable yourself when running `cargo test -p dispel-gui -p hexedit`.
+  variable yourself when running `cargo test -p dispel-gui -p hexedit -p
+  gui-widgets`.
 - `tiny-skia` must also be compiled in (see the feature matrix above); the env
   variable alone is not enough.
 - `cargo test --workspace --all-features` enables `iced_test` and hot reload

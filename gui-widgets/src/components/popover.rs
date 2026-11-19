@@ -31,7 +31,7 @@ where
     Popover::new(trigger, panel, open, on_toggle, on_blur).into()
 }
 
-struct Popover<'a, Message, Theme, Renderer> {
+pub struct Popover<'a, Message, Theme, Renderer> {
     trigger: Element<'a, Message, Theme, Renderer>,
     panel: Element<'a, Message, Theme, Renderer>,
     open: bool,

@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length, Padding};
 
-use gui_widgets::components::{CollapsibleTree, TreeNode};
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use gui_widgets::{CollapsibleTree, TreeNode};
 use lucide_icons::Icon;
 
 use crate::components::file_tree::tree_node::{GameFileNode, file_icon};
@@ -390,7 +390,7 @@ fn set_node_children(
 /// only produces the visual content.  Base left-padding is added here
 /// (6 px for dirs, 18 px for files) to match the old layout at depth 0.
 fn render_node<'a>(
-    ctx: gui_widgets::components::RenderContext<'a, GameFileNode>,
+    ctx: gui_widgets::RenderContext<'a, GameFileNode>,
     tree_filter: &'a FileTreeFilter,
 ) -> Element<'a, FileTreeMessage> {
     let node = ctx.data;

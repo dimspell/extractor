@@ -91,7 +91,7 @@ run:
 	cargo run -p dispel-gui
 
 run-custom-context-menu:
-	sh -ac "FORCE_CUSTOM_CONTEXT_MENU=1 cargo run -p dispel-gui"
+	sh -ac "DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1 cargo run -p dispel-gui"
 
 hexedit:
 	cargo run -p hexedit -- file.bin --script-dir ./scripts

@@ -14,6 +14,9 @@
 use iced::Element;
 use iced::widget::{Column, column};
 
+#[cfg(test)]
+mod tests;
+
 // ── TreeNode ─────────────────────────────────────────────────────────
 
 /// A generic tree node parameterised by a payload type `T`.

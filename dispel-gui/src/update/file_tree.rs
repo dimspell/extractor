@@ -5,7 +5,7 @@ use crate::components::file_tree::data::scan_children_async;
 use crate::components::file_tree::message::FileTreeMessage;
 use crate::components::file_tree::tree_node::GameFileNode;
 use crate::message::MessageExt;
-use gui_widgets::components::TreeNode;
+use gui_widgets::TreeNode;
 use iced::Task;
 use std::path::PathBuf;
 use std::time::Duration;

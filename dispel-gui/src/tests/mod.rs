@@ -32,6 +32,7 @@ pub(crate) mod file_tree;
 pub(crate) mod fog_data;
 pub(crate) mod generic_editor_edge;
 pub(crate) mod global_search;
+pub(crate) mod hex_config_parity;
 pub(crate) mod hex_inspector_toggle;
 pub(crate) mod indexation;
 pub(crate) mod map_editor;

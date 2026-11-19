@@ -8,22 +8,22 @@ use gui_widgets::sweeten::list::Content;
 use iced::widget::pane_grid;
 
 use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_entropies};
+use super::domain::editing::{EditState, InspectorEditState};
 use super::domain::export_config::ExportConfig;
 use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
+use super::domain::goto::GotoState;
 use super::domain::layout::{BinaryLayout, LayoutOutlineItem};
 use super::domain::panel::{HexPanel, default_pane_grid};
+use super::domain::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
+use super::domain::provider::{BufferProvider, HexProvider};
+use super::domain::search::SearchState;
+use super::domain::selection::Selection;
+use super::domain::vanilla_diff::compute_diff;
 use super::domain::write_mode::{EncodingEntry, WriteMode};
-use super::editing::{EditState, InspectorEditState};
-use super::goto::GotoState;
 use super::lua_engine::LuaScriptEngine;
-use super::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
-use super::provider::{BufferProvider, HexProvider};
-use super::search::SearchState;
-use super::selection::Selection;
 use super::ui::coloring::ColorScheme;
 use super::ui::theme::{DARK_THEME, HexEditorTheme, ThemeVariant};
-use super::vanilla_diff::compute_diff;
 
 /// Metadata for a comparison file loaded for the side-by-side binary diff view.
 #[derive(Debug, Clone)]

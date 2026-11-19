@@ -1008,8 +1008,10 @@ pub fn update(
             if mode != state.write_mode {
                 state.edit_mode = None; // clear any in-progress hex edit
                 state.write_mode = mode;
-                if let Some(ref cb) = config.on_write_mode_changed {
-                    return cb(mode);
+                // Domain-level port: no internal message type crosses the
+                // boundary and no follow-up editor task is produced.
+                if let Some(cb) = &config.on_write_mode_changed {
+                    cb(mode);
                 }
             }
         }

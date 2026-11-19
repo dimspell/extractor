@@ -22,7 +22,7 @@ where
     Modal::new(base, modal, on_blur, backdrop_alpha).into()
 }
 
-struct Modal<'a, Message, Theme, Renderer> {
+pub struct Modal<'a, Message, Theme, Renderer> {
     base: Element<'a, Message, Theme, Renderer>,
     modal: Element<'a, Message, Theme, Renderer>,
     on_blur: Box<dyn Fn() -> Message + 'a>,

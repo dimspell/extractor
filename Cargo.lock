@@ -2026,6 +2026,8 @@ name = "gui-widgets"
 version = "0.9.3"
 dependencies = [
  "iced",
+ "iced_renderer",
+ "iced_test",
  "lru 0.12.5",
  "lucide-icons",
  "objc2 0.6.4",

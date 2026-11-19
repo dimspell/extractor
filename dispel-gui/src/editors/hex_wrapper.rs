@@ -34,16 +34,16 @@ pub fn build_hex_config(
     } else {
         String::new()
     };
-    HexEditorConfig {
-        pane_gap: 4,
-        on_save: crate::editors::mod_packager::hex_save::build_save_callback(recording, game_path),
-        save_label,
-        can_save,
-        save_hint,
-        extra_entries: state.lua_engine.entries(),
-        custom_encodings: Vec::new(),
-        on_write_mode_changed: None,
-    }
+    HexEditorConfig::new()
+        .pane_gap(4)
+        .on_save_optional(crate::editors::mod_packager::hex_save::build_save_callback(
+            recording, game_path,
+        ))
+        .with_save_label(save_label)
+        .can_save(can_save)
+        .save_hint(save_hint)
+        .extra_entries(state.lua_engine.entries())
+        .custom_encodings(Vec::new())
 }
 
 pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {

@@ -1,8 +1,9 @@
-//! The single public widget surface of `gui-widgets`.
+//! Widget implementation modules.
 //!
-//! `lib.rs` re-exports this module wholesale, so this is the one place that
-//! declares widget modules and re-exports their primary types. Keep the list
-//! here rather than duplicating it at the crate root.
+//! This module is the namespace for the widget implementations. The supported
+//! public items are re-exported once from the crate root — see `lib.rs`, which
+//! is the single documented public API surface. Keep module declarations here;
+//! add new public items to the root re-export list, not to this file.
 
 pub mod collapsible_tree;
 pub mod context_menu;
@@ -13,11 +14,3 @@ pub mod tab_bar;
 pub mod table_widget;
 pub mod text_area;
 pub mod toast;
-
-pub use collapsible_tree::{CollapsibleTree, RenderContext, TreeNode};
-pub use context_menu::ContextMenu;
-pub use modal::modal;
-pub use paragraph_cache::ParagraphCache;
-pub use popover::popover;
-pub use table_widget::{RowFlags, TableColumn, TableState, TableWidget};
-pub use text_area::{TextAreaContent, textarea, textarea_fill, textarea_style};

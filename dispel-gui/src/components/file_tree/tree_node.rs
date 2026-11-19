@@ -43,12 +43,12 @@ impl GameFileNode {
 pub fn add_cache_directory_child(
     file: &file_index_cache::CachedFileInfo,
     all_files: &[file_index_cache::CachedFileInfo],
-) -> Option<gui_widgets::components::TreeNode<GameFileNode>> {
+) -> Option<gui_widgets::TreeNode<GameFileNode>> {
     if file.name.starts_with('.') {
         return None;
     }
 
-    let mut dir_node = gui_widgets::components::TreeNode::branch(
+    let mut dir_node = gui_widgets::TreeNode::branch(
         GameFileNode::dir(file.path.clone(), file.name.clone()),
         Vec::new(),
     );
@@ -76,7 +76,7 @@ pub fn add_cache_directory_child(
 /// Build a leaf `TreeNode<GameFileNode>` from a cached file entry.
 pub fn add_cache_file_child(
     file: &file_index_cache::CachedFileInfo,
-) -> Option<gui_widgets::components::TreeNode<GameFileNode>> {
+) -> Option<gui_widgets::TreeNode<GameFileNode>> {
     if file.name.starts_with('.') {
         return None;
     }
@@ -95,7 +95,7 @@ pub fn add_cache_file_child(
         _ => Icon::Paperclip,
     };
 
-    Some(gui_widgets::components::TreeNode::leaf(GameFileNode::file(
+    Some(gui_widgets::TreeNode::leaf(GameFileNode::file(
         file.path.clone(),
         file.name.clone(),
         icon,

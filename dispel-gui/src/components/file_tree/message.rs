@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gui_widgets::components::TreeNode;
+use gui_widgets::TreeNode;
 
 use super::tree_node::GameFileNode;
 
