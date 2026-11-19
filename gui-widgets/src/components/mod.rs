@@ -1,3 +1,9 @@
+//! The single public widget surface of `gui-widgets`.
+//!
+//! `lib.rs` re-exports this module wholesale, so this is the one place that
+//! declares widget modules and re-exports their primary types. Keep the list
+//! here rather than duplicating it at the crate root.
+
 pub mod collapsible_tree;
 pub mod context_menu;
 pub mod modal;

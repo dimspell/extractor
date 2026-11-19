@@ -19,7 +19,7 @@ fn test_saved_into_recording_updates_status() {
     send(
         &mut state,
         &config,
-        HexEditorMessage::SavedIntoRecording(Ok("Saved into mod".into())),
+        HexEditorMessage::SavedIntoRecording(SaveOutcome::Saved("Saved into mod".into())),
     );
     assert_eq!(state.status_msg, "Saved into mod");
     assert_eq!(
@@ -45,7 +45,7 @@ fn test_saved_into_recording_error() {
     send(
         &mut state,
         &config,
-        HexEditorMessage::SavedIntoRecording(Err("disk full".into())),
+        HexEditorMessage::SavedIntoRecording(SaveOutcome::Failed("disk full".into())),
     );
     assert!(
         state.status_msg.contains("Save failed"),

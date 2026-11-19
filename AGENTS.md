@@ -226,7 +226,7 @@ Structure:
 - `ui/`: coloring, inspector, update, view/, theme
 - `tests/`: 17 dedicated test files (**24 files with `#[cfg(test)]` total**)
 
-**Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via `OnSaveFn`.
+**Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via the domain-level `SavePort` (`SaveRequest` → `SaveOutcome`) in `hex_save.rs`.
 
 ---
 
@@ -428,6 +428,7 @@ pub struct Workspace {
 | `docs/rendering.md` | Isometric map rendering: coordinate transforms, layer ordering, painter's algorithm, sprite transparency |
 | `docs/database_and_references.md` | SQLite schema overview |
 | `docs/iced-overlay-system.md` | Overlay system notes for the forked iced |
+| `docs/iced-fork-config.md` | Single iced fork pin set, feature matrix, headless test backend, consistency check |
 | `docs/files/*.md` | **36 per-format docs** organized in subdirectories (`CharacterInGame/`, `MonsterInGame/`, `NpcInGame/`, `Ref/`, `Map/`, `ExtraInGame/`, `MagicInGame/`) + `CROSS_REFERENCES.md` |
 
 Always read the relevant `docs/files/*.md` before modifying a parser.

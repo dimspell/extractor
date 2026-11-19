@@ -2,34 +2,40 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dispel_core::modding::{ChangeAction, ChangeOp, Workspace};
-use hexedit::{HexEditorMessage, HexEditorState, OnSaveFn};
+use hexedit::{SaveOutcome, SavePort, SaveRequest};
 use iced::Task;
 
-/// Build an optional save callback for the hex editor config.
+/// Build the host-side implementation of hexedit's [`SavePort`].
 ///
-/// Returns `None` when there's no active recording or game path.
+/// The editor hands us a domain-level [`SaveRequest`] (path + bytes); we turn
+/// it into a mod changelog action and return a [`SaveOutcome`]. No hexedit
+/// message types are constructed here — the editor maps the outcome back onto
+/// its own internal message. Returns `None` when there's no active recording
+/// or game path.
 pub fn build_save_callback(
     recording: &Option<crate::state::RecordingSession>,
     game_path: &Option<PathBuf>,
-) -> Option<OnSaveFn> {
+) -> Option<SavePort> {
     let session = recording.as_ref()?;
     let game_path = game_path.clone()?;
     let workspace_root = session.workspace_root.clone();
     let mod_slug = session.mod_slug.clone();
 
-    Some(Arc::new(move |state: &HexEditorState| {
+    Some(Arc::new(move |request: SaveRequest| {
         let game_path = game_path.clone();
         let workspace_root = workspace_root.clone();
         let mod_slug = mod_slug.clone();
+        let SaveRequest {
+            path,
+            bytes: current_bytes,
+        } = request;
 
-        let Ok(relative) = state.path.strip_prefix(&game_path) else {
-            return Task::done(HexEditorMessage::SavedIntoRecording(Err(
+        let Ok(relative) = path.strip_prefix(&game_path) else {
+            return Task::done(SaveOutcome::Failed(
                 "File is outside the active game directory.".to_string(),
-            )));
+            ));
         };
         let relative_str = relative.to_string_lossy().replace('\\', "/");
-
-        let current_bytes = state.provider.as_slice().to_vec();
 
         Task::perform(
             async move {
@@ -45,7 +51,7 @@ pub fn build_save_callback(
                 .await
                 .unwrap_or_else(|e| Err(e.to_string()))
             },
-            HexEditorMessage::SavedIntoRecording,
+            SaveOutcome::from_result,
         )
     }))
 }

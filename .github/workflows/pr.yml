@@ -58,6 +58,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
 
+      - name: Verify forked-iced pin/back-end consistency
+        run: bash scripts/check-iced-config.sh
+
       - name: Run Clippy
         run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 

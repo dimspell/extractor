@@ -4,6 +4,9 @@ version = "0.9.3"
 edition = "2024"
 
 [features]
+# Accessibility is default-on and force-enabled by both consumers
+# (dispel-gui and hexedit) so the shared `table_widget` has one compiled shape
+# across the workspace. See docs/iced-fork-config.md.
 default = ["accessibility"]
 # Enables screen-reader (VoiceOver) support for the table widget: pulls in
 # iced's `accessibility` trait methods.

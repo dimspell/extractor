@@ -5,6 +5,7 @@ use crate::config::HexEditorConfig;
 use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
+use crate::domain::save::{SaveOutcome, SaveRequest};
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::state::{ComparisonFile, InspectorSource};
 use crate::ui::coloring::ColorScheme;
@@ -453,17 +454,21 @@ pub fn update(
 
         // ── Save ────────────────────────────────────────────────────────
         HexEditorMessage::SaveIntoRecording => {
-            if let Some(ref on_save) = config.on_save {
-                return on_save(state);
+            if let Some(ref save_port) = config.on_save {
+                let request = SaveRequest {
+                    path: state.path.clone(),
+                    bytes: state.provider.as_slice().to_vec(),
+                };
+                return save_port(request).map(HexEditorMessage::SavedIntoRecording);
             }
             state.notify("Save not available.");
         }
-        HexEditorMessage::SavedIntoRecording(result) => match result {
-            Ok(msg) => {
+        HexEditorMessage::SavedIntoRecording(outcome) => match outcome {
+            SaveOutcome::Saved(msg) => {
                 state.provider.clear_dirty();
                 state.notify(msg);
             }
-            Err(e) => {
+            SaveOutcome::Failed(e) => {
                 state.notify(format!("Save failed: {e}"));
             }
         },

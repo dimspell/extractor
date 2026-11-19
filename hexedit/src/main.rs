@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Task, Theme};
 use hexedit::ui::theme::DARK_THEME;
 use hexedit::{
     AppMessage, EncodingEntry, HexEditorApp, HexEditorConfig, HexEditorDocument, HexEditorMessage,
-    HexEditorState, WriteMode, app_update, app_view,
+    HexEditorState, SaveOutcome, SaveRequest, WriteMode, app_update, app_view,
 };
 
 /// Settings persisted to `~/.config/hexedit/settings.json`.
@@ -138,8 +138,9 @@ impl App {
     }
 
     /// Build the editor config from the active document. Saving flows through
-    /// `config.on_save` inside `hexedit::update`, which clears the dirty flag
-    /// and sets `state.status_msg` once `SavedIntoRecording` comes back.
+    /// the `config.on_save` `SavePort` inside `hexedit::update`, which maps
+    /// the returned `SaveOutcome` onto its internal `SavedIntoRecording`
+    /// message, clears the dirty flag and sets `state.status_msg`.
     fn editor_config(&self) -> HexEditorConfig {
         let Some(active) = self.app.active_tab else {
             return HexEditorConfig::default();
@@ -163,9 +164,8 @@ impl App {
             },
             extra_entries: doc.state.lua_engine.entries(),
             custom_encodings: current_encodings.clone(),
-            on_save: Some(Arc::new(|state: &HexEditorState| {
-                let path = state.path.clone();
-                let bytes = state.provider.as_slice().to_vec();
+            on_save: Some(Arc::new(|request: SaveRequest| {
+                let SaveRequest { path, bytes } = request;
                 Task::perform(
                     async move {
                         tokio::fs::write(&path, bytes)
@@ -173,7 +173,7 @@ impl App {
                             .map_err(|e| e.to_string())
                             .map(|_| "Saved".to_string())
                     },
-                    HexEditorMessage::SavedIntoRecording,
+                    SaveOutcome::from_result,
                 )
             })),
             on_write_mode_changed: Some(Arc::new(move |mode| {
