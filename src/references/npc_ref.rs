@@ -174,7 +174,7 @@ pub fn save_npc_refs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("npc_refs"))?;
         for npc in npc_refs {
             stmt.execute(params![
                 file_id,

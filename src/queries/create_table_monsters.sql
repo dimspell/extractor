@@ -1,4 +1,4 @@
-CREATE TABLE monsters
+CREATE TABLE IF NOT EXISTS monsters
 (
     id                      INTEGER PRIMARY KEY,
     name                    TEXT,

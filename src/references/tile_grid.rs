@@ -129,15 +129,14 @@ pub fn read_tile_grid(source_path: &Path) -> std::io::Result<Vec<TileGrid>> {
 pub fn save_tile_grid(conn: &mut Connection, grids: &[TileGrid]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO tile_grids (id, payload_length, grid_size, data_json) VALUES (?1, ?2, ?3, ?4)",
-        )?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("tile_grids"))?;
         for grid in grids {
             stmt.execute(params![
                 grid.id,
                 grid.payload_length,
                 grid.grid_size,
-                serde_json::to_string(&grid.data).unwrap_or_default(),
+                serde_json::to_string(&grid.data)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?,
             ])?;
         }
     }

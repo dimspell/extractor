@@ -101,7 +101,7 @@ pub fn read_map_ini(source_path: &Path) -> std::io::Result<Vec<MapIni>> {
 pub fn save_map_inis(conn: &mut Connection, map_inis: &[MapIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_ini.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_inis"))?;
         for map_ini in map_inis {
             // Stored verbatim: 0 means "no camera-move event" but is real
             // file data, so it must survive the round-trip (no NULLing).
@@ -150,8 +150,7 @@ mod tests {
         let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
 
         let mut conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(include_str!("../queries/create_table_map_inis.sql"))
-            .unwrap();
+        crate::database::create_all(&conn).unwrap();
         save_map_inis(&mut conn, &maps).unwrap();
 
         for (id, expected) in [(1, 0), (2, 1005)] {

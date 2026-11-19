@@ -101,7 +101,7 @@ pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>>
 pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("event_items"))?;
         for item in event_items {
             stmt.execute(params![
                 item.id,

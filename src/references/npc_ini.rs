@@ -68,7 +68,7 @@ pub fn read_npc_ini(source_path: &Path) -> std::io::Result<Vec<NpcIni>> {
 pub fn save_npc_inis(conn: &mut Connection, npc_inis: &[NpcIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ini.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("npc_inis"))?;
         for npc_ini in npc_inis {
             stmt.execute(params![
                 npc_ini.id,

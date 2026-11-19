@@ -788,7 +788,7 @@ pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
     );
 
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_tile.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_tiles"))?;
 
         for y in 0..height {
             for x in 0..width {
@@ -856,7 +856,7 @@ pub fn save_map_objects(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_objects"))?;
         for (obj_idx, info) in tiled_infos.iter().enumerate() {
             for (stack_order, btl_id) in info.ids.iter().enumerate() {
                 stmt.execute(params![
@@ -881,7 +881,7 @@ pub fn save_map_sprites(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_sprites"))?;
         for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
             stmt.execute(params![
                 map_id,
@@ -908,7 +908,7 @@ pub fn save_map_sprite_frames(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_frame.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_sprite_frames"))?;
         for (seq_idx, seq) in internal_sprites.iter().enumerate() {
             for (frame_idx, frame) in seq.frame_infos.iter().enumerate() {
                 // Seek to this frame's RGB565 pixel data in the .map file
@@ -964,7 +964,7 @@ pub fn save_map_sprite_frames(
 
 pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) -> DbResult<()> {
     conn.execute(
-        include_str!("../queries/insert_map_metadata.sql"),
+        crate::database::insert_sql("map_metadata"),
         params![
             map_id,
             model.tiled_map_width,
@@ -990,7 +990,7 @@ pub fn save_map_overlay_modes(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_overlay_mode.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_overlay_modes"))?;
         for (index, &raw) in overlay_modes.iter().enumerate() {
             stmt.execute(params![
                 map_id,
@@ -1014,7 +1014,7 @@ pub fn save_map_sprite_sequences(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_sequence.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_sprite_sequences"))?;
         for (seq_idx, seq) in internal_sprites.iter().enumerate() {
             stmt.execute(params![
                 map_id,
@@ -1037,7 +1037,7 @@ pub fn save_map_object_refs(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("map_object_refs"))?;
         for (ref_index, r) in refs.iter().enumerate() {
             stmt.execute(params![map_id, ref_index as i32, r.word0, r.word1])?;
         }
@@ -1059,14 +1059,12 @@ pub fn save_map_bundles(
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut bundle_stmt = tx.prepare(include_str!("../queries/insert_map_bundle.sql"))?;
-        let mut record_stmt =
-            tx.prepare(include_str!("../queries/insert_map_bundle_record.sql"))?;
-        let mut item_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_item.sql"))?;
-        let mut entry_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_entry.sql"))?;
-        let mut entry_id_stmt =
-            tx.prepare(include_str!("../queries/insert_map_bundle_entry_id.sql"))?;
-        let mut flag_stmt = tx.prepare(include_str!("../queries/insert_map_bundle_flag.sql"))?;
+        let mut bundle_stmt = tx.prepare(crate::database::insert_sql("map_bundles"))?;
+        let mut record_stmt = tx.prepare(crate::database::insert_sql("map_bundle_records"))?;
+        let mut item_stmt = tx.prepare(crate::database::insert_sql("map_bundle_items"))?;
+        let mut entry_stmt = tx.prepare(crate::database::insert_sql("map_bundle_entries"))?;
+        let mut entry_id_stmt = tx.prepare(crate::database::insert_sql("map_bundle_entry_ids"))?;
+        let mut flag_stmt = tx.prepare(crate::database::insert_sql("map_bundle_flags"))?;
 
         for (bundle_index, bundle) in bundles.iter().enumerate() {
             bundle_stmt.execute(params![map_id, bundle_index as i32])?;

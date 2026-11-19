@@ -1,4 +1,4 @@
-CREATE TABLE npc_refs
+CREATE TABLE IF NOT EXISTS npc_refs
 (
     file_id                 INTEGER NOT NULL,
     id                      INTEGER,

@@ -98,7 +98,7 @@ pub fn read_monster_ini(source_path: &Path) -> std::io::Result<Vec<MonsterIni>> 
 pub fn save_monster_inis(conn: &mut Connection, monster_inis: &[MonsterIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ini.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monster_inis"))?;
         for monster_ini in monster_inis {
             stmt.execute(params![
                 monster_ini.id,

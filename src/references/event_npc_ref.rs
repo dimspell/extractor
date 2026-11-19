@@ -376,7 +376,7 @@ pub fn read_event_npc_ref(source_path: &Path) -> std::io::Result<Vec<EventNpcRef
 pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &[EventNpcRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_event_npc_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("event_npc_refs"))?;
         for npc in npc_refs {
             stmt.execute(params![
                 npc.id,

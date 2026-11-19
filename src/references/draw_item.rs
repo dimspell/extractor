@@ -113,7 +113,7 @@ pub fn read_draw_items(source_path: &Path) -> std::io::Result<Vec<DrawItem>> {
 pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_draw_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("draw_items"))?;
         for draw_item in draw_items {
             stmt.execute(params![
                 draw_item.map_id,

@@ -583,10 +583,10 @@ pub fn save_event_scripts(
 ) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt_script = tx.prepare(include_str!("../queries/insert_event_script.sql"))?;
-        let mut stmt_variable = tx.prepare(include_str!("../queries/insert_event_variable.sql"))?;
-        let mut stmt_sprite = tx.prepare(include_str!("../queries/insert_event_sprite.sql"))?;
-        let mut stmt_action = tx.prepare(include_str!("../queries/insert_event_action.sql"))?;
+        let mut stmt_script = tx.prepare(crate::database::insert_sql("event_scripts"))?;
+        let mut stmt_variable = tx.prepare(crate::database::insert_sql("event_variables"))?;
+        let mut stmt_sprite = tx.prepare(crate::database::insert_sql("event_sprites"))?;
+        let mut stmt_action = tx.prepare(crate::database::insert_sql("event_actions"))?;
 
         for script in scripts {
             // Save the main script record

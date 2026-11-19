@@ -104,7 +104,7 @@ pub fn read_party_ini_db(source_path: &Path) -> std::io::Result<Vec<PartyIniNpc>
 pub fn save_party_inis(conn: &mut Connection, npcs: &[PartyIniNpc]) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_party_ini.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("party_inis"))?;
         for (idx, npc) in npcs.iter().enumerate() {
             stmt.execute(params![
                 idx as i32,

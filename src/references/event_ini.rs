@@ -73,7 +73,7 @@ pub fn read_event_ini(source_path: &Path) -> std::io::Result<Vec<Event>> {
 pub fn save_events(conn: &mut Connection, events: &[Event]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_event.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("events"))?;
         for event in events {
             stmt.execute(params![
                 event.event_id,

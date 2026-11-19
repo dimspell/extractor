@@ -198,7 +198,7 @@ impl FogData {
 pub fn save_to_db(conn: &mut rusqlite::Connection, fog: &FogData) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_fog_factor.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("fog_factors"))?;
         for level in 1..=ROWS as u32 {
             for pair in 0..ROW_LEN {
                 stmt.execute(rusqlite::params![
@@ -309,8 +309,7 @@ mod tests {
 
         let fog = FogData::load(fixture_dir).expect("loading fogdata.dat fixture");
         let mut conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
-        conn.execute_batch(include_str!("../queries/create_table_fog_factors.sql"))
-            .expect("creating fog_factors table");
+        crate::database::create_all(&conn).expect("creating schema");
 
         save_to_db(&mut conn, &fog).expect("save_to_db");
 

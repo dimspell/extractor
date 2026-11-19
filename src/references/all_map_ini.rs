@@ -71,7 +71,7 @@ pub fn read_all_map_ini(source_path: &Path) -> std::io::Result<Vec<Map>> {
 pub fn save_maps(conn: &mut Connection, maps: &[Map]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("maps"))?;
         for map in maps {
             stmt.execute(params![
                 map.id,
