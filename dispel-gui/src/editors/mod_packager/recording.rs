@@ -87,6 +87,14 @@ pub struct FieldEditContext {
     pub key: FieldKey,
 }
 
+impl FieldEditContext {
+    /// The typed address this recorded edit targets — the same representation
+    /// used by localization entries and the hand-written patchers.
+    pub fn field_address(&self) -> dispel_core::FieldAddress {
+        self.key.field_address()
+    }
+}
+
 /// Convenience for editor macros: emit a domain field-change event from a
 /// captured context and the newly committed value.
 pub fn observe_field_edit(app: &App, context: FieldEditContext, new: String) -> Task<Message> {

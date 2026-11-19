@@ -100,6 +100,11 @@ impl FieldChange {
         Self { key, old, new }
     }
 
+    /// The canonical typed address this change edits.
+    pub fn field_address(&self) -> crate::field_identity::FieldAddress {
+        self.key.field_address()
+    }
+
     /// Turn the recorded event into the durable change action.
     pub fn into_action(self) -> ChangeAction {
         let FieldChange { key, old, new } = self;

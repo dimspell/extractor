@@ -25,6 +25,7 @@
 
 use std::io::Cursor;
 
+use crate::field_identity::{FieldAddress, PARTY_LEVELS_PER_NPC, RecordRef};
 use crate::modding::error::{ModdingError, Result};
 use crate::modding::patcher::{RecordPatcher, out_of_range, unknown_field, wrong_type};
 use crate::modding::value::Value;
@@ -37,7 +38,9 @@ impl PartyLevelDbPatcher {
     pub const FILENAME: &'static str = "PrtLevel.db";
     pub const RECORD_NAME: &'static str = "PartyLevelRecord";
     pub const NPCS: u32 = 8;
-    pub const LEVELS_PER_NPC: u32 = 20;
+    /// The stride is owned by the typed-address module so the DSL decoder and
+    /// this patcher can never pack `record_id` differently.
+    pub const LEVELS_PER_NPC: u32 = PARTY_LEVELS_PER_NPC;
 }
 
 impl RecordPatcher for PartyLevelDbPatcher {
@@ -59,8 +62,13 @@ impl RecordPatcher for PartyLevelDbPatcher {
         if record_id >= total {
             return Err(out_of_range(Self::RECORD_NAME, record_id, total as usize));
         }
-        let npc_idx = (record_id / Self::LEVELS_PER_NPC) as usize;
-        let lvl_idx = (record_id % Self::LEVELS_PER_NPC) as usize;
+        // Decode the packed `record_id` through the shared typed address —
+        // the (npc, level) interpretation now lives in exactly one place.
+        let address = FieldAddress::from_party_level_record_id("", record_id, field);
+        let (npc_idx, lvl_idx) = match address.record {
+            RecordRef::Grid { row, col, .. } => (row as usize, col as usize),
+            RecordRef::Index(_) => unreachable!("party-level addresses always use a grid ref"),
+        };
 
         // The struct guarantees these by construction (parse always
         // produces 8 NPCs × 20 levels), but defend anyway in case a
@@ -278,11 +286,13 @@ mod tests {
             .apply_field(&original, 100, "accuracy", &Value::I64(7))
             .unwrap();
         assert_eq!(out.len(), original.len());
-        // Every byte should still be zero except where we wrote.
-        // Block 100 starts at offset 100 * 36 = 3600; accuracy is the u8
-        // at sub-offset 20.
+        // Every byte should still be zero except where we wrote. Offsets come
+        // from the single layout definition, not duplicated magic literals.
+        let layout = crate::references::layout::PARTY_LEVEL_RECORD;
+        let base = layout.header_size as usize + 100 * layout.record_size as usize;
+        let accuracy = layout.field_offset("accuracy").unwrap() as usize;
         let mut expected = vec![0u8; original.len()];
-        expected[3620] = 7;
+        expected[base + accuracy] = 7;
         assert_eq!(out, expected);
     }
 }

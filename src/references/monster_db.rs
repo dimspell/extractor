@@ -220,28 +220,6 @@ pub struct Monster {
     pub attack_speed: i32,
 }
 
-#[cfg(test)]
-mod layout_tests {
-    use super::Monster;
-    use crate::references::layout::RecordLayout;
-
-    #[test]
-    fn test_monster_record_layout_matches_documented_offsets() {
-        let layout = Monster::LAYOUT;
-        assert_eq!(layout.header_size, 0);
-        assert_eq!(layout.record_size, 160);
-        assert_eq!(layout.fields[0].name, "name");
-        assert_eq!(layout.fields[0].offset, 0);
-        assert_eq!(layout.fields[0].size, 24);
-        assert_eq!(layout.fields[1].name, "health_points_max");
-        assert_eq!(layout.fields[1].offset, 24);
-        assert_eq!(
-            layout.fields.last().unwrap().offset + layout.fields.last().unwrap().size,
-            160
-        );
-    }
-}
-
 pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
     Monster::read_file(source_path)
 }

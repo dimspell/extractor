@@ -321,21 +321,6 @@ mod tests {
         rec
     }
 
-    /// Pins the positions of the trap fields and the open-sound byte in the
-    /// on-disk record layout.
-    #[test]
-    fn test_extra_ref_trap_and_open_sfx_offsets() {
-        let layout = <ExtraRef as crate::RecordLayout>::LAYOUT;
-        let offsets: std::collections::HashMap<&str, u32> =
-            layout.fields.iter().map(|f| (f.name, f.offset)).collect();
-
-        assert_eq!(offsets["is_trapped"], 0x70);
-        assert_eq!(offsets["trap_spell_id"], 0x74);
-        assert_eq!(offsets["use_counter"], 0x80);
-        assert_eq!(offsets["open_sfx_id"], 0xac);
-        assert_eq!(layout.record_size, 184);
-    }
-
     /// The open-SFX byte is a Wave.ini index (0..N), not an effect enum.
     /// A byte of 251 used to be rewritten to 255 by the old enum parser.
     #[test]

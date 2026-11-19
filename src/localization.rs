@@ -22,6 +22,17 @@ pub struct TextEntry {
 }
 
 impl TextEntry {
+    /// The canonical typed address of this translatable cell. Lets a
+    /// localization entry and the equivalent modding `FieldDelta` be compared
+    /// as one identity instead of two parallel `(file, record, field)` tuples.
+    pub fn field_address(&self) -> crate::field_identity::FieldAddress {
+        crate::field_identity::FieldAddress::flat(
+            self.file_path.clone(),
+            self.record_id as u32,
+            self.field_name,
+        )
+    }
+
     /// True when a non-empty, changed translation exists.
     pub fn is_translated(&self) -> bool {
         !self.translation.is_empty() && self.translation != self.original

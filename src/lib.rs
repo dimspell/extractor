@@ -7,12 +7,16 @@ pub mod cli;
 pub mod commands;
 pub mod database;
 pub mod decode;
+pub mod field_identity;
 pub mod localization;
 pub mod map;
 pub mod modding;
 pub mod references;
 
-pub use references::layout::{FieldDef, FixedRecordLayout, RecordLayout};
+pub use field_identity::{
+    FieldAddress, FieldAddressError, FieldPath, PARTY_LEVELS_PER_NPC, PathSegment, RecordRef,
+};
+pub use references::layout::{FieldDef, FixedRecordLayout, PARTY_LEVEL_RECORD, RecordLayout};
 pub mod snf;
 pub mod sprite;
 

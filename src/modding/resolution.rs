@@ -40,6 +40,12 @@ impl FieldKey {
             field: field.into(),
         }
     }
+
+    /// The canonical typed address for this flat wire key. The single bridge
+    /// between conflict detection / pins / apply and the rest of the pipeline.
+    pub fn field_address(&self) -> crate::field_identity::FieldAddress {
+        crate::field_identity::FieldAddress::from(self.clone())
+    }
 }
 
 impl From<(String, u32, String)> for FieldKey {
