@@ -18,6 +18,7 @@ use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use crate::LuaScriptEngine;
 use crate::config::HexEditorConfig;
+use crate::domain::save::SaveOutcome;
 use crate::domain::write_mode::WriteMode;
 use crate::message::HexEditorMessage;
 use crate::provider::BufferProvider;

@@ -2,22 +2,27 @@ use std::sync::Arc;
 
 use iced::Task;
 
+use super::domain::save::{SaveOutcome, SaveRequest};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::message::HexEditorMessage;
 use super::state::HexEditorState;
 
-/// Callback invoked when the user presses the save button.
-/// Receives the editor state and returns a task that eventually produces
-/// a `SavedIntoRecording(result)` message.
-pub type OnSaveFn = Arc<dyn Fn(&HexEditorState) -> Task<HexEditorMessage> + Send + Sync>;
+/// Host-facing port for persisting the open hex document.
+///
+/// The host receives a domain-level [`SaveRequest`] (a path plus the current
+/// bytes) and returns a task producing a [`SaveOutcome`]. No hexedit message
+/// types cross this boundary — the editor maps `SaveOutcome` back onto its
+/// own internal message after the task completes. `iced::Task` is used purely
+/// as the async delivery mechanism, as it is throughout this Iced widget.
+pub type SavePort = Arc<dyn Fn(SaveRequest) -> Task<SaveOutcome> + Send + Sync>;
 
 /// External configuration injected into the hex editor by the host application.
 pub struct HexEditorConfig {
     /// Halloy-style gap between panes in the pane grid (in logical pixels).
     /// Default: 4. Set to 0 to disable spacing.
     pub pane_gap: u16,
-    /// Optional save-to-mod callback. `None` hides the save button.
-    pub on_save: Option<OnSaveFn>,
+    /// Optional save-to-mod port. `None` hides the save button.
+    pub on_save: Option<SavePort>,
     /// Label for the save button (e.g. "Save into `my-mod`").
     pub save_label: String,
     /// True when all prerequisites for saving are met (mod session active,

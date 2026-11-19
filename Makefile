@@ -74,6 +74,10 @@ clippy:
 check:
 	cargo check --workspace --message-format=short
 
+# Verify the forked-iced pin set / feature matrix / test backend are coherent.
+check_iced_config:
+	bash scripts/check-iced-config.sh
+
 build:
 	cargo build --workspace
 
