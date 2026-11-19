@@ -292,8 +292,8 @@ fn test_extra_object_decodes_runtime_tail_at_exact_offsets() {
 
     let parsed = super::ExtraObjectRecord::parse(&bytes).unwrap();
 
-    assert_eq!(parsed.activation_effect_id, 10);
-    assert_eq!(parsed.activation_effect_reserved, 0xa5);
+    assert_eq!(parsed.open_sfx_id, 10);
+    assert_eq!(parsed.open_sfx_reserved, 0xa5);
     assert_eq!(parsed.active_overlay_enabled, 1);
     assert_eq!(parsed.map_object_active, 1);
     assert_eq!(parsed.interaction_pending, 1);

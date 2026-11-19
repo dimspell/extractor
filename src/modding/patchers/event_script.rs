@@ -240,6 +240,15 @@ impl RecordPatcher for EventScriptPatcher {
             _ => return Err(unknown_field(Self::RECORD_NAME, field)),
         }
 
+        // An edit to the ACT section mutates the structured `actions` vec, so
+        // the verbatim raw lines no longer describe it and the writer must
+        // reconstruct that section. Edits to *any other* section leave the
+        // raw ACT lines in place, preserving their original formatting
+        // byte-for-byte instead of reformatting them through ActionFunction.
+        if section == "actions" {
+            script.act_raw_lines = None;
+        }
+
         let mut out = Vec::new();
         EventScript::to_writer(&scripts, &mut out)?;
         Ok(out)
@@ -811,6 +820,54 @@ mod tests {
             .apply_field(&sample(), 0, "variables.1", &Value::String("kills".into()))
             .unwrap_err();
         assert!(err.to_string().contains("name=value"), "got: {err}");
+    }
+
+    /// ACT lines whose formatting the structured parser cannot reproduce:
+    /// a commented-out call with a space after the comma, and a call with
+    /// trailing whitespace. A non-ACT patch must leave both byte-identical.
+    fn act_formatting_sample() -> Vec<u8> {
+        b"[VAR]\r\nspawn=5\r\n[MAP]\r\n\r\n[CHR]\r\n\r\n[NPC]\r\n\r\n[SPR]\r\n\r\n[WAV]\r\n\r\n[ACT]\r\n;debug(1, 2)\r\nPope~setmappos(10,20)   \r\n".to_vec()
+    }
+
+    #[test]
+    fn non_act_edit_preserves_verbatim_act_lines() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &act_formatting_sample(),
+                0,
+                "variables.0.value",
+                &Value::String("9".into()),
+            )
+            .unwrap();
+        let text = String::from_utf8(out.clone()).unwrap();
+        assert!(
+            text.contains(";debug(1, 2)\r\n"),
+            "commented-out ACT line was reformatted: {text:?}"
+        );
+        assert!(
+            text.contains("Pope~setmappos(10,20)   \r\n"),
+            "trailing ACT whitespace was lost: {text:?}"
+        );
+        // The targeted (non-ACT) edit still landed.
+        assert_eq!(parse(&out).variables[0].value, "9");
+    }
+
+    #[test]
+    fn act_edit_invalidates_raw_lines_and_applies() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &act_formatting_sample(),
+                0,
+                "actions.0.function_name",
+                &Value::String("renamed".into()),
+            )
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.actions.len(), 2);
+        // The comment line is parsed as an ActionFunction, so index 0 is it.
+        assert_eq!(s.actions[0].function_name, "renamed");
     }
 
     #[test]

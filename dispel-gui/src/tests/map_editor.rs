@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod map_editor_entity_tests {
     use crate::app::App;
+    use crate::components::map_render::traits::MapRenderSource;
     use crate::editors::map_editor;
+    use crate::editors::map_editor::message::MapLayer;
     use crate::editors::map_editor::{
         MapEditAction, MapEditorMessage, MapEditorState, SelectedEntity,
     };
@@ -592,5 +594,192 @@ mod map_editor_entity_tests {
             app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
             "first redo: 100 → 150"
         );
+    }
+
+    // ── Shadow/lighting layer ──────────────────────────────────────────────
+
+    /// Fixture game directory (same convention as update/map.rs tests).
+    fn fixture_game_path() -> Option<PathBuf> {
+        let p = PathBuf::from("../fixtures/Dispel");
+        p.exists().then_some(p)
+    }
+
+    #[test]
+    fn shadows_layer_defaults_visible() {
+        let state = MapEditorState::default();
+        assert!(
+            state.view.show_shadows,
+            "shadow pass enabled by default, matching observed behavior"
+        );
+    }
+
+    #[test]
+    fn layer_toggle_shadows_flips_visibility_and_back() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+        let before = app.state.editors.map_editors[&tab_id].view.show_shadows;
+
+        let task = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::Shadows),
+            &mut app,
+        );
+        assert_eq!(task.units(), 0);
+        let after = app.state.editors.map_editors[&tab_id].view.show_shadows;
+        assert_ne!(before, after, "LayerToggled(Shadows) flips visibility");
+
+        // Toggling again restores the original state.
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::Shadows),
+            &mut app,
+        );
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id].view.show_shadows, before,
+            "second toggle restores original visibility"
+        );
+    }
+
+    #[test]
+    fn derived_map_overlay_layers_default_hidden_and_toggle_independently() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+        let view = &app.state.editors.map_editors[&tab_id].view;
+        assert!(!view.show_under_roof_markers);
+        assert!(!view.show_no_spell_cast_zones);
+        assert!(!view.show_btl_overlays_in_dark_maps);
+
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::UnderRoofMarkers),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .view
+                .show_under_roof_markers
+        );
+        assert!(
+            !app.state.editors.map_editors[&tab_id]
+                .view
+                .show_no_spell_cast_zones
+        );
+        assert!(
+            !app.state.editors.map_editors[&tab_id]
+                .view
+                .show_btl_overlays_in_dark_maps
+        );
+
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::NoSpellCastZones),
+            &mut app,
+        );
+        let _ = map_editor::handle(
+            MapEditorMessage::LayerToggled(tab_id, MapLayer::BtlOverlaysInDarkMaps),
+            &mut app,
+        );
+        let view = &app.state.editors.map_editors[&tab_id].view;
+        assert!(view.show_under_roof_markers);
+        assert!(view.show_no_spell_cast_zones);
+        assert!(view.show_btl_overlays_in_dark_maps);
+    }
+
+    #[test]
+    fn light_map_loads_no_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        // cat1 is flagged Light (0) in AllMap.ini → no lighting pass
+        // is applied there.
+        assert!(
+            dispel_core::map::render::load_fog_if_dark(&gp, "cat1").is_none(),
+            "Light maps must not load shadow data"
+        );
+    }
+
+    #[test]
+    fn dark_map_loads_fog_data_with_known_factors() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        // final is flagged Dark (1) in AllMap.ini.
+        let fog = dispel_core::map::render::load_fog_if_dark(&gp, "final")
+            .expect("Dark map must load fogdata.dat");
+        // Known values from the shipped ExtraInGame/fogdata.dat: level 1 is
+        // uniformly near-black (f=2), level 65 fully bright (f=31).
+        assert_eq!(fog.factor(1, 0), 2);
+        assert_eq!(fog.factor(65, 256), 31);
+    }
+
+    #[test]
+    fn unknown_map_loads_no_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+        assert!(
+            dispel_core::map::render::load_fog_if_dark(&gp, "not_a_map").is_none(),
+            "maps missing from AllMap.ini get no shadow pass"
+        );
+    }
+
+    #[test]
+    fn map_render_source_exposes_loaded_shadow_data() {
+        let Some(gp) = fixture_game_path() else {
+            eprintln!("Skipping: fixtures not found");
+            return;
+        };
+
+        let mut state = MapEditorState::default();
+        assert!(
+            state.shadow_data().is_none(),
+            "no shadow data before a Dark map is loaded"
+        );
+
+        let fog = dispel_core::map::render::FogData::load(&gp).expect("fixture fogdata.dat loads");
+        state.data.shadow_fog = Some(std::sync::Arc::new(fog));
+        assert!(
+            state.shadow_data().is_some(),
+            "MapRenderSource::shadow_data surfaces loaded tables to the canvas"
+        );
+    }
+
+    // ── CLI ↔ GUI placement parity ─────────────────────────────────────────
+
+    /// The GUI draws entities in absolute canvas space; the CLI crops to the
+    /// occluded viewport. Both must agree: cli_pos = gui_world_pos − origin.
+    #[test]
+    fn gui_tile_world_center_matches_core_transform() {
+        use crate::components::map_render::{TILE_H, TILE_W, tile_world_center};
+
+        let model = dispel_core::map::model::MapModel {
+            tiled_map_width: 249,
+            tiled_map_height: 249,
+            ..Default::default()
+        };
+        let diagonal = model.tiled_map_width + model.tiled_map_height;
+        for (x, y) in [(0i32, 0i32), (10, 7), (67, 35), (140, 93), (248, 248)] {
+            let (wx, wy) = tile_world_center(x, y, diagonal);
+            let (px, py) =
+                dispel_core::map::types::convert_map_coords_to_image_coords(x, y, diagonal);
+            assert_eq!(wx, px as f32 + TILE_W * 0.5);
+            assert_eq!(wy, py as f32 + TILE_H * 0.5);
+
+            // The CLI's viewport-space anchor is the same point minus the
+            // non-occluded origin.
+            let cli_cx = px - model.map_non_occluded_start_x
+                + dispel_core::map::tileset::TILE_WIDTH as i32 / 2;
+            let cli_cy = py - model.map_non_occluded_start_y
+                + dispel_core::map::tileset::TILE_HEIGHT as i32 / 2;
+            assert_eq!(
+                wx as i32 - model.map_non_occluded_start_x,
+                cli_cx,
+                "GUI/CLI x placement diverged at ({x},{y})"
+            );
+            assert_eq!(
+                wy as i32 - model.map_non_occluded_start_y,
+                cli_cy,
+                "GUI/CLI y placement diverged at ({x},{y})"
+            );
+        }
     }
 }

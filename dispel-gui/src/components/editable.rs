@@ -298,6 +298,25 @@ pub fn parse_hex_array<const N: usize>(s: &str) -> Option<[u8; N]> {
     }
 }
 
+/// Serialize a `&[u32]` as a comma-separated string (e.g. `"0,1,1,0,..."`).
+#[inline]
+pub fn format_vec_u32(values: &[u32]) -> String {
+    values
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Parse a comma-separated list of `u32` values into a `Vec<u32>`.
+/// Returns `None` if any value fails to parse.
+#[inline]
+pub fn parse_vec_u32(s: &str) -> Option<Vec<u32>> {
+    s.split(',')
+        .map(|part| part.trim().parse::<u32>().ok())
+        .collect()
+}
+
 // ── editable_record_fields! macro ─────────────────────────────────────────────
 
 /// Helper: generate descriptor-kind from kind + args (bracket-delimited).
@@ -329,6 +348,7 @@ macro_rules! __er_kind {
     };
     (DispEnum, [$ty:ty, Shared($expr:expr)]) => { $expr };
     (HexArray, [$n:literal]) => { $crate::components::editable::FieldKind::String };
+    (VecU32, []) => { $crate::components::editable::FieldKind::TextArea };
     (Opti32Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
         $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
     };
@@ -391,6 +411,9 @@ macro_rules! __er_get {
     };
     (HexArray, [$n:literal], $this:ident, $field:ident) => {
         $crate::components::editable::hex_string(&$this.$field)
+    };
+    (VecU32, [], $this:ident, $field:ident) => {
+        $crate::components::editable::format_vec_u32(&$this.$field)
     };
     (Opti32Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
         $crate::components::editable::get_opt_val($this.$field, |v| v.value().to_string())
@@ -470,6 +493,12 @@ macro_rules! __er_set {
     (HexArray, [$n:literal], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::parse_hex_array::<$n>(&$value).is_some_and(|arr| {
             $this.$field = arr;
+            true
+        })
+    };
+    (VecU32, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::parse_vec_u32(&$value).is_some_and(|data| {
+            $this.$field = data;
             true
         })
     };

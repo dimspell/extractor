@@ -44,5 +44,8 @@ jobs:
           restore-keys: |
             test-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}-compile
 
+      - name: Verify forked-iced pin/back-end consistency
+        run: bash scripts/check-iced-config.sh
+
       - name: Build project
         run: cargo build

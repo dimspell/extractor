@@ -1325,12 +1325,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dispel-encodings"
+version = "0.9.3"
+dependencies = [
+ "encoding_rs",
+ "serde",
+]
+
+[[package]]
 name = "dispel-extractor"
 version = "0.9.3"
 dependencies = [
  "byteorder",
  "clap",
  "csv",
+ "dispel-encodings",
  "dispel-macros",
  "encoding_rs",
  "encoding_rs_io",
@@ -1387,6 +1396,7 @@ dependencies = [
 name = "dispel-macros"
 version = "0.9.3"
 dependencies = [
+ "dispel-encodings",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -2128,7 +2138,7 @@ dependencies = [
  "encoding_rs",
  "gui-widgets",
  "iced",
- "iced_renderer 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
+ "iced_renderer",
  "iced_test",
  "lru 0.12.5",
  "lucide-icons",
@@ -2202,11 +2212,11 @@ name = "iced"
 version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
+ "iced_debug",
  "iced_devtools",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_renderer 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_futures",
+ "iced_renderer",
  "iced_runtime",
  "iced_widget",
  "iced_winit",
@@ -2221,30 +2231,12 @@ source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db3347
 dependencies = [
  "bincode 1.3.3",
  "futures",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
  "log",
  "semver",
  "serde",
  "thiserror 2.0.20",
  "tokio",
-]
-
-[[package]]
-name = "iced_core"
-version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "bitflags 2.13.1",
- "bytes",
- "glam",
- "lilt",
- "log",
- "num-traits",
- "raw-window-handle",
- "rustc-hash 2.1.3",
- "smol_str 0.2.2",
- "thiserror 2.0.20",
- "web-time",
 ]
 
 [[package]]
@@ -2271,22 +2263,12 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "log",
-]
-
-[[package]]
-name = "iced_debug"
-version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "cargo-hot-protocol",
  "iced_beacon",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
+ "iced_futures",
  "log",
 ]
 
@@ -2295,7 +2277,7 @@ name = "iced_devtools"
 version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_debug",
  "iced_program",
  "iced_widget",
  "log",
@@ -2304,23 +2286,10 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "futures",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "log",
- "rustc-hash 2.1.3",
- "wasm-bindgen-futures",
- "wasmtimer",
-]
-
-[[package]]
-name = "iced_futures"
-version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "futures",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
  "log",
  "rustc-hash 2.1.3",
  "tokio",
@@ -2331,32 +2300,14 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "bitflags 2.13.1",
- "bytemuck",
- "cosmic-text",
- "half",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "log",
- "raw-window-handle",
- "rustc-hash 2.1.3",
- "thiserror 2.0.20",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "iced_graphics"
-version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "bitflags 2.13.1",
  "bytemuck",
  "cosmic-text",
  "half",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
+ "iced_futures",
  "image 0.25.10",
  "kamadak-exif",
  "log",
@@ -2371,19 +2322,8 @@ name = "iced_program"
 version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_graphics",
  "iced_runtime",
-]
-
-[[package]]
-name = "iced_renderer"
-version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "iced_tiny_skia 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "log",
- "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2391,8 +2331,8 @@ name = "iced_renderer"
 version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_tiny_skia 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_graphics",
+ "iced_tiny_skia",
  "iced_wgpu",
  "log",
  "thiserror 2.0.20",
@@ -2404,8 +2344,8 @@ version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "bytes",
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
+ "iced_futures",
  "thiserror 2.0.20",
 ]
 
@@ -2414,7 +2354,7 @@ name = "iced_selector"
 version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
- "iced_core 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_core",
 ]
 
 [[package]]
@@ -2423,9 +2363,9 @@ version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "accesskit",
- "iced_futures 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_futures",
  "iced_program",
- "iced_renderer 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_renderer",
  "iced_runtime",
  "iced_selector",
  "nom",
@@ -2437,28 +2377,12 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65#48fb8feecec54fdf52593744f780186fd7175f65"
-dependencies = [
- "bytemuck",
- "cosmic-text",
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=48fb8feecec54fdf52593744f780186fd7175f65)",
- "kurbo",
- "log",
- "rustc-hash 2.1.3",
- "softbuffer",
- "tiny-skia",
-]
-
-[[package]]
-name = "iced_tiny_skia"
-version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "bytemuck",
  "cosmic-text",
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_debug",
+ "iced_graphics",
  "kurbo",
  "log",
  "rustc-hash 2.1.3",
@@ -2476,8 +2400,8 @@ dependencies = [
  "cryoglyph",
  "futures",
  "guillotiere",
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
- "iced_graphics 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_debug",
+ "iced_graphics",
  "log",
  "lyon",
  "rustc-hash 2.1.3",
@@ -2491,7 +2415,7 @@ version = "0.15.0-dev"
 source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d#c0ffdd8e7352df9283496f3db334731c00ef6d0d"
 dependencies = [
  "accesskit",
- "iced_renderer 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_renderer",
  "iced_runtime",
  "log",
  "num-traits",
@@ -2508,7 +2432,7 @@ source = "git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db3347
 dependencies = [
  "accesskit_winit",
  "arboard",
- "iced_debug 0.15.0-dev (git+https://github.com/dimspell/iced?rev=c0ffdd8e7352df9283496f3db334731c00ef6d0d)",
+ "iced_debug",
  "iced_program",
  "iced_runtime",
  "log",

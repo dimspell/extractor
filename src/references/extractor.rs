@@ -3,7 +3,8 @@ use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::WINDOWS_1250;
+
+use crate::localization::TextEncoding;
 
 pub trait Extractor: Sized {
     fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>>;
@@ -24,19 +25,29 @@ pub trait Extractor: Sized {
     }
 }
 
-pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
-    // Find the first null byte (or use a fixed length if no null terminator)
-    let (_data, _) = bytes.split_last().ok_or("Empty input")?;
+/// Decode a fixed-size, null-terminated byte field using `encoding`.
+///
+/// Bytes after the first NUL are ignored; a field with no NUL is decoded in
+/// full. Invalid byte sequences for the declared encoding are reported as
+/// errors rather than silently replaced.
+pub fn read_null_terminated(
+    bytes: &[u8],
+    encoding: &TextEncoding,
+) -> core::result::Result<String, String> {
+    // Validate the input is non-empty (the original helper rejected empties).
+    bytes.split_last().ok_or("Empty input")?;
     let data_len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
 
-    // Decode the Windows-1250 portion before the null terminator
-    let (decoded, _, had_errors) = WINDOWS_1250.decode(&bytes[..data_len]);
-
+    let (decoded, _, had_errors) = encoding.encoding_rs().decode(&bytes[..data_len]);
     if had_errors {
-        return Err("Invalid Windows-1250 sequence".to_string());
+        return Err(format!("Invalid {} sequence", encoding.label()));
     }
+    Ok(decoded.into_owned())
+}
 
-    Ok(decoded.to_string())
+/// Backwards-compatible Windows-1250 specialisation of [`read_null_terminated`].
+pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
+    read_null_terminated(bytes, &TextEncoding::Windows1250)
 }
 
 pub fn parse_null(s: &str) -> Option<String> {
@@ -58,36 +69,6 @@ pub fn parse_int(s: &str) -> Option<i32> {
             }
         },
     }
-}
-
-pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
-    let file = File::open(source_path)?;
-
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
-
-    let mut reader = BufReader::new(file);
-
-    const COUNTER_SIZE: u8 = 4;
-    const PROPERTY_ITEM_SIZE: i32 = 90;
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-
-    let pos = reader.stream_position()?;
-    println!(
-        "{:?} {:?} {:?} {:?}",
-        file_len,
-        elements,
-        pos,
-        PROPERTY_ITEM_SIZE * elements
-    );
-
-    for _i in 0..elements {
-        let mut buffer = [0u8; 90];
-        reader.read_exact(&mut buffer)?;
-        println!("{:?}", buffer);
-    }
-
-    Ok(())
 }
 
 pub fn read_mapper<R: Read>(

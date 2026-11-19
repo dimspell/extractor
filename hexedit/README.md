@@ -106,7 +106,7 @@ it is embeddable inside any Iced application and powers the hex-editing tab in `
   and dirty/diff pixel indicators.
 
 ### Save & integration
-- **Host-configurable save** — The host app provides an `OnSaveFn` callback, a save label,
+- **Host-configurable save** — The host app provides a `SavePort` callback, a save label,
   and a `can_save` flag. The editor surfaces these in the toolbar.
 - **Dirty tracking** — `BufferProvider` tracks which addresses have been modified since load.
 - **Text export** — Export the file as a formatted hex dump text file (configurable: address
@@ -165,7 +165,8 @@ hexedit/
 │   │       ├── repeat_modal.rs   # Repeated pattern dialog
 │   │       └── encoding_modal.rs # Custom encoding settings modal
 │   │
-│   ├── config.rs        # HexEditorConfig (7 fields + OnSaveFn callback type)
+│   ├── config.rs        # HexEditorConfig (7 fields + SavePort port type)
+│   ├── domain/save.rs   # SaveRequest / SaveOutcome domain-level save event
 │   ├── message.rs       # HexEditorMessage enum (~48 variant categories, ~200+ total)
 │   ├── state.rs         # HexEditorState (aggregate state, ~30 fields)
 │   ├── lua_engine.rs    # Lua 5.4 scripting engine (feature-gated, sandboxed)
@@ -275,7 +276,7 @@ Key handler sections:
 - Cursor movement & selection (SelectAt, ExtendTo, Nav)
 - Inline editing (BeginEdit, EditTypeChar, EditBackspace, EditCancel, EditCommit)
 - Inspector (copy, begin edit, commit edit)
-- Save (delegates to config's `OnSaveFn`)
+- Save (delegates to config's `SavePort`)
 - Search (open, execute, toggle mode, next/prev, close)
 - Goto dialog flow
 - Pattern CRUD (create, remove, clear, right-click)
@@ -412,11 +413,25 @@ Key methods:
 ## HexEditorConfig (Host Injection)
 
 ```rust
-pub type OnSaveFn = Arc<dyn Fn(&HexEditorState) -> Task<HexEditorMessage> + Send + Sync>;
+// domain/save.rs — plain data, no iced message types cross this boundary.
+pub struct SaveRequest {
+    pub path: PathBuf,   // file being edited
+    pub bytes: Vec<u8>,  // full current buffer
+}
+
+pub enum SaveOutcome {
+    Saved(String),  // human-readable success message
+    Failed(String), // error description
+}
+
+// config.rs — the host-facing port. The host receives a SaveRequest and
+// returns a task producing a SaveOutcome; the editor maps that onto its own
+// internal `SavedIntoRecording(SaveOutcome)` message.
+pub type SavePort = Arc<dyn Fn(SaveRequest) -> Task<SaveOutcome> + Send + Sync>;
 
 pub struct HexEditorConfig {
     pub pane_gap: u16,                                    // default: 4
-    pub on_save: Option<OnSaveFn>,                        // None hides save button
+    pub on_save: Option<SavePort>,                        // None hides save button
     pub save_label: String,                               // e.g. "Save into my-mod"
     pub can_save: bool,                                   // prerequisites met?
     pub save_hint: String,                                // why save is disabled
@@ -476,8 +491,8 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 ### Save
 | Variant | Purpose |
 |---------|---------|
-| `SaveIntoRecording` | Trigger save (delegates to OnSaveFn) |
-| `SavedIntoRecording(Result<...>)` | Async save result |
+| `SaveIntoRecording` | Trigger save (delegates to `SavePort`) |
+| `SavedIntoRecording(SaveOutcome)` | Async save result (domain-level event) |
 | `ClearStatus` | Clear status message |
 
 ### Pattern highlighting
@@ -903,8 +918,10 @@ fn view(&self) -> iced::Element<'_, HexEditorMessage> {
 }
 ```
 
-The host app provides an `OnSaveFn` callback in `HexEditorConfig` if persistence
-should be wired to mod recording or direct file saves.
+The host app provides a `SavePort` callback in `HexEditorConfig` if persistence
+should be wired to mod recording or direct file saves. It receives a
+domain-level `SaveRequest` (path + current bytes) and returns a task producing
+a `SaveOutcome`; it never constructs or matches on `HexEditorMessage`.
 
 ---
 

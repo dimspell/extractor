@@ -4,7 +4,7 @@ use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use gui_widgets::textarea;
+use gui_widgets::textarea_fill;
 use iced::widget::{
     button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,
 };
@@ -311,7 +311,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 });
 
             let translation_label = text("Translation").size(11).style(style::subtle_text);
-            let translation_editor = textarea(&state.translation_content.0, |action| {
+            let translation_editor = textarea_fill(&state.translation_content.0, |action| {
                 Message::localization(LocalizationMessage::TranslationAction(action))
             });
 

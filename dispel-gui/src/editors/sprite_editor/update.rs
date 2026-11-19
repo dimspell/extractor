@@ -4,19 +4,16 @@ use crate::app::App;
 use crate::editors::sprite_editor::{
     ExportDialogState, ExportFormat, ExportStatus, SpriteViewerMessage,
 };
-use dispel_core::sprite::{SpriteFrameData, write_sprite_to_path};
+use dispel_core::sprite::{
+    SpriteFrameData, SpritePixelFormat, rgba_to_rgb16_bytes, write_sprite_to_path,
+};
 use iced::Task;
 
 /// Real-time milliseconds per animation tick (~60 fps clock).
 const TICK_MS: f32 = 16.0;
 
 pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(viewer) = app.state.editors.sprite_viewers.get_mut(&tab_id) else {
         return Task::none();
@@ -126,6 +123,10 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             // Rough fit: use 4× as the max auto-zoom
             viewer.zoom = 4.0;
         }
+        SpriteViewerMessage::TogglePreserveBlack => {
+            viewer.preserve_black = !viewer.preserve_black;
+            viewer.rebuild_preview_frames();
+        }
 
         // ── Undo / Redo ──────────────────────────────────────────────────────
         SpriteViewerMessage::Undo => {
@@ -147,6 +148,13 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let seq_idx = viewer.selected_sequence;
             let frame_idx = viewer.selected_frame;
             let new_selected = frame_idx + 1;
+            let pixel_format = viewer
+                .sprite_file
+                .as_ref()
+                .and_then(|sprite| sprite.sequences.get(seq_idx))
+                .and_then(|sequence| sequence.frames.first())
+                .map(|frame| frame.pixel_format)
+                .unwrap_or(SpritePixelFormat::Rgb565);
             if let Some(ref mut sf) = viewer.sprite_file
                 && let Some(seq) = sf.sequences.get_mut(seq_idx)
             {
@@ -156,7 +164,8 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                     origin_y: 0,
                     width: 1,
                     height: 1,
-                    raw_pixels: vec![0, 0], // transparent 565 pixel
+                    pixel_format,
+                    raw_pixels: vec![0, 0], // transparent 16-bit pixel
                 };
                 seq.frames.insert(frame_idx + 1, blank);
             }
@@ -353,20 +362,28 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             };
             viewer.push_undo();
             // Build a new frame from the decoded PNG
+            let pixel_format = viewer
+                .sprite_file
+                .as_ref()
+                .and_then(|sprite| sprite.sequences.get(viewer.selected_sequence))
+                .and_then(|sequence| sequence.frames.first())
+                .map(|frame| frame.pixel_format)
+                .unwrap_or(SpritePixelFormat::Rgb565);
             let pixel_count = (w * h) as usize;
             let raw_size = pixel_count * 2;
             let mut raw_pixels = vec![0u8; raw_size];
             for i in 0..pixel_count.min(rgba.len() / 4) {
                 let rbase = i * 4;
-                let rgb565 = dispel_core::sprite::rgba_to_rgb565_bytes(
+                let encoded = rgba_to_rgb16_bytes(
                     rgba[rbase],
                     rgba[rbase + 1],
                     rgba[rbase + 2],
                     rgba[rbase + 3],
+                    pixel_format,
                 );
                 let base = i * 2;
-                raw_pixels[base] = rgb565[0];
-                raw_pixels[base + 1] = rgb565[1];
+                raw_pixels[base] = encoded[0];
+                raw_pixels[base + 1] = encoded[1];
             }
             let new_frame = SpriteFrameData {
                 unknown: [0u8; 24],
@@ -374,6 +391,7 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                 origin_y: 0,
                 width: w as i32,
                 height: h as i32,
+                pixel_format,
                 raw_pixels,
             };
 

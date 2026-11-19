@@ -47,12 +47,7 @@ pub fn build_hex_config(
 }
 
 pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
     let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
         return Task::none();
     };
@@ -61,12 +56,7 @@ pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
     match app.state.editors.hex_editors.get(&tab_id) {
         Some(state) => {
             let config =

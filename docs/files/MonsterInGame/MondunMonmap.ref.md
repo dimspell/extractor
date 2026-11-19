@@ -1,5 +1,8 @@
 # Mondun/Monmap Files - Monster Placement References
 
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
+
 ## File Information
 
 - **Location**: `MonsterInGame/` directory
@@ -10,9 +13,9 @@ Binary files that define monster placements, coordinates, event triggers, and lo
 
 ## File Types
 
-| File Pattern | Map Type | Description |
-|--------------|----------|-------------|
-| `Mondun*.ref` | Dungeon | Monster placements for dungeon maps (e.g., Mondun01.ref, Mondun02.ref) |
+| File Pattern  | Map Type  | Description                                                                    |
+|---------------|-----------|--------------------------------------------------------------------------------|
+| `Mondun*.ref` | Dungeon   | Monster placements for dungeon maps (e.g., Mondun01.ref, Mondun02.ref)         |
 | `Monmap*.ref` | Overworld | Monster placements for regular/overworld maps (e.g., Monmap1.ref, Monmap2.ref) |
 
 ## Binary Format
@@ -25,28 +28,30 @@ Binary files that define monster placements, coordinates, event triggers, and lo
 
 | Offset | Field | Meaning |
 |---:|---|---|
-| 0x00 | placement_id | Map-local monster-placement identifier. |
-| 0x04 | monster_db_id | One-based monster ID, used by `Monster.db` and `Monster.ini`. |
-| 0x08 | map_x | Spawn tile X coordinate. |
-| 0x0c | map_y | Spawn tile Y coordinate. |
-| 0x10 | initial_patrol_countdown | Initial patrol/scan countdown. |
-| 0x14 | skip_ai_action | When set, skips an AI action branch. |
-| 0x18 | initial_active_flag | Initial active/awake runtime flag. Original map files observed so far use zero. |
-| 0x1c | ai_type_override | `-1` uses the `Monster.db` AI type; 0 or 1 overrides it. |
-| 0x20 | event_id_on_kill | Event ID triggered after this monster dies. |
-| 0x24 | loot_item_1 | First packed `InventoryItem` loot slot. |
-| 0x28 | loot_item_2 | Second packed `InventoryItem` loot slot. |
-| 0x2c | loot_item_3 | Third packed `InventoryItem` loot slot. |
-| 0x30 | drop_all_loot | `1` drops all populated loot slots; other observed values select a slot. |
-| 0x34 | force_ai_update | `1` runs the AI update path even when the normal active flag is clear. |
+| 0 | placement_id | Map-local monster-placement identifier. |
+| 4 | monster_db_id | One-based monster ID, used by `Monster.db` and `Monster.ini`. |
+| 8 | map_x | Spawn tile X coordinate. |
+| 12 | map_y | Spawn tile Y coordinate. |
+| 16 | initial_patrol_countdown | Initial patrol/scan countdown. |
+| 20 | skip_ai_action | When set, skips an AI action branch. |
+| 24 | initial_active_flag | Initial active/awake runtime flag. Original map files observed so far use zero. |
+| 28 | ai_type_override | `-1` uses the `Monster.db` AI type; 0 or 1 overrides it. |
+| 32 | event_id_on_kill | Event ID triggered after this monster dies. |
+| 36 | loot_item_1 | First packed `InventoryItem` loot slot. |
+| 40 | loot_item_2 | Second packed `InventoryItem` loot slot. |
+| 44 | loot_item_3 | Third packed `InventoryItem` loot slot. |
+| 48 | drop_all_loot | `1` drops all populated loot slots; other observed values select a slot. |
+| 52 | force_ai_update | `1` runs the AI update path even when the normal active flag is clear. |
 ```
 
 ## Example Files
 
 **Dungeon Maps (Mondun*.ref):**
+
 - Mondun01.ref through Mondun25.ref
 
 **Overworld Maps (Monmap*.ref):**
+
 - Monmap1.ref, Monmap2.ref, Monmap3.ref
 
 ## Map.ini Integration
@@ -69,30 +74,19 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 
 **event_id_on_kill**: Links to the event triggered when the monster dies.
 
-**loot_item_1..3**: Packed 32-bit `InventoryItem` values. The low bytes contain the item ID and type; the upper bits are preserved when writing.
-
-## Usage in Game
-
-1. Game loads map from `Map.ini`
-2. References the associated monster file (Mondun*.ref or Monmap*.ref)
-3. Spawns monsters at specified coordinates
-4. Configures loot drops based on item IDs and types
-5. Links monster behavior to `monster_db_id` definitions
-6. Triggers `event_id_on_kill` when the monster dies
-
-## Monster Type IDs
-- Links to `Monster.db` entries
-- Identifies specific monster types
-- Determines monster appearance and stats
+**loot_item_1..3**: Packed 32-bit `InventoryItem` values. The low bytes contain the item ID and type; the upper bits are
+preserved when writing.
 
 ## Loot System
 
 ### Loot Slots
+
 - 3 loot slots per monster
 - Each slot has item ID and type
 - Items dropped when monster is defeated
 
 ### Item Types
+
 - `Weapon` (1): Weapons and combat items
 - `Healing` (2): Health restoration items
 - `Edit` (3): Modifiable equipment
@@ -100,15 +94,8 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 - `Misc` (5): Various utility items
 - `Other` (255): Undefined/catch-all
 
-## File Purpose
-Defines monster placements on specific maps with exact coordinates, event triggers, and loot drop configurations. Used for:
-- Populating dungeons with enemies
-- Setting up ambush points
-- Creating balanced combat encounters
-- Distributing loot rewards
-- World building and difficulty scaling
-
 ## Related Files
+
 - `Monster.db` - Monster definitions and statistics
 - `Monster.ini` - Monster visual/sprite data
 - `Event.ini` - Event definitions referenced by `event_id_on_kill`
@@ -116,6 +103,7 @@ Defines monster placements on specific maps with exact coordinates, event trigge
 - `AllMap.ini` - Map metadata and associations
 
 ## Implementation
+
 - **Rust Module**: `src/references/monster_ref.rs`
 - **Editor**: `src/references/monster_ref_editor.rs` (EditableRecord impl)
 - **Extractor**: `MonsterRef` struct implementing `Extractor` trait
@@ -125,40 +113,27 @@ Defines monster placements on specific maps with exact coordinates, event trigge
 ## Example Usage
 
 ### Extract monster placements (new CLI):
+
 ```bash
 cargo run -- extract -i fixtures/Dispel/MonsterInGame/Mondun01.ref
 ```
 
 ### Extract monster placements (legacy):
+
 ```bash
 cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Mondun01.ref"
 ```
 
 ### Import to database:
+
 ```bash
 cargo run -- database import "fixtures/Dispel/"
 ```
 
 ## Coordinate System
-- Isometric tile-based coordinates
-- Each tile is 32×32 pixels
-- Origin typically at top-left of map
+
+- Tile-based coordinates
 - Y-axis increases downward
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to monster types and placements are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any monster data or game content
-- Focuses on **binary structure and organization**, not creative content
-- Uses **generic descriptions** of file purposes
-- Maintains **nominal fair use** for trademark references
 
 ## Technical Notes
 
@@ -166,7 +141,6 @@ This documentation:
 - Distinction is organizational (dungeon vs overworld)
 - Padding fields have constrained value ranges (see Binary Format above)
 - Files are processed by `MonsterRef` struct in the codebase
-- **No copyrighted game content** is reproduced or distributed
 
 ## Extractor
 
@@ -188,6 +162,7 @@ cargo run -- validate -i monsteref.json --type monster_ref
 ### GUI Editor
 
 The MonsterRef editor provides a 3-panel interface:
+
 1. **File list** — discovered Mondun*/Monmap*.ref files
 2. **Record list** — monster placements in the selected file
 3. **Record editor** — editable fields with monster name dropdown (loaded from Monster.ini)

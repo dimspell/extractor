@@ -1,6 +1,7 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -314,6 +315,16 @@ impl App {
                 }
                 Task::none()
             }
+            EditorType::FogDataEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .fog_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| FogDataEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
             EditorType::HexEditor => {
                 let scripts_dir = self
                     .state
@@ -355,6 +366,38 @@ impl App {
                         ),
                     ),
                 ))
+            }
+            EditorType::ChestSpawnEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::ChestSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::chest_spawn,
+                )
+            }
+            EditorType::MonsterSpawnEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MonsterSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::monster_spawn,
+                )
+            }
+            EditorType::MapInfoMultiEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MapInfoMulti, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::map_info_multi,
+                )
+            }
+            EditorType::TileGridEditor => {
+                // Chain: (1) load the file, (2) after the catalog is ready,
+                // dispatch FitToWindow so the grid auto-fits the canvas pane
+                // without requiring the user to click "Fit" or resize.
+                let load_task =
+                    crate::editor_catalog::load_catalog_from_path::<dispel_core::TileGrid, _>(
+                        path.to_path_buf(),
+                        crate::message::Message::tile_grid,
+                    );
+                let fit_task = Task::done(crate::message::Message::tile_grid_canvas(
+                    crate::editors::tile_grid::TileGridCanvasMessage::FitToWindow,
+                ));
+                load_task.chain(fit_task)
             }
             EditorType::SaveFileViewer => {
                 let Some(tab_id) = self.active_tab_id() else {

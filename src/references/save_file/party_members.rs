@@ -22,7 +22,7 @@ pub struct PartyMemberBinaryRecord {
     /// Duplicate maximum-mana bytes from the next overlapping four-byte snapshot.
     #[binary_record(size = 2)]
     pub maximum_mana_points_overlap: Vec<u8>,
-    /// Party character class ID from `PrtIni.db` (21–24 in shipped data).
+    /// Party character class ID from `PrtIni.db` (observed values 21–24).
     pub class_id: u8,
     /// Current progression level.
     pub level: u8,
@@ -124,7 +124,7 @@ pub struct PartyMemberBinaryRecord {
     /// Remaining bytes of the four-byte selected-map-object snapshot.
     #[binary_record(size = 2)]
     pub selected_map_object_snapshot_tail: Vec<u8>,
-    /// Inferred phase value for the active movement animation.
+    /// Phase value for the active movement animation.
     pub movement_animation_phase: u32,
     /// Number of animation frames processed in the current action.
     pub animation_tick_count: u32,

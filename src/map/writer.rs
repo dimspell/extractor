@@ -5,9 +5,11 @@ use std::path::Path;
 use super::MapData;
 use super::types::Coords;
 
-/// Write map data back to a .map file by patching only the 3 end blocks
-/// (events, tiles+collisions, roofs) in-place. All header/sprite/object
-/// bytes are preserved unchanged.
+/// Write map data back to a .map file by patching only the 3 end grids
+/// (event grid, tile & access grid, access-ref grid) in-place. All
+/// header/sprite/object bytes are preserved unchanged — including the typed
+/// tiled-bundle tree (`MapData::tiled_bundles`), which therefore survives a
+/// write → re-parse cycle byte-identically.
 pub fn write_map_to_path(path: &Path, data: &MapData) -> io::Result<()> {
     let w = data.model.tiled_map_width;
     let h = data.model.tiled_map_height;
@@ -34,13 +36,8 @@ pub fn write_map_to_path(path: &Path, data: &MapData) -> io::Result<()> {
             let coords: Coords = (x, y);
             let base = (events_offset + (y as u64 * w as u64 + x as u64) * 4) as usize;
 
-            let event = data
-                .events
-                .get(&coords)
-                .map(|e| (e.event_id, e._unknown_value))
-                .unwrap_or((0, 0));
-            bytes[base..base + 2].copy_from_slice(&(event.0 as i16).to_le_bytes());
-            bytes[base + 2..base + 4].copy_from_slice(&(event.1 as i16).to_le_bytes());
+            let word = data.events.get(&coords).map(|e| e.word).unwrap_or(0);
+            bytes[base..base + 4].copy_from_slice(&word.to_le_bytes());
         }
     }
 
@@ -53,22 +50,27 @@ pub fn write_map_to_path(path: &Path, data: &MapData) -> io::Result<()> {
 
             let gtl_id = data.gtl_tiles.get(&coords).copied().unwrap_or(0);
             let collision = data.collisions.get(&coords).copied().unwrap_or(false);
-            let packed = (gtl_id << 10) | (if collision { 1 } else { 0 });
+            let object_id = data.object_ids.get(&coords).copied().unwrap_or(0);
+            let packed =
+                ((gtl_id & 0x7FFF) << 10) | ((object_id & 0x1FF) << 1) | (collision as i32);
             bytes[base..base + 4].copy_from_slice(&(packed as i32).to_le_bytes());
         }
     }
 
-    // Roof block offset
-    let roof_offset = file_len - block_size;
+    // Access-ref ("roof") block offset — write the raw packed words back
+    // (preserving shadow levels and light flags), patching only the overlay
+    // ref bits from any btl_tiles edits.
+    let access_ref_offset = file_len - block_size;
     for y in 0..h {
         for x in 0..w {
             let coords: Coords = (x, y);
-            let base = (roof_offset + (y as u64 * w as u64 + x as u64) * 4) as usize;
+            let base = (access_ref_offset + (y as u64 * w as u64 + x as u64) * 4) as usize;
 
-            let btl_id = data.btl_tiles.get(&coords).copied().unwrap_or(0) as i16;
-            let some_flag: i16 = 0; // preserve zero — reader doesn't parse this meaningfully
-            bytes[base..base + 2].copy_from_slice(&btl_id.to_le_bytes());
-            bytes[base + 2..base + 4].copy_from_slice(&some_flag.to_le_bytes());
+            let mut word = data.access_ref_words.get(&coords).copied().unwrap_or(0);
+            if let Some(&id) = data.btl_tiles.get(&coords) {
+                word = (word & !0x7FFF) | ((id as u32) & 0x7FFF);
+            }
+            bytes[base..base + 4].copy_from_slice(&word.to_le_bytes());
         }
     }
 
@@ -120,17 +122,21 @@ mod tests {
             "Collisions differ"
         );
         assert_eq!(original.btl_tiles, reloaded.btl_tiles, "BTL tiles differ");
+        assert_eq!(
+            original.access_ref_words, reloaded.access_ref_words,
+            "Access-ref words (shadow/light bits) differ"
+        );
+        assert_eq!(
+            original.object_ids, reloaded.object_ids,
+            "Object IDs differ"
+        );
         for y in 0..h {
             for x in 0..w {
                 let o_ev = original.events.get(&(x, y));
                 let r_ev = reloaded.events.get(&(x, y));
                 match (o_ev, r_ev) {
                     (Some(a), Some(b)) => {
-                        assert_eq!(a.event_id, b.event_id, "event_id mismatch at ({x},{y})");
-                        assert_eq!(
-                            a._unknown_value, b._unknown_value,
-                            "unknown_value mismatch at ({x},{y})"
-                        );
+                        assert_eq!(a.word, b.word, "event word mismatch at ({x},{y})");
                     }
                     (None, None) => {}
                     _ => panic!("Event presence differs at ({x},{y})"),
@@ -156,14 +162,14 @@ mod tests {
         // Check we can change an event_id
         let mut modified2 = reloaded2;
         if let Some(ev) = modified2.events.get_mut(&(5, 5)) {
-            ev.event_id = 42;
+            ev.set_event_id(42);
         }
         write_map_to_path(&tmp, &modified2).unwrap();
         let file = fs::File::open(&tmp).unwrap();
         let mut reader = BufReader::new(file);
         let reloaded3 = read_map_data(&mut reader).unwrap();
         assert_eq!(
-            reloaded3.events.get(&(5, 5)).map(|e| e.event_id),
+            reloaded3.events.get(&(5, 5)).map(|e| e.event_id()),
             Some(42),
             "Modified event_id not reflected"
         );
@@ -187,11 +193,17 @@ mod tests {
             },
             gtl_tiles: HashMap::new(),
             btl_tiles: HashMap::new(),
+            overlay_modes: Vec::new(),
+            access_ref_words: HashMap::new(),
             collisions: HashMap::new(),
             events: HashMap::new(),
+            object_ids: HashMap::new(),
             tiled_infos: Vec::new(),
             internal_sprites: Vec::new(),
             sprite_blocks: Vec::new(),
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_bundles: Vec::new(),
         };
 
         let result = write_map_to_path(&tmp, &data);

@@ -2,8 +2,17 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
 
+use crate::schema::CodegenConfig;
+
 pub fn expand(input: DeriveInput) -> TokenStream2 {
+    codegen(&input, &CodegenConfig::default())
+}
+
+/// Generate the fixed-size record helpers with an explicit path config.
+pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStream2 {
     let name = &input.ident;
+    let bo = config.byteorder();
+    let inventory_item = config.inventory_item_type();
 
     let fields = match &input.data {
         Data::Struct(s) => match &s.fields {
@@ -57,7 +66,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 encoding,
                 size,
             } => {
-                let encoding_tokens = get_encoding_tokens(encoding);
+                let encoding_tokens = config.encoding_constant(encoding);
                 let buf_ident =
                     Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
                 let data_len_ident = Ident::new(
@@ -76,18 +85,18 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             BinaryFieldInfo::Primitive { ident, ty } => {
                 let read_stmt = match ty.as_str() {
                     "i16" => {
-                        quote! { reader.read_i16::<byteorder::LittleEndian>()? }
+                        quote! { reader.read_i16::<#bo::LittleEndian>()? }
                     }
                     "i32" => {
-                        quote! { reader.read_i32::<byteorder::LittleEndian>()? }
+                        quote! { reader.read_i32::<#bo::LittleEndian>()? }
                     }
                     "i8" => quote! { reader.read_i8()? },
                     "u8" => quote! { reader.read_u8()? },
                     "u16" => {
-                        quote! { reader.read_u16::<byteorder::LittleEndian>()? }
+                        quote! { reader.read_u16::<#bo::LittleEndian>()? }
                     }
                     "u32" => {
-                        quote! { reader.read_u32::<byteorder::LittleEndian>()? }
+                        quote! { reader.read_u32::<#bo::LittleEndian>()? }
                     }
                     _ => panic!("Unsupported primitive type: {}", ty),
                 };
@@ -98,12 +107,12 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             }
             BinaryFieldInfo::InventoryItem { ident, wire_type } => {
                 let read_stmt = match wire_type.as_str() {
-                    "i32" => quote! { reader.read_i32::<byteorder::LittleEndian>()? },
-                    "i16" => quote! { reader.read_i16::<byteorder::LittleEndian>()? as i32 },
+                    "i32" => quote! { reader.read_i32::<#bo::LittleEndian>()? },
+                    "i16" => quote! { reader.read_i16::<#bo::LittleEndian>()? as i32 },
                     _ => panic!("Unsupported wire_type for InventoryItem: {}", wire_type),
                 };
                 parse_stmts.push(quote! {
-                    let #ident = crate::references::enums::InventoryItem::from(#read_stmt);
+                    let #ident = #inventory_item::from(#read_stmt);
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
@@ -131,10 +140,10 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 for _ in 0..*count {
                     let read_stmt = match ty.as_str() {
                         "i16" => {
-                            quote! { reader.read_i16::<byteorder::LittleEndian>()? }
+                            quote! { reader.read_i16::<#bo::LittleEndian>()? }
                         }
                         "i32" => {
-                            quote! { reader.read_i32::<byteorder::LittleEndian>()? }
+                            quote! { reader.read_i32::<#bo::LittleEndian>()? }
                         }
                         "u8" => quote! { reader.read_u8()? },
                         _ => panic!("Unsupported padding type: {}", ty),
@@ -159,7 +168,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 encoding,
                 size,
             } => {
-                let encoding_tokens = get_encoding_tokens(encoding);
+                let encoding_tokens = config.encoding_constant(encoding);
                 let buf_ident =
                     Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
                 write_stmts.push(quote! {
@@ -173,18 +182,18 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             BinaryFieldInfo::Primitive { ident, ty } => {
                 let write_stmt = match ty.as_str() {
                     "i16" => {
-                        quote! { writer.write_i16::<byteorder::LittleEndian>(self.#ident)?; }
+                        quote! { writer.write_i16::<#bo::LittleEndian>(self.#ident)?; }
                     }
                     "i32" => {
-                        quote! { writer.write_i32::<byteorder::LittleEndian>(self.#ident)?; }
+                        quote! { writer.write_i32::<#bo::LittleEndian>(self.#ident)?; }
                     }
                     "u8" => quote! { writer.write_u8(self.#ident)?; },
                     "i8" => quote! { writer.write_i8(self.#ident)?; },
                     "u16" => {
-                        quote! { writer.write_u16::<byteorder::LittleEndian>(self.#ident)?; }
+                        quote! { writer.write_u16::<#bo::LittleEndian>(self.#ident)?; }
                     }
                     "u32" => {
-                        quote! { writer.write_u32::<byteorder::LittleEndian>(self.#ident)?; }
+                        quote! { writer.write_u32::<#bo::LittleEndian>(self.#ident)?; }
                     }
                     _ => panic!("Unsupported primitive type: {}", ty),
                 };
@@ -195,10 +204,10 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             BinaryFieldInfo::InventoryItem { ident, wire_type } => {
                 let write_stmt = match wire_type.as_str() {
                     "i32" => quote! {
-                        writer.write_i32::<byteorder::LittleEndian>(self.#ident.raw())?;
+                        writer.write_i32::<#bo::LittleEndian>(self.#ident.raw())?;
                     },
                     "i16" => quote! {
-                        writer.write_i16::<byteorder::LittleEndian>(self.#ident.raw() as i16)?;
+                        writer.write_i16::<#bo::LittleEndian>(self.#ident.raw() as i16)?;
                     },
                     _ => panic!("Unsupported wire_type for InventoryItem: {}", wire_type),
                 };
@@ -223,10 +232,10 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 for _ in 0..*count {
                     let write_zero = match ty.as_str() {
                         "i16" => {
-                            quote! { writer.write_i16::<byteorder::LittleEndian>(0)?; }
+                            quote! { writer.write_i16::<#bo::LittleEndian>(0)?; }
                         }
                         "i32" => {
-                            quote! { writer.write_i32::<byteorder::LittleEndian>(0)?; }
+                            quote! { writer.write_i32::<#bo::LittleEndian>(0)?; }
                         }
                         "u8" => quote! { writer.write_u8(0)?; },
                         _ => panic!("Unsupported padding type: {}", ty),
@@ -251,7 +260,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
         impl #name {
             /// Parse a single record from raw bytes.
             pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-                use byteorder::ReadBytesExt;
+                use #bo::ReadBytesExt;
                 use std::io::Read;
 
                 if data.len() != #total_size {
@@ -272,7 +281,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
 
             /// Write this record to a writer.
             pub fn write<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-                use byteorder::WriteBytesExt;
+                use #bo::WriteBytesExt;
                 use std::io::Write;
 
                 #(#write_stmts)*
@@ -541,16 +550,4 @@ fn auto_detect_field(ident: &Ident, ty: &Type) -> Option<BinaryFieldInfo> {
 
     // Unknown type — skip
     None
-}
-
-fn get_encoding_tokens(encoding: &str) -> TokenStream2 {
-    match encoding {
-        "WINDOWS-1250" | "WINDOWS_1250" => quote! { encoding_rs::WINDOWS_1250 },
-        "EUC-KR" | "EUC_KR" => quote! { encoding_rs::EUC_KR },
-        "UTF-8" | "UTF_8" => quote! { encoding_rs::UTF_8 },
-        other => panic!(
-            "Unknown encoding '{}' in #[binary_record]; expected WINDOWS-1250, EUC-KR, or UTF-8",
-            other
-        ),
-    }
 }

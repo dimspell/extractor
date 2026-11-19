@@ -10,9 +10,12 @@
 #   db_path    = database.sqlite
 #   out        = out
 
-.PHONY: help fmt cargo_test iced_test hexedit_test clippy run run-custom-context-menu \
-        check build hexedit \
-        extract-help extract-file extract-file-pretty \
+# Keep in sync with the target list below. The Rust `test_makefile_invocations_*`
+# tests in src/cli.rs validate every CLI invocation in the recipes below against
+# the declarative command specification.
+.PHONY: help command-list fmt cargo_test iced_test hexedit_test clippy check build run \
+        run-custom-context-menu hexedit check_iced_config \
+        extract-help extracts-help extract-file extract-file-pretty \
         extract-all-maps extract-map extract-monsters extract-heal-item \
         extract-draw-item extract-misc-item extract-edit-item \
         extract-event-item extract-store-db extract-extra-ref \
@@ -22,21 +25,19 @@
         extract-dialogue-text extract-weapons \
         patch-dry-run patch-in-place patch validate validate-verbose \
         list list-json list-filtered schema template template-pretty \
-        map-help map-tiles map-atlas map-render map-render-full \
-        map-render-transparent map-render-collisions map-render-events \
+        map-help map-tiles map-atlas map-render map-render-legacy \
+        map-render-lit map-render-transparent map-render-collisions map-render-events \
         map-render-draw-items map-render-waypoints \
         map-render-noground map-render-nobuildings map-render-noroofs \
         map-render-nomonsters map-render-nonpcs map-render-noobjects \
         map-extract-sprites map-to-json map-to-json-pretty map-to-db \
-        map-from-db map-from-db-with-sprite \
         map-atlas-btl map-atlas-gtl \
         map-all-gtl-tiles map-all-btl-tiles zip-map-tiles \
         database-import database-dialog-texts database-maps \
         database-databases database-refs database-rest \
-        sprite sprite-animation sprite-info \
-        sound dialog dialog-basic dialogs \
-        mod-pack mod-pack-pretty mod-pack-single \
-        test-hello
+        sprite sprite-animation sprite-animation-legacy sprite-sprite sprite-info \
+        sound sound-legacy dialog dialog-basic dialogs \
+        mod-pack mod-pack-pretty mod-pack-single cli-smoke
 
 # ============================================================================
 # Configuration variables (overridable via `make TARGET var=val`)
@@ -55,6 +56,10 @@ sprite_path ?= $(game_path)/CharacterInGame/M_BODY1.SPR
 help:
 	cargo run -- --help
 
+# Machine-friendly command list generated from the declarative spec in src/cli.rs.
+command-list:
+	cargo run -- --list-commands
+
 fmt:
 	cargo fmt --all
 
@@ -62,7 +67,7 @@ cargo_test:
 	cargo test --workspace --all-features --quiet
 
 iced_test:
-	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test app::tests"
+	ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test"
 
 # GUI simulations require Iced's CPU renderer when no GPU/window
 # server is available (for example, in CI or headless development shells).
@@ -74,6 +79,10 @@ clippy:
 
 check:
 	cargo check --workspace --message-format=short
+
+# Verify the forked-iced pin set / feature matrix / test backend are coherent.
+check_iced_config:
+	bash scripts/check-iced-config.sh
 
 build:
 	cargo build --workspace
@@ -275,7 +284,6 @@ template-pretty:
 #   map tiles   – Extract every tile as a separate image
 #   map atlas   – Pack tiles into a single atlas PNG
 #   map render  – Render map with layers, overlays, and sprites
-#   map from-db – Render map from SQLite + atlas PNGs
 #   map to-db   – Import .MAP file into SQLite
 #   map sprites – Extract map-internal sprites to PNGs
 #   map to-json – Export map data as JSON
@@ -295,7 +303,6 @@ map-atlas:
 # Optional flags:
 #   --game-path <DIR>      Enable entity overlay (NPCs, monsters, extras)
 #   --save-sprites         Export sub-sprites from the map file
-#   --full-map             Render full canvas (no occlusion viewport)
 #   --transparent          RGBA PNG with alpha channel
 #   --collisions           Show collision overlay
 #   --events               Show event overlay
@@ -317,14 +324,22 @@ map-render:
 		--output="map.png" \
 		--game-path="$(game_path)"
 
-map-render-full:
+# Render with the game's viewport light template (500x1 PNG, e.g. from the
+# Godot remake's assets/converted/maps/light_template.png). Without it a
+# dark map renders pitch black: the .map file's own light bits are dead
+# data, overwritten every frame by the world tick.
+#   make map-render-lit map_id=dun01 camera=124,124
+light_template ?= ../dispel-godot/assets/converted/maps/light_template.png
+camera ?=
+map-render-lit:
 	cargo run -- map render \
 		--map="$(game_path)/Map/$(map_id).map" \
 		--btl="$(game_path)/Map/$(map_id).btl" \
 		--gtl="$(game_path)/Map/$(map_id).gtl" \
 		--output="map.png" \
 		--game-path="$(game_path)" \
-		--full-map
+		--light-template="$(light_template)" \
+		$(if $(camera),--camera="$(camera)",)
 
 map-render-transparent:
 	cargo run -- map render \
@@ -452,25 +467,6 @@ map-to-json-pretty:
 map-to-db:
 	cargo run -- map to-db --database "$(db_path)" --map "$(INPUT)"
 
-# map from-db --database <DB> --map-id <ID> --gtl-atlas <PNG> --btl-atlas <PNG> --output <PNG>
-#                  [--game-path <DIR>] [--atlas-columns <NUM>]
-map-from-db:
-	cargo run -- map from-db \
-		--database "$(db_path)" \
-		--map-id "$(map_id)" \
-		--gtl-atlas "$(map_id).gtl.png" \
-		--btl-atlas "$(map_id).btl.png" \
-		-o "$(out)_$(map_id).png"
-
-map-from-db-with-sprite:
-	cargo run -- map from-db \
-		--database "$(db_path)" \
-		--map-id "$(map_id)" \
-		--gtl-atlas "$(map_id).gtl.png" \
-		--btl-atlas "$(map_id).btl.png" \
-		-o "$(out)_$(map_id).png" \
-		--game-path "$(game_path)"
-
 # map atlas convenience (shortcut: make atlas from game path + map_id)
 map-atlas-btl:
 	cargo run -- map atlas \
@@ -547,14 +543,15 @@ sprite-animation-legacy:
 # ============================================================================
 # sound — Convert SNF audio to WAV
 # ============================================================================
-# Usage: sound <INPUT> <OUTPUT>
+# Usage: make sound INPUT=<file.snf> OUTPUT=<file.wav>
+# The CLI requires an explicit direction: `sound to-wav|from-wav <IN> <OUT>`.
 
 sound:
-	cargo run -- sound "$(INPUT)" "$(OUTPUT)"
+	cargo run -- sound to-wav "$(INPUT)" "$(OUTPUT)"
 
 # (Legacy convenience)
 sound-legacy:
-	cargo run -- sound --input notexist.snf --output Piach.wav
+	cargo run -- sound to-wav notexist.snf Piach.wav
 
 # ============================================================================
 # dialog — Print dialog flow from DLG/PGP files
@@ -573,7 +570,7 @@ dialogs:
 	cargo run -- dialog "$(game_path)/NpcInGame/Dlgcat1.dlg" \
 		-p "$(game_path)/NpcInGame/Pgpcat1.pgp" \
 		-n "$(game_path)/NpcInGame/Npccat1.ref" \
-		--database-path "$(db_path)"
+		--database "$(db_path)"
 
 # ============================================================================
 # mod-pack — Export event scripts to JSON (for Godot etc.)
@@ -593,9 +590,8 @@ mod-pack-single:
 	cargo run -- mod-pack -g "$(game_path)" -o "$(OUTPUT)" --single-file
 
 # ============================================================================
-# test — CLI smoke test
+# cli-smoke — CLI smoke test (uses a real registered subcommand)
 # ============================================================================
-# Usage: test [-m/--message <TEXT>] (default: "Hello from test command!")
 
-test-hello:
-	cargo run -- test -m "$(MESSAGE)"
+cli-smoke:
+	cargo run -- list --format json

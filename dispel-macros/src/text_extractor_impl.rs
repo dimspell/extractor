@@ -1,9 +1,15 @@
-use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Fields, Ident, LitInt, LitStr, Type};
 
+use crate::schema::CodegenConfig;
+
 pub fn expand(input: DeriveInput) -> TokenStream2 {
+    codegen(&input, &CodegenConfig::default())
+}
+
+/// Generate the text `Extractor` impl with an explicit path config.
+pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStream2 {
     let name = &input.ident;
 
     let fields = match &input.data {
@@ -15,7 +21,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     };
 
     // Parse struct-level attributes
-    let mut encoding = quote! { encoding_rs::EUC_KR };
+    let mut encoding_name = "EUC-KR".to_string();
     let mut delimiter = quote! { "," };
     let mut comment_char = quote! { ";" };
 
@@ -25,16 +31,9 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 if meta.path.is_ident("encoding") {
                     let value = meta.value()?;
                     let lit: LitStr = value.parse()?;
-                    let enc = match lit.value().as_str() {
-                        "EUC_KR" => quote! { encoding_rs::EUC_KR },
-                        "WINDOWS_1250" => quote! { encoding_rs::WINDOWS_1250 },
-                        "UTF_8" => quote! { encoding_rs::UTF_8 },
-                        other => panic!(
-                            "Unknown encoding '{}'; expected EUC_KR, WINDOWS_1250, or UTF_8",
-                            other
-                        ),
-                    };
-                    encoding = enc;
+                    // Keep the raw spelling; `CodegenConfig::encoding_constant`
+                    // resolves it through the shared encoding registry.
+                    encoding_name = lit.value();
                 } else if meta.path.is_ident("delimiter") {
                     let value = meta.value()?;
                     let lit: LitStr = value.parse()?;
@@ -49,6 +48,11 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             .expect("Failed to parse struct-level #[extractor(...)]");
         }
     }
+
+    let encoding = config.encoding_constant(&encoding_name);
+    let enc_io = config.encoding_rs_io();
+    let extractor_trait = config.extractor_trait();
+    let parse_null = config.parse_null();
 
     // Parse field attributes
     let mut field_infos: Vec<TextFieldInfo> = Vec::new();
@@ -72,33 +76,41 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     field_infos.sort_by_key(|f| f.index);
 
     // Generate parse statements
-    let parse_arms: Vec<TokenStream2> = field_infos.iter().map(|info| {
-        let field_ident = &info.ident;
-        let index = info.index;
-        match &info.ty {
-            TextFieldType::I32 => {
-                quote! {
-                    #field_ident: parts[#index].trim().parse::<i32>().unwrap_or_default(),
+    let parse_arms: Vec<TokenStream2> = field_infos
+        .iter()
+        .map(|info| {
+            let field_ident = &info.ident;
+            let index = info.index;
+            match &info.ty {
+                TextFieldType::I32 => {
+                    quote! {
+                        #field_ident: parts[#index].trim().parse::<i32>().unwrap_or_default(),
+                    }
+                }
+                TextFieldType::String => {
+                    quote! {
+                        #field_ident: parts[#index].trim().to_string(),
+                    }
+                }
+                TextFieldType::OptionString => {
+                    quote! {
+                        #field_ident: #parse_null(parts[#index].trim()),
+                    }
+                }
+                TextFieldType::EnumFromI32(enum_ty) => {
+                    let conversion = crate::wire_enum::from_wire_tokens(
+                        &config.wire_value_trait(),
+                        enum_ty,
+                        "i32",
+                        quote! { parts[#index].trim().parse::<i32>().unwrap_or_default() },
+                    );
+                    quote! {
+                        #field_ident: #conversion,
+                    }
                 }
             }
-            TextFieldType::String => {
-                quote! {
-                    #field_ident: parts[#index].trim().to_string(),
-                }
-            }
-            TextFieldType::OptionString => {
-                quote! {
-                    #field_ident: crate::references::extractor::parse_null(parts[#index].trim()),
-                }
-            }
-            TextFieldType::EnumFromI32(enum_ty) => {
-                let enum_ident = Ident::new(enum_ty, Span::call_site());
-                quote! {
-                    #field_ident: #enum_ident::from_i32(parts[#index].trim().parse::<i32>().unwrap_or_default()).unwrap_or_default(),
-                }
-            }
-        }
-    }).collect();
+        })
+        .collect();
 
     // Generate write format string
     let field_count = field_infos.len();
@@ -137,10 +149,10 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     };
 
     let expanded = quote! {
-        impl crate::references::extractor::Extractor for #name {
+        impl #extractor_trait for #name {
             fn parse<R: std::io::Read + std::io::Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
                 use std::io::{BufRead, BufReader};
-                let decoded = encoding_rs_io::DecodeReaderBytesBuilder::new()
+                let decoded = #enc_io::DecodeReaderBytesBuilder::new()
                     .encoding(Some(#encoding))
                     .build(reader.by_ref());
                 let buf_reader = BufReader::new(decoded);

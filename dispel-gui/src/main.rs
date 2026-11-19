@@ -8,6 +8,7 @@ pub mod app;
 pub mod binary_layout;
 pub mod components;
 pub mod dispatch_table;
+pub mod editor_catalog;
 pub mod editor_registry;
 pub mod editors;
 pub mod indexation;

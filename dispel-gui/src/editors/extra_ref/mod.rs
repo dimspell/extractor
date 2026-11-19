@@ -26,7 +26,7 @@ mod view;
 pub use view::view;
 
 pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = tab::get_tab_id(&app.state.workspace);
+    let tab_id = tab::get_tab_id(&app.state.workspace).as_usize();
 
     match msg {
         ExtraRefEditorMessage::LoadCatalog(path) => {

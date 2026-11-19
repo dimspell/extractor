@@ -7,6 +7,67 @@
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
+/// Shared wire-value → enum conversion policy.
+///
+/// The `#[derive(Extractor)]`, `#[derive(TextExtractor)]`,
+/// `#[derive(RecordPatcher)]` and `#[derive(TextRecordPatcher)]` macros all
+/// call [`WireValue::from_wire`] instead of spelling out
+/// `from_X(value).unwrap_or_default()` themselves. That keeps the parse side
+/// and the patch side guaranteed to agree, and leaves exactly one place where
+/// an out-of-range discriminant is turned into a value.
+pub trait WireValue<W>: Sized + Default {
+    /// Strict conversion: `None` for a discriminant the enum does not know.
+    fn from_wire_checked(value: W) -> Option<Self>;
+
+    /// The single fallback policy: unknown discriminants become `Default`.
+    fn from_wire(value: W) -> Self {
+        Self::from_wire_checked(value).unwrap_or_default()
+    }
+}
+
+/// Generate a [`WireValue`] impl from an existing `from_<wire>` constructor.
+macro_rules! impl_wire_value {
+    ($ty:ty, $wire:ty, $from:ident) => {
+        impl WireValue<$wire> for $ty {
+            fn from_wire_checked(value: $wire) -> Option<Self> {
+                <$ty>::$from(value)
+            }
+        }
+    };
+}
+
+// Every enum that participates in derive-generated conversions is registered
+// here. The fallback itself lives only in `WireValue::from_wire` above.
+impl_wire_value!(EventType, i32, from_i32);
+impl_wire_value!(MonsterAiType, i32, from_i32);
+impl_wire_value!(PropertyFlag, i32, from_i32);
+impl_wire_value!(MapLighting, i32, from_i32);
+impl_wire_value!(EditItemModification, u8, from_u8);
+impl_wire_value!(EditItemEffect, i16, from_i16);
+impl_wire_value!(ExtraObjectType, u8, from_u8);
+impl_wire_value!(ItemTypeId, u8, from_u8);
+impl_wire_value!(BooleanFlag, i32, from_i32);
+impl_wire_value!(BooleanFlag, u8, from_u8);
+impl_wire_value!(Unknown012, i32, from_i32);
+impl_wire_value!(NpcMovementMode, i32, from_i32);
+impl_wire_value!(NpcRoleResult, i32, from_i32);
+impl_wire_value!(NpcInteractionMode, i32, from_i32);
+impl_wire_value!(Unknown0to7, i32, from_i32);
+impl_wire_value!(Unknown0110, i32, from_i32);
+impl_wire_value!(TriStateFlag, i32, from_i32);
+impl_wire_value!(ByteFlag, u8, from_u8);
+impl_wire_value!(Special9999Flag, i32, from_i32);
+impl_wire_value!(SmallRange0to3, i32, from_i32);
+impl_wire_value!(SmallRange0to3, u8, from_u8);
+impl_wire_value!(SpecialPatternFlag, i32, from_i32);
+impl_wire_value!(HealItemFlag, u8, from_u8);
+impl_wire_value!(MagicType, u32, from_u32);
+impl_wire_value!(SpellTargetType, u32, from_u32);
+impl_wire_value!(MagicSpellFlag, u32, from_u32);
+impl_wire_value!(MagicSpellConstant, u32, from_u32);
+impl_wire_value!(NpcLookingDirection, i32, from_i32);
+impl_wire_value!(ProductType, i32, from_i32);
+
 /// Event types for game scripting and quest progression
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -196,9 +257,9 @@ impl From<bool> for PropertyFlag {
 #[repr(i32)]
 #[derive(Default)]
 pub enum MapLighting {
-    /// Dark map (interior, dungeon)
+    /// Light map (exterior, daytime) — no lighting pass applied
     Light = 0,
-    /// Light map (exterior, daytime)
+    /// Dark map (interior, dungeon) — the lighting pass darkens tiles
     #[default]
     Dark = 1,
 }
@@ -616,68 +677,6 @@ impl std::fmt::Display for ExtraObjectType {
     }
 }
 
-/// Activation-effect indices for interactive map objects.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
-#[derive(Default)]
-pub enum ActivationEffectId {
-    #[default]
-    None = 0,
-    Effect10 = 10,
-    /// An activation-effect index not yet identified.
-    Unknown = 255,
-}
-
-impl ActivationEffectId {
-    /// Convert from a variant name string
-    pub fn from_name(s: &str) -> Option<Self> {
-        match s {
-            "None" => Some(ActivationEffectId::None),
-            "Effect10" => Some(ActivationEffectId::Effect10),
-            "Unknown" => Some(ActivationEffectId::Unknown),
-            _ => None,
-        }
-    }
-
-    /// Convert from u8 with validation
-    pub fn from_u8(value: u8) -> Option<Self> {
-        match value {
-            0 => Some(ActivationEffectId::None),
-            10 => Some(ActivationEffectId::Effect10),
-            _ => Some(ActivationEffectId::Unknown),
-        }
-    }
-
-    /// Get the numeric value
-    pub fn value(&self) -> u8 {
-        *self as u8
-    }
-}
-
-impl TryFrom<u8> for ActivationEffectId {
-    type Error = &'static str;
-
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        ActivationEffectId::from_u8(value).ok_or("Invalid activation effect ID")
-    }
-}
-
-impl From<ActivationEffectId> for u8 {
-    fn from(effect_id: ActivationEffectId) -> Self {
-        effect_id.value()
-    }
-}
-
-impl std::fmt::Display for ActivationEffectId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActivationEffectId::None => write!(f, "None"),
-            ActivationEffectId::Effect10 => write!(f, "Effect10"),
-            ActivationEffectId::Unknown => write!(f, "Unknown"),
-        }
-    }
-}
-
 /// Item type identifiers for inventory and requirements
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -995,6 +994,82 @@ impl From<NpcMovementMode> for i32 {
 impl std::fmt::Display for NpcMovementMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+/// Role behavior selected by an NPC placement record.
+///
+/// Values 1 through 8 select one of the party-member dialogue slots. The
+/// remaining values select the normal dialogue or a specific service UI.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcRoleResult {
+    /// Normal NPC dialogue.
+    #[default]
+    NormalDialogue = 0,
+    PartyMemberDialogue1 = 1,
+    PartyMemberDialogue2 = 2,
+    PartyMemberDialogue3 = 3,
+    PartyMemberDialogue4 = 4,
+    PartyMemberDialogue5 = 5,
+    PartyMemberDialogue6 = 6,
+    PartyMemberDialogue7 = 7,
+    PartyMemberDialogue8 = 8,
+    WeaponShop = 9,
+    HealMiscShop = 10,
+    EditItemShop = 11,
+    Inn = 12,
+}
+
+impl NpcRoleResult {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::NormalDialogue),
+            1 => Some(Self::PartyMemberDialogue1),
+            2 => Some(Self::PartyMemberDialogue2),
+            3 => Some(Self::PartyMemberDialogue3),
+            4 => Some(Self::PartyMemberDialogue4),
+            5 => Some(Self::PartyMemberDialogue5),
+            6 => Some(Self::PartyMemberDialogue6),
+            7 => Some(Self::PartyMemberDialogue7),
+            8 => Some(Self::PartyMemberDialogue8),
+            9 => Some(Self::WeaponShop),
+            10 => Some(Self::HealMiscShop),
+            11 => Some(Self::EditItemShop),
+            12 => Some(Self::Inn),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "NormalDialogue" => Some(Self::NormalDialogue),
+            "PartyMemberDialogue1" => Some(Self::PartyMemberDialogue1),
+            "PartyMemberDialogue2" => Some(Self::PartyMemberDialogue2),
+            "PartyMemberDialogue3" => Some(Self::PartyMemberDialogue3),
+            "PartyMemberDialogue4" => Some(Self::PartyMemberDialogue4),
+            "PartyMemberDialogue5" => Some(Self::PartyMemberDialogue5),
+            "PartyMemberDialogue6" => Some(Self::PartyMemberDialogue6),
+            "PartyMemberDialogue7" => Some(Self::PartyMemberDialogue7),
+            "PartyMemberDialogue8" => Some(Self::PartyMemberDialogue8),
+            "WeaponShop" => Some(Self::WeaponShop),
+            "HealMiscShop" => Some(Self::HealMiscShop),
+            "EditItemShop" => Some(Self::EditItemShop),
+            "Inn" => Some(Self::Inn),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcRoleResult> for i32 {
+    fn from(value: NpcRoleResult) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcRoleResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 
@@ -1530,18 +1605,27 @@ impl From<bool> for HealItemFlag {
 
 /// Magic type classification for spells.
 ///
-/// Each spell belongs to one of three types. The player's proficiency in a
-/// type rises as they cast spells of that type.
+/// Each spell belongs to one of seven types: three schools of magic plus four
+/// elemental types. The player's proficiency in a type rises as they cast
+/// spells of that type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicType {
     /// Normal magic (healing, basic spells)
     #[default]
     Magic = 0,
-    /// Light/Holy magic (protection, buffs)
-    LightMagic = 1,
-    /// Black magic (poison, curses)
-    BlackMagic = 2,
+    /// Holy magic (protection, buffs)
+    HolyMagic = 1,
+    /// Dark magic (poison, curses)
+    DarkMagic = 2,
+    /// Fire elemental magic
+    Fire = 3,
+    /// Water elemental magic
+    Water = 4,
+    /// Earth elemental magic
+    Earth = 5,
+    /// Air elemental magic
+    Air = 6,
 }
 
 impl MagicType {
@@ -1549,8 +1633,12 @@ impl MagicType {
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
             0 => Some(MagicType::Magic),
-            1 => Some(MagicType::LightMagic),
-            2 => Some(MagicType::BlackMagic),
+            1 => Some(MagicType::HolyMagic),
+            2 => Some(MagicType::DarkMagic),
+            3 => Some(MagicType::Fire),
+            4 => Some(MagicType::Water),
+            5 => Some(MagicType::Earth),
+            6 => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -1564,8 +1652,12 @@ impl MagicType {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "Magic" => Some(MagicType::Magic),
-            "LightMagic" => Some(MagicType::LightMagic),
-            "BlackMagic" => Some(MagicType::BlackMagic),
+            "HolyMagic" => Some(MagicType::HolyMagic),
+            "DarkMagic" => Some(MagicType::DarkMagic),
+            "Fire" => Some(MagicType::Fire),
+            "Water" => Some(MagicType::Water),
+            "Earth" => Some(MagicType::Earth),
+            "Air" => Some(MagicType::Air),
             _ => None,
         }
     }
@@ -2107,25 +2199,6 @@ mod tests {
     }
 
     #[test]
-    fn test_activation_effect_id_conversion() {
-        assert_eq!(
-            ActivationEffectId::from_u8(0),
-            Some(ActivationEffectId::None)
-        );
-        assert_eq!(
-            ActivationEffectId::from_u8(10),
-            Some(ActivationEffectId::Effect10)
-        );
-        assert_eq!(
-            ActivationEffectId::from_u8(99),
-            Some(ActivationEffectId::Unknown)
-        );
-
-        assert_eq!(u8::from(ActivationEffectId::Effect10), 10);
-        assert_eq!(ActivationEffectId::Effect10.value(), 10);
-    }
-
-    #[test]
     fn test_item_type_id_conversion() {
         assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
         assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Healing));
@@ -2153,17 +2226,25 @@ mod tests {
     #[test]
     fn test_magic_type_conversion() {
         assert_eq!(MagicType::from_u32(0), Some(MagicType::Magic));
-        assert_eq!(MagicType::from_u32(1), Some(MagicType::LightMagic));
-        assert_eq!(MagicType::from_u32(2), Some(MagicType::BlackMagic));
-        assert_eq!(MagicType::from_u32(3), None);
+        assert_eq!(MagicType::from_u32(1), Some(MagicType::HolyMagic));
+        assert_eq!(MagicType::from_u32(2), Some(MagicType::DarkMagic));
+        assert_eq!(MagicType::from_u32(3), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_u32(4), Some(MagicType::Water));
+        assert_eq!(MagicType::from_u32(5), Some(MagicType::Earth));
+        assert_eq!(MagicType::from_u32(6), Some(MagicType::Air));
+        assert_eq!(MagicType::from_u32(7), None);
         assert_eq!(MagicType::from_u32(99), None);
 
-        assert_eq!(u32::from(MagicType::BlackMagic), 2);
-        assert_eq!(MagicType::BlackMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::DarkMagic), 2);
+        assert_eq!(MagicType::DarkMagic.value(), 2);
+        assert_eq!(u32::from(MagicType::Fire), 3);
+        assert_eq!(u32::from(MagicType::Air), 6);
         assert_eq!(
-            MagicType::from_name("LightMagic"),
-            Some(MagicType::LightMagic)
+            MagicType::from_name("HolyMagic"),
+            Some(MagicType::HolyMagic)
         );
+        assert_eq!(MagicType::from_name("Fire"), Some(MagicType::Fire));
+        assert_eq!(MagicType::from_name("Air"), Some(MagicType::Air));
     }
 
     #[test]
@@ -2256,5 +2337,121 @@ mod tests {
 
         assert_eq!(i32::from(NpcLookingDirection::UpLeft), 7);
         assert_eq!(NpcLookingDirection::UpLeft.value(), 7);
+    }
+
+    // ── Shared fallback policy ───────────────────────────────────────────────
+
+    /// Assert that the strict conversion, the shared fallback and `Default`
+    /// all agree for one registered `(enum, wire type)` pair.
+    macro_rules! assert_wire_fallback {
+        ($ty:ty, $wire:ty, $from:ident, $valid:expr, $invalid:expr) => {{
+            type E = $ty;
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire_checked($valid),
+                E::$from($valid),
+                "checked conversion must match from_{} for {}",
+                stringify!($from),
+                stringify!($ty)
+            );
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire($valid),
+                E::$from($valid).expect("valid discriminant"),
+            );
+            // The policy is `from_X(value).unwrap_or_default()`: strict enums
+            // fall back to Default, catch-all enums (Unknown/Other/Invalid)
+            // keep their own mapping. Both paths use this exact expression.
+            assert_eq!(
+                <E as WireValue<$wire>>::from_wire($invalid),
+                E::$from($invalid).unwrap_or_default(),
+                "fallback must match the shared policy for {}",
+                stringify!($ty)
+            );
+        }};
+    }
+
+    #[test]
+    fn every_enum_fallback_matches_default_and_strict_conversion() {
+        // i32/i16/u32/u8 sentinels below are outside every enum's defined range.
+        assert_wire_fallback!(EventType, i32, from_i32, 2, i32::MIN);
+        assert_wire_fallback!(MonsterAiType, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(PropertyFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(MapLighting, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(EditItemModification, u8, from_u8, 1, 254);
+        assert_wire_fallback!(EditItemEffect, i16, from_i16, 1, i16::MIN);
+        assert_wire_fallback!(ExtraObjectType, u8, from_u8, 2, 254);
+        assert_wire_fallback!(ItemTypeId, u8, from_u8, 1, 254);
+        assert_wire_fallback!(BooleanFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(BooleanFlag, u8, from_u8, 1, 254);
+        assert_wire_fallback!(Unknown012, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(NpcMovementMode, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(NpcRoleResult, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(NpcInteractionMode, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(Unknown0to7, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(Unknown0110, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(TriStateFlag, i32, from_i32, 1, i32::MIN);
+        assert_wire_fallback!(ByteFlag, u8, from_u8, 0, 254);
+        assert_wire_fallback!(Special9999Flag, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(SmallRange0to3, i32, from_i32, 3, i32::MIN);
+        assert_wire_fallback!(SmallRange0to3, u8, from_u8, 3, 254);
+        assert_wire_fallback!(SpecialPatternFlag, i32, from_i32, 0, i32::MIN);
+        assert_wire_fallback!(HealItemFlag, u8, from_u8, 1, 254);
+        assert_wire_fallback!(MagicType, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(SpellTargetType, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(MagicSpellFlag, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(MagicSpellConstant, u32, from_u32, 1, u32::MAX);
+        assert_wire_fallback!(NpcLookingDirection, i32, from_i32, 7, i32::MIN);
+        assert_wire_fallback!(ProductType, i32, from_i32, 2, i32::MIN);
+    }
+
+    /// Real `#[derive(Extractor)]` + `#[derive(RecordPatcher)]` probe: the
+    /// generated parse path and the generated patch path must both land on
+    /// `Default` for an out-of-range discriminant.
+    #[derive(
+        Debug,
+        Clone,
+        Copy,
+        Default,
+        PartialEq,
+        Eq,
+        dispel_macros::Extractor,
+        dispel_macros::RecordPatcher,
+    )]
+    #[extractor(property_item_size = 5)]
+    #[patcher(filename = "wire_enum_probe.db")]
+    struct WireEnumProbe {
+        #[extractor(enum_from_i32(type = "EventType"))]
+        event: EventType,
+        #[extractor(enum_from_u8(type = "BooleanFlag"))]
+        flag: BooleanFlag,
+    }
+
+    #[test]
+    fn parse_side_and_patch_side_fallback_agree() {
+        use crate::modding::patcher::RecordPatcher as _;
+        use crate::modding::value::Value;
+        use crate::references::extractor::Extractor as _;
+        use std::io::Cursor;
+
+        let mut blob = 1i32.to_le_bytes().to_vec();
+        blob.extend_from_slice(&12345i32.to_le_bytes()); // invalid EventType
+        blob.push(254); // invalid BooleanFlag
+
+        // Parse side.
+        let parsed = WireEnumProbe::parse(&mut Cursor::new(&blob), blob.len() as u64).unwrap();
+        assert_eq!(parsed[0].event, EventType::default());
+        assert_eq!(parsed[0].flag, BooleanFlag::default());
+
+        // Patch side, through both accepted `Value` shapes.
+        let patcher = WireEnumProbePatcher;
+        let out = patcher
+            .apply_field(&blob, 0, "event", &Value::I64(12345))
+            .unwrap();
+        let out2 = patcher
+            .apply_field(&blob, 0, "flag", &Value::String("254".into()))
+            .unwrap();
+        let patched = WireEnumProbe::parse(&mut Cursor::new(&out), out.len() as u64).unwrap();
+        let patched2 = WireEnumProbe::parse(&mut Cursor::new(&out2), out2.len() as u64).unwrap();
+        assert_eq!(patched[0].event, EventType::default());
+        assert_eq!(patched2[0].flag, BooleanFlag::default());
     }
 }

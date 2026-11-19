@@ -1,20 +1,10 @@
 use super::Command;
-use crate::cli::SpriteMode as CliSpriteMode;
-use dispel_core::sprite;
+use crate::cli::{SpriteArgs, SpriteMode};
+use crate::sprite;
 use std::error::Error;
 use std::path::Path;
 
-/// Sprite command implementation
-pub struct SpriteCommand {
-    pub input: String,
-    pub mode: CliSpriteMode,
-    pub info: bool,
-}
-
-/// Re-export for main.rs dispatch
-pub use crate::cli::SpriteMode;
-
-impl Command for SpriteCommand {
+impl Command for SpriteArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         if self.info {
             let info = sprite::get_sprite_info(Path::new(&self.input))
@@ -34,12 +24,20 @@ impl Command for SpriteCommand {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("sprite");
-                sprite::extract(Path::new(&self.input), prefix.to_string())
-                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
+                sprite::extract_with_black(
+                    Path::new(&self.input),
+                    prefix.to_string(),
+                    self.preserve_black,
+                )
+                .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
             SpriteMode::Animation => {
-                sprite::animation(Path::new(&self.input))
-                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
+                sprite::animation_with_black(
+                    Path::new(&self.input),
+                    !self.no_origin_offset,
+                    self.preserve_black,
+                )
+                .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
         }
         Ok(())

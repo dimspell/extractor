@@ -1,12 +1,15 @@
 use super::canvas::{MapCanvasOverlaysLayer, MapCanvasTilesLayer};
-use super::message::{MapEditorMessage, MapLayer, MapViewMode};
+use super::message::{MapEditorMessage, MapLayer, MapTool, MapViewMode, ObjectBrushMode};
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::components::toast;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, toggler};
+use iced::widget::{
+    button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler,
+};
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
@@ -73,8 +76,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         LoadingState::Loaded(map_handle) => {
             let map_data = &map_handle.0;
             let model = &map_data.model;
-            let gtl_count = map_data.gtl_tiles.len();
-            let btl_count = map_data.btl_tiles.len();
 
             let path_label = state
                 .data
@@ -84,54 +85,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "Unknown".to_string());
 
-            // ── Info row ─────────────────────────────────────────────────
-            let info_row = row![
-                info_cell("File", &path_label),
-                info_cell(
-                    "Tiles (W×H)",
-                    &format!("{}×{}", model.tiled_map_width, model.tiled_map_height)
-                ),
-                info_cell("GTL", &gtl_count.to_string()),
-                info_cell("BTL", &btl_count.to_string()),
-                info_cell(
-                    "Handles",
-                    &format!(
-                        "{}/{}",
-                        state.data.gtl_handles.len(),
-                        state.data.btl_handles.len()
-                    )
-                ),
-                info_cell(
-                    "Entities",
-                    &format!(
-                        "{}M {}N {}O {}D",
-                        state.data.monsters.len(),
-                        state.data.npcs.len(),
-                        state.data.extra_refs.len(),
-                        state.data.draw_items.len()
-                    )
-                ),
-                info_cell(
-                    "Tiles",
-                    &format!(
-                        "{} GTL + {} BTL loaded",
-                        state.data.gtl_handles.len(),
-                        state.data.btl_handles.len()
-                    )
-                ),
-            ]
-            .spacing(16)
-            .padding([8, 16]);
+            // ── Layer toggles, grouped into three segments ────────────────
 
-            // ── Layer toggles ─────────────────────────────────────────────
-            let tile_status = if state.data.tiles_ready {
-                text("").size(10).style(style::subtle_text)
-            } else {
-                text("Decoding tiles…").size(10).style(style::subtle_text)
-            };
-
-            let layer_row = row![
-                text("Layers:").size(11).style(style::subtle_text),
+            // Vertical toggle groups for the popover panel. Group headers live
+            // in the panel itself (exactly one per group).
+            let terrain_group = column![
                 layer_toggle(
                     "Ground",
                     state.view.show_ground,
@@ -154,12 +112,23 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     None
                 ),
                 layer_toggle(
+                    "Shadows",
+                    state.view.show_shadows,
+                    tab_id,
+                    MapLayer::Shadows,
+                    None
+                ),
+                layer_toggle(
                     "Sprites",
                     state.view.show_internal_sprites,
                     tab_id,
                     MapLayer::InternalSprites,
                     None
                 ),
+            ]
+            .spacing(6);
+
+            let overlay_group = column![
                 layer_toggle(
                     "Collisions",
                     state.view.show_collisions,
@@ -174,6 +143,38 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     MapLayer::Events,
                     None
                 ),
+                layer_toggle(
+                    "Under Roof / Hide BTL",
+                    state.view.show_under_roof_markers,
+                    tab_id,
+                    MapLayer::UnderRoofMarkers,
+                    None
+                ),
+                layer_toggle(
+                    "No Spell Casting Range",
+                    state.view.show_no_spell_cast_zones,
+                    tab_id,
+                    MapLayer::NoSpellCastZones,
+                    None
+                ),
+                layer_toggle(
+                    "BTL Overlays in Dark Maps",
+                    state.view.show_btl_overlays_in_dark_maps,
+                    tab_id,
+                    MapLayer::BtlOverlaysInDarkMaps,
+                    None
+                ),
+                layer_toggle(
+                    "Object IDs",
+                    state.view.show_object_ids,
+                    tab_id,
+                    MapLayer::ObjectIds,
+                    None
+                ),
+            ]
+            .spacing(6);
+
+            let entity_group = column![
                 layer_toggle(
                     "Monsters",
                     state.view.show_monsters,
@@ -210,11 +211,76 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     Some(state.data.draw_items.len())
                 ),
             ]
-            .spacing(12)
-            .padding([6, 16])
-            .align_y(iced::Alignment::Center);
+            .spacing(6);
 
-            // ── Action buttons row ─────────────────────────────────────────
+            // ── Layers dropdown (popover) ─────────────────────────────────
+            let layer_visibility = [
+                state.view.show_ground,
+                state.view.show_buildings,
+                state.view.show_roofs,
+                state.view.show_internal_sprites,
+                state.view.show_collisions,
+                state.view.show_events,
+                state.view.show_under_roof_markers,
+                state.view.show_no_spell_cast_zones,
+                state.view.show_btl_overlays_in_dark_maps,
+                state.view.show_monsters,
+                state.view.show_npcs,
+                state.view.show_npc_waypoints,
+                state.view.show_objects,
+                state.view.show_draw_items,
+                state.view.show_object_ids,
+            ];
+            let visible_layers = layer_visibility.iter().filter(|&&v| v).count();
+            let total_layers = layer_visibility.len();
+
+            let layers_trigger = button(
+                row![
+                    text("LAYERS").size(11),
+                    text("▾").size(10).style(style::subtle_text),
+                    text(format!("· {}/{}", visible_layers, total_layers))
+                        .size(10)
+                        .style(style::subtle_text),
+                ]
+                .spacing(4)
+                .align_y(iced::Alignment::Center),
+            )
+            .padding([3, 10])
+            .on_press(Message::map_editor(MapEditorMessage::ToggleLayersPopover(
+                tab_id,
+            )))
+            .style(if state.view.layers_popover_open {
+                style::active_chip
+            } else {
+                style::chip
+            });
+
+            let layers_panel = container(
+                column![
+                    segment_label("Terrain"),
+                    terrain_group,
+                    h_rule(),
+                    segment_label("Overlays"),
+                    overlay_group,
+                    h_rule(),
+                    segment_label("Entities"),
+                    entity_group,
+                ]
+                .spacing(12),
+            )
+            .padding(14)
+            .width(iced::Length::Fixed(200.0))
+            .style(style::panel_container);
+
+            let layers_popover: Element<'_, Message> = gui_widgets::components::popover::popover(
+                layers_trigger,
+                layers_panel,
+                state.view.layers_popover_open,
+                move || Message::map_editor(MapEditorMessage::ToggleLayersPopover(tab_id)),
+                move || Message::map_editor(MapEditorMessage::CloseLayersPopover(tab_id)),
+            );
+
+            // ── Action buttons (Row B) ────────────────────────────────────
             let can_undo = !state.data.undo_stack.is_empty();
             let can_redo = !state.data.redo_stack.is_empty();
             let save_label = if state.data.is_saving {
@@ -230,12 +296,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     save_btn.on_press(Message::map_editor(MapEditorMessage::SaveMap(tab_id)));
             }
 
+            // Icon + label undo/redo — icons alone are anti-UX.
             let mut undo_btn = button(
                 row![
                     text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
-                    text(" Undo").size(11),
+                    text("Undo").size(11),
                 ]
-                .spacing(2),
+                .spacing(4),
             )
             .padding([3, 8]);
             if can_undo {
@@ -244,10 +311,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
             let mut redo_btn = button(
                 row![
-                    text("Redo ").size(11),
                     text(icon_char(Icon::Redo2)).font(LUCIDE_FONT).size(11),
+                    text("Redo").size(11),
                 ]
-                .spacing(2),
+                .spacing(4),
             )
             .padding([3, 8]);
             if can_redo {
@@ -259,76 +326,182 @@ pub fn view(app: &App) -> Element<'_, Message> {
             } else {
                 "Export PNG"
             };
-            let mut export_btn = button(text(export_label).size(11)).padding([3, 8]);
+            let mut export_btn = button(text(export_label).size(11))
+                .padding([3, 8])
+                .accessible_label("Export map as PNG");
             if !state.data.is_exporting {
                 export_btn =
                     export_btn.on_press(Message::map_editor(MapEditorMessage::ExportImage(tab_id)));
             }
 
-            let mut tmx_btn = button(text("Export TMX…").size(11)).padding([3, 8]);
+            let mut tmx_btn = button(text("Export TMX").size(11))
+                .padding([3, 8])
+                .accessible_label("Export map as TMX");
             if !state.data.is_exporting {
                 tmx_btn =
                     tmx_btn.on_press(Message::map_editor(MapEditorMessage::ExportTmx(tab_id)));
             }
 
-            let status_text = if let Some(msg) = &state.data.status_msg {
-                text(msg.as_str()).size(10).style(style::subtle_text)
-            } else {
-                text("").size(10).style(style::subtle_text)
+            // Folded summary replacing the duplicate Handles/Tiles info cells.
+            let summary_text = format!(
+                "{}×{} · {} NPC · {} gtl",
+                model.tiled_map_width,
+                model.tiled_map_height,
+                state.data.npcs.len(),
+                state.data.gtl_handles.len()
+            );
+
+            // Per-tool click hint. Hidden for Pan (default tool needs no help
+            // text); always visible for editing tools.
+            let hint: Option<String> = match state.view.active_tool {
+                MapTool::Pan => None,
+                MapTool::Collision => Some("Click tile: block/unblock".into()),
+                MapTool::ObjectId => Some(match state.view.object_brush_mode {
+                    ObjectBrushMode::Paint => {
+                        format!("Click: paint obj {}", state.data.object_brush)
+                    }
+                    ObjectBrushMode::Erase => "Click: erase any value".into(),
+                }),
+                MapTool::EventInspect => Some("Click tile: inspect event".into()),
             };
 
-            let action_row = row![
+            let actions_row = row![
                 save_btn,
                 undo_btn,
                 redo_btn,
                 export_btn,
                 tmx_btn,
-                status_text,
+                text(path_label).size(10).style(style::subtle_text),
+                horizontal_space(),
+                match &hint {
+                    Some(h) => Element::new(text(h.clone()).size(10).style(style::subtle_text)),
+                    None => Element::new(horizontal_space()),
+                },
             ]
             .spacing(6)
             .padding([4, 16])
             .align_y(iced::Alignment::Center);
 
-            let mode_tab_row = row![
-                button(text("Map").size(11))
+            // ── Row A: context row ────────────────────────────────────────
+            let mode_chip = |label: &'static str, mode: MapViewMode| {
+                button(text(label).size(11))
                     .on_press(Message::map_editor(MapEditorMessage::SwitchViewMode(
-                        tab_id,
-                        MapViewMode::Map
+                        tab_id, mode,
                     )))
-                    .padding([3, 10])
-                    .style(if state.view.view_mode == MapViewMode::Map {
+                    .padding([3, 8])
+                    .style(if state.view.view_mode == mode {
                         style::active_chip
                     } else {
                         style::chip
-                    }),
-                button(text("Sprites").size(11))
-                    .on_press(Message::map_editor(MapEditorMessage::SwitchViewMode(
-                        tab_id,
-                        MapViewMode::Sprites
-                    )))
-                    .padding([3, 10])
-                    .style(if state.view.view_mode == MapViewMode::Sprites {
-                        style::active_chip
-                    } else {
-                        style::chip
-                    }),
-            ]
-            .spacing(4)
-            .padding([6, 16]);
+                    })
+            };
 
-            let toolbar = container(
-                column![
-                    row![mode_tab_row, action_row].spacing(0),
-                    row![info_row].spacing(0),
-                    row![layer_row, tile_status]
-                        .spacing(16)
-                        .align_y(iced::Alignment::Center),
-                ]
-                .spacing(0),
-            )
-            .width(Fill)
-            .style(style::toolbar_container)
-            .accessible_label("Map editor toolbar");
+            let tool_chip = |label: &'static str, tool: MapTool| {
+                button(text(label).size(11))
+                    .on_press(Message::map_editor(MapEditorMessage::SelectTool(
+                        tab_id, tool,
+                    )))
+                    .padding([3, 8])
+                    .style(if state.view.active_tool == tool {
+                        style::active_chip
+                    } else {
+                        style::chip
+                    })
+            };
+
+            // Contextual object-id brush options — inline in Row A, only when
+            // the Obj ID tool is active.
+            let brush_slot: Option<Element<'_, Message>> =
+                if state.view.active_tool == MapTool::ObjectId {
+                    let mode_chip = |label: &'static str, mode: ObjectBrushMode| {
+                        button(text(label).size(11))
+                            .on_press(Message::map_editor(MapEditorMessage::SetObjectBrushMode(
+                                tab_id, mode,
+                            )))
+                            .padding([3, 6])
+                            .style(if state.view.object_brush_mode == mode {
+                                style::active_chip
+                            } else {
+                                style::chip
+                            })
+                    };
+                    let brush = state.data.object_brush;
+                    let preset_chip = |n: i32| {
+                        button(text(n.to_string()).size(11))
+                            .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                tab_id, n,
+                            )))
+                            .padding([3, 5])
+                            .style(style::chip)
+                    };
+                    let brush_str = brush.to_string();
+                    Some(
+                        row![
+                            rule(),
+                            mode_chip("Paint", ObjectBrushMode::Paint),
+                            mode_chip("Erase", ObjectBrushMode::Erase),
+                            rule(),
+                            button(text("−").size(12))
+                                .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                    tab_id,
+                                    brush - 1
+                                )))
+                                .padding([3, 6])
+                                .style(style::chip),
+                            container(
+                                text_input("1", brush_str)
+                                    .width(iced::Length::Fixed(44.0))
+                                    .on_input(move |v: String| {
+                                        let val = v.parse::<i32>().unwrap_or(1).clamp(1, 511);
+                                        Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                            tab_id, val,
+                                        ))
+                                    }),
+                            )
+                            .padding([2, 4])
+                            .style(style::info_card),
+                            button(text("+").size(12))
+                                .on_press(Message::map_editor(MapEditorMessage::SetObjectBrush(
+                                    tab_id,
+                                    brush + 1
+                                )))
+                                .padding([3, 6])
+                                .style(style::chip),
+                            preset_chip(1),
+                            preset_chip(2),
+                            preset_chip(3),
+                            preset_chip(5),
+                            preset_chip(10),
+                        ]
+                        .spacing(3)
+                        .align_y(iced::Alignment::Center)
+                        .into(),
+                    )
+                } else {
+                    None
+                };
+
+            let mut context_row = row![].spacing(6).padding([4, 16]);
+            context_row = context_row
+                .push(mode_chip("Map", MapViewMode::Map))
+                .push(mode_chip("Sprites", MapViewMode::Sprites))
+                .push(rule())
+                .push(tool_chip("Pan", MapTool::Pan))
+                .push(tool_chip("Collide", MapTool::Collision))
+                .push(tool_chip("Obj ID", MapTool::ObjectId))
+                .push(tool_chip("Event", MapTool::EventInspect));
+            if let Some(slot) = brush_slot {
+                context_row = context_row.push(slot);
+            }
+            context_row = context_row
+                .push(horizontal_space())
+                .push(text(summary_text).size(10).style(style::subtle_text))
+                .push(layers_popover);
+
+            let toolbar = container(column![context_row, actions_row].spacing(0))
+                .width(Fill)
+                .style(style::toolbar_container)
+                .accessible_label("Map editor toolbar");
 
             // ── Canvas for tile layers, sprites (images) ───────────────────────
             let tiles_canvas = canvas(MapCanvasTilesLayer { state })
@@ -407,7 +580,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .into();
 
             // Wrap in dialog preview modal if open
-            if let Some(ref preview) = state.view.dialog_preview {
+            let root: Element<'_, Message> = if let Some(ref preview) = state.view.dialog_preview {
                 modal(
                     base,
                     dialog_preview::view_dialog_preview(state, tab_id, preview),
@@ -416,20 +589,60 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 )
             } else {
                 base
-            }
+            };
+
+            // Toast notifications overlay (top-right, auto-dismiss).
+            toast::Manager::new(root, &state.data.toasts, move |i| {
+                Message::map_editor(MapEditorMessage::DismissToast(tab_id, i))
+            })
+            .timeout(3)
+            .into()
         }
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn info_cell<'a>(label: &'static str, value: &str) -> Element<'a, Message> {
-    column![
-        text(label).size(10).style(style::subtle_text),
-        text(value.to_string()).size(11),
-    ]
-    .spacing(2)
-    .into()
+use iced::widget::space::Space;
+
+/// Fill remaining horizontal space (pushes following widgets right).
+fn horizontal_space() -> Space {
+    Space::new().width(Fill)
+}
+
+/// Thin vertical separator between layer-toggle segments.
+fn rule() -> Element<'static, Message> {
+    container(text(""))
+        .width(iced::Length::Fixed(1.0))
+        .height(iced::Length::Fixed(16.0))
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color::from_rgba(
+                0.6, 0.55, 0.45, 0.4,
+            ))),
+            ..container::Style::default()
+        })
+        .into()
+}
+
+fn segment_label(label: &'static str) -> Element<'static, Message> {
+    text(label.to_string())
+        .size(10)
+        .style(style::subtle_text)
+        .into()
+}
+
+/// Thin horizontal separator between layer groups inside the popover panel.
+fn h_rule() -> Element<'static, Message> {
+    container(text(""))
+        .width(Fill)
+        .height(iced::Length::Fixed(1.0))
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(iced::Color::from_rgba(
+                0.6, 0.55, 0.45, 0.4,
+            ))),
+            ..container::Style::default()
+        })
+        .into()
 }
 
 fn layer_toggle(

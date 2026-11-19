@@ -51,12 +51,9 @@ pub struct RecordingSession {
     pub next_generation: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RecordingKey {
-    pub file_path: String,
-    pub record_id: u32,
-    pub field: String,
-}
+/// Field identity is owned by `dispel-core`. Recording, conflict detection,
+/// resolution pins and apply all use the very same key type now.
+pub type RecordingKey = dispel_core::modding::FieldKey;
 
 #[derive(Debug, Clone)]
 pub struct PendingEdit {

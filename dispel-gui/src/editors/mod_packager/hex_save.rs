@@ -1,35 +1,41 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dispel_core::modding::{ChangeAction, ChangeOp, Workspace};
-use hexedit::{HexEditorMessage, HexEditorState, OnSaveFn};
+use dispel_core::modding::{ChangeOp, Modding};
+use hexedit::{SaveOutcome, SavePort, SaveRequest};
 use iced::Task;
 
-/// Build an optional save callback for the hex editor config.
+/// Build the host-side implementation of hexedit's [`SavePort`].
 ///
-/// Returns `None` when there's no active recording or game path.
+/// The editor hands us a domain-level [`SaveRequest`] (path + bytes); we turn
+/// it into a mod changelog action through the core [`Modding`] facade and
+/// return a [`SaveOutcome`]. No hexedit message types are constructed here —
+/// the editor maps the outcome back onto its own internal message. Returns
+/// `None` when there's no active recording or game path.
 pub fn build_save_callback(
     recording: &Option<crate::state::RecordingSession>,
     game_path: &Option<PathBuf>,
-) -> Option<OnSaveFn> {
+) -> Option<SavePort> {
     let session = recording.as_ref()?;
     let game_path = game_path.clone()?;
     let workspace_root = session.workspace_root.clone();
     let mod_slug = session.mod_slug.clone();
 
-    Some(Arc::new(move |state: &HexEditorState| {
+    Some(Arc::new(move |request: SaveRequest| {
         let game_path = game_path.clone();
         let workspace_root = workspace_root.clone();
         let mod_slug = mod_slug.clone();
+        let SaveRequest {
+            path,
+            bytes: current_bytes,
+        } = request;
 
-        let Ok(relative) = state.path.strip_prefix(&game_path) else {
-            return Task::done(HexEditorMessage::SavedIntoRecording(Err(
+        let Ok(relative) = path.strip_prefix(&game_path) else {
+            return Task::done(SaveOutcome::Failed(
                 "File is outside the active game directory.".to_string(),
-            )));
+            ));
         };
         let relative_str = relative.to_string_lossy().replace('\\', "/");
-
-        let current_bytes = state.provider.as_slice().to_vec();
 
         Task::perform(
             async move {
@@ -45,13 +51,14 @@ pub fn build_save_callback(
                 .await
                 .unwrap_or_else(|e| Err(e.to_string()))
             },
-            HexEditorMessage::SavedIntoRecording,
+            SaveOutcome::from_result,
         )
     }))
 }
 
-/// Pure(-ish) helper: open the workspace, ensure a vanilla snapshot exists,
-/// compute a binary delta, and append the resulting [`ChangeAction`].
+/// Pure(-ish) helper: open the workspace through the core modding facade,
+/// ensure a vanilla snapshot exists, pick the most compact change op and
+/// append the resulting [`dispel_core::modding::ChangeAction`].
 /// Returns a human-readable summary on success.
 fn build_and_append_action(
     workspace_root: &std::path::Path,
@@ -60,15 +67,13 @@ fn build_and_append_action(
     relative: &str,
     current_bytes: Vec<u8>,
 ) -> Result<String, String> {
-    let ws = Workspace::open(workspace_root.to_path_buf()).map_err(|e| e.to_string())?;
-    let vanilla_bytes = ws
-        .vanilla()
-        .ensure_snapshot(game_dir, relative)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Vanilla file not present on disk; cannot diff.".to_string())?;
-
-    let op = decide_op(&vanilla_bytes, &current_bytes)?;
-    let summary = match &op {
+    let pipeline = Modding::open(workspace_root, game_dir).map_err(|e| e.to_string())?;
+    // The facade snapshots vanilla and picks the compact op; no hexedit or
+    // package internals leak into this callback.
+    let action = pipeline
+        .file_change(relative, &current_bytes)
+        .map_err(|e| e.to_string())?;
+    let summary = match &action.op {
         ChangeOp::BinaryDelta { patch_bytes } => {
             format!(
                 "Saved into `{mod_slug}` as BinaryDelta — {} byte patch.",
@@ -83,8 +88,8 @@ fn build_and_append_action(
         }
         _ => format!("Saved into `{mod_slug}`."),
     };
-    let action = ChangeAction::new(relative, op);
-    ws.append_action(mod_slug, action)
+    pipeline
+        .append(mod_slug, action)
         .map_err(|e| e.to_string())?;
     Ok(summary)
 }

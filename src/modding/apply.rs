@@ -12,22 +12,22 @@
 //! 4. Write the resulting bytes back to the game directory (or delete the
 //!    file if the final state is "absent").
 //!
-//! Conflict detection is intentionally absent in Phase 2 — last-writer-wins
-//! is enough to verify correctness end-to-end. Phase 5 layers a real
-//! conflict surface on top of this same engine.
+//! Conflict detection is intentionally absent here — last-writer-wins is
+//! enough to verify correctness end-to-end. A real conflict surface can be
+//! layered on top of this same engine.
 //!
 //! [`VanillaStore`]: super::vanilla::VanillaStore
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::bsdiff;
 use super::change::{ChangeAction, ChangeOp};
 use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, OsFs};
 use super::registry::PatcherRegistry;
-use super::resolution::{FieldKey, ResolutionMap};
+use super::resolution::ResolutionMap;
 use super::vanilla::{VanillaStore, validate_relative};
 
 /// One enabled mod, presented to the apply engine in load order.
@@ -56,7 +56,20 @@ pub fn apply_all(
     registry: &PatcherRegistry,
     resolutions: &ResolutionMap,
 ) -> Result<ApplyReport> {
-    if !game_dir.is_dir() {
+    apply_all_with_fs(&OsFs, mods, game_dir, vanilla, registry, resolutions)
+}
+
+/// Apply through an explicit filesystem port. The facade owns this port, so
+/// the same code path runs against [`OsFs`] or an in-memory test stand-in.
+pub fn apply_all_with_fs(
+    fs: &dyn Fs,
+    mods: &[ModEntry<'_>],
+    game_dir: &Path,
+    vanilla: &VanillaStore,
+    registry: &PatcherRegistry,
+    resolutions: &ResolutionMap,
+) -> Result<ApplyReport> {
+    if !fs.is_dir(game_dir) {
         return Err(ModdingError::Malformed(format!(
             "game_dir is not a directory: {}",
             game_dir.display()
@@ -90,21 +103,12 @@ pub fn apply_all(
                 if action.file_path != *path {
                     continue;
                 }
-                if let ChangeOp::FieldDelta {
-                    record_id, field, ..
-                } = &action.op
+                if let Some(key) = action.op.field_key(&action.file_path)
+                    && let Some(winner) = resolutions.winner(&key)
+                    && winner != entry.mod_id
                 {
-                    let key = FieldKey {
-                        file_path: action.file_path.clone(),
-                        record_id: *record_id,
-                        field: field.clone(),
-                    };
-                    if let Some(winner) = resolutions.winner(&key)
-                        && winner != entry.mod_id
-                    {
-                        // A pin exists for this field, and it's not us.
-                        continue;
-                    }
+                    // A pin exists for this field, and it's not us.
+                    continue;
                 }
                 apply_one(action, &mut working, vanilla_bytes.as_deref(), registry)?;
                 report.actions_applied += 1;
@@ -116,14 +120,14 @@ pub fn apply_all(
         match working {
             FileState::Present(bytes) => {
                 if let Some(parent) = abs.parent() {
-                    fs::create_dir_all(parent)?;
+                    fs.create_dir_all(parent)?;
                 }
-                fs::write(&abs, &bytes)?;
+                fs.write(&abs, &bytes)?;
                 report.written.push(path.clone());
             }
             FileState::Absent => {
-                if abs.exists() {
-                    fs::remove_file(&abs)?;
+                if fs.exists(&abs) {
+                    fs.remove_file(&abs)?;
                 }
                 report.deleted.push(path.clone());
             }
@@ -140,11 +144,20 @@ pub fn apply_all(
 /// untouched — those are either pristine or were created by a mod and the
 /// caller (apply engine) is responsible for cleaning them up.
 pub fn revert_to_vanilla(game_dir: &Path, vanilla: &VanillaStore) -> Result<RevertReport> {
+    revert_to_vanilla_with_fs(vanilla.fs(), game_dir, vanilla)
+}
+
+/// Restore every snapshotted file through an explicit filesystem port.
+pub fn revert_to_vanilla_with_fs(
+    fs: &dyn Fs,
+    game_dir: &Path,
+    vanilla: &VanillaStore,
+) -> Result<RevertReport> {
     let mut report = RevertReport::default();
-    if !vanilla.root().is_dir() {
+    if !fs.is_dir(vanilla.root()) {
         return Ok(report);
     }
-    walk_vanilla(vanilla.root(), vanilla.root(), game_dir, &mut report)?;
+    walk_vanilla(fs, vanilla.root(), vanilla.root(), game_dir, &mut report)?;
     Ok(report)
 }
 
@@ -153,21 +166,25 @@ pub struct RevertReport {
     pub restored: Vec<String>,
 }
 
-fn walk_vanilla(root: &Path, dir: &Path, game_dir: &Path, report: &mut RevertReport) -> Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            walk_vanilla(root, &path, game_dir, report)?;
-        } else if path.is_file() {
+fn walk_vanilla(
+    fs: &dyn Fs,
+    root: &Path,
+    dir: &Path,
+    game_dir: &Path,
+    report: &mut RevertReport,
+) -> Result<()> {
+    for path in fs.read_dir(dir)? {
+        if fs.is_dir(&path) {
+            walk_vanilla(fs, root, &path, game_dir, report)?;
+        } else if fs.is_file(&path) {
             let rel = path
                 .strip_prefix(root)
                 .map_err(|_| ModdingError::Malformed("vanilla path escaped root".into()))?;
             let dst = game_dir.join(rel);
             if let Some(parent) = dst.parent() {
-                fs::create_dir_all(parent)?;
+                fs.create_dir_all(parent)?;
             }
-            fs::copy(&path, &dst)?;
+            fs.write(&dst, &fs.read(&path)?)?;
             report.restored.push(rel.to_string_lossy().into_owned());
         }
     }
@@ -242,9 +259,11 @@ fn apply_one(
 mod tests {
     use super::*;
     use crate::modding::change::ChangeOp;
+    use crate::modding::resolution::FieldKey;
     use crate::modding::value::Value;
     use crate::references::extractor::Extractor;
     use crate::references::misc_item_db::MiscItem;
+    use std::fs;
     use std::io::Cursor;
     use tempfile::tempdir;
 

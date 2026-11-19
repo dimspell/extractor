@@ -2,8 +2,19 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, LitInt, LitStr, Type};
 
+use crate::schema::CodegenConfig;
+
 pub fn expand(input: DeriveInput) -> TokenStream2 {
+    codegen(&input, &CodegenConfig::default())
+}
+
+/// Generate the `Localizable` impl with an explicit path config.
+pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStream2 {
     let name = &input.ident;
+    let localizable_trait = config.localization(&["Localizable"]);
+    let text_entry = config.localization(&["TextEntry"]);
+    let truncate_to_fit = config.localization(&["truncate_to_fit"]);
+    let truncation_status = config.localization(&["TruncationStatus"]);
 
     let fields = match &input.data {
         Data::Struct(s) => match &s.fields {
@@ -29,13 +40,14 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             continue;
         };
 
-        let (encoding_tokens, max_bytes) = parse_translatable_args(attr);
+        let (encoding, max_bytes) = parse_translatable_args(attr);
+        let encoding_tokens = config.text_encoding(&encoding);
         let option_field = is_option_string(&field.ty);
 
         if option_field {
             extract_arms.push(quote! {
                 if let Some(ref text) = self.#field_ident {
-                    entries.push(crate::localization::TextEntry {
+                    entries.push(#text_entry {
                         file_path: file_path.to_owned(),
                         record_id,
                         field_name: #field_name_str,
@@ -49,23 +61,23 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             apply_arms.push(quote! {
                 #field_name_str => {
                     if !entry.translation.is_empty() {
-                        let (text, was_truncated) = crate::localization::truncate_to_fit(
+                        let (text, was_truncated) = #truncate_to_fit(
                             &entry.translation, &entry.encoding, entry.max_bytes,
                         );
                         self.#field_ident = Some(text);
                         statuses.push(if was_truncated {
-                            crate::localization::TruncationStatus::Truncated {
+                            #truncation_status::Truncated {
                                 original_bytes: entry.translation.len(),
                             }
                         } else {
-                            crate::localization::TruncationStatus::Ok
+                            #truncation_status::Ok
                         });
                     }
                 }
             });
         } else {
             extract_arms.push(quote! {
-                entries.push(crate::localization::TextEntry {
+                entries.push(#text_entry {
                     file_path: file_path.to_owned(),
                     record_id,
                     field_name: #field_name_str,
@@ -77,16 +89,16 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             });
             apply_arms.push(quote! {
                 #field_name_str => {
-                    let (text, was_truncated) = crate::localization::truncate_to_fit(
+                    let (text, was_truncated) = #truncate_to_fit(
                         &entry.translation, &entry.encoding, entry.max_bytes,
                     );
                     self.#field_ident = text;
                     statuses.push(if was_truncated {
-                        crate::localization::TruncationStatus::Truncated {
+                        #truncation_status::Truncated {
                             original_bytes: entry.translation.len(),
                         }
                     } else {
-                        crate::localization::TruncationStatus::Ok
+                        #truncation_status::Ok
                     });
                 }
             });
@@ -94,14 +106,14 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     }
 
     quote! {
-        impl crate::localization::Localizable for #name {
-            fn extract_texts(&self, record_id: usize, file_path: &str) -> Vec<crate::localization::TextEntry> {
+        impl #localizable_trait for #name {
+            fn extract_texts(&self, record_id: usize, file_path: &str) -> Vec<#text_entry> {
                 let mut entries = Vec::new();
                 #(#extract_arms)*
                 entries
             }
 
-            fn apply_texts(&mut self, entries: &[crate::localization::TextEntry]) -> Vec<crate::localization::TruncationStatus> {
+            fn apply_texts(&mut self, entries: &[#text_entry]) -> Vec<#truncation_status> {
                 let mut statuses = Vec::new();
                 for entry in entries {
                     match entry.field_name {
@@ -115,7 +127,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     }
 }
 
-fn parse_translatable_args(attr: &syn::Attribute) -> (TokenStream2, usize) {
+fn parse_translatable_args(attr: &syn::Attribute) -> (String, usize) {
     let mut encoding: Option<String> = None;
     let mut max_bytes: Option<usize> = None;
 
@@ -139,19 +151,9 @@ fn parse_translatable_args(attr: &syn::Attribute) -> (TokenStream2, usize) {
     let encoding = encoding.expect("#[translatable] requires encoding = \"...\"");
     let max_bytes = max_bytes.expect("#[translatable] requires max_bytes = N");
 
-    let encoding_tokens = match encoding.as_str() {
-        "WINDOWS-1250" | "WINDOWS_1250" => {
-            quote! { crate::localization::TextEncoding::Windows1250 }
-        }
-        "EUC-KR" | "EUC_KR" => quote! { crate::localization::TextEncoding::EucKr },
-        "UTF-8" | "UTF_8" => quote! { crate::localization::TextEncoding::Utf8 },
-        other => panic!(
-            "Unknown encoding '{}' in #[translatable]; expected WINDOWS-1250, EUC-KR, or UTF-8",
-            other
-        ),
-    };
-
-    (encoding_tokens, max_bytes)
+    // Token generation stays in `codegen`, where `CodegenConfig` resolves the
+    // spelling through the shared encoding registry and supplies the module path.
+    (encoding, max_bytes)
 }
 
 fn is_option_string(ty: &Type) -> bool {

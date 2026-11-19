@@ -1,25 +1,15 @@
 use std::error::Error;
 
+use crate::cli::SchemaArgs;
 use crate::commands::Command;
 use crate::commands::registry::{self, FileType};
 
-#[derive(clap::Args, Clone)]
-pub struct SchemaArgs {
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-}
-
-pub struct SchemaCommand {
-    pub args: SchemaArgs,
-}
-
-impl Command for SchemaCommand {
+impl Command for SchemaArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
+        let file_type = registry::get_by_key(&self.r#type).ok_or_else(|| {
             format!(
                 "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
+                self.r#type,
                 registry::format_type_list()
             )
         })?;
@@ -46,22 +36,24 @@ fn generate_json_schema(ft: &FileType) -> serde_json::Value {
         _ => {}
     }
 
-    let fields = registry::get_type_fields(ft.key);
-
     let mut properties = serde_json::Map::new();
-    for field in &fields {
-        properties.insert(field.clone(), infer_json_type(field));
+    for field in &ft.fields {
+        properties.insert(
+            field.name.to_string(),
+            serde_json::json!({ "type": field.ty.as_schema_type() }),
+        );
     }
+    let required: Vec<&str> = ft.field_names().collect();
 
     serde_json::json!({
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": format!("{} records", ft.key),
+        "title": format!("{} records", ft.record_type),
         "description": ft.description,
         "type": "array",
         "items": {
             "type": "object",
             "properties": properties,
-            "required": fields,
+            "required": required,
         }
     })
 }
@@ -222,33 +214,4 @@ fn generate_tileset_schema(key: &str) -> serde_json::Value {
             "note": { "type": "string" }
         }
     })
-}
-
-fn infer_json_type(field: &str) -> serde_json::Value {
-    let string_fields = [
-        "name",
-        "description",
-        "filename",
-        "sprite",
-        "script",
-        "map_filename",
-        "map_name",
-        "pgp_filename",
-        "dlg_filename",
-        "sprite_filename",
-        "snf_filename",
-        "title",
-        "text",
-        "comment",
-    ];
-    let boolean_fields = ["flag", "is_oversize", "is_undead", "has_blood", "lighting"];
-
-    if string_fields.contains(&field) {
-        return serde_json::json!({ "type": "string" });
-    }
-    if boolean_fields.contains(&field) || field.starts_with("is_") || field.starts_with("has_") {
-        return serde_json::json!({ "type": "boolean" });
-    }
-
-    serde_json::json!({ "type": "integer" })
 }

@@ -3,7 +3,10 @@
 //! This library provides parsers and data structures for Dispel game files.
 //! It's used by both the CLI extractor and the GUI editor.
 
+pub mod cli;
+pub mod commands;
 pub mod database;
+pub mod decode;
 pub mod localization;
 pub mod map;
 pub mod modding;
@@ -21,6 +24,7 @@ pub use localization::{
 pub use references::{
     all_map_ini::Map,
     chdata_db::ChData,
+    chest_spawn::ChestSpawn,
     dialogue_paragraph::DialogueParagraph,
     dialogue_script::DialogueScript,
     draw_item::DrawItem,
@@ -36,12 +40,14 @@ pub use references::{
     extractor::Extractor,
     heal_item_db::HealItem,
     magic_db::MagicSpell,
+    map_info_multi::{IfmNpcSpawn, MapInfoMulti},
     map_ini::MapIni,
     message_scr::Message,
     misc_item_db::MiscItem,
     monster_db::Monster,
     monster_ini::MonsterIni,
     monster_ref::MonsterRef,
+    monster_spawn::MonsterSpawn,
     npc_ini::NpcIni,
     npc_ref::NPC,
     party_ini_db::PartyIniNpc,
@@ -52,7 +58,9 @@ pub use references::{
         CharacterIdentity, InventoryData, JournalData, JournalEntry, MapSectionData,
         MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
     },
+    save_ifo::{SavTail, SaveIfo, SaveSlotInfo, SlotSummary, summarize_slots, swap_slots},
     store_db::Store,
+    tile_grid::TileGrid,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,
 };

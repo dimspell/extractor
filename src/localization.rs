@@ -3,24 +3,12 @@
 
 use std::collections::HashMap;
 
+// `TextEncoding` (accepted spellings, labels and `encoding_rs` mapping) lives
+// in the shared `dispel-encodings` registry so the derive macros and the
+// runtime helpers cannot drift apart.
+pub use dispel_encodings::TextEncoding;
+
 // ─── Core types ─────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TextEncoding {
-    Windows1250,
-    EucKr,
-    Utf8,
-}
-
-impl TextEncoding {
-    pub fn label(&self) -> &'static str {
-        match self {
-            TextEncoding::Windows1250 => "WINDOWS-1250",
-            TextEncoding::EucKr => "EUC-KR",
-            TextEncoding::Utf8 => "UTF-8",
-        }
-    }
-}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TextEntry {
@@ -68,11 +56,7 @@ pub trait Localizable {
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
 fn encoding_rs_for(enc: &TextEncoding) -> &'static encoding_rs::Encoding {
-    match enc {
-        TextEncoding::Windows1250 => encoding_rs::WINDOWS_1250,
-        TextEncoding::EucKr => encoding_rs::EUC_KR,
-        TextEncoding::Utf8 => encoding_rs::UTF_8,
-    }
+    enc.encoding_rs()
 }
 
 fn encoded_len(s: &str, enc: &TextEncoding) -> usize {
@@ -360,5 +344,70 @@ mod tests {
         assert!(e.is_translated());
         e.translation = e.original.clone();
         assert!(!e.is_translated());
+    }
+
+    #[test]
+    fn every_accepted_encoding_spelling_resolves_identically() {
+        // The derive macros use the very same `dispel-encodings` registry, so
+        // checking every spelling here guarantees attribute strings and the
+        // runtime `TextEncoding` cannot disagree.
+        for encoding in TextEncoding::ALL {
+            for spelling in encoding.spellings() {
+                assert_eq!(
+                    TextEncoding::from_spelling(spelling),
+                    Some(encoding),
+                    "spelling {spelling:?} must resolve to {encoding:?}"
+                );
+                assert_eq!(
+                    encoding_rs_for(&TextEncoding::from_spelling(spelling).unwrap()).name(),
+                    encoding.encoding_rs().name(),
+                );
+            }
+        }
+    }
+
+    /// A real derive-based record, exercising both a required `String` field
+    /// and an `Option<String>` field with non-UTF-8 encodings.
+    #[derive(Default, dispel_macros::Localizable)]
+    struct LocalizedStore {
+        id: u32,
+        #[translatable(encoding = "EUC-KR", max_bytes = 32)]
+        name: String,
+        #[translatable(encoding = "WINDOWS-1250", max_bytes = 16)]
+        note: Option<String>,
+    }
+
+    #[test]
+    fn localizable_struct_round_trips_non_utf8_encoding() {
+        let mut record = LocalizedStore {
+            id: 7,
+            name: "상점".to_owned(),
+            note: Some("Witaj".to_owned()),
+        };
+        assert_eq!(record.id, 7);
+        let mut entries = record.extract_texts(7, "CharacterInGame/STORE.DB");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].field_name, "name");
+        assert_eq!(entries[0].encoding, TextEncoding::EucKr);
+        assert_eq!(entries[1].field_name, "note");
+        assert_eq!(entries[1].encoding, TextEncoding::Windows1250);
+
+        entries[0].translation = "무기 상점".to_owned();
+        entries[1].translation = "Sklep z bronią".to_owned();
+        let statuses = record.apply_texts(&entries);
+        assert!(statuses.iter().all(|s| matches!(s, TruncationStatus::Ok)));
+        assert_eq!(record.name, "무기 상점");
+        assert_eq!(record.note.as_deref(), Some("Sklep z bronią"));
+
+        // Verify the stored text really round-trips through the declared
+        // non-UTF-8 codecs and stays within the declared byte budgets.
+        let (name_bytes, _, name_errors) = encoding_rs::EUC_KR.encode(&record.name);
+        assert!(!name_errors);
+        assert!(name_bytes.len() <= 32);
+        let (note_bytes, _, note_errors) =
+            encoding_rs::WINDOWS_1250.encode(record.note.as_deref().unwrap());
+        assert!(!note_errors);
+        assert!(note_bytes.len() <= 16);
+        assert_eq!(encoding_rs::EUC_KR.decode(&name_bytes).0, "무기 상점");
     }
 }

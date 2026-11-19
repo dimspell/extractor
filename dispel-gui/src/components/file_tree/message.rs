@@ -18,4 +18,8 @@ pub enum FileTreeMessage {
     ExtractToJson(PathBuf),
     ValidateFile(PathBuf),
     ShowInFileManager(PathBuf),
+    CopyAbsolutePath(PathBuf),
+    CopyRelativePath(PathBuf),
+    /// Acknowledgement for a completed clipboard write (no-op).
+    ClipboardWriteComplete,
 }

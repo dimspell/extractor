@@ -1,70 +1,43 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, LitInt};
+use syn::DeriveInput;
 
-use crate::extractor_impl::{FieldInfo, parse_extractor_attr};
+use crate::schema::{CodegenConfig, RecordSchema};
 
+/// Generate `RecordLayout` metadata from the shared record schema.
 pub(crate) fn derive_record_layout(input: &DeriveInput) -> TokenStream {
-    let name = &input.ident;
-    let fields = match &input.data {
-        Data::Struct(data) => match &data.fields {
-            syn::Fields::Named(fields) => &fields.named,
-            _ => panic!("RecordLayout only supports structs with named fields"),
-        },
-        _ => panic!("RecordLayout can only be derived for structs"),
-    };
+    derive_record_layout_with_config(input, &CodegenConfig::default())
+}
 
-    let mut header_size = 4u32;
-    let mut record_size = None;
-    for attr in &input.attrs {
-        if attr.path().is_ident("extractor") {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("counter_size") {
-                    let value = meta.value()?;
-                    header_size = value.parse::<LitInt>()?.base10_parse()?;
-                } else if meta.path.is_ident("property_item_size") {
-                    let value = meta.value()?;
-                    record_size = Some(value.parse::<LitInt>()?.base10_parse::<u32>()?);
+/// Same codegen with an explicit path configuration (used by the tests).
+pub(crate) fn derive_record_layout_with_config(
+    input: &DeriveInput,
+    config: &CodegenConfig,
+) -> TokenStream {
+    let name = &input.ident;
+    let schema = RecordSchema::parse(input);
+    schema.assert_layout_consistent(&name.to_string());
+
+    let header_size = schema.counter_size as u32;
+    let record_size = schema.property_item_size as u32;
+    let field_def = config.layout("FieldDef");
+    let defs = schema
+        .layout_fields()
+        .into_iter()
+        .map(|(field_name, offset, size, ty)| {
+            quote! {
+                #field_def {
+                    name: #field_name, offset: #offset, size: #size, ty: #ty,
                 }
-                Ok(())
-            })
-            .expect("failed to parse #[extractor(...)]");
-        }
-    }
-    let record_size = record_size.expect("RecordLayout requires property_item_size");
-    let mut offset = 0u32;
-    let mut defs = Vec::new();
-    for field in fields {
-        let ident = field.ident.as_ref().expect("named field");
-        let Some(attr) = field
-            .attrs
-            .iter()
-            .find(|attr| attr.path().is_ident("extractor"))
-        else {
-            continue;
-        };
-        let (info, _counter, _item_size) = parse_extractor_attr(attr, ident, &field.ty);
-        let Some(info) = info else { continue };
-        let Some((size, ty)) = field_size_and_type(&info) else {
-            continue;
-        };
-        let field_name = ident.to_string();
-        defs.push(quote! {
-            crate::references::layout::FieldDef {
-                name: #field_name, offset: #offset, size: #size, ty: #ty,
             }
         });
-        offset += size;
-    }
-    if offset != record_size {
-        panic!(
-            "RecordLayout fields for {} occupy {offset} bytes, but property_item_size is {record_size}",
-            name
-        );
-    }
+
+    let record_layout_trait = config.layout("RecordLayout");
+    let fixed_layout = config.layout("FixedRecordLayout");
+
     quote! {
-        impl crate::references::layout::RecordLayout for #name {
-            const LAYOUT: crate::references::layout::FixedRecordLayout = crate::references::layout::FixedRecordLayout {
+        impl #record_layout_trait for #name {
+            const LAYOUT: #fixed_layout = #fixed_layout {
                 type_name: stringify!(#name), header_size: #header_size, record_size: #record_size,
                 fields: &[#(#defs),*],
             };
@@ -72,35 +45,47 @@ pub(crate) fn derive_record_layout(input: &DeriveInput) -> TokenStream {
     }
 }
 
-fn field_size_and_type(info: &FieldInfo<'_>) -> Option<(u32, String)> {
-    let scalar = |ty: &str| match ty {
-        "u8" | "i8" => 1,
-        "u16" | "i16" => 2,
-        "u32" | "i32" => 4,
-        _ => panic!("unsupported layout scalar type: {ty}"),
-    };
-    match info {
-        FieldInfo::Id { .. } | FieldInfo::Index { .. } | FieldInfo::Skip => None,
-        FieldInfo::String { encoding, size, .. } => {
-            Some((*size as u32, format!("string({encoding})")))
-        }
-        FieldInfo::Primitive { ty, .. } => Some((scalar(ty), ty.clone())),
-        FieldInfo::EnumFromU8 { enum_ty, .. } | FieldInfo::EnumFromI32FromU8 { enum_ty, .. } => {
-            Some((1, enum_ty.clone()))
-        }
-        FieldInfo::EnumFromU32 { enum_ty, .. } | FieldInfo::EnumFromI32 { enum_ty, .. } => {
-            Some((4, enum_ty.clone()))
-        }
-        FieldInfo::EnumFromI16 { enum_ty, .. } => Some((2, enum_ty.clone())),
-        FieldInfo::VecU8 { size, .. } => Some((*size as u32, "bytes".into())),
-        FieldInfo::InventoryItem { wire_type, .. } => {
-            Some((scalar(wire_type), format!("InventoryItem({wire_type})")))
-        }
-        FieldInfo::Padding { count, ty, .. } => {
-            Some(((*count as u32) * scalar(ty), format!("padding({ty})")))
-        }
-        FieldInfo::Array { size, ty, .. } => {
-            Some(((*size as u32) * scalar(ty), format!("[{ty}; {size}]")))
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn test_generated_layout_matches_schema_offsets() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 26, counter_size = 0)]
+            struct Sample {
+                #[extractor(index)]
+                id: i32,
+                #[extractor(string(encoding = "EUC-KR", size = 24))]
+                name: String,
+                #[extractor(primitive(type = "i16"))]
+                value: i16,
+            }
+        };
+        let tokens = derive_record_layout(&input).to_string();
+        assert!(tokens.contains("crate :: references :: layout :: RecordLayout for Sample"));
+        assert!(tokens.contains("header_size : 0u32 , record_size : 26u32"));
+        assert!(tokens.contains("name : \"name\" , offset : 0u32 , size : 24u32"));
+        assert!(tokens.contains("name : \"value\" , offset : 24u32 , size : 2u32"));
+    }
+
+    #[test]
+    fn test_generated_layout_paths_follow_config() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 4)]
+            struct Sample {
+                #[extractor(primitive(type = "i32"))]
+                value: i32,
+            }
+        };
+        let config = CodegenConfig {
+            references_mod: "renamed_refs".into(),
+            ..CodegenConfig::default()
+        };
+        let tokens = derive_record_layout_with_config(&input, &config).to_string();
+        assert!(tokens.contains("crate :: renamed_refs :: layout :: RecordLayout for Sample"));
+        assert!(tokens.contains("crate :: renamed_refs :: layout :: FieldDef"));
+        assert!(!tokens.contains("crate :: references ::"));
     }
 }

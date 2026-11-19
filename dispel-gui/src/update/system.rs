@@ -3,111 +3,13 @@
 use crate::app::App;
 use crate::components::FileTree;
 use crate::components::utils::browse_folder;
-use crate::editors::all_map_ini::AllMapIniEditorMessage;
-use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::draw_item::DrawItemEditorMessage;
-use crate::editors::edit_item::EditItemEditorMessage;
-use crate::editors::event_ini::EventIniEditorMessage;
-use crate::editors::event_item::EventItemEditorMessage;
-use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
-use crate::editors::event_scr::EventScrEditorMessage;
-use crate::editors::extra_ini::ExtraIniEditorMessage;
-use crate::editors::heal_item::HealItemEditorMessage;
-use crate::editors::magic::MagicEditorMessage;
+use crate::editor_catalog::save_task_for_editor;
 use crate::editors::map_editor::MapEditorMessage;
-use crate::editors::map_ini::MapIniEditorMessage;
-use crate::editors::message_scr::MessageScrEditorMessage;
-use crate::editors::misc_item::MiscItemEditorMessage;
-use crate::editors::monster::MonsterEditorMessage;
-use crate::editors::monster_ini::MonsterIniEditorMessage;
-use crate::editors::npc_ini::NpcIniEditorMessage;
-use crate::editors::party_ini::PartyIniEditorMessage;
-use crate::editors::party_level_db::PartyLevelDbEditorMessage;
-use crate::editors::party_ref::PartyRefEditorMessage;
-use crate::editors::quest_scr::QuestScrEditorMessage;
-use crate::editors::store::StoreEditorMessage;
-use crate::editors::wave_ini::WaveIniEditorMessage;
-use crate::editors::weapon::WeaponEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
 use crate::message::{Message, MessageExt, system::SystemMessage};
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
-
-/// Returns a `Task` that dispatches `Save` to the given editor type, or
-/// `None` if the editor type does not support saving via Ctrl+S.
-fn save_task_for_editor(
-    editor_type: EditorType,
-    tab_id: usize,
-) -> Option<Task<crate::message::Message>> {
-    if !editor_type.supports_save() {
-        return None;
-    }
-    Some(Task::done(match editor_type {
-        // Standard editors (define_standard_editor! macro)
-        EditorType::WeaponEditor => Message::weapon(WeaponEditorMessage::Save),
-        EditorType::MonsterEditor => Message::monster(MonsterEditorMessage::Save),
-        EditorType::MonsterIniEditor => Message::monster_ini(MonsterIniEditorMessage::Save),
-        EditorType::HealItemEditor => Message::heal_item(HealItemEditorMessage::Save),
-        EditorType::MiscItemEditor => Message::misc_item(MiscItemEditorMessage::Save),
-        EditorType::EditItemEditor => Message::edit_item(EditItemEditorMessage::Save),
-        EditorType::EventItemEditor => Message::event_item(EventItemEditorMessage::Save),
-        EditorType::NpcIniEditor => Message::npc_ini(NpcIniEditorMessage::Save),
-        EditorType::MagicEditor => Message::magic(MagicEditorMessage::Save),
-        EditorType::PartyRefEditor => Message::party_ref(PartyRefEditorMessage::Save),
-        EditorType::PartyIniEditor => Message::party_ini(PartyIniEditorMessage::Save),
-        EditorType::AllMapIniEditor => Message::all_map_ini(AllMapIniEditorMessage::Save),
-        EditorType::DrawItemEditor => Message::draw_item(DrawItemEditorMessage::Save),
-        EditorType::EventIniEditor => Message::event_ini(EventIniEditorMessage::Save),
-        EditorType::EventNpcRefEditor => Message::event_npc_ref(EventNpcRefEditorMessage::Save),
-        EditorType::ExtraIniEditor => Message::extra_ini(ExtraIniEditorMessage::Save),
-        EditorType::MapIniEditor => Message::map_ini(MapIniEditorMessage::Save),
-        EditorType::MessageScrEditor => Message::message_scr(MessageScrEditorMessage::Save),
-        EditorType::QuestScrEditor => Message::quest_scr(QuestScrEditorMessage::Save),
-        EditorType::WaveIniEditor => Message::wave_ini(WaveIniEditorMessage::Save),
-        EditorType::ChDataEditor => Message::chdata(ChDataEditorMessage::Save),
-
-        // Custom editors with Save support
-        EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
-        EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
-
-        // Sprite editor
-        EditorType::SpriteViewer => {
-            Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
-        }
-
-        // Map editor uses SaveEntities with tab_id
-        EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
-
-        // EventScr script editor
-        EditorType::EventScrEditor => Message::event_scr(EventScrEditorMessage::SaveScript),
-
-        // Tabbed editors — they define a Save variant via define_tab_editor!
-        EditorType::DialogueScriptEditor => Message::dialogue_script(
-            crate::editors::dialogue_script::DialogueScriptEditorMessage::Save,
-        ),
-        EditorType::DialogueTextEditor => Message::dialogue_paragraph(
-            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save,
-        ),
-        EditorType::ExtraRefEditor => {
-            Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Save)
-        }
-        EditorType::MonsterRefEditor => {
-            Message::monster_ref(crate::editors::monster_ref::MonsterRefEditorMessage::Save)
-        }
-        EditorType::NpcRefEditor => {
-            Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Save)
-        }
-
-        // Safety net: supports_save() returned true but we're missing an arm.
-        // This is a programming error — the editor should either be listed above
-        // or removed from supports_save().
-        _ => unreachable!(
-            "save_task_for_editor: {:?} claims supports_save() but has no dispatch arm",
-            editor_type
-        ),
-    }))
-}
 
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {

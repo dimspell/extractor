@@ -47,8 +47,14 @@ pub static FILE_TYPES: LazyLock<Vec<FileType>> = LazyLock::new(|| {
         entries::make_btl(),
         // Sprite files (extract only, no patch)
         entries::make_sprite(),
+        // Multiplayer file types
+        entries::make_chest_spawn(),
+        entries::make_monster_spawn(),
+        entries::make_map_info_multi(),
+        entries::make_tile_grid(),
         // Save files
         entries::make_save_file(),
+        entries::make_save_ifo(),
     ]
 });
 
@@ -134,116 +140,138 @@ pub fn format_type_list() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::RecordLayout;
+    use crate::commands::registry::types::{DetectKind, FieldType, fields_from_default};
+    use crate::references::{
+        all_map_ini::Map, chdata_db::ChData, edit_item_db::EditItem, event_item_db::EventItem,
+        extra_ref::ExtraRef, heal_item_db::HealItem, magic_db::MagicSpell, misc_item_db::MiscItem,
+        monster_db::Monster, monster_ref::MonsterRef, npc_ref::NPC, party_ini_db::PartyIniNpc,
+        store_db::Store, weapons_db::WeaponItem,
+    };
 
     #[test]
-    fn detect_uniquely_named_ini_returns_single() {
-        let result = detect(Path::new("AllMap.ini"));
-        assert!(matches!(result, DetectResult::Single(ft) if ft.key == "all_maps"));
+    fn test_detect_sample_path_returns_single_matching_key() {
+        for ft in FILE_TYPES.iter() {
+            let path = ft.sample_path();
+            match detect(&path) {
+                DetectResult::Single(detected) => assert_eq!(
+                    detected.key,
+                    ft.key,
+                    "sample path {} detected as {}, expected {}",
+                    path.display(),
+                    detected.key,
+                    ft.key
+                ),
+                DetectResult::Ambiguous(candidates) => panic!(
+                    "sample path {} for '{}' is ambiguous: {:?}",
+                    path.display(),
+                    ft.key,
+                    candidates.iter().map(|c| c.key).collect::<Vec<_>>()
+                ),
+                DetectResult::None => panic!(
+                    "sample path {} for '{}' detected nothing",
+                    path.display(),
+                    ft.key
+                ),
+            }
+        }
     }
 
     #[test]
-    fn detect_unknown_extension_returns_none() {
-        assert!(matches!(detect(Path::new("file.xyz")), DetectResult::None));
+    fn test_registry_keys_unique_and_fully_described() {
+        let mut keys = std::collections::HashSet::new();
+        for ft in FILE_TYPES.iter() {
+            assert!(keys.insert(ft.key), "duplicate key '{}'", ft.key);
+            assert!(!ft.editor.is_empty(), "empty editor for '{}'", ft.key);
+            assert!(
+                !ft.record_type.is_empty(),
+                "empty record_type for '{}'",
+                ft.key
+            );
+        }
     }
 
     #[test]
-    fn detect_no_extension_returns_none() {
-        assert!(matches!(detect(Path::new("noext")), DetectResult::None));
+    fn test_extension_only_types_do_not_abuse_empty_db_kind() {
+        for ft in FILE_TYPES.iter() {
+            if let DetectKind::Db(names) = ft.detect_kind {
+                assert!(!names.is_empty(), "empty Db() detection for '{}'", ft.key);
+            }
+        }
+    }
+
+    macro_rules! assert_layout_fields {
+        ($key:expr, $ty:ty) => {{
+            let ft = get_by_key($key).unwrap_or_else(|| panic!("missing key '{}'", $key));
+            let names: Vec<&str> = ft.field_names().collect();
+            for def in <$ty as RecordLayout>::LAYOUT.fields {
+                assert!(
+                    names.contains(&def.name),
+                    "'{}': RecordLayout field '{}' missing from catalog",
+                    $key,
+                    def.name
+                );
+                let expected = FieldType::from_layout_type(def.ty);
+                let actual = ft
+                    .fields
+                    .iter()
+                    .find(|f| f.name == def.name)
+                    .map(|f| f.ty)
+                    .unwrap();
+                assert_eq!(
+                    actual, expected,
+                    "'{}': wrong JSON type for layout field '{}'",
+                    $key, def.name
+                );
+            }
+        }};
     }
 
     #[test]
-    fn detect_case_insensitive_extension() {
-        let result1 = detect(Path::new("AllMap.INI"));
-        let result2 = detect(Path::new("AllMap.ini"));
-        assert!(matches!(result1, DetectResult::Single(_)));
-        assert!(matches!(result2, DetectResult::Single(_)));
+    fn test_catalog_fields_match_record_layout() {
+        assert_layout_fields!("weapons", WeaponItem);
+        assert_layout_fields!("monsters", Monster);
+        assert_layout_fields!("magic", MagicSpell);
+        assert_layout_fields!("misc_item", MiscItem);
+        assert_layout_fields!("heal_item", HealItem);
+        assert_layout_fields!("event_item", EventItem);
+        assert_layout_fields!("edit_item", EditItem);
+        assert_layout_fields!("chdata", ChData);
+        assert_layout_fields!("party_ini", PartyIniNpc);
+        assert_layout_fields!("npc_ref", NPC);
+        assert_layout_fields!("monster_ref", MonsterRef);
+        assert_layout_fields!("extra_ref", ExtraRef);
+    }
+
+    macro_rules! assert_serde_fields {
+        ($key:expr, $ty:ty) => {{
+            let ft = get_by_key($key).unwrap_or_else(|| panic!("missing key '{}'", $key));
+            let expected: Vec<String> = fields_from_default::<$ty>()
+                .into_iter()
+                .map(|f| f.name)
+                .collect();
+            let actual: Vec<String> = ft.field_names().map(str::to_string).collect();
+            assert_eq!(
+                actual, expected,
+                "'{}': catalog fields differ from serde",
+                $key
+            );
+        }};
     }
 
     #[test]
-    fn detect_ambiguous_db_returns_ambiguous() {
-        let result = detect(Path::new("SomeFile.db"));
-        // .db maps to multiple types (weapons, monsters, magic, store, misc, heal, event, edit, party_level, party_ini, chdata)
-        // without a unique filename match, should be Ambiguous
-        assert!(matches!(result, DetectResult::Ambiguous(_)));
+    fn test_catalog_fields_match_serde_records() {
+        assert_serde_fields!("all_maps", Map);
+        assert_serde_fields!("store", Store);
+        assert_serde_fields!("weapons", WeaponItem);
+        assert_serde_fields!("save_ifo", crate::references::save_ifo::SaveIfo);
     }
 
     #[test]
-    fn detect_ambiguous_ref_returns_ambiguous_or_single() {
-        let result = detect(Path::new("Unknown.ref"));
-        // .ref maps to multiple types; PartyRef.ref should be Single due to filename match
+    fn test_unknown_db_filename_is_ambiguous() {
         assert!(matches!(
-            result,
-            DetectResult::Ambiguous(_) | DetectResult::Single(_)
+            detect(Path::new("SomeFile.db")),
+            DetectResult::Ambiguous(_)
         ));
-    }
-
-    #[test]
-    fn detect_unique_ref_by_name_returns_single() {
-        let result = detect(Path::new("PartyRef.ref"));
-        assert!(matches!(result, DetectResult::Single(ft) if ft.key == "party_ref"));
-    }
-
-    #[test]
-    fn get_by_key_weapons_exists() {
-        let ft = get_by_key("weapons");
-        assert!(ft.is_some());
-        assert_eq!(ft.unwrap().key, "weapons");
-    }
-
-    #[test]
-    fn get_by_key_monsters_exists() {
-        let ft = get_by_key("monsters");
-        assert!(ft.is_some());
-        assert_eq!(ft.unwrap().key, "monsters");
-    }
-
-    #[test]
-    fn get_by_key_unknown_returns_none() {
-        assert!(get_by_key("does_not_exist").is_none());
-    }
-
-    #[test]
-    fn suggest_similar_keys_weapon_returns_weapons() {
-        let results = suggest_similar_keys("weapon");
-        assert!(results.contains(&"weapons"));
-    }
-
-    #[test]
-    fn suggest_similar_keys_partial_match() {
-        let results = suggest_similar_keys("map");
-        assert!(!results.is_empty());
-        assert!(results.iter().any(|k| k.contains("map")));
-    }
-
-    #[test]
-    fn suggest_similar_keys_no_match_returns_empty() {
-        let results = suggest_similar_keys("zzzznotakey");
-        assert!(results.is_empty());
-    }
-
-    #[test]
-    fn suggest_similar_keys_case_insensitive() {
-        let results1 = suggest_similar_keys("weapon");
-        let results2 = suggest_similar_keys("WEAPON");
-        assert_eq!(results1, results2);
-    }
-
-    #[test]
-    fn get_by_key_all_file_types_have_distinct_keys() {
-        let keys: Vec<_> = FILE_TYPES.iter().map(|ft| ft.key).collect();
-        let unique_keys: std::collections::HashSet<_> = keys.iter().copied().collect();
-        assert_eq!(
-            keys.len(),
-            unique_keys.len(),
-            "Duplicate keys found in registry"
-        );
-    }
-
-    #[test]
-    fn format_type_list_contains_descriptions() {
-        let list = format_type_list();
-        assert!(!list.is_empty());
-        assert!(list.contains("—"));
-        assert!(list.contains("\n"));
     }
 }

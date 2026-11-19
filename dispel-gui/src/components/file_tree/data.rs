@@ -402,7 +402,7 @@ fn render_node<'a>(
             icon_char(Icon::ChevronRight)
         };
 
-        button(
+        let dir_btn = button(
             row![
                 text(caret_char)
                     .font(LUCIDE_FONT)
@@ -421,8 +421,25 @@ fn render_node<'a>(
             right: 4.0,
             bottom: 3.0,
             left: 6.0,
-        })
-        .into()
+        });
+
+        let entries = vec![
+            Entry::item(
+                "Show in File Manager",
+                FileTreeMessage::ShowInFileManager(node.path.clone()),
+            ),
+            Entry::separator(),
+            Entry::item(
+                "Copy Absolute Path",
+                FileTreeMessage::CopyAbsolutePath(node.path.clone()),
+            ),
+            Entry::item(
+                "Copy Relative Path",
+                FileTreeMessage::CopyRelativePath(node.path.clone()),
+            ),
+        ];
+
+        ContextMenu::new(dir_btn, entries).into()
     } else {
         let name_element = create_highlighted_text(&node.name, tree_filter.search_query());
 
@@ -455,6 +472,15 @@ fn render_node<'a>(
             Entry::item(
                 "Show in File Manager",
                 FileTreeMessage::ShowInFileManager(node.path.clone()),
+            ),
+            Entry::separator(),
+            Entry::item(
+                "Copy Absolute Path",
+                FileTreeMessage::CopyAbsolutePath(node.path.clone()),
+            ),
+            Entry::item(
+                "Copy Relative Path",
+                FileTreeMessage::CopyRelativePath(node.path.clone()),
             ),
         ];
 

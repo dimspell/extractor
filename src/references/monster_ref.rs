@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{BooleanFlag, InventoryItem, ItemTypeId, TriStateFlag};
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, RecordPatcher};
+use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +65,7 @@ use serde::{Deserialize, Serialize};
 /// Defines monster placements on specific maps with position,
 /// event triggers, and loot configurations. Used by game engine
 /// for monster spawning and encounter design.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher, RecordLayout)]
 #[extractor(property_item_size = 56)]
 #[patcher(extension = "ref", stem_prefix = "mon")]
 pub struct MonsterRef {
@@ -127,7 +127,7 @@ pub fn save_monster_refs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monster_refs"))?;
         for monster_ref in monster_refs {
             stmt.execute(params![
                 file_id,

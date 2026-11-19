@@ -190,7 +190,7 @@ pub fn save_dialogs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_scripts.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("dialogue_scripts"))?;
         for dialog in dialogs {
             stmt.execute(params![
                 dialog_file_id,

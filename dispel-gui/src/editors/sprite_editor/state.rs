@@ -50,6 +50,8 @@ pub struct SpriteViewerState {
     pub selected_frame: usize,
     pub frames: Vec<SpriteFrame>,
     pub error: Option<String>,
+    /// Show raw `0x0000` pixels as opaque black instead of transparent.
+    pub preserve_black: bool,
     // Editing
     pub dirty: bool,
     pub undo_stack: Vec<SpriteFile>,
@@ -83,6 +85,7 @@ impl Default for SpriteViewerState {
             selected_frame: 0,
             frames: Vec::new(),
             error: None,
+            preserve_black: false,
             dirty: false,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -202,7 +205,7 @@ impl SpriteViewerState {
         }
     }
 
-    /// Rebuild `self.frames` from `self.sprite_file` by decoding all RGB565
+    /// Rebuild `self.frames` from `self.sprite_file` by decoding all 16-bit
     /// pixel data to RGBA and creating iced image handles.
     ///
     /// Call this after any edit to `sprite_file` to keep the display in sync.
@@ -222,7 +225,7 @@ impl SpriteViewerState {
                 let w = frame.width.max(0) as u32;
                 let h = frame.height.max(0) as u32;
                 let rgba = if w > 0 && h > 0 {
-                    frame.decode_to_rgba()
+                    frame.decode_to_rgba_with_black(self.preserve_black)
                 } else {
                     Vec::new()
                 };

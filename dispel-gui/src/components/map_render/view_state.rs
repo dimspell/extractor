@@ -1,4 +1,4 @@
-use crate::editors::map_editor::message::{MapViewMode, SelectedEntity};
+use crate::editors::map_editor::message::{MapTool, MapViewMode, ObjectBrushMode, SelectedEntity};
 use iced::widget::canvas;
 
 /// Viewport, layer-visibility, and cursor state for the map canvas.
@@ -15,14 +15,23 @@ pub struct MapViewState {
     pub show_ground: bool,
     pub show_buildings: bool,
     pub show_roofs: bool,
+    /// Observed shadow/lighting pass (fog-of-war on Dark maps).
+    pub show_shadows: bool,
     pub show_internal_sprites: bool,
     pub show_collisions: bool,
     pub show_events: bool,
+    /// Tiles whose event word marks the player as being under a roof.
+    pub show_under_roof_markers: bool,
+    /// Player/camera anchors where a native visible-area scan blocks a spell cast.
+    pub show_no_spell_cast_zones: bool,
+    /// Roof overlays that can draw on dark maps.
+    pub show_btl_overlays_in_dark_maps: bool,
     pub show_monsters: bool,
     pub show_npcs: bool,
     pub show_npc_waypoints: bool,
     pub show_objects: bool,
     pub show_draw_items: bool,
+    pub show_object_ids: bool,
     /// Last known cursor position in canvas-local pixel coordinates.
     /// Set to f32::NAN when the cursor is not over the canvas.
     pub cursor_canvas_x: f32,
@@ -33,6 +42,13 @@ pub struct MapViewState {
     pub last_canvas_h: f32,
     /// Which top-level view is shown (map canvas or sprite browser).
     pub view_mode: MapViewMode,
+    /// Active editing tool. Editing a layer requires selecting its tool;
+    /// layer visibility alone no longer enables editing.
+    pub active_tool: MapTool,
+    /// How the object-id brush is applied when the ObjectId tool clicks a tile.
+    pub object_brush_mode: ObjectBrushMode,
+    /// Whether the layers dropdown popover is open.
+    pub layers_popover_open: bool,
     /// Selected sprite sequence index in the Sprites browser.
     pub selected_sprite_sequence: Option<usize>,
     /// Currently selected entity in the inspector panel.
@@ -61,19 +77,27 @@ impl Default for MapViewState {
             show_ground: true,
             show_buildings: true,
             show_roofs: true,
+            show_shadows: true,
             show_internal_sprites: true,
             show_collisions: false,
             show_events: false,
+            show_under_roof_markers: false,
+            show_no_spell_cast_zones: false,
+            show_btl_overlays_in_dark_maps: false,
             show_monsters: true,
             show_npcs: true,
             show_npc_waypoints: false,
             show_objects: true,
             show_draw_items: true,
+            show_object_ids: false,
             cursor_canvas_x: f32::NAN,
             cursor_canvas_y: f32::NAN,
             last_canvas_w: 1200.0,
             last_canvas_h: 800.0,
             view_mode: MapViewMode::Map,
+            active_tool: MapTool::Pan,
+            object_brush_mode: ObjectBrushMode::Paint,
+            layers_popover_open: false,
             selected_sprite_sequence: None,
             selected_entity: None,
             tile_layer_cache: canvas::Cache::new(),

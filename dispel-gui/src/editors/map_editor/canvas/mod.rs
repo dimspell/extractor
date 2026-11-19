@@ -22,7 +22,7 @@ pub use crate::components::map_render::{
 
 // ── Re-exports for external consumers ─────────────────────────────────────────
 
-pub use hit_test::find_hovered_element;
+pub use hit_test::{find_entity_at, find_hovered_element, find_tile_at};
 pub use render_overlays::MapCanvasOverlaysLayer;
 
 /// Tile layer type alias — delegates to the shared generic implementation.

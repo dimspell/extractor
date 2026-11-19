@@ -1,86 +1,67 @@
 use proc_macro2::Span;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Ident, LitStr};
+use syn::{DeriveInput, Ident};
 
-use crate::extractor_impl::{FieldInfo, parse_extractor_attr};
+use crate::schema::{CodegenConfig, FieldInfo, PatcherKey, RecordSchema};
 
 pub fn expand(input: DeriveInput) -> TokenStream2 {
+    codegen(&input, &CodegenConfig::default())
+}
+
+/// Generate the `RecordPatcher` impl from the shared record schema.
+pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStream2 {
     let name = &input.ident;
     let patcher_ident = Ident::new(&format!("{name}Patcher"), Span::call_site());
     let name_str = name.to_string();
 
-    // Two forms of `#[patcher(...)]`:
-    //   1. `#[patcher(filename = "MiscItem.db")]`            — exact match
-    //   2. `#[patcher(extension = "ref", stem_prefix = "ext")]` — pattern,
-    //      for files whose name varies per map (`Extdun01.ref`, etc.).
-    let mut filename: Option<String> = None;
-    let mut extension: Option<String> = None;
-    let mut stem_prefix: Option<String> = None;
-    for attr in &input.attrs {
-        if attr.path().is_ident("patcher") {
-            attr.parse_nested_meta(|meta| {
-                if meta.path.is_ident("filename") {
-                    let value = meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    filename = Some(lit.value());
-                } else if meta.path.is_ident("extension") {
-                    let value = meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    extension = Some(lit.value());
-                } else if meta.path.is_ident("stem_prefix") {
-                    let value = meta.value()?;
-                    let lit: LitStr = value.parse()?;
-                    stem_prefix = Some(lit.value());
-                }
-                Ok(())
-            })
-            .expect("Failed to parse #[patcher(...)] arguments");
+    let key_consts = match PatcherKey::parse(input, "RecordPatcher") {
+        PatcherKey::Filename { filename, aliases } => {
+            let all_names: Vec<String> = std::iter::once(filename.clone())
+                .chain(aliases.iter().cloned())
+                .collect();
+            quote! {
+                /// The relative filename this patcher targets (exact match).
+                pub const FILENAME: &'static str = #filename;
+                /// Additional filenames sharing this record format.
+                pub const ALIASES: &'static [&'static str] = &[#(#aliases),*];
+                /// Every filename routed to this patcher (primary + aliases).
+                pub const FILENAMES: &'static [&'static str] = &[#(#all_names),*];
+            }
         }
-    }
-    let key_consts = match (&filename, &extension, &stem_prefix) {
-        (Some(f), None, None) => quote! {
-            /// The relative filename this patcher targets (exact match).
-            pub const FILENAME: &'static str = #f;
-        },
-        (None, Some(ext), Some(prefix)) => quote! {
+        PatcherKey::Pattern {
+            extension,
+            stem_prefix,
+        } => quote! {
             /// Extension this patcher matches (case-insensitive, no leading dot).
-            pub const EXTENSION: &'static str = #ext;
+            pub const EXTENSION: &'static str = #extension;
             /// Filename-stem prefix this patcher matches (case-insensitive).
-            pub const STEM_PREFIX: &'static str = #prefix;
+            pub const STEM_PREFIX: &'static str = #stem_prefix;
         },
-        _ => panic!(
-            "RecordPatcher requires either #[patcher(filename = \"...\")] or \
-             #[patcher(extension = \"...\", stem_prefix = \"...\")] on the struct"
-        ),
     };
 
-    // Re-parse field-level #[extractor(...)] attributes via the existing helper.
-    let fields = match &input.data {
-        Data::Struct(s) => match &s.fields {
-            Fields::Named(f) => &f.named,
-            _ => panic!("RecordPatcher only supports structs with named fields"),
-        },
-        _ => panic!("RecordPatcher can only be derived for structs"),
-    };
+    let malformed = config.modding(&["error", "ModdingError", "Malformed"]);
+    let value = config.modding(&["value", "Value"]);
+    let wrong_type = config.modding(&["patcher", "wrong_type"]);
+    let result = config.modding(&["error", "Result"]);
+    let record_patcher_trait = config.modding(&["patcher", "RecordPatcher"]);
+    let out_of_range = config.modding(&["patcher", "out_of_range"]);
+    let unknown_field = config.modding(&["patcher", "unknown_field"]);
+    let inventory_item = config.inventory_item_type();
+    let extractor_trait = config.extractor_trait();
 
+    // The field grammar comes from the one shared schema parser; the patch
+    // arms below are just another codegen path over that AST.
+    let schema = RecordSchema::parse(input);
     let mut field_arms: Vec<TokenStream2> = Vec::new();
 
-    for field in fields {
-        let field_ident = field.ident.as_ref().unwrap();
-        let field_name = field_ident.to_string();
-        let field_ty = &field.ty;
-        let attr = match field.attrs.iter().find(|a| a.path().is_ident("extractor")) {
-            Some(a) => a,
-            None => continue,
-        };
-        let (info, _, _) = parse_extractor_attr(attr, field_ident, field_ty);
-        let Some(info) = info else { continue };
-
+    for info in &schema.fields {
+        let Some(ident) = info.ident() else { continue };
+        let field_name = ident.to_string();
         let arm = match info {
             FieldInfo::Id { .. } | FieldInfo::Index { .. } => quote! {
                 #field_name => {
-                    return Err(crate::modding::error::ModdingError::Malformed(format!(
+                    return Err(#malformed(format!(
                         "{}.{} is positional and cannot be patched",
                         Self::RECORD_NAME, #field_name
                     )));
@@ -88,46 +69,43 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             },
             FieldInfo::String { ident, .. } => quote! {
                 #field_name => match new {
-                    crate::modding::value::Value::String(s) => rec.#ident = s.clone(),
-                    _ => return Err(crate::modding::patcher::wrong_type(
+                    #value::String(s) => rec.#ident = s.clone(),
+                    _ => return Err(#wrong_type(
                         Self::RECORD_NAME, #field_name, "string", new,
                     )),
                 },
             },
-            FieldInfo::Primitive { ident, ty } => primitive_arm(&field_name, ident, &ty),
-            FieldInfo::InventoryItem { ident, .. } => {
-                let field_name_str = field_name.clone();
-                quote! {
-                    #field_name_str => match new {
-                        crate::modding::value::Value::I64(v) => {
-                            rec.#ident = crate::references::enums::InventoryItem::from(*v as i32);
-                        }
-                        crate::modding::value::Value::String(s) => match s.trim().parse::<i32>() {
-                            Ok(v) => rec.#ident = crate::references::enums::InventoryItem::from(v),
-                            Err(_) => return Err(crate::modding::patcher::wrong_type(
-                                Self::RECORD_NAME, #field_name_str, "i32", new,
-                            )),
-                        },
-                        _ => return Err(crate::modding::patcher::wrong_type(
-                            Self::RECORD_NAME, #field_name_str, "i32", new,
+            FieldInfo::Primitive { ident, ty } => primitive_arm(&field_name, ident, ty, config),
+            FieldInfo::InventoryItem { ident, .. } => quote! {
+                #field_name => match new {
+                    #value::I64(v) => {
+                        rec.#ident = #inventory_item::from(*v as i32);
+                    }
+                    #value::String(s) => match s.trim().parse::<i32>() {
+                        Ok(v) => rec.#ident = #inventory_item::from(v),
+                        Err(_) => return Err(#wrong_type(
+                            Self::RECORD_NAME, #field_name, "i32", new,
                         )),
                     },
-                }
-            }
+                    _ => return Err(#wrong_type(
+                        Self::RECORD_NAME, #field_name, "i32", new,
+                    )),
+                },
+            },
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
+                enum_arm(&field_name, ident, enum_ty, "u8", config)
             }
             FieldInfo::EnumFromU32 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, &enum_ty, "u32", "from_u32")
+                enum_arm(&field_name, ident, enum_ty, "u32", config)
             }
             FieldInfo::EnumFromI16 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, &enum_ty, "i16", "from_i16")
+                enum_arm(&field_name, ident, enum_ty, "i16", config)
             }
             FieldInfo::EnumFromI32 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, &enum_ty, "i32", "from_i32")
+                enum_arm(&field_name, ident, enum_ty, "i32", config)
             }
             FieldInfo::EnumFromI32FromU8 { ident, enum_ty } => {
-                enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
+                enum_arm(&field_name, ident, enum_ty, "u8", config)
             }
             FieldInfo::Array { ident, size, ty } => {
                 if ty != "u8" {
@@ -135,19 +113,19 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 }
                 quote! {
                     #field_name => match new {
-                        crate::modding::value::Value::Bytes(b) if b.len() == #size => {
+                        #value::Bytes(b) if b.len() == #size => {
                             let mut arr = [0u8; #size];
                             arr.copy_from_slice(b);
                             rec.#ident = arr;
                         }
-                        crate::modding::value::Value::Bytes(_) => {
-                            return Err(crate::modding::error::ModdingError::Malformed(format!(
+                        #value::Bytes(_) => {
+                            return Err(#malformed(format!(
                                 "{}.{}: expected {} bytes, got {}",
                                 Self::RECORD_NAME, #field_name, #size,
-                                if let crate::modding::value::Value::Bytes(b) = new { b.len() } else { 0 }
+                                if let #value::Bytes(b) = new { b.len() } else { 0 }
                             )));
                         }
-                        _ => return Err(crate::modding::patcher::wrong_type(
+                        _ => return Err(#wrong_type(
                             Self::RECORD_NAME, #field_name,
                             concat!("bytes(", stringify!(#size), ")"), new,
                         )),
@@ -156,17 +134,17 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             }
             FieldInfo::VecU8 { ident, size } => quote! {
                 #field_name => match new {
-                    crate::modding::value::Value::Bytes(b) if b.len() == #size => {
+                    #value::Bytes(b) if b.len() == #size => {
                         rec.#ident = b.clone();
                     }
-                    crate::modding::value::Value::Bytes(_) => {
-                        return Err(crate::modding::error::ModdingError::Malformed(format!(
+                    #value::Bytes(_) => {
+                        return Err(#malformed(format!(
                             "{}.{}: expected {} bytes, got {}",
                             Self::RECORD_NAME, #field_name, #size,
-                            if let crate::modding::value::Value::Bytes(b) = new { b.len() } else { 0 }
+                            if let #value::Bytes(b) = new { b.len() } else { 0 }
                         )));
                     }
-                    _ => return Err(crate::modding::patcher::wrong_type(
+                    _ => return Err(#wrong_type(
                         Self::RECORD_NAME, #field_name,
                         concat!("bytes(", stringify!(#size), ")"), new,
                     )),
@@ -174,7 +152,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             },
             FieldInfo::Padding { .. } => quote! {
                 #field_name => {
-                    return Err(crate::modding::error::ModdingError::Malformed(format!(
+                    return Err(#malformed(format!(
                         "{}.{} is synthetic padding and cannot be patched",
                         Self::RECORD_NAME, #field_name
                     )));
@@ -186,8 +164,8 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
     }
 
     let expanded = quote! {
-        /// Auto-generated patcher for the surrounding struct. See
-        /// [`crate::modding::patcher::RecordPatcher`].
+        /// Auto-generated patcher for the surrounding struct. Implements the
+        /// `RecordPatcher` trait (path supplied by codegen configuration).
         pub struct #patcher_ident;
 
         impl #patcher_ident {
@@ -196,7 +174,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
             pub const RECORD_NAME: &'static str = #name_str;
         }
 
-        impl crate::modding::patcher::RecordPatcher for #patcher_ident {
+        impl #record_patcher_trait for #patcher_ident {
             fn name(&self) -> &'static str {
                 Self::RECORD_NAME
             }
@@ -206,16 +184,16 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 bytes: &[u8],
                 record_id: u32,
                 field: &str,
-                new: &crate::modding::value::Value,
-            ) -> crate::modding::error::Result<Vec<u8>> {
-                use crate::references::extractor::Extractor as _;
+                new: &#value,
+            ) -> #result<Vec<u8>> {
+                use #extractor_trait as _;
 
                 let mut cursor = std::io::Cursor::new(bytes);
                 let mut records = #name::parse(&mut cursor, bytes.len() as u64)?;
 
                 let idx = record_id as usize;
                 if idx >= records.len() {
-                    return Err(crate::modding::patcher::out_of_range(
+                    return Err(#out_of_range(
                         Self::RECORD_NAME, record_id, records.len(),
                     ));
                 }
@@ -223,7 +201,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
 
                 match field {
                     #(#field_arms)*
-                    other => return Err(crate::modding::patcher::unknown_field(
+                    other => return Err(#unknown_field(
                         Self::RECORD_NAME, other,
                     )),
                 }
@@ -241,21 +219,28 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
 /// Generate a `match` arm for a primitive numeric field. Accepts
 /// `Value::I64` (range-checked), `Value::F64` for `f` types (none yet),
 /// and `Value::String` (parsed) so recording-mode stringly deltas work.
-fn primitive_arm(field_name: &str, ident: &Ident, ty: &str) -> TokenStream2 {
+fn primitive_arm(
+    field_name: &str,
+    ident: &Ident,
+    ty: &str,
+    config: &CodegenConfig,
+) -> TokenStream2 {
     let ty_ident = Ident::new(ty, Span::call_site());
     let expected = ty.to_string();
+    let value = config.modding(&["value", "Value"]);
+    let wrong_type = config.modding(&["patcher", "wrong_type"]);
     quote! {
         #field_name => match new {
-            crate::modding::value::Value::I64(v) => {
+            #value::I64(v) => {
                 rec.#ident = (*v) as #ty_ident;
             }
-            crate::modding::value::Value::String(s) => match s.trim().parse::<#ty_ident>() {
+            #value::String(s) => match s.trim().parse::<#ty_ident>() {
                 Ok(v) => rec.#ident = v,
-                Err(_) => return Err(crate::modding::patcher::wrong_type(
+                Err(_) => return Err(#wrong_type(
                     Self::RECORD_NAME, #field_name, #expected, new,
                 )),
             },
-            _ => return Err(crate::modding::patcher::wrong_type(
+            _ => return Err(#wrong_type(
                 Self::RECORD_NAME, #field_name, #expected, new,
             )),
         },
@@ -263,34 +248,121 @@ fn primitive_arm(field_name: &str, ident: &Ident, ty: &str) -> TokenStream2 {
 }
 
 /// Generate a `match` arm for an enum field. Accepts `Value::I64` (cast to
-/// the wire type, then `from_X`) and `Value::String` (parsed as the wire
-/// type). Falls back to `Default::default()` if the discriminant is invalid,
-/// matching the parse-side behavior in `Extractor`.
+/// the wire type, then converted) and `Value::String` (parsed as the wire
+/// type). Both routes use the same `WireValue::from_wire` fallback as the
+/// parse side in `Extractor`.
 fn enum_arm(
     field_name: &str,
     ident: &Ident,
     enum_ty: &str,
     wire_ty: &str,
-    from_fn: &str,
+    config: &CodegenConfig,
 ) -> TokenStream2 {
-    let enum_ident = Ident::new(enum_ty, Span::call_site());
     let wire_ident = Ident::new(wire_ty, Span::call_site());
-    let from_ident = Ident::new(from_fn, Span::call_site());
+    let wire_value = config.wire_value_trait();
+    let from_i64 = crate::wire_enum::from_wire_tokens(
+        &wire_value,
+        enum_ty,
+        wire_ty,
+        quote! { (*v) as #wire_ident },
+    );
+    let from_string =
+        crate::wire_enum::from_wire_tokens(&wire_value, enum_ty, wire_ty, quote! { v });
     let expected = format!("i64 (discriminant of {})", enum_ty);
+    let value = config.modding(&["value", "Value"]);
+    let wrong_type = config.modding(&["patcher", "wrong_type"]);
     quote! {
         #field_name => match new {
-            crate::modding::value::Value::I64(v) => {
-                rec.#ident = #enum_ident::#from_ident((*v) as #wire_ident).unwrap_or_default();
+            #value::I64(v) => {
+                rec.#ident = #from_i64;
             }
-            crate::modding::value::Value::String(s) => match s.trim().parse::<#wire_ident>() {
-                Ok(v) => rec.#ident = #enum_ident::#from_ident(v).unwrap_or_default(),
-                Err(_) => return Err(crate::modding::patcher::wrong_type(
+            #value::String(s) => match s.trim().parse::<#wire_ident>() {
+                Ok(v) => rec.#ident = #from_string,
+                Err(_) => return Err(#wrong_type(
                     Self::RECORD_NAME, #field_name, #expected, new,
                 )),
             },
-            _ => return Err(crate::modding::patcher::wrong_type(
+            _ => return Err(#wrong_type(
                 Self::RECORD_NAME, #field_name, #expected, new,
             )),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    #[test]
+    fn test_generated_patcher_uses_historical_modding_paths() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 8)]
+            #[patcher(filename = "Sample.db")]
+            struct Sample {
+                #[extractor(index)]
+                id: i32,
+                #[extractor(primitive(type = "i32"))]
+                value: i32,
+                #[extractor(inventory_item(wire_type = "i32"))]
+                item: InventoryItem,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(
+            tokens.contains("impl crate :: modding :: patcher :: RecordPatcher for SamplePatcher")
+        );
+        assert!(tokens.contains("crate :: modding :: value :: Value :: I64"));
+        assert!(
+            tokens.contains("crate :: references :: enums :: InventoryItem :: from"),
+            "{tokens}"
+        );
+        assert!(tokens.contains("pub const FILENAME : & 'static str = \"Sample.db\""));
+    }
+
+    #[test]
+    fn test_generated_patcher_emits_alias_filename_consts() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 4)]
+            #[patcher(filename = "Magic.db", alias = "MulMagic.db")]
+            struct MagicSpell {
+                #[extractor(primitive(type = "i32"))]
+                value: i32,
+            }
+        };
+        let tokens = codegen(&input, &CodegenConfig::default()).to_string();
+        assert!(tokens.contains("pub const FILENAME : & 'static str = \"Magic.db\""));
+        assert!(
+            tokens.contains("pub const ALIASES : & 'static [& 'static str] = & [\"MulMagic.db\"]")
+        );
+        assert!(
+            tokens.contains(
+                "pub const FILENAMES : & 'static [& 'static str] = & [\"Magic.db\" , \"MulMagic.db\"]"
+            ),
+            "{tokens}"
+        );
+    }
+
+    #[test]
+    fn test_generated_patcher_paths_follow_config() {
+        let input: DeriveInput = parse_quote! {
+            #[extractor(property_item_size = 4)]
+            #[patcher(filename = "Sample.db")]
+            struct Sample {
+                #[extractor(primitive(type = "i32"))]
+                value: i32,
+            }
+        };
+        let config = CodegenConfig {
+            modding_mod: "renamed_modding".into(),
+            references_mod: "renamed_refs".into(),
+            ..CodegenConfig::default()
+        };
+        let tokens = codegen(&input, &config).to_string();
+        assert!(tokens.contains("crate :: renamed_modding :: patcher :: RecordPatcher"));
+        assert!(tokens.contains("crate :: renamed_modding :: value :: Value :: I64"));
+        assert!(tokens.contains("use crate :: renamed_refs :: extractor :: Extractor as _"));
+        assert!(!tokens.contains("crate :: modding"));
+        assert!(!tokens.contains("crate :: references"));
     }
 }

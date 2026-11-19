@@ -1,448 +1,656 @@
+//! Declarative catalog entries.
+//!
+//! Every entry is built through [`Builder`], which sources fields and record
+//! metadata from the struct itself. Adding a file type here automatically
+//! feeds CLI detection, `schema`, `template`, and the GUI editor mapping.
+
+use serde::{Deserialize, Serialize};
+
 use super::types::{
-    DetectKind, FileType, extract_as, extract_map_file, extract_sprite_info, extract_tileset,
-    patch_as, patch_not_supported, validate_as,
+    DetectKind, ExtractFn, FieldSpec, FileType, PatchFn, ValidateFn, explicit_fields, extract_as,
+    extract_map_file, extract_sprite_info, extract_tileset, fields_from_default,
+    fields_from_layout, patch_as, patch_not_supported, record_name, validate_as,
+};
+use crate::references::extractor::Extractor;
+use crate::references::layout::RecordLayout;
+
+fn b(
+    key: &'static str,
+    name: &'static str,
+    description: &'static str,
+    extensions: &'static [&'static str],
+    detect_kind: DetectKind,
+    editor: &'static str,
+) -> Builder {
+    Builder {
+        key,
+        name,
+        description,
+        extensions,
+        detect_kind,
+        editor,
+    }
+}
+
+struct Builder {
+    key: &'static str,
+    name: &'static str,
+    description: &'static str,
+    extensions: &'static [&'static str],
+    detect_kind: DetectKind,
+    editor: &'static str,
+}
+
+impl Builder {
+    /// Serde record with validation enabled.
+    fn record<T>(self) -> FileType
+    where
+        T: Default + Serialize + for<'de> Deserialize<'de> + Extractor,
+    {
+        self.finish(
+            fields_from_default::<T>(),
+            record_name::<T>(),
+            extract_as::<T>,
+            patch_as::<T>,
+            Some(validate_as::<T>),
+        )
+    }
+
+    /// Serde record without a validator (complex custom layouts).
+    fn record_unchecked<T>(self) -> FileType
+    where
+        T: Default + Serialize + for<'de> Deserialize<'de> + Extractor,
+    {
+        self.finish(
+            fields_from_default::<T>(),
+            record_name::<T>(),
+            extract_as::<T>,
+            patch_as::<T>,
+            None,
+        )
+    }
+
+    /// Fixed-size binary record: field types come from `RecordLayout`.
+    fn layout_record<T>(self) -> FileType
+    where
+        T: Default + Serialize + for<'de> Deserialize<'de> + Extractor + RecordLayout,
+    {
+        self.finish(
+            fields_from_layout::<T>(),
+            T::LAYOUT.type_name,
+            extract_as::<T>,
+            patch_as::<T>,
+            Some(validate_as::<T>),
+        )
+    }
+
+    fn layout_record_unchecked<T>(self) -> FileType
+    where
+        T: Default + Serialize + for<'de> Deserialize<'de> + Extractor + RecordLayout,
+    {
+        self.finish(
+            fields_from_layout::<T>(),
+            T::LAYOUT.type_name,
+            extract_as::<T>,
+            patch_as::<T>,
+            None,
+        )
+    }
+
+    /// Raw/non-`Default` format with an explicitly curated field list.
+    fn raw(
+        self,
+        fields: &'static [&'static str],
+        record_type: &'static str,
+        extract_fn: ExtractFn,
+        patch_fn: PatchFn,
+        validate_fn: Option<ValidateFn>,
+    ) -> FileType {
+        self.finish(
+            explicit_fields(fields),
+            record_type,
+            extract_fn,
+            patch_fn,
+            validate_fn,
+        )
+    }
+
+    fn finish(
+        self,
+        fields: Vec<FieldSpec>,
+        record_type: &'static str,
+        extract_fn: ExtractFn,
+        patch_fn: PatchFn,
+        validate_fn: Option<ValidateFn>,
+    ) -> FileType {
+        FileType {
+            key: self.key,
+            name: self.name,
+            description: self.description,
+            extensions: self.extensions,
+            detect_kind: self.detect_kind,
+            extract_fn,
+            patch_fn,
+            validate_fn,
+            fields,
+            record_type,
+            editor: self.editor,
+        }
+    }
+}
+
+use crate::references::{
+    all_map_ini::Map, chdata_db::ChData, chest_spawn::ChestSpawn,
+    dialogue_paragraph::DialogueParagraph, dialogue_script::DialogueScript, draw_item::DrawItem,
+    edit_item_db::EditItem, event_ini::Event, event_item_db::EventItem, event_npc_ref::EventNpcRef,
+    event_scr::EventScript, extra_ini::Extra, extra_ref::ExtraRef, heal_item_db::HealItem,
+    magic_db::MagicSpell, map_info_multi::MapInfoMulti, map_ini::MapIni, message_scr::Message,
+    misc_item_db::MiscItem, monster_db::Monster, monster_ini::MonsterIni, monster_ref::MonsterRef,
+    monster_spawn::MonsterSpawn, npc_ini::NpcIni, npc_ref::NPC, party_ini_db::PartyIniNpc,
+    party_level_db::PartyLevelNpc, party_ref::PartyRef, quest_scr::Quest, save_file::SaveFile,
+    save_ifo::SaveIfo, store_db::Store, tile_grid::TileGrid, wave_ini::WaveIni,
+    weapons_db::WeaponItem,
 };
 
+// `MagicSpell`'s patcher owns the canonical `Magic.db` / `MulMagic.db`
+// filename list — the same list the mod PatcherRegistry uses.
+use crate::references::magic_db::MagicSpellPatcher;
+
+// ── INI types ────────────────────────────────────────────────────────────────
+
 pub(crate) fn make_all_map_ini() -> FileType {
-    FileType {
-        key: "all_maps",
-        name: "AllMap.ini",
-        description: "Master map list",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("AllMap.ini"),
-        extract_fn: extract_as::<dispel_core::references::all_map_ini::Map>,
-        patch_fn: patch_as::<dispel_core::references::all_map_ini::Map>,
-        validate_fn: Some(validate_as::<dispel_core::references::all_map_ini::Map>),
-    }
+    b(
+        "all_maps",
+        "AllMap.ini",
+        "Master map list",
+        &[".ini"],
+        DetectKind::Ini("AllMap.ini"),
+        "AllMapIniEditor",
+    )
+    .record::<Map>()
 }
 
 pub(crate) fn make_map_ini() -> FileType {
-    FileType {
-        key: "map_ini",
-        name: "Map.ini",
-        description: "Map properties",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Map.ini"),
-        extract_fn: extract_as::<dispel_core::references::map_ini::MapIni>,
-        patch_fn: patch_as::<dispel_core::references::map_ini::MapIni>,
-        validate_fn: Some(validate_as::<dispel_core::references::map_ini::MapIni>),
-    }
+    b(
+        "map_ini",
+        "Map.ini",
+        "Map properties",
+        &[".ini"],
+        DetectKind::Ini("Map.ini"),
+        "MapIniEditor",
+    )
+    .record::<MapIni>()
 }
 
 pub(crate) fn make_extra_ini() -> FileType {
-    FileType {
-        key: "extra_ini",
-        name: "Extra.ini",
-        description: "Interactive object types",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Extra.ini"),
-        extract_fn: extract_as::<dispel_core::references::extra_ini::Extra>,
-        patch_fn: patch_as::<dispel_core::references::extra_ini::Extra>,
-        validate_fn: Some(validate_as::<dispel_core::references::extra_ini::Extra>),
-    }
+    b(
+        "extra_ini",
+        "Extra.ini",
+        "Interactive object types",
+        &[".ini"],
+        DetectKind::Ini("Extra.ini"),
+        "ExtraIniEditor",
+    )
+    .record::<Extra>()
 }
 
 pub(crate) fn make_event_ini() -> FileType {
-    FileType {
-        key: "event_ini",
-        name: "Event.ini",
-        description: "Script/event mappings",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Event.ini"),
-        extract_fn: extract_as::<dispel_core::references::event_ini::Event>,
-        patch_fn: patch_as::<dispel_core::references::event_ini::Event>,
-        validate_fn: Some(validate_as::<dispel_core::references::event_ini::Event>),
-    }
+    b(
+        "event_ini",
+        "Event.ini",
+        "Script/event mappings",
+        &[".ini"],
+        DetectKind::Ini("Event.ini"),
+        "EventIniEditor",
+    )
+    .record::<Event>()
 }
 
 pub(crate) fn make_monster_ini() -> FileType {
-    FileType {
-        key: "monster_ini",
-        name: "Monster.ini",
-        description: "Monster visual refs",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Monster.ini"),
-        extract_fn: extract_as::<dispel_core::references::monster_ini::MonsterIni>,
-        patch_fn: patch_as::<dispel_core::references::monster_ini::MonsterIni>,
-        validate_fn: Some(validate_as::<dispel_core::references::monster_ini::MonsterIni>),
-    }
+    b(
+        "monster_ini",
+        "Monster.ini",
+        "Monster visual refs",
+        &[".ini"],
+        DetectKind::Ini("Monster.ini"),
+        "MonsterIniEditor",
+    )
+    .record::<MonsterIni>()
 }
 
 pub(crate) fn make_npc_ini() -> FileType {
-    FileType {
-        key: "npc_ini",
-        name: "Npc.ini",
-        description: "NPC visual refs",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Npc.ini"),
-        extract_fn: extract_as::<dispel_core::references::npc_ini::NpcIni>,
-        patch_fn: patch_as::<dispel_core::references::npc_ini::NpcIni>,
-        validate_fn: Some(validate_as::<dispel_core::references::npc_ini::NpcIni>),
-    }
+    b(
+        "npc_ini",
+        "Npc.ini",
+        "NPC visual refs",
+        &[".ini"],
+        DetectKind::Ini("Npc.ini"),
+        "NpcIniEditor",
+    )
+    .record::<NpcIni>()
 }
 
 pub(crate) fn make_wave_ini() -> FileType {
-    FileType {
-        key: "wave_ini",
-        name: "Wave.ini",
-        description: "Audio/SNF references",
-        extensions: &[".ini"],
-        detect_kind: DetectKind::Ini("Wave.ini"),
-        extract_fn: extract_as::<dispel_core::references::wave_ini::WaveIni>,
-        patch_fn: patch_as::<dispel_core::references::wave_ini::WaveIni>,
-        validate_fn: Some(validate_as::<dispel_core::references::wave_ini::WaveIni>),
-    }
+    b(
+        "wave_ini",
+        "Wave.ini",
+        "Audio/SNF references",
+        &[".ini"],
+        DetectKind::Ini("Wave.ini"),
+        "WaveIniEditor",
+    )
+    .record::<WaveIni>()
 }
 
+// ── DB types ─────────────────────────────────────────────────────────────────
+
 pub(crate) fn make_weapons() -> FileType {
-    FileType {
-        key: "weapons",
-        name: "WeaponItem.db",
-        description: "Weapons & armor database",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["WeaponItem.db", "weaponItem.db"]),
-        extract_fn: extract_as::<dispel_core::references::weapons_db::WeaponItem>,
-        patch_fn: patch_as::<dispel_core::references::weapons_db::WeaponItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::weapons_db::WeaponItem>),
-    }
+    b(
+        "weapons",
+        "WeaponItem.db",
+        "Weapons & armor database",
+        &[".db"],
+        DetectKind::Db(&["WeaponItem.db"]),
+        "WeaponEditor",
+    )
+    .layout_record::<WeaponItem>()
 }
 
 pub(crate) fn make_monsters() -> FileType {
-    FileType {
-        key: "monsters",
-        name: "Monster.db",
-        description: "Monster attributes",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["Monster.db", "monster.db"]),
-        extract_fn: extract_as::<dispel_core::references::monster_db::Monster>,
-        patch_fn: patch_as::<dispel_core::references::monster_db::Monster>,
-        validate_fn: Some(validate_as::<dispel_core::references::monster_db::Monster>),
-    }
+    b(
+        "monsters",
+        "Monster.db",
+        "Monster attributes",
+        &[".db"],
+        DetectKind::Db(&["Monster.db"]),
+        "MonsterEditor",
+    )
+    .layout_record::<Monster>()
 }
 
 pub(crate) fn make_magic() -> FileType {
-    FileType {
-        key: "magic",
-        name: "Magic.db",
-        description: "Magic spell records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["Magic.db", "magic.db", "MulMagic.db"]),
-        extract_fn: extract_as::<dispel_core::references::magic_db::MagicSpell>,
-        patch_fn: patch_as::<dispel_core::references::magic_db::MagicSpell>,
-        validate_fn: None,
-    }
+    b(
+        "magic",
+        "Magic.db",
+        "Magic spell records",
+        &[".db"],
+        DetectKind::Db(MagicSpellPatcher::FILENAMES),
+        "MagicEditor",
+    )
+    .layout_record_unchecked::<MagicSpell>()
 }
 
 pub(crate) fn make_store() -> FileType {
-    FileType {
-        key: "store",
-        name: "Store.db",
-        description: "Shop inventory records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["Store.db", "STORE.DB", "store.db"]),
-        extract_fn: extract_as::<dispel_core::references::store_db::Store>,
-        patch_fn: patch_as::<dispel_core::references::store_db::Store>,
-        validate_fn: None,
-    }
+    b(
+        "store",
+        "Store.db",
+        "Shop inventory records",
+        &[".db"],
+        DetectKind::Db(&["Store.db"]),
+        "StoreEditor",
+    )
+    .record_unchecked::<Store>()
 }
 
 pub(crate) fn make_misc_item() -> FileType {
-    FileType {
-        key: "misc_item",
-        name: "MiscItem.db",
-        description: "Generic item records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["MiscItem.db", "miscitem.db"]),
-        extract_fn: extract_as::<dispel_core::references::misc_item_db::MiscItem>,
-        patch_fn: patch_as::<dispel_core::references::misc_item_db::MiscItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::misc_item_db::MiscItem>),
-    }
+    b(
+        "misc_item",
+        "MiscItem.db",
+        "Generic item records",
+        &[".db"],
+        DetectKind::Db(&["MiscItem.db"]),
+        "MiscItemEditor",
+    )
+    .layout_record::<MiscItem>()
 }
 
 pub(crate) fn make_heal_item() -> FileType {
-    FileType {
-        key: "heal_item",
-        name: "HealItem.db",
-        description: "Consumable records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["HealItem.db", "healitem.db"]),
-        extract_fn: extract_as::<dispel_core::references::heal_item_db::HealItem>,
-        patch_fn: patch_as::<dispel_core::references::heal_item_db::HealItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::heal_item_db::HealItem>),
-    }
+    b(
+        "heal_item",
+        "HealItem.db",
+        "Consumable records",
+        &[".db"],
+        DetectKind::Db(&["HealItem.db"]),
+        "HealItemEditor",
+    )
+    .layout_record::<HealItem>()
 }
 
 pub(crate) fn make_event_item() -> FileType {
-    FileType {
-        key: "event_item",
-        name: "EventItem.db",
-        description: "Quest item records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["EventItem.db", "eventitem.db"]),
-        extract_fn: extract_as::<dispel_core::references::event_item_db::EventItem>,
-        patch_fn: patch_as::<dispel_core::references::event_item_db::EventItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::event_item_db::EventItem>),
-    }
+    b(
+        "event_item",
+        "EventItem.db",
+        "Quest item records",
+        &[".db"],
+        DetectKind::Db(&["EventItem.db"]),
+        "EventItemEditor",
+    )
+    .layout_record::<EventItem>()
 }
 
 pub(crate) fn make_edit_item() -> FileType {
-    FileType {
-        key: "edit_item",
-        name: "EditItem.db",
-        description: "Modifiable item records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["EditItem.db", "edititem.db"]),
-        extract_fn: extract_as::<dispel_core::references::edit_item_db::EditItem>,
-        patch_fn: patch_as::<dispel_core::references::edit_item_db::EditItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::edit_item_db::EditItem>),
-    }
+    b(
+        "edit_item",
+        "EditItem.db",
+        "Modifiable item records",
+        &[".db"],
+        DetectKind::Db(&["EditItem.db"]),
+        "EditItemEditor",
+    )
+    .layout_record::<EditItem>()
 }
 
 pub(crate) fn make_party_level() -> FileType {
-    FileType {
-        key: "party_level",
-        name: "PrtLevel.db",
-        description: "EXP table records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["PrtLevel.db", "prtlevel.db"]),
-        extract_fn: extract_as::<dispel_core::references::party_level_db::PartyLevelNpc>,
-        patch_fn: patch_as::<dispel_core::references::party_level_db::PartyLevelNpc>,
-        validate_fn: None,
-    }
+    b(
+        "party_level",
+        "PrtLevel.db",
+        "EXP table records",
+        &[".db"],
+        DetectKind::Db(&["PrtLevel.db"]),
+        "PartyLevelDbEditor",
+    )
+    .record_unchecked::<PartyLevelNpc>()
 }
 
 pub(crate) fn make_party_ini() -> FileType {
-    FileType {
-        key: "party_ini",
-        name: "PrtIni.db",
-        description: "Party NPC metadata",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["PrtIni.db", "prtini.db"]),
-        extract_fn: extract_as::<dispel_core::references::party_ini_db::PartyIniNpc>,
-        patch_fn: patch_as::<dispel_core::references::party_ini_db::PartyIniNpc>,
-        validate_fn: None,
-    }
+    b(
+        "party_ini",
+        "PrtIni.db",
+        "Party NPC metadata",
+        &[".db"],
+        DetectKind::Db(&["PrtIni.db"]),
+        "PartyIniEditor",
+    )
+    .layout_record_unchecked::<PartyIniNpc>()
 }
 
 pub(crate) fn make_chdata() -> FileType {
-    FileType {
-        key: "chdata",
-        name: "ChData.db",
-        description: "Character data records",
-        extensions: &[".db"],
-        detect_kind: DetectKind::Db(&["ChData.db", "chdata.db"]),
-        extract_fn: extract_as::<dispel_core::references::chdata_db::ChData>,
-        patch_fn: patch_as::<dispel_core::references::chdata_db::ChData>,
-        validate_fn: None,
-    }
+    b(
+        "chdata",
+        "ChData.db",
+        "Character data records",
+        &[".db"],
+        DetectKind::Db(&["ChData.db"]),
+        "ChDataEditor",
+    )
+    .layout_record_unchecked::<ChData>()
 }
 
+// ── REF types ────────────────────────────────────────────────────────────────
+
 pub(crate) fn make_party_ref() -> FileType {
-    FileType {
-        key: "party_ref",
-        name: "PartyRef.ref",
-        description: "Character definitions",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("PartyRef"),
-        extract_fn: extract_as::<dispel_core::references::party_ref::PartyRef>,
-        patch_fn: patch_as::<dispel_core::references::party_ref::PartyRef>,
-        validate_fn: Some(validate_as::<dispel_core::references::party_ref::PartyRef>),
-    }
+    b(
+        "party_ref",
+        "PartyRef.ref",
+        "Character definitions",
+        &[".ref"],
+        DetectKind::RefPrefix("PartyRef"),
+        "PartyRefEditor",
+    )
+    .record::<PartyRef>()
 }
 
 pub(crate) fn make_draw_item() -> FileType {
-    FileType {
-        key: "draw_item",
-        name: "DRAWITEM.ref",
-        description: "Map placement records",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("DRAWITEM"),
-        extract_fn: extract_as::<dispel_core::references::draw_item::DrawItem>,
-        patch_fn: patch_as::<dispel_core::references::draw_item::DrawItem>,
-        validate_fn: Some(validate_as::<dispel_core::references::draw_item::DrawItem>),
-    }
+    b(
+        "draw_item",
+        "DRAWITEM.ref",
+        "Map placement records",
+        &[".ref"],
+        DetectKind::RefPrefix("DRAWITEM"),
+        "DrawItemEditor",
+    )
+    .record::<DrawItem>()
 }
 
 pub(crate) fn make_npc_ref() -> FileType {
-    FileType {
-        key: "npc_ref",
-        name: "Npc*.ref",
-        description: "NPC placement records",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("Npc"),
-        extract_fn: extract_as::<dispel_core::references::npc_ref::NPC>,
-        patch_fn: patch_as::<dispel_core::references::npc_ref::NPC>,
-        validate_fn: None,
-    }
+    b(
+        "npc_ref",
+        "Npc*.ref",
+        "NPC placement records",
+        &[".ref"],
+        DetectKind::RefPrefix("Npc"),
+        "NpcRefEditor",
+    )
+    .layout_record_unchecked::<NPC>()
 }
 
 pub(crate) fn make_monster_ref() -> FileType {
-    FileType {
-        key: "monster_ref",
-        name: "Mon*.ref",
-        description: "Monster placement records",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("Mon"),
-        extract_fn: extract_as::<dispel_core::references::monster_ref::MonsterRef>,
-        patch_fn: patch_as::<dispel_core::references::monster_ref::MonsterRef>,
-        validate_fn: None,
-    }
+    b(
+        "monster_ref",
+        "Mon*.ref",
+        "Monster placement records",
+        &[".ref"],
+        DetectKind::RefPrefix("Mon"),
+        "MonsterRefEditor",
+    )
+    .layout_record_unchecked::<MonsterRef>()
 }
 
 pub(crate) fn make_extra_ref() -> FileType {
-    FileType {
-        key: "extra_ref",
-        name: "Ext*.ref",
-        description: "Special object placements",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("Ext"),
-        extract_fn: extract_as::<dispel_core::references::extra_ref::ExtraRef>,
-        patch_fn: patch_as::<dispel_core::references::extra_ref::ExtraRef>,
-        validate_fn: Some(validate_as::<dispel_core::references::extra_ref::ExtraRef>),
-    }
+    b(
+        "extra_ref",
+        "Ext*.ref",
+        "Special object placements",
+        &[".ref"],
+        DetectKind::RefPrefix("Ext"),
+        "ExtraRefEditor",
+    )
+    .layout_record::<ExtraRef>()
 }
 
 pub(crate) fn make_event_npc_ref() -> FileType {
-    FileType {
-        key: "event_npc_ref",
-        name: "Eventnpc.ref",
-        description: "Event NPC placements",
-        extensions: &[".ref"],
-        detect_kind: DetectKind::RefPrefix("Eventnpc"),
-        extract_fn: extract_as::<dispel_core::references::event_npc_ref::EventNpcRef>,
-        patch_fn: patch_as::<dispel_core::references::event_npc_ref::EventNpcRef>,
-        validate_fn: None,
-    }
+    b(
+        "event_npc_ref",
+        "Eventnpc.ref",
+        "Event NPC placements",
+        &[".ref"],
+        DetectKind::RefPrefix("Eventnpc"),
+        "EventNpcRefEditor",
+    )
+    .record_unchecked::<EventNpcRef>()
 }
 
+// ── DLG / PGP types ──────────────────────────────────────────────────────────
+
 pub(crate) fn make_dialog() -> FileType {
-    FileType {
-        key: "dialog",
-        name: "*.dlg",
-        description: "Dialogue script CSV",
-        extensions: &[".dlg"],
-        detect_kind: DetectKind::DlgPrefix("Dlg"),
-        extract_fn: extract_as::<dispel_core::references::dialogue_script::DialogueScript>,
-        patch_fn: patch_as::<dispel_core::references::dialogue_script::DialogueScript>,
-        validate_fn: Some(validate_as::<dispel_core::references::dialogue_script::DialogueScript>),
-    }
+    b(
+        "dialog",
+        "*.dlg",
+        "Dialogue script CSV",
+        &[".dlg"],
+        DetectKind::DlgPrefix("Dlg"),
+        "DialogueScriptEditor",
+    )
+    .record::<DialogueScript>()
 }
 
 pub(crate) fn make_dialog_text() -> FileType {
-    FileType {
-        key: "dialog_text",
-        name: "*.pgp",
-        description: "Dialogue text package",
-        extensions: &[".pgp"],
-        detect_kind: DetectKind::PgpPrefix("Pgp"),
-        extract_fn: extract_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
-        patch_fn: patch_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
-        validate_fn: Some(
-            validate_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
-        ),
-    }
+    b(
+        "dialog_text",
+        "*.pgp",
+        "Dialogue text package",
+        &[".pgp"],
+        DetectKind::PgpPrefix("Pgp"),
+        "DialogueTextEditor",
+    )
+    .record::<DialogueParagraph>()
 }
 
+// ── SCR types ────────────────────────────────────────────────────────────────
+
 pub(crate) fn make_quest() -> FileType {
-    FileType {
-        key: "quest",
-        name: "Quest.scr",
-        description: "Quest definitions",
-        extensions: &[".scr"],
-        detect_kind: DetectKind::Scr("Quest.scr"),
-        extract_fn: extract_as::<dispel_core::references::quest_scr::Quest>,
-        patch_fn: patch_as::<dispel_core::references::quest_scr::Quest>,
-        validate_fn: None,
-    }
+    b(
+        "quest",
+        "Quest.scr",
+        "Quest definitions",
+        &[".scr"],
+        DetectKind::Scr("Quest.scr"),
+        "QuestScrEditor",
+    )
+    .record_unchecked::<Quest>()
 }
 
 pub(crate) fn make_message() -> FileType {
-    FileType {
-        key: "message",
-        name: "Message.scr",
-        description: "Diary game messages",
-        extensions: &[".scr"],
-        detect_kind: DetectKind::Scr("Message.scr"),
-        extract_fn: extract_as::<dispel_core::references::message_scr::Message>,
-        patch_fn: patch_as::<dispel_core::references::message_scr::Message>,
-        validate_fn: None,
-    }
+    b(
+        "message",
+        "Message.scr",
+        "Diary game messages",
+        &[".scr"],
+        DetectKind::Scr("Message.scr"),
+        "MessageScrEditor",
+    )
+    .record_unchecked::<Message>()
 }
 
 pub(crate) fn make_event_scr() -> FileType {
-    FileType {
-        key: "event_scr",
-        name: "Event*.scr",
-        description: "Event script files",
-        extensions: &[".scr"],
-        detect_kind: DetectKind::ScrPrefix("Event"),
-        extract_fn: extract_as::<dispel_core::references::event_scr::EventScript>,
-        patch_fn: patch_as::<dispel_core::references::event_scr::EventScript>,
-        validate_fn: None,
-    }
+    b(
+        "event_scr",
+        "Event*.scr",
+        "Event script files",
+        &[".scr"],
+        DetectKind::ScrPrefix("Event"),
+        "EventScrEditor",
+    )
+    .raw(
+        &[
+            "id",
+            "header_comments",
+            "trailing_newline",
+            "variables",
+            "map_content",
+            "chr_content",
+            "npc_content",
+            "spr_content",
+            "wav_content",
+            "actions",
+        ],
+        "EventScript",
+        extract_as::<EventScript>,
+        patch_as::<EventScript>,
+        None,
+    )
 }
 
+// ── Raw / extract-only formats ───────────────────────────────────────────────
+
 pub(crate) fn make_map_file() -> FileType {
-    FileType {
-        key: "map_file",
-        name: "*.map",
-        description: "Map geometry, sprites, events, tiles (extract only)",
-        extensions: &[".map"],
-        detect_kind: DetectKind::Db(&[]),
-        extract_fn: extract_map_file,
-        patch_fn: patch_not_supported,
-        validate_fn: None,
-    }
+    b(
+        "map_file",
+        "*.map",
+        "Map geometry, sprites, events, tiles (extract only)",
+        &[".map"],
+        DetectKind::Extension,
+        "MapEditor",
+    )
+    .raw(&[], "n/a", extract_map_file, patch_not_supported, None)
 }
 
 pub(crate) fn make_gtl() -> FileType {
-    FileType {
-        key: "gtl",
-        name: "*.gtl",
-        description: "Ground tile layer (extract only)",
-        extensions: &[".gtl"],
-        detect_kind: DetectKind::Db(&[]),
-        extract_fn: extract_tileset,
-        patch_fn: patch_not_supported,
-        validate_fn: None,
-    }
+    b(
+        "gtl",
+        "*.gtl",
+        "Ground tile layer (extract only)",
+        &[".gtl"],
+        DetectKind::Extension,
+        "TilesetEditor",
+    )
+    .raw(&[], "n/a", extract_tileset, patch_not_supported, None)
 }
 
 pub(crate) fn make_btl() -> FileType {
-    FileType {
-        key: "btl",
-        name: "*.btl",
-        description: "Building tile layer (extract only)",
-        extensions: &[".btl"],
-        detect_kind: DetectKind::Db(&[]),
-        extract_fn: extract_tileset,
-        patch_fn: patch_not_supported,
-        validate_fn: None,
-    }
+    b(
+        "btl",
+        "*.btl",
+        "Building tile layer (extract only)",
+        &[".btl"],
+        DetectKind::Extension,
+        "TilesetEditor",
+    )
+    .raw(&[], "n/a", extract_tileset, patch_not_supported, None)
 }
 
 pub(crate) fn make_sprite() -> FileType {
-    FileType {
-        key: "sprite",
-        name: "*.spr",
-        description: "Sprite/animation file (extract only)",
-        extensions: &[".spr"],
-        detect_kind: DetectKind::Db(&[]),
-        extract_fn: extract_sprite_info,
-        patch_fn: patch_not_supported,
-        validate_fn: None,
-    }
+    b(
+        "sprite",
+        "*.spr",
+        "Sprite/animation file (extract only)",
+        &[".spr"],
+        DetectKind::Extension,
+        "SpriteViewer",
+    )
+    .raw(&[], "n/a", extract_sprite_info, patch_not_supported, None)
+}
+
+pub(crate) fn make_save_ifo() -> FileType {
+    b(
+        "save_ifo",
+        "Save.ifo",
+        "Save-slot metadata index (timestamps and occupancy for 0.sav..5.sav)",
+        &[".ifo"],
+        DetectKind::Db(&["Save.ifo"]),
+        "SaveIfoEditor",
+    )
+    .record_unchecked::<SaveIfo>()
+}
+
+// ── Multiplayer file types ───────────────────────────────────────────────────
+
+pub(crate) fn make_chest_spawn() -> FileType {
+    b(
+        "chest_spawn",
+        "*.cst",
+        "Multiplayer chest/placeable spawn list (CSV, EUC-KR)",
+        &[".cst"],
+        DetectKind::Extension,
+        "ChestSpawnEditor",
+    )
+    .record::<ChestSpawn>()
+}
+
+pub(crate) fn make_monster_spawn() -> FileType {
+    b(
+        "monster_spawn",
+        "*.mon",
+        "Multiplayer monster spawn list (CSV, EUC-KR)",
+        &[".mon"],
+        DetectKind::Extension,
+        "MonsterSpawnEditor",
+    )
+    .record::<MonsterSpawn>()
+}
+
+pub(crate) fn make_map_info_multi() -> FileType {
+    b(
+        "map_info_multi",
+        "*.ifm",
+        "Multiplayer map info/linkage struct (binary, 100 B)",
+        &[".ifm"],
+        DetectKind::Extension,
+        "MapInfoMultiEditor",
+    )
+    .record_unchecked::<MapInfoMulti>()
+}
+
+pub(crate) fn make_tile_grid() -> FileType {
+    b(
+        "tile_grid",
+        "*.dat",
+        "Multiplayer per-tile u32 grid (binary, 249×249)",
+        &[".dat"],
+        DetectKind::Extension,
+        "TileGridEditor",
+    )
+    .record_unchecked::<TileGrid>()
 }
 
 pub(crate) fn make_save_file() -> FileType {
-    FileType {
-        key: "save_file",
-        name: "*.sav",
-        description: "Game save file with player state, inventory, and world data",
-        extensions: &[".sav"],
-        detect_kind: DetectKind::Db(&["0.sav", "1.sav", "2.sav", "3.sav", "4.sav", "5.sav"]),
-        extract_fn: extract_as::<dispel_core::references::save_file::SaveFile>,
-        patch_fn: patch_as::<dispel_core::references::save_file::SaveFile>,
-        validate_fn: None,
-    }
+    b(
+        "save_file",
+        "*.sav",
+        "Game save file with player state, inventory, and world data",
+        &[".sav"],
+        DetectKind::Db(&["0.sav", "1.sav", "2.sav", "3.sav", "4.sav", "5.sav"]),
+        "SaveFileViewer",
+    )
+    .record_unchecked::<SaveFile>()
 }

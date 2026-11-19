@@ -15,18 +15,17 @@ use std::{fs::File, path::Path};
 // Full documentation: docs/files/Map/Sprites.spr.md
 //
 // Quick reference:
-//   - 268-byte unknown header, then variable-length sequences
-//   - Sequences found by scanning for valid header patterns (15×i32)
-//   - Each sequence: header → frame metadata blocks → RGB565 pixel data
-//   - RGB565: 5R/6G/5B, 0x0000=transparent, little-endian
+//   - leading i32 sequence count, followed by counted, variable-length groups
+//   - each sequence has a 268-byte header and zero or more frame groups
+//   - each group: 12-byte header → frame metadata blocks → pixel data
+//   - 16-bit RGB555 or RGB565, 0x0000=transparent, little-endian
 //   - Frames have origin_x/origin_y for alignment in a bounding rect
 //
 // Reading flow:
-//   1. seek(268)
-//   2. seek_next_sequence() → find header or EOF
-//   3. get_sequence_info() → parse header + frame metadata
-//   4. seek(sequence_start_position) → render frames
-//   5. seek(sequence_end_position) → continue to next sequence
+//   1. read sequence_count at offset 0
+//   2. read every 268-byte sequence header and its groups sequentially
+//   3. parse each non-empty group into a SequenceInfo
+//   4. use each frame's recorded pixel-data offset to render it
 //
 // ===========================================================================
 
@@ -49,9 +48,17 @@ pub struct ImageInfo {
     pub width: i32,
     /// Frame height in pixels.
     pub height: i32,
-    /// Size of the pixel data in bytes (width × height × 2).
+    /// Size of the pixel data in bytes (width × height × `bytes_per_pixel`).
     pub size_bytes: i64,
-    /// File offset where this frame's RGB565 pixel data begins.
+    /// Number of bytes occupied by one pixel in the source stream.
+    ///
+    /// Normal groups use two-byte RGB555 or RGB565 pixels. The original loader
+    /// also recognizes one-byte groups; they are parsed and skipped correctly,
+    /// but cannot be rendered without their palette.
+    pub bytes_per_pixel: u8,
+    /// Channel packing for a two-byte pixel.
+    pub pixel_format: SpritePixelFormat,
+    /// File offset where this frame's pixel data begins.
     pub image_start_position: u64,
 }
 
@@ -73,16 +80,10 @@ pub struct SequenceInfo {
     pub frame_infos: Vec<ImageInfo>,
 }
 
-/// An RGB color decoded from a 16-bit RGB565 pixel value.
-#[derive(Clone, Copy, Debug)]
-pub struct Color {
-    /// Red component (0-255).
-    pub r: u8,
-    /// Green component (0-255).
-    pub g: u8,
-    /// Blue component (0-255).
-    pub b: u8,
-}
+// Color conversion and the 16-bit channel packing are owned by `crate::decode`
+// (the version-agnostic rendering abstraction). Re-exported here so all
+// existing `sprite::Color` / `sprite::SpritePixelFormat` paths keep working.
+pub use crate::decode::{Color, SpritePixelFormat};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FrameInfoJson {
@@ -90,6 +91,7 @@ pub struct FrameInfoJson {
     pub origin_y: i32,
     pub width: i32,
     pub height: i32,
+    pub pixel_format: SpritePixelFormat,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -112,30 +114,18 @@ pub struct SpriteInfoJson {
 // Low-level parsing
 // ===========================================================================
 
-/// Decodes a 16-bit RGB565 pixel value into an 8-bit RGB `Color`.
-///
-/// The RGB565 format uses 5 bits for red, 6 for green, and 5 for blue.
-/// Values are expanded to 8-bit by left-shifting: R<<3, G<<2, B<<3.
-///
-/// A pixel value of `0` represents transparency and should be skipped
-/// during rendering.
-pub fn rgb16_565_produce_color(pixel: u16) -> Color {
-    let red_mask: u16 = 0xF800;
-    let green_mask: u16 = 0x7E0;
-    let blue_mask: u16 = 0x1F;
+// The 16-bit → RGB888 conversion lives in `crate::decode` and is shared with
+// the tileset renderer and the GUI. These aliases preserve the historical
+// names used across the codebase (and by external doc comments).
+pub use crate::decode::{
+    rgb16_to_color as rgb16_produce_color, rgb555_to_color as rgb16_555_produce_color,
+    rgb565_to_color as rgb16_565_produce_color,
+};
 
-    let red_value = (pixel & red_mask) >> 11;
-    let green_value = (pixel & green_mask) >> 5;
-    let blue_value = pixel & blue_mask;
-
-    Color {
-        r: (red_value << 3) as u8,
-        g: (green_value << 2) as u8,
-        b: (blue_value << 3) as u8,
-    }
-}
-
-fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo> {
+fn get_image_info_with_pixel_stride<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    bytes_per_pixel: u8,
+) -> Result<ImageInfo> {
     reader.seek(SeekFrom::Current(6 * 4))?;
 
     let origin_x = reader.read_i32::<LittleEndian>()?;
@@ -143,8 +133,12 @@ fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo
     let width = reader.read_i32::<LittleEndian>()?;
     let height = reader.read_i32::<LittleEndian>()?;
 
-    let size_bytes = reader.read_u32::<LittleEndian>()?;
-    let size_bytes = (size_bytes as i64) * 2;
+    let pixel_count = reader.read_u32::<LittleEndian>()?;
+    let size_bytes = i64::from(pixel_count)
+        .checked_mul(i64::from(bytes_per_pixel))
+        .ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "frame is too large")
+        })?;
 
     let image_start_position = reader.stream_position()?;
 
@@ -165,8 +159,14 @@ fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo
         width,
         height,
         size_bytes,
+        bytes_per_pixel,
+        pixel_format: SpritePixelFormat::Rgb565,
         image_start_position,
     })
+}
+
+fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo> {
+    get_image_info_with_pixel_stride(reader, 2)
 }
 
 /// Parses a single sequence header and all its frame metadata.
@@ -205,6 +205,135 @@ pub fn get_sequence_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<Se
         frame_count,
         frame_infos,
     })
+}
+
+fn checked_count(value: i32, field: &str) -> Result<usize> {
+    usize::try_from(value).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("negative {field}: {value}"),
+        )
+    })
+}
+
+fn ensure_sprite_archive<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<()> {
+    reader.seek(SeekFrom::Start(0))?;
+    let mut magic = [0_u8; 2];
+    reader.read_exact(&mut magic)?;
+    if magic == *b"BM" {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "BMP data uses a .spr extension; it is not a DISPEL sprite archive",
+        ));
+    }
+    reader.seek(SeekFrom::Start(0))?;
+    Ok(())
+}
+
+/// Read the sprite archive in the order used by the original game loader.
+///
+/// The public API calls each non-empty group a sequence. This preserves the
+/// existing extractor/manifest convention while following the archive's real
+/// layout: a leading sequence count, then 268-byte sequence headers, then
+/// variable-length group records and their frame data.
+fn read_sprite_sequence_infos<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+) -> Result<Vec<SequenceInfo>> {
+    ensure_sprite_archive(reader)?;
+
+    let sequence_count = checked_count(reader.read_i32::<LittleEndian>()?, "sequence count")?;
+    let mut sequences = Vec::new();
+
+    for _ in 0..sequence_count {
+        // Per-sequence header: id/unknown (4), name (260), group count (4).
+        reader.seek(SeekFrom::Current(4 + 260))?;
+        let group_count = checked_count(reader.read_i32::<LittleEndian>()?, "group count")?;
+
+        for _ in 0..group_count {
+            // The group header is { variant, frame_count, unknown }. Variant 1
+            // has one byte per pixel; the normal (and all shipped) variant has
+            // RGB565 pixels occupying two bytes each.
+            let variant = reader.read_i32::<LittleEndian>()?;
+            let frame_count = checked_count(reader.read_i32::<LittleEndian>()?, "frame count")?;
+            _ = reader.read_i32::<LittleEndian>()?;
+            let bytes_per_pixel = if variant == 1 { 1 } else { 2 };
+
+            let sequence_start_position = reader.stream_position()?;
+            let mut frame_infos = Vec::with_capacity(frame_count);
+            for _ in 0..frame_count {
+                let image_info = get_image_info_with_pixel_stride(reader, bytes_per_pixel)?;
+                reader.seek(SeekFrom::Current(image_info.size_bytes))?;
+                frame_infos.push(image_info);
+            }
+            let sequence_end_position = reader.stream_position()?;
+
+            // Empty groups are direction/animation slots, not extractable
+            // image sequences. The legacy scanner omitted them as well.
+            if !frame_infos.is_empty() {
+                sequences.push(SequenceInfo {
+                    sequence_start_position,
+                    sequence_end_position,
+                    frame_count: frame_count as i32,
+                    frame_infos,
+                });
+            }
+        }
+    }
+
+    assign_16bit_pixel_format(reader, &mut sequences)?;
+
+    Ok(sequences)
+}
+
+/// The archive has no explicit RGB555/RGB565 tag. The original blitter selects
+/// its masks from the display configuration; assets themselves reveal RGB555
+/// by never using bit 15. `Menu/MBack.spr` is the verified shipped example.
+fn assign_16bit_pixel_format<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    sequences: &mut [SequenceInfo],
+) -> Result<()> {
+    let mut saw_nontransparent_pixel = false;
+    let mut uses_bit_15 = false;
+
+    for sequence in sequences.iter() {
+        for frame in &sequence.frame_infos {
+            if frame.bytes_per_pixel != 2 {
+                continue;
+            }
+            reader.seek(SeekFrom::Start(frame.image_start_position))?;
+            let word_count = u64::try_from(frame.size_bytes / 2).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid frame size")
+            })?;
+            for _ in 0..word_count {
+                let pixel = reader.read_u16::<LittleEndian>()?;
+                if pixel != 0 {
+                    saw_nontransparent_pixel = true;
+                    uses_bit_15 |= pixel & 0x8000 != 0;
+                }
+            }
+        }
+    }
+
+    let pixel_format = if saw_nontransparent_pixel && !uses_bit_15 {
+        SpritePixelFormat::Rgb555
+    } else {
+        SpritePixelFormat::Rgb565
+    };
+    for sequence in sequences {
+        for frame in &mut sequence.frame_infos {
+            if frame.bytes_per_pixel == 2 {
+                frame.pixel_format = pixel_format;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Return every non-empty frame group in a standalone `.spr` archive.
+pub fn get_sprite_sequence_infos(file_path: &Path) -> Result<Vec<SequenceInfo>> {
+    let file = File::open(file_path)?;
+    let mut reader = BufReader::new(file);
+    read_sprite_sequence_infos(&mut reader)
 }
 
 /// Scans forward from `start_pos` to find the next valid sequence header.
@@ -332,18 +461,42 @@ pub fn render_frame_to_rgba<R: Read + Seek>(
     offset_x: u32,
     offset_y: u32,
 ) -> Result<RgbaImage> {
+    render_frame_to_rgba_with_black(reader, frame, rect_w, rect_h, offset_x, offset_y, false)
+}
+
+/// Render a frame as RGBA, optionally retaining raw `0x0000` pixels as
+/// opaque black instead of treating them as transparent.
+pub fn render_frame_to_rgba_with_black<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    frame: &ImageInfo,
+    rect_w: u32,
+    rect_h: u32,
+    offset_x: u32,
+    offset_y: u32,
+    preserve_black: bool,
+) -> Result<RgbaImage> {
+    if frame.bytes_per_pixel != 2 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "cannot render one-byte sprite pixels without a palette",
+        ));
+    }
+
     let mut imgbuf = RgbaImage::new(rect_w, rect_h);
     let frame_width = frame.width.unsigned_abs();
 
     reader.seek(SeekFrom::Start(frame.image_start_position))?;
     for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
         let pixel = reader.read_u16::<LittleEndian>()?;
-        if pixel == 0 {
-            continue;
-        }
-        let color = rgb16_565_produce_color(pixel);
         let x = (pixel_idx as u32 % frame_width) + offset_x;
         let y = (pixel_idx as u32 / frame_width) + offset_y;
+        if pixel == 0 {
+            if preserve_black {
+                imgbuf.put_pixel(x, y, image::Rgba([0, 0, 0, 255]));
+            }
+            continue;
+        }
+        let color = rgb16_produce_color(pixel, frame.pixel_format);
         imgbuf.put_pixel(x, y, image::Rgba([color.r, color.g, color.b, 255]));
     }
     Ok(imgbuf)
@@ -358,27 +511,11 @@ where
     F: FnMut(&mut BufReader<File>, &SequenceInfo, usize) -> Result<()>,
 {
     let file = File::open(file_path)?;
-    let file_len = file.metadata()?.len();
     let mut reader = BufReader::new(file);
+    let infos = read_sprite_sequence_infos(&mut reader)?;
 
-    reader.seek(SeekFrom::Start(268))?;
-
-    let mut seq_index = 0;
-    loop {
-        let pos = reader.stream_position()?;
-        if pos >= file_len {
-            break;
-        }
-
-        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
-        if !valid {
-            break;
-        }
-
-        let info = get_sequence_info(&mut reader)?;
-        f(&mut reader, &info, seq_index)?;
-        reader.seek(SeekFrom::Start(info.sequence_end_position))?;
-        seq_index += 1;
+    for (seq_index, info) in infos.iter().enumerate() {
+        f(&mut reader, info, seq_index)?;
     }
 
     Ok(())
@@ -388,17 +525,53 @@ where
 // CLI commands (file extraction)
 // ===========================================================================
 
-pub fn animation(file_path: &Path) -> Result<()> {
+/// Exports every sequence as a horizontal animation atlas.
+///
+/// When `apply_origin_offsets` is true, each frame is placed in the shared
+/// sequence bounds so its origin remains fixed across the animation.
+pub fn animation(file_path: &Path, apply_origin_offsets: bool) -> Result<()> {
+    animation_with_black(file_path, apply_origin_offsets, false)
+}
+
+/// Export animation atlases, optionally retaining raw `0x0000` pixels as
+/// opaque black.
+pub fn animation_with_black(
+    file_path: &Path,
+    apply_origin_offsets: bool,
+    preserve_black: bool,
+) -> Result<()> {
     for_each_sequence(file_path, |reader, info, seq_idx| {
-        save_sequence_anim(reader, &info.frame_infos, seq_idx as i32)
+        save_sequence_anim_with_black(
+            reader,
+            &info.frame_infos,
+            seq_idx as i32,
+            apply_origin_offsets,
+            preserve_black,
+        )
     })?;
     println!("Finished");
     Ok(())
 }
 
 pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
+    extract_with_black(file_path, out_file_prefix, false)
+}
+
+/// Export individual frames, optionally retaining raw `0x0000` pixels as
+/// opaque black.
+pub fn extract_with_black(
+    file_path: &Path,
+    out_file_prefix: String,
+    preserve_black: bool,
+) -> Result<()> {
     for_each_sequence(file_path, |reader, info, seq_idx| {
-        save_sequence(reader, &info.frame_infos, seq_idx as i32, &out_file_prefix)
+        save_sequence_with_black(
+            reader,
+            &info.frame_infos,
+            seq_idx as i32,
+            &out_file_prefix,
+            preserve_black,
+        )
     })?;
     println!("Finished");
     Ok(())
@@ -408,6 +581,25 @@ pub fn save_sequence_anim(
     reader: &mut BufReader<File>,
     frames: &[ImageInfo],
     sequence_counter: i32,
+    apply_origin_offsets: bool,
+) -> Result<()> {
+    save_sequence_anim_with_black(
+        reader,
+        frames,
+        sequence_counter,
+        apply_origin_offsets,
+        false,
+    )
+}
+
+/// Save one animation atlas, optionally retaining raw `0x0000` pixels as
+/// opaque black.
+pub fn save_sequence_anim_with_black(
+    reader: &mut BufReader<File>,
+    frames: &[ImageInfo],
+    sequence_counter: i32,
+    apply_origin_offsets: bool,
+    preserve_black: bool,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
@@ -417,21 +609,16 @@ pub fn save_sequence_anim(
 
     println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
-    let atlas_w = rect_w * (frames.len() as u32);
-    let mut imgbuf = RgbaImage::new(atlas_w, rect_h);
-    let mut offset_x: u32 = 0;
-
-    for (i, frame) in frames.iter().enumerate() {
-        let (_, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
-
-        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, 0, offset_y)?;
-
-        for (px, py, pixel) in frame_rgba.enumerate_pixels() {
-            imgbuf.put_pixel(px + offset_x, py, *pixel);
-        }
-
-        offset_x += rect_w;
-    }
+    let imgbuf = render_sequence_animation(
+        reader,
+        frames,
+        rect_x,
+        rect_y,
+        rect_w,
+        rect_h,
+        apply_origin_offsets,
+        preserve_black,
+    )?;
 
     imgbuf
         .save(format!("image_{:?}.png", sequence_counter))
@@ -440,11 +627,65 @@ pub fn save_sequence_anim(
     Ok(())
 }
 
+/// Renders every frame of a sequence into a horizontal animation atlas.
+///
+/// Each atlas cell uses the sequence's shared bounding box, keeping the
+/// frame anchor at the same position across the animation.
+#[allow(clippy::too_many_arguments)]
+fn render_sequence_animation<R: Read + Seek>(
+    reader: &mut BufReader<R>,
+    frames: &[ImageInfo],
+    rect_x: i32,
+    rect_y: i32,
+    rect_w: u32,
+    rect_h: u32,
+    apply_origin_offsets: bool,
+    preserve_black: bool,
+) -> Result<RgbaImage> {
+    let atlas_w = rect_w * (frames.len() as u32);
+    let mut imgbuf = RgbaImage::new(atlas_w, rect_h);
+
+    for (i, frame) in frames.iter().enumerate() {
+        let (offset_x, offset_y) = if apply_origin_offsets {
+            compute_frame_offset(frames, i, rect_x, rect_y)
+        } else {
+            (0, 0)
+        };
+        let frame_rgba = render_frame_to_rgba_with_black(
+            reader,
+            frame,
+            rect_w,
+            rect_h,
+            offset_x,
+            offset_y,
+            preserve_black,
+        )?;
+
+        for (px, py, pixel) in frame_rgba.enumerate_pixels() {
+            imgbuf.put_pixel(px + (i as u32 * rect_w), py, *pixel);
+        }
+    }
+
+    Ok(imgbuf)
+}
+
 pub fn save_sequence(
     reader: &mut BufReader<File>,
     frames: &[ImageInfo],
     sequence_counter: i32,
     out_file_prefix: &str,
+) -> Result<()> {
+    save_sequence_with_black(reader, frames, sequence_counter, out_file_prefix, false)
+}
+
+/// Save individual frame PNGs, optionally retaining raw `0x0000` pixels as
+/// opaque black.
+pub fn save_sequence_with_black(
+    reader: &mut BufReader<File>,
+    frames: &[ImageInfo],
+    sequence_counter: i32,
+    out_file_prefix: &str,
+    preserve_black: bool,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
@@ -457,7 +698,15 @@ pub fn save_sequence(
     for (i, frame) in frames.iter().enumerate() {
         let (offset_x, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
 
-        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, offset_x, offset_y)?;
+        let frame_rgba = render_frame_to_rgba_with_black(
+            reader,
+            frame,
+            rect_w,
+            rect_h,
+            offset_x,
+            offset_y,
+            preserve_black,
+        )?;
 
         let outfile = format!("./{}_{:?}-{:?}.png", out_file_prefix, sequence_counter, i);
         frame_rgba.save(outfile).unwrap();
@@ -513,29 +762,10 @@ pub fn get_sprite_metadata(file_path: &Path) -> Result<(usize, Vec<usize>)> {
 
 pub fn get_sequence_pngs_by_index(file_path: &Path, sequence_idx: usize) -> Result<Vec<Vec<u8>>> {
     let file = File::open(file_path)?;
-    let file_len = file.metadata()?.len();
     let mut reader = BufReader::new(file);
-
-    reader.seek(SeekFrom::Start(268))?;
-
-    let mut seq_counter = 0;
-    loop {
-        let pos = reader.stream_position()?;
-        if pos >= file_len {
-            break;
-        }
-
-        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
-        if !valid {
-            break;
-        }
-
-        let info = get_sequence_info(&mut reader)?;
-        if seq_counter == sequence_idx {
-            reader.seek(SeekFrom::Start(info.sequence_start_position))?;
-            return get_sequence_frames_as_pngs(&mut reader, &info);
-        }
-        seq_counter += 1;
+    let infos = read_sprite_sequence_infos(&mut reader)?;
+    if let Some(info) = infos.get(sequence_idx) {
+        return get_sequence_frames_as_pngs(&mut reader, info);
     }
 
     Err(std::io::Error::new(
@@ -548,25 +778,11 @@ pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
     let file = File::open(file_path)?;
     let file_len = file.metadata()?.len();
     let mut reader = BufReader::new(file);
+    let infos = read_sprite_sequence_infos(&mut reader)?;
 
-    reader.seek(SeekFrom::Start(268))?;
-
-    let mut sequences = Vec::new();
+    let mut sequences = Vec::with_capacity(infos.len());
     let mut total_frames = 0;
-    let mut seq_index = 0;
-
-    loop {
-        let pos = reader.stream_position()?;
-        if pos >= file_len {
-            break;
-        }
-
-        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
-        if !valid {
-            break;
-        }
-
-        let info = get_sequence_info(&mut reader)?;
+    for (seq_index, info) in infos.iter().enumerate() {
         let frame_count = info.frame_count as usize;
         total_frames += frame_count;
 
@@ -578,6 +794,7 @@ pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
                 origin_y: f.origin_y,
                 width: f.width,
                 height: f.height,
+                pixel_format: f.pixel_format,
             })
             .collect();
 
@@ -586,8 +803,6 @@ pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
             frame_count,
             frames,
         });
-
-        seq_index += 1;
     }
 
     Ok(SpriteInfoJson {
@@ -638,7 +853,9 @@ pub struct SpriteFrameData {
     pub width: i32,
     /// Frame height in pixels.
     pub height: i32,
-    /// Raw RGB565 pixel data, width×height×2 bytes, little-endian.
+    /// Channel packing used by `raw_pixels`.
+    pub pixel_format: SpritePixelFormat,
+    /// Raw RGB555 or RGB565 pixel data, width×height×2 bytes, little-endian.
     /// Stored in original form so unmodified frames round-trip bit-exact.
     pub raw_pixels: Vec<u8>,
 }
@@ -648,8 +865,14 @@ impl SpriteFrameData {
         (self.width * self.height) as usize
     }
 
-    /// Decode the raw RGB565 pixels into RGBA bytes (width×height×4).
+    /// Decode the raw 16-bit pixels into RGBA bytes (width×height×4).
     pub fn decode_to_rgba(&self) -> Vec<u8> {
+        self.decode_to_rgba_with_black(false)
+    }
+
+    /// Decode raw 16-bit pixels into RGBA bytes, optionally retaining raw
+    /// `0x0000` pixels as opaque black.
+    pub fn decode_to_rgba_with_black(&self, preserve_black: bool) -> Vec<u8> {
         let count = self.pixel_count();
         let mut rgba = vec![0u8; count * 4];
         for i in 0..count {
@@ -658,11 +881,14 @@ impl SpriteFrameData {
                 break;
             }
             let pixel = u16::from_le_bytes([self.raw_pixels[base], self.raw_pixels[base + 1]]);
-            if pixel == 0 {
-                continue; // transparent, keep RGBA = [0,0,0,0]
-            }
-            let color = rgb16_565_produce_color(pixel);
             let rbase = i * 4;
+            if pixel == 0 {
+                if preserve_black {
+                    rgba[rbase + 3] = 255;
+                }
+                continue;
+            }
+            let color = rgb16_produce_color(pixel, self.pixel_format);
             rgba[rbase] = color.r;
             rgba[rbase + 1] = color.g;
             rgba[rbase + 2] = color.b;
@@ -671,21 +897,23 @@ impl SpriteFrameData {
         rgba
     }
 
-    /// Encode RGBA bytes (width×height×4) into raw RGB565, replacing pixel data.
+    /// Encode RGBA bytes (width×height×4) into this frame's 16-bit packing,
+    /// replacing pixel data.
     pub fn encode_from_rgba(&mut self, rgba: &[u8]) {
         let count = self.pixel_count();
         let mut raw = vec![0u8; count * 2];
         for i in 0..count.min(rgba.len() / 4) {
             let rbase = i * 4;
-            let rgb565 = rgba_to_rgb565_bytes(
+            let encoded = rgba_to_rgb16_bytes(
                 rgba[rbase],
                 rgba[rbase + 1],
                 rgba[rbase + 2],
                 rgba[rbase + 3],
+                self.pixel_format,
             );
             let base = i * 2;
-            raw[base] = rgb565[0];
-            raw[base + 1] = rgb565[1];
+            raw[base] = encoded[0];
+            raw[base + 1] = encoded[1];
         }
         self.raw_pixels = raw;
     }
@@ -703,11 +931,85 @@ pub fn read_sprite_file(path: &Path) -> Result<SpriteFile> {
     parse_sprite_bytes(&bytes)
 }
 
+/// Parse a `.spr` archive for the editor-facing flattened group view.
+///
+/// `SpriteSequence` predates the discovered outer sequence/group structure;
+/// it therefore continues to expose each non-empty group as a sequence.
+pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
+    if bytes.len() < 4 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "sprite archive is smaller than its sequence count",
+        ));
+    }
+
+    let mut reader = BufReader::new(Cursor::new(bytes));
+    let infos = read_sprite_sequence_infos(&mut reader)?;
+    // SpriteFile is the editor's flattened group view. Its header describes
+    // the normalized one-record archive emitted by write_sprite_to_path.
+    let mut header = [0_u8; 268];
+    header[..4].copy_from_slice(&1_i32.to_le_bytes());
+
+    let mut sequences = Vec::with_capacity(infos.len());
+    for info in infos {
+        let mut frames = Vec::with_capacity(info.frame_infos.len());
+        for frame in info.frame_infos {
+            if frame.bytes_per_pixel != 2 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Unsupported,
+                    "editor support for one-byte sprite groups requires a palette",
+                ));
+            }
+            let metadata_start = usize::try_from(frame.image_start_position)
+                .ok()
+                .and_then(|offset| offset.checked_sub(44))
+                .ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid frame offset")
+                })?;
+            let pixel_start = usize::try_from(frame.image_start_position).map_err(|_| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid frame offset")
+            })?;
+            let pixel_end = pixel_start
+                .checked_add(usize::try_from(frame.size_bytes).map_err(|_| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid frame size")
+                })?)
+                .ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, "frame is too large")
+                })?;
+            if pixel_end > bytes.len() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "truncated frame data",
+                ));
+            }
+
+            let mut unknown = [0_u8; 24];
+            unknown.copy_from_slice(&bytes[metadata_start..metadata_start + 24]);
+            frames.push(SpriteFrameData {
+                unknown,
+                origin_x: frame.origin_x,
+                origin_y: frame.origin_y,
+                width: frame.width,
+                height: frame.height,
+                pixel_format: frame.pixel_format,
+                raw_pixels: bytes[pixel_start..pixel_end].to_vec(),
+            });
+        }
+        sequences.push(SpriteSequence {
+            has_stamp: false,
+            frames,
+        });
+    }
+
+    Ok(SpriteFile { header, sequences })
+}
+
 /// Parse `.spr` bytes into the in-memory [`SpriteFile`] representation.
 ///
 /// Shared by `read_sprite_file` (filesystem) and callers that hold sprite
 /// data in memory (e.g. database blobs). See `read_sprite_file` for details.
-pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
+#[allow(dead_code)]
+fn parse_sprite_bytes_legacy(bytes: &[u8]) -> Result<SpriteFile> {
     let file_len = bytes.len();
     if file_len < 268 {
         return Err(std::io::Error::new(
@@ -785,6 +1087,7 @@ pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
                 origin_y,
                 width,
                 height,
+                pixel_format: SpritePixelFormat::Rgb565,
                 raw_pixels,
             });
         }
@@ -836,26 +1139,24 @@ fn is_valid_sequence_header(ints: &[i32; 15]) -> bool {
 
 /// Write the in-memory [`SpriteFile`] back to a .spr binary file.
 ///
-/// The 268-byte header and all per-frame 24-byte unknown data are preserved
-/// verbatim. Pixel data is re-encoded from raw RGB565.
+/// The flattened editor view is emitted as a normalized counted archive.
+/// Per-frame metadata and unmodified raw pixels are preserved, but outer
+/// sequence headers, empty groups, and group partitioning are not.
 pub fn write_sprite_to_path(path: &Path, sprite: &SpriteFile) -> Result<()> {
     let mut buf = Vec::with_capacity(4096);
-    buf.extend_from_slice(&sprite.header);
+    // The editor exposes groups as flat sequences. Serialize that view as one
+    // valid outer sequence record rather than emitting the obsolete heuristic
+    // format. The 4-byte id and 260-byte name remain zeroed.
+    buf.extend_from_slice(&1_i32.to_le_bytes());
+    buf.extend_from_slice(&[0_u8; 264]);
+    buf.extend_from_slice(&(sprite.sequences.len() as i32).to_le_bytes());
 
     for seq in &sprite.sequences {
         let frame_count = seq.frames.len() as i32;
-        if seq.has_stamp {
-            // Pattern B: stamp=8, stamp_padding=0, frame_count, padding=0
-            buf.extend_from_slice(&8i32.to_le_bytes());
-            buf.extend_from_slice(&0i32.to_le_bytes());
-            buf.extend_from_slice(&frame_count.to_le_bytes());
-            buf.extend_from_slice(&0i32.to_le_bytes());
-        } else {
-            // Pattern A: stamp=0, frame_count, padding=0
-            buf.extend_from_slice(&0i32.to_le_bytes());
-            buf.extend_from_slice(&frame_count.to_le_bytes());
-            buf.extend_from_slice(&0i32.to_le_bytes());
-        }
+        // Group header: normal 16-bit variant, frame count, reserved word.
+        buf.extend_from_slice(&0_i32.to_le_bytes());
+        buf.extend_from_slice(&frame_count.to_le_bytes());
+        buf.extend_from_slice(&0_i32.to_le_bytes());
 
         for frame in &seq.frames {
             buf.extend_from_slice(&frame.unknown);
@@ -884,6 +1185,28 @@ pub fn rgba_to_rgb565_bytes(r: u8, g: u8, b: u8, a: u8) -> [u8; 2] {
     let b5 = (b as u16 >> 3) & 0x1F;
     let pixel = (r5 << 11) | (g6 << 5) | b5;
     pixel.to_le_bytes()
+}
+
+/// Encode a single RGBA pixel as two RGB555 bytes (little-endian).
+///
+/// Pixels with alpha < 128 are encoded as `0x0000` (transparent).
+pub fn rgba_to_rgb555_bytes(r: u8, g: u8, b: u8, a: u8) -> [u8; 2] {
+    if a < 128 {
+        return [0, 0];
+    }
+    let r5 = (r as u16 >> 3) & 0x1F;
+    let g5 = (g as u16 >> 3) & 0x1F;
+    let b5 = (b as u16 >> 3) & 0x1F;
+    let pixel = (r5 << 10) | (g5 << 5) | b5;
+    pixel.to_le_bytes()
+}
+
+/// Encode an RGBA pixel using the requested 16-bit sprite packing.
+pub fn rgba_to_rgb16_bytes(r: u8, g: u8, b: u8, a: u8, pixel_format: SpritePixelFormat) -> [u8; 2] {
+    match pixel_format {
+        SpritePixelFormat::Rgb555 => rgba_to_rgb555_bytes(r, g, b, a),
+        SpritePixelFormat::Rgb565 => rgba_to_rgb565_bytes(r, g, b, a),
+    }
 }
 
 // ===========================================================================
@@ -918,6 +1241,53 @@ mod tests {
     }
 
     #[test]
+    fn rgba_to_rgb555_encodes_primary_channels() {
+        assert_eq!(
+            u16::from_le_bytes(rgba_to_rgb555_bytes(255, 0, 0, 255)),
+            0x7C00
+        );
+        assert_eq!(
+            u16::from_le_bytes(rgba_to_rgb555_bytes(0, 255, 0, 255)),
+            0x03E0
+        );
+        assert_eq!(
+            u16::from_le_bytes(rgba_to_rgb555_bytes(0, 0, 255, 255)),
+            0x001F
+        );
+    }
+
+    #[test]
+    fn rgb555_decodes_five_bit_green() {
+        let color = rgb16_produce_color(0x03E0, SpritePixelFormat::Rgb555);
+        assert_eq!((color.r, color.g, color.b), (0, 255, 0));
+    }
+
+    #[test]
+    fn raw_black_can_be_retained_or_transparent() {
+        let frame = ImageInfo {
+            origin_x: 0,
+            origin_y: 0,
+            width: 1,
+            height: 1,
+            size_bytes: 2,
+            bytes_per_pixel: 2,
+            pixel_format: SpritePixelFormat::Rgb565,
+            image_start_position: 0,
+        };
+
+        let mut transparent_reader = BufReader::new(Cursor::new(vec![0, 0]));
+        let transparent =
+            render_frame_to_rgba_with_black(&mut transparent_reader, &frame, 1, 1, 0, 0, false)
+                .expect("render transparent black");
+        assert_eq!(transparent.get_pixel(0, 0).0, [0, 0, 0, 0]);
+
+        let mut opaque_reader = BufReader::new(Cursor::new(vec![0, 0]));
+        let opaque = render_frame_to_rgba_with_black(&mut opaque_reader, &frame, 1, 1, 0, 0, true)
+            .expect("render opaque black");
+        assert_eq!(opaque.get_pixel(0, 0).0, [0, 0, 0, 255]);
+    }
+
+    #[test]
     fn rgba_to_rgb565_transparent_is_zero() {
         let bytes = rgba_to_rgb565_bytes(255, 0, 0, 0);
         assert_eq!(bytes, [0, 0]);
@@ -925,16 +1295,17 @@ mod tests {
 
     #[test]
     fn rgba_to_rgb565_decode_round_trip() {
-        // Encode a known color → decode back → verify color values
+        // Encode a known color → decode back → verify the 5/6/5 fields survive.
+        // Decode expands to the full 0..=255 range (16 → 132, not 16 << 3).
         let encoded = rgba_to_rgb565_bytes(128, 64, 192, 255);
         let pixel = u16::from_le_bytes(encoded);
         let color = rgb16_565_produce_color(pixel);
-        // 128 >> 3 = 16, 16 << 3 = 128
-        assert_eq!(color.r, 128);
-        // 64 >> 2 = 16, 16 << 2 = 64
-        assert_eq!(color.g, 64);
-        // 192 >> 3 = 24, 24 << 3 = 192
-        assert_eq!(color.b, 192);
+        assert_eq!(color.r, 132); // r5 = 16
+        assert_eq!(color.g, 65); // g6 = 16
+        assert_eq!(color.b, 197); // b5 = 24
+        assert_eq!(u16::from(color.r) >> 3, 16);
+        assert_eq!(u16::from(color.g) >> 2, 16);
+        assert_eq!(u16::from(color.b) >> 3, 24);
     }
 
     #[test]
@@ -951,6 +1322,7 @@ mod tests {
             origin_y: 0,
             width: 4,
             height: 4,
+            pixel_format: SpritePixelFormat::Rgb565,
             raw_pixels: vec![0u8; 4 * 4 * 2],
         };
         frame.encode_from_rgba(&pixels);
@@ -959,13 +1331,10 @@ mod tests {
         // Decode back
         let decoded = frame.decode_to_rgba();
         assert_eq!(decoded.len(), 64, "4×4 pixels × 4 bytes RGBA");
-        // First pixel should be R=248 (after 5-bit rounding), G=64, B=64
-        assert_eq!(decoded[0], 248); // R (255→31→248)
-        assert_eq!(decoded[1], 128); // G (128→32→128) wait...
-        // Actually: 128 >> 2 = 32, 32 << 2 = 128
-        // Let me verify:
-        // 64 >> 2 = 16, 16 << 2 = 64
-        // Let me just check the first pixel is non-zero and alpha is 255
+        // R=255 → r5=31 → 255; G=128 → g6=32 → 130; B=64 → b5=8 → 66.
+        assert_eq!(decoded[0], 255);
+        assert_eq!(decoded[1], 130);
+        assert_eq!(decoded[2], 66);
         assert_eq!(decoded[3], 255);
     }
 
@@ -1104,59 +1473,6 @@ mod tests {
         let _ = std::fs::remove_file(&tmp);
     }
 
-    #[test]
-    fn color_black() {
-        let color = rgb16_565_produce_color(0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_red_max() {
-        let color = rgb16_565_produce_color(0xF800);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_green_max() {
-        let color = rgb16_565_produce_color(0x07E0);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 0);
-    }
-
-    #[test]
-    fn color_blue_max() {
-        let color = rgb16_565_produce_color(0x001F);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_white() {
-        let color = rgb16_565_produce_color(0xFFFF);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_magenta() {
-        let color = rgb16_565_produce_color(0xF81F);
-        assert_eq!(color.r, 248);
-        assert_eq!(color.g, 0);
-        assert_eq!(color.b, 248);
-    }
-
-    #[test]
-    fn color_cyan() {
-        let color = rgb16_565_produce_color(0x07FF);
-        assert_eq!(color.r, 0);
-        assert_eq!(color.g, 252);
-        assert_eq!(color.b, 248);
-    }
+    // Golden RGB565/RGB555 values and channel invariants now live in
+    // `crate::decode::tests`; the old per-format copies were removed.
 }
