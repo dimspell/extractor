@@ -446,11 +446,10 @@ impl MapRenderSource for MapEditorState {
         let diagonal = model.tiled_map_width + model.tiled_map_height;
         let noy = model.map_non_occluded_start_y;
 
-        let entity_pos = |tx: i32, ty: i32| -> i32 {
-            let img_y =
-                dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal).1;
-            img_y + 32 - noy
-        };
+        // Shared with the CLI renderer so depth ordering cannot drift between
+        // the viewport and the PNG renderer.
+        let entity_pos =
+            |tx: i32, ty: i32| dispel_core::map::types::entity_sort_key(tx, ty, diagonal, noy);
 
         if idx < monster_count {
             let m = &self.data.monsters[idx];

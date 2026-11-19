@@ -300,37 +300,30 @@ mod tests {
     }
 
     #[test]
-    fn test_save_to_db_round_trips_fixture() {
-        let fixture_dir = Path::new("fixtures/Dispel");
-        if !fixture_dir.join("ExtraInGame/fogdata.dat").exists() {
-            eprintln!("Skipping test_save_to_db_round_trips_fixture: fixture not found");
-            return;
-        }
+    fn test_save_to_db_round_trips_synthetic_table() {
+        // Synthetic table: no game fixture needed to exercise persist → query.
+        let bytes: Vec<u8> = (0..EXPECTED_LEN)
+            .map(|i| ((i / ROW_LEN + i % ROW_LEN) % (MAX_FACTOR as usize + 1)) as u8)
+            .collect();
+        let fog = FogData::from_raw(bytes);
 
-        let fog = FogData::load(fixture_dir).expect("loading fogdata.dat fixture");
         let mut conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
         crate::database::create_all(&conn).expect("creating schema");
-
         save_to_db(&mut conn, &fog).expect("save_to_db");
 
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM fog_factors", [], |row| row.get(0))
-            .unwrap();
+            .expect("count fog factors");
         assert_eq!(count as usize, EXPECTED_LEN);
 
-        // Known values from the shipped file (see render.rs tests).
         let factor_at = |level: i32, pair: i32| -> i32 {
             conn.query_row(
                 "SELECT factor FROM fog_factors WHERE level = ?1 AND pair_index = ?2",
                 rusqlite::params![level, pair],
                 |row| row.get(0),
             )
-            .unwrap()
+            .expect("query factor")
         };
-        assert_eq!(factor_at(1, 0), 2);
-        assert_eq!(factor_at(65, 256), 31);
-
-        // Sampled rows must equal the in-memory table exactly.
         for (k, p) in [(1u32, 0usize), (2, 1), (65, 256), (100, 511), (123, 511)] {
             let stored = factor_at(k as i32, p as i32);
             assert_eq!(stored as u8, fog.row(k)[p], "level {k} pair {p}");

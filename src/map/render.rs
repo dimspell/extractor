@@ -9,8 +9,8 @@ use crate::sprite::{ImageInfo, rgb16_565_produce_color};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
-    Coords, EventBlock, convert_map_coords_to_image_coords, internal_sprite_sort_key,
-    tiled_object_sort_key,
+    Coords, DrawOrder, EventBlock, compare_depth, convert_map_coords_to_image_coords,
+    entity_sort_key, internal_sprite_sort_key, tiled_object_sort_key,
 };
 
 use super::model::MapModel;
@@ -159,13 +159,6 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     let image_width = data.model.occluded_map_in_pixels_width;
     let image_height = data.model.occluded_map_in_pixels_height;
 
-    println!("{:?}", data.model);
-    println!(
-        "{}, {}",
-        image_width.unsigned_abs(),
-        image_height.unsigned_abs()
-    );
-
     let mut imgbuf: ImageBuffer<Rgb<u8>, Vec<u8>> =
         image::ImageBuffer::new(image_width.unsigned_abs(), image_height.unsigned_abs());
 
@@ -201,11 +194,6 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         // (world Y minus the non-occluded origin), independent of output mode.
         let noy = data.model.map_non_occluded_start_y;
 
-        // Helper: entity sort position (matches GUI's entity_pos)
-        let entity_pos = |tx: i32, ty: i32| -> i32 {
-            convert_map_coords_to_image_coords(tx, ty, diagonal).1 + 32 - noy
-        };
-
         enum ItemKind {
             TiledObject(usize),
             Sprite(usize),
@@ -216,16 +204,21 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
 
         let mut items: Vec<(i32, i32, i32, ItemKind)> = Vec::new();
 
-        // Buildings (type_order=0) — single units ordered by their stack bottom.
-        // Keys are map-local, matching entity_pos below.
+        // Buildings — single units ordered by their stack bottom.
+        // Keys are map-local, matching the shared entity position below.
         if toggles.show_buildings {
             for (i, info) in data.tiled_infos.iter().enumerate() {
                 let pos = tiled_object_sort_key(info.y, info.ids.len());
-                items.push((pos, 0, info.x, ItemKind::TiledObject(i)));
+                items.push((
+                    pos,
+                    DrawOrder::TiledObject.rung(),
+                    info.x,
+                    ItemKind::TiledObject(i),
+                ));
             }
         }
 
-        // Internal sprites (type_order=1) — key is map-local
+        // Internal sprites — key is map-local
         // (sprite_bottom_right_y == sprite_y + height), minus the half-tile
         // window so characters sitting on props draw over them.
         if toggles.show_internal_sprites {
@@ -235,32 +228,51 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                     let f = toggles.sprite_frame.map_or(0, |f| f.min(infos.len() - 1));
                     let h = infos[f].height;
                     let pos = internal_sprite_sort_key(block.sprite_y + h);
-                    items.push((pos, 1, block.sprite_x, ItemKind::Sprite(i)));
+                    items.push((
+                        pos,
+                        DrawOrder::InternalSprite.rung(),
+                        block.sprite_x,
+                        ItemKind::Sprite(i),
+                    ));
                 }
             }
         }
 
-        // External entities (type_order rungs shared with the GUI interlaced
-        // pass: Extra=2 < DrawItem=3 < Monster=4 < Npc=5).
+        // External entities use the same sort key and rungs as the GUI pass.
         if let Some(ref ext) = external {
             if toggles.show_monsters {
                 for (i, m) in ext.monsters.iter().enumerate() {
-                    items.push((entity_pos(m.x, m.y), 4, m.x, ItemKind::Monster(i)));
+                    items.push((
+                        entity_sort_key(m.x, m.y, diagonal, noy),
+                        DrawOrder::Monster.rung(),
+                        m.x,
+                        ItemKind::Monster(i),
+                    ));
                 }
             }
             if toggles.show_npcs {
                 for (i, n) in ext.npcs.iter().enumerate() {
-                    items.push((entity_pos(n.x, n.y), 5, n.x, ItemKind::Npc(i)));
+                    items.push((
+                        entity_sort_key(n.x, n.y, diagonal, noy),
+                        DrawOrder::Npc.rung(),
+                        n.x,
+                        ItemKind::Npc(i),
+                    ));
                 }
             }
             if toggles.show_objects {
                 for (i, e) in ext.extras.iter().enumerate() {
-                    items.push((entity_pos(e.x, e.y), 2, e.x, ItemKind::Extra(i)));
+                    items.push((
+                        entity_sort_key(e.x, e.y, diagonal, noy),
+                        DrawOrder::Extra.rung(),
+                        e.x,
+                        ItemKind::Extra(i),
+                    ));
                 }
             }
         }
 
-        items.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+        items.sort_by(|a, b| compare_depth((a.0, a.1, a.2), (b.0, b.1, b.2)));
 
         for (_, _, _, item) in &items {
             match item {

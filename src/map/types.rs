@@ -60,6 +60,56 @@ pub fn internal_sprite_sort_key(bottom_right_y: i32) -> i32 {
     bottom_right_y - TILE_HEIGHT_HALF
 }
 
+/// Y-depth of an external entity placed at tile `(tx, ty)` in the interlaced
+/// render pass.
+///
+/// The CLI renderer and the GUI viewport used to compute this inline
+/// (`convert(..).1 + 32 - non_occluded_start_y`). Keeping the single formula
+/// here means a depth-order fix is made once, not twice. The `+ 16 * 2` term
+/// puts the entity's feet at the bottom edge of its isometric tile; subtracting
+/// the origin converts world pixels into map-local pixels.
+pub fn entity_sort_key(
+    tx: i32,
+    ty: i32,
+    map_diagonal_tiles: i32,
+    non_occluded_start_y: i32,
+) -> i32 {
+    convert_map_coords_to_image_coords(tx, ty, map_diagonal_tiles).1 + TILE_HEIGHT_HALF * 2
+        - non_occluded_start_y
+}
+
+/// Category rung breaking depth ties in the interlaced pass (lower draws first).
+///
+/// Buildings and internal sprites are the map's own props; the remaining rungs
+/// are shared with the GUI's `EntityKind::type_order()`. When two items share a
+/// Y key and tile X, the rung decides: an NPC sitting on a prop draws over it.
+#[repr(i32)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DrawOrder {
+    TiledObject = 0,
+    InternalSprite = 1,
+    Extra = 2,
+    DrawItem = 3,
+    Monster = 4,
+    Npc = 5,
+}
+
+impl DrawOrder {
+    /// Integer tiebreaker used by the interlaced sort key.
+    pub const fn rung(self) -> i32 {
+        self as i32
+    }
+}
+
+/// `(Y depth, category rung, tile X)` — the full interlaced sort key.
+pub type DepthSortKey = (i32, i32, i32);
+
+/// Painter's-algorithm comparator for [`DepthSortKey`], shared by the CLI
+/// renderer and the GUI viewport so both sort mixed objects/entities identically.
+pub fn compare_depth(a: DepthSortKey, b: DepthSortKey) -> std::cmp::Ordering {
+    a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2))
+}
+
 /// An event trigger attached to a tile on the map.
 ///
 /// Stored in the file as one packed u32 (the first of the three end grids).
@@ -420,4 +470,86 @@ pub struct TiledObjectInfo {
     pub ids: Vec<i16>,
     pub x: i32,
     pub y: i32,
+}
+
+#[cfg(test)]
+mod depth_order_tests {
+    use super::*;
+
+    #[test]
+    fn test_interleaved_object_entity_uses_one_shared_sort_key() {
+        const DIAGONAL: i32 = 40;
+        const NOY: i32 = 8;
+
+        // Mixed map props and external entities, deliberately inserted out of
+        // depth order. The NPC and monster share the exact same tile as a
+        // reference point for the rung tiebreaker.
+        let mut items: Vec<(i32, i32, i32, &'static str)> = vec![
+            (
+                entity_sort_key(5, 5, DIAGONAL, NOY),
+                DrawOrder::Npc.rung(),
+                5,
+                "npc",
+            ),
+            (
+                entity_sort_key(5, 4, DIAGONAL, NOY),
+                DrawOrder::Extra.rung(),
+                5,
+                "extra",
+            ),
+            (
+                tiled_object_sort_key(120, 2),
+                DrawOrder::TiledObject.rung(),
+                10,
+                "building",
+            ),
+            (
+                internal_sprite_sort_key(130),
+                DrawOrder::InternalSprite.rung(),
+                3,
+                "prop",
+            ),
+            (
+                entity_sort_key(4, 5, DIAGONAL, NOY),
+                DrawOrder::DrawItem.rung(),
+                4,
+                "drop",
+            ),
+            (
+                entity_sort_key(5, 5, DIAGONAL, NOY),
+                DrawOrder::Monster.rung(),
+                5,
+                "monster",
+            ),
+        ];
+
+        items.sort_by(|a, b| compare_depth((a.0, a.1, a.2), (b.0, b.1, b.2)));
+        let order: Vec<&str> = items.iter().map(|item| item.3).collect();
+        assert_eq!(
+            order,
+            vec!["prop", "building", "extra", "monster", "npc", "drop"],
+            "one comparator must interleave map props and entities in depth order"
+        );
+
+        // Entity position matches the isometric projection used everywhere else.
+        assert_eq!(
+            entity_sort_key(5, 5, DIAGONAL, NOY),
+            convert_map_coords_to_image_coords(5, 5, DIAGONAL).1 + 32 - NOY
+        );
+    }
+
+    #[test]
+    fn test_draw_order_rungs_are_distinct_and_stable() {
+        let all = [
+            DrawOrder::TiledObject,
+            DrawOrder::InternalSprite,
+            DrawOrder::Extra,
+            DrawOrder::DrawItem,
+            DrawOrder::Monster,
+            DrawOrder::Npc,
+        ];
+        for (i, order) in all.iter().enumerate() {
+            assert_eq!(order.rung(), i as i32);
+        }
+    }
 }

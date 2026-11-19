@@ -21,12 +21,14 @@ impl EntityKind {
     /// rung decides: e.g. an NPC sitting on a chair draws over it, and a drop
     /// item lying on a prop draws over the prop.
     pub fn type_order(self) -> i32 {
+        use dispel_core::map::DrawOrder;
         match self {
-            EntityKind::Extra => 2,
-            EntityKind::DrawItem => 3,
-            EntityKind::Monster => 4,
-            EntityKind::Npc => 5,
+            EntityKind::Extra => DrawOrder::Extra,
+            EntityKind::DrawItem => DrawOrder::DrawItem,
+            EntityKind::Monster => DrawOrder::Monster,
+            EntityKind::Npc => DrawOrder::Npc,
         }
+        .rung()
     }
 }
 

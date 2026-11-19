@@ -20,8 +20,9 @@ The `src/map/` module handles parsing, rendering, and database operations for th
 
 | File               | Purpose                                                            |
 |--------------------|--------------------------------------------------------------------|
-| `mod.rs`           | Public API, top-level `.MAP` parser, CLI commands, DB import       |
-| `types.rs`         | Coordinate types, constants, data structs                          |
+| `mod.rs`           | Public API, top-level `.MAP` parser, CLI commands, extraction      |
+| `../database/map_persistence.rs` | SQLite map writers (owned by the database layer, re-exported here) |
+| `types.rs`         | Coordinate types, constants, data structs, shared depth sort keys  |
 | `model.rs`         | Map geometry computation from chunk dimensions                     |
 | `reader.rs`        | Binary block readers for each `.MAP` section                       |
 | `writer.rs`        | `.MAP` binary writer (round-trip serialization)                    |
@@ -343,6 +344,9 @@ struct LoadedSpriteFrame {
 | `extract_sprites(map, output_dir)`                                                   | Extract embedded sprites to PNGs    |
 
 ### Database
+
+Owned by `src/database/map_persistence.rs`; re-exported from `map` so existing
+`dispel_core::map::save_to_db` paths keep working.
 
 | Function                                        | Description                        |
 |-------------------------------------------------|------------------------------------|

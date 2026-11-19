@@ -179,15 +179,13 @@ impl MapRenderSource for MapPreviewState {
         let model = &map_handle.0.model;
         let noy = model.map_non_occluded_start_y;
 
-        let sort_key = {
-            let img_y = dispel_core::map::types::convert_map_coords_to_image_coords(
-                marker.tile_x,
-                marker.tile_y,
-                self.diagonal,
-            )
-            .1;
-            img_y + 32 - noy
-        };
+        // Same shared depth key as the map editor and the CLI renderer.
+        let sort_key = dispel_core::map::types::entity_sort_key(
+            marker.tile_x,
+            marker.tile_y,
+            self.diagonal,
+            noy,
+        );
 
         let kind = match marker.kind {
             EntityKind::Monster => RenderEntityKind::Monster,

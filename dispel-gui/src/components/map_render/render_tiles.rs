@@ -101,7 +101,12 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                                 info.y,
                                 info.ids.len(),
                             );
-                            items.push((pos, 0, info.x, Item::TiledObject(i)));
+                            items.push((
+                                pos,
+                                dispel_core::map::DrawOrder::TiledObject.rung(),
+                                info.x,
+                                Item::TiledObject(i),
+                            ));
                         }
                     }
 
@@ -111,7 +116,7 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                             // on them (see internal_sprite_sort_key).
                             items.push((
                                 dispel_core::map::types::internal_sprite_sort_key(spr.sort_y),
-                                1,
+                                dispel_core::map::DrawOrder::InternalSprite.rung(),
                                 spr.x,
                                 Item::Sprite(i),
                             ));
@@ -134,7 +139,9 @@ impl<'a, S: MapRenderSource, M: 'static> canvas::Program<M> for GenericTilesLaye
                         }
                     }
 
-                    items.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+                    items.sort_by(|a, b| {
+                        dispel_core::map::compare_depth((a.0, a.1, a.2), (b.0, b.1, b.2))
+                    });
 
                     for (_, _, _, item) in &items {
                         match item {

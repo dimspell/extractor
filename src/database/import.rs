@@ -62,61 +62,94 @@ pub fn import_all(game_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn
     Ok(())
 }
 
+/// Historical map list, used only when `AllMap.ini` cannot be read or parsed.
+const FALLBACK_MAP_STEMS: &[&str] = &[
+    "cat1", "cat2", "cat3", "catp", "dun01", "dun02", "dun03", "dun04", "dun05", "dun06", "dun07",
+    "dun08", "dun09", "dun10", "dun11", "dun12", "dun13", "dun14", "dun15", "dun16", "dun17",
+    "dun18", "dun19", "dun20", "dun21", "dun22", "dun23", "dun24", "dun25", "final", "map1",
+    "map2", "map3",
+];
+
+/// Everything map import needs from `AllMap.ini`: the parsed records for the
+/// `maps` table and the stems of the `.map` files listed in the INI, in file
+/// order. The INI is the single source of truth — a static list is only a
+/// fallback for a genuinely unreadable/unparseable INI.
+struct MapInventory {
+    records: Vec<crate::references::all_map_ini::Map>,
+    stems: Vec<String>,
+}
+
+/// AllMap.ini normally stores bare stems (`cat1`), but tolerate an extension.
+fn normalize_map_stem(raw: &str) -> String {
+    let raw = raw.trim();
+    let stem = raw
+        .strip_suffix(".map")
+        .or_else(|| raw.strip_suffix(".MAP"))
+        .unwrap_or(raw);
+    stem.to_owned()
+}
+
+fn fallback_inventory() -> MapInventory {
+    MapInventory {
+        records: Vec::new(),
+        stems: FALLBACK_MAP_STEMS.iter().map(|s| (*s).to_owned()).collect(),
+    }
+}
+
+fn read_map_inventory(main_path: &Path) -> MapInventory {
+    let ini_path = main_path.join("AllMap.ini");
+    match crate::references::all_map_ini::read_all_map_ini(&ini_path) {
+        Ok(records) if !records.is_empty() => MapInventory {
+            stems: records
+                .iter()
+                .map(|m| normalize_map_stem(&m.map_filename))
+                .collect(),
+            records,
+        },
+        Ok(records) => {
+            eprintln!(
+                "WARNING: AllMap.ini at {} lists no maps; using fallback map list",
+                ini_path.display()
+            );
+            MapInventory {
+                records,
+                ..fallback_inventory()
+            }
+        }
+        Err(e) => {
+            // Report the parse/read failure rather than silently ignoring it.
+            eprintln!(
+                "WARNING: could not parse AllMap.ini at {}: {e}; using fallback map list",
+                ini_path.display()
+            );
+            fallback_inventory()
+        }
+    }
+}
+
 pub fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     println!("Saving maps...");
-    let maps = crate::references::all_map_ini::read_all_map_ini(&main_path.join("AllMap.ini"))?;
-    save_maps(conn, &maps)?;
+    let inventory = read_map_inventory(main_path);
+    save_maps(conn, &inventory.records)?;
 
     println!("Importing all .map files...");
     let map_dir = main_path.join("Map");
     if map_dir.exists() {
-        let map_files = [
-            "cat1.map",
-            "cat2.map",
-            "cat3.map",
-            "catp.map",
-            "dun01.map",
-            "dun02.map",
-            "dun03.map",
-            "dun04.map",
-            "dun05.map",
-            "dun06.map",
-            "dun07.map",
-            "dun08.map",
-            "dun09.map",
-            "dun10.map",
-            "dun11.map",
-            "dun12.map",
-            "dun13.map",
-            "dun14.map",
-            "dun15.map",
-            "dun16.map",
-            "dun17.map",
-            "dun18.map",
-            "dun19.map",
-            "dun20.map",
-            "dun21.map",
-            "dun22.map",
-            "dun23.map",
-            "dun24.map",
-            "dun25.map",
-            "final.map",
-            "map1.map",
-            "map2.map",
-            "map3.map",
-        ];
-        for entry in map_files {
-            let path = map_dir.join(entry);
-            if path.extension().and_then(|s| s.to_str()) != Some("map") {
+        for stem in &inventory.stems {
+            // `map4` is listed in AllMap.ini but has no geometry file in the
+            // shipped game; skip it rather than failing the whole import.
+            if stem == "map4" {
                 continue;
             }
-            let map_id = path
-                .file_stem()
+            let map_id = Path::new(stem)
+                .file_name()
                 .and_then(|s| s.to_str())
-                .ok_or_else(|| format!("invalid map file name: {}", path.display()))?;
-            if map_id == "map4" {
+                .ok_or_else(|| format!("invalid map file name: {stem}"))?;
+            if map_id != stem {
+                eprintln!("WARNING: skipping map with path in filename: {stem}");
                 continue;
             }
+            let path = map_dir.join(format!("{map_id}.map"));
             println!("Importing map file: {}", path.display());
             let file = std::fs::File::open(&path)?;
             let mut reader = std::io::BufReader::new(file);
@@ -673,4 +706,79 @@ fn visit_dirs(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod map_inventory_tests {
+    use super::*;
+    use crate::references::all_map_ini::Map as AllMap;
+    use crate::references::enums::MapLighting;
+
+    fn record(stem: &str) -> AllMap {
+        AllMap {
+            id: 1,
+            map_filename: stem.to_owned(),
+            map_name: "Test Map".to_owned(),
+            pgp_filename: None,
+            dlg_filename: None,
+            lighting: MapLighting::Light,
+        }
+    }
+
+    #[test]
+    fn test_map_stems_follow_all_map_ini_order_and_strip_extension() {
+        let dir = std::env::temp_dir().join(format!(
+            "dispel-map-inventory-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp game dir");
+        // WINDOWS-1250-compatible ASCII, with a comment and a CRLF line ending.
+        std::fs::write(
+            dir.join("AllMap.ini"),
+            b"; id,file,name,pgp,dlg,lit\n1,cat1,Forest,null,null,0\r\n2,dun01.map,Dungeon,null,null,1\n",
+        )
+        .expect("write synthetic AllMap.ini");
+
+        let inventory = read_map_inventory(&dir);
+        assert_eq!(inventory.records.len(), 2);
+        assert_eq!(
+            inventory.stems,
+            vec!["cat1".to_owned(), "dun01".to_owned()],
+            "geometry import must follow the INI, including CRLF + .map suffixes"
+        );
+
+        std::fs::remove_dir_all(&dir).expect("remove temp game dir");
+    }
+
+    #[test]
+    fn test_map_inventory_falls_back_only_when_ini_is_unparseable() {
+        let dir = std::env::temp_dir().join(format!(
+            "dispel-map-inventory-missing-{}",
+            std::process::id()
+        ));
+        let inventory = read_map_inventory(&dir);
+        assert!(inventory.records.is_empty());
+        assert_eq!(inventory.stems, FALLBACK_MAP_STEMS);
+    }
+
+    #[test]
+    fn test_normalize_map_stem_handles_bare_stem_and_suffix() {
+        assert_eq!(normalize_map_stem(" cat1 "), "cat1");
+        assert_eq!(normalize_map_stem("dun01.map"), "dun01");
+        assert_eq!(normalize_map_stem("final.MAP"), "final");
+    }
+
+    #[test]
+    fn test_stems_from_records_keep_ini_order() {
+        let records = [record("map3"), record("cat1"), record("dun01.map")];
+        let stems: Vec<String> = records
+            .iter()
+            .map(|m| normalize_map_stem(&m.map_filename))
+            .collect();
+        assert_eq!(stems, vec!["map3", "cat1", "dun01"]);
+    }
 }

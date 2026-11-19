@@ -25,6 +25,8 @@
 //! `PRAGMA foreign_keys = ON` is kept so that adding constraints later does
 //! not require touching the bootstrap path.
 
+pub mod map_persistence;
+
 mod import;
 mod manifest;
 
