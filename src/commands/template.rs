@@ -1,35 +1,21 @@
 use std::error::Error;
 
+use crate::cli::TemplateArgs;
 use crate::commands::Command;
 use crate::commands::registry::{self, FieldSpec, FieldType, FileType};
 
-#[derive(clap::Args, Clone)]
-pub struct TemplateArgs {
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-
-    /// Pretty-print JSON
-    #[arg(short, long)]
-    pub pretty: bool,
-}
-
-pub struct TemplateCommand {
-    pub args: TemplateArgs,
-}
-
-impl Command for TemplateCommand {
+impl Command for TemplateArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
+        let file_type = registry::get_by_key(&self.r#type).ok_or_else(|| {
             format!(
                 "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
+                self.r#type,
                 registry::format_type_list()
             )
         })?;
 
         let template = generate_template(file_type);
-        let output = if self.args.pretty {
+        let output = if self.pretty {
             serde_json::to_string_pretty(&template)
                 .map_err(|e| format!("Failed to serialize JSON: {}", e))?
         } else {

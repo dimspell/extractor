@@ -2,40 +2,22 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+use crate::cli::ValidateArgs;
 use crate::commands::Command;
 use crate::commands::registry;
 
-#[derive(clap::Args, Clone)]
-pub struct ValidateArgs {
-    /// Path to JSON file
-    #[arg(short, long)]
-    pub input: String,
-
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-
-    /// Verbose output
-    #[arg(long)]
-    pub verbose: bool,
-}
-
-pub struct ValidateCommand {
-    pub args: ValidateArgs,
-}
-
-impl Command for ValidateCommand {
+impl Command for ValidateArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let input_path = Path::new(&self.args.input);
+        let input_path = Path::new(&self.input);
 
         if !input_path.exists() {
             return Err(format!("File not found: {}", input_path.display()).into());
         }
 
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
+        let file_type = registry::get_by_key(&self.r#type).ok_or_else(|| {
             format!(
                 "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
+                self.r#type,
                 registry::format_type_list()
             )
         })?;
@@ -64,7 +46,7 @@ impl Command for ValidateCommand {
                     Ok(())
                 }
                 Err(errors) => {
-                    if self.args.verbose {
+                    if self.verbose {
                         let error_json = serde_json::json!({
                             "valid": false,
                             "type": file_type.key,

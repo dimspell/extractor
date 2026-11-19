@@ -2,31 +2,17 @@ use std::error::Error;
 
 use serde::Serialize;
 
+use crate::cli::ListArgs;
 use crate::commands::Command;
 use crate::commands::registry;
 use crate::commands::registry::FileType;
 
-#[derive(clap::Args, Clone)]
-pub struct ListArgs {
-    /// Output format (text or json)
-    #[arg(long, default_value = "text")]
-    pub format: String,
-
-    /// Filter types by name
-    #[arg(long)]
-    pub filter: Option<String>,
-}
-
-pub struct ListCommand {
-    pub args: ListArgs,
-}
-
-impl Command for ListCommand {
+impl Command for ListArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         let types: Vec<&FileType> = registry::FILE_TYPES
             .iter()
             .filter(|ft| {
-                if let Some(ref filter) = self.args.filter {
+                if let Some(ref filter) = self.filter {
                     let filter_lower = filter.to_lowercase();
                     ft.key.to_lowercase().contains(&filter_lower)
                         || ft.name.to_lowercase().contains(&filter_lower)
@@ -37,7 +23,7 @@ impl Command for ListCommand {
             })
             .collect();
 
-        match self.args.format.as_str() {
+        match self.format.as_str() {
             "json" => {
                 let output = ListOutput {
                     types: types.iter().map(|ft| TypeInfo::from(*ft)).collect(),

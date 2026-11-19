@@ -1,5 +1,5 @@
-use super::Command;
-use crate::cli::DatabaseCommands;
+use super::{Command, missing_subcommand};
+use crate::cli::{DatabaseArgs, DatabaseCommands};
 use crate::database::{
     bootstrap, create_all, import_all, import_databases, import_dialogues_paragraphs, import_maps,
     import_refs, import_rest, import_sprite_files,
@@ -13,13 +13,13 @@ use std::path::Path;
 /// All schema knowledge, INSERT statements and import orchestration live in
 /// the core library. This file only opens the connection, ensures the schema
 /// exists and delegates to the appropriate import stage.
-pub struct DatabaseCommand {
-    pub subcommand: DatabaseCommands,
-}
-
-impl Command for DatabaseCommand {
+impl Command for DatabaseArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        match &self.subcommand {
+        let Some(subcommand) = &self.command else {
+            return Err(missing_subcommand("database"));
+        };
+
+        match subcommand {
             DatabaseCommands::Import { game_path, db_path } => {
                 let mut conn = Connection::open(db_path)?;
                 bootstrap(&conn)?;

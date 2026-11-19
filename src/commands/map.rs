@@ -1,17 +1,22 @@
-use super::Command;
-use crate::cli::MapCommands;
+use super::{Command, missing_subcommand};
+use crate::cli::{MapArgs, MapCommands};
 use crate::map;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-pub struct MapCommand {
-    pub subcommand: MapCommands,
+impl Command for MapArgs {
+    fn execute(&self) -> Result<(), Box<dyn Error>> {
+        match &self.command {
+            Some(command) => command.execute(),
+            None => Err(missing_subcommand("map")),
+        }
+    }
 }
 
-impl Command for MapCommand {
+impl Command for MapCommands {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        match &self.subcommand {
+        match self {
             MapCommands::Tiles { input, output } => {
                 eprintln!("Extracting all tiles to separate tiles...");
                 eprintln!("Input file: {input:?}");
@@ -33,8 +38,9 @@ impl Command for MapCommand {
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                // Ground tilesets copy tile rows opaquely; building tilesets
-                // skip the black pixels of shadowed refs.
+                // The ground pass copies the tile rows opaquely; the BTL pass
+                // skips the black pixels of the shadowed refs whose per-ref
+                // blend byte is non-zero.
                 let is_gtl = input.to_ascii_lowercase().ends_with(".gtl");
                 let opaque = opaque.unwrap_or(is_gtl);
                 eprintln!(
