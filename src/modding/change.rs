@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::resolution::FieldKey;
 use super::value::Value;
 
 /// One file-level operation produced by the user while authoring a mod.
@@ -65,6 +66,52 @@ impl ChangeOp {
             ChangeOp::FileAdd { .. } => "FileAdd",
             ChangeOp::FileDelete => "FileDelete",
         }
+    }
+
+    /// The field identity this op touches, if it is a field-level op.
+    ///
+    /// This is the single source of truth used by conflict detection,
+    /// resolution pins and the apply engine — no layer rebuilds the key from
+    /// raw `(file, record_id, field)` tuples.
+    pub fn field_key(&self, file_path: &str) -> Option<FieldKey> {
+        match self {
+            ChangeOp::FieldDelta {
+                record_id, field, ..
+            } => Some(FieldKey::new(file_path, *record_id, field.clone())),
+            _ => None,
+        }
+    }
+}
+
+/// Domain-level event emitted when a field is edited while recording.
+///
+/// The GUI records these instead of reaching into modding internals: the type
+/// carries exactly the field identity ([`FieldKey`]) and the old/new values,
+/// and the facade converts it into a [`ChangeAction`] when it is persisted.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldChange {
+    pub key: FieldKey,
+    pub old: Value,
+    pub new: Value,
+}
+
+impl FieldChange {
+    pub fn new(key: FieldKey, old: Value, new: Value) -> Self {
+        Self { key, old, new }
+    }
+
+    /// Turn the recorded event into the durable change action.
+    pub fn into_action(self) -> ChangeAction {
+        let FieldChange { key, old, new } = self;
+        ChangeAction::new(
+            key.file_path,
+            ChangeOp::FieldDelta {
+                record_id: key.record_id,
+                field: key.field,
+                old,
+                new,
+            },
+        )
     }
 }
 

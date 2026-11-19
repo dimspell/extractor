@@ -29,6 +29,25 @@ pub struct FieldKey {
     pub field: String,
 }
 
+impl FieldKey {
+    /// The one canonical constructor for field identity. Every layer —
+    /// recording, change ops, conflict detection, resolution pins and apply —
+    /// builds the key through this type instead of ad-hoc tuples.
+    pub fn new(file_path: impl Into<String>, record_id: u32, field: impl Into<String>) -> Self {
+        Self {
+            file_path: file_path.into(),
+            record_id,
+            field: field.into(),
+        }
+    }
+}
+
+impl From<(String, u32, String)> for FieldKey {
+    fn from((file_path, record_id, field): (String, u32, String)) -> Self {
+        Self::new(file_path, record_id, field)
+    }
+}
+
 /// On-disk shape for [`ResolutionMap`] — a flat list, since JSON object
 /// keys must be strings and our key is a struct.
 #[derive(Debug, Clone, Serialize, Deserialize)]

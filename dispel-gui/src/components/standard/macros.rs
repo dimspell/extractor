@@ -85,10 +85,19 @@ macro_rules! define_standard_editor {
                             $crate::message::Message::$name,
                         );
                         // Only record if the edit actually changed the value
-                        // (avoids no-op observations).
-                        let observe = if old_value != new_value {
-                            $crate::editors::mod_packager::recording::observe_field_change(
-                                app, $file, orig_idx_u32, &field, old_value, new_value,
+                        // (avoids no-op observations). The field identity is
+                        // one canonical FieldKey, shared with the core
+                        // conflict/pin/apply pipeline.
+                        let context =
+                            $crate::editors::mod_packager::recording::FieldEditContext {
+                                old: old_value,
+                                key: ::dispel_core::modding::FieldKey::new(
+                                    $file, orig_idx_u32, &field,
+                                ),
+                            };
+                        let observe = if context.old != new_value {
+                            $crate::editors::mod_packager::recording::observe_field_edit(
+                                app, context, new_value,
                             )
                         } else {
                             ::iced::Task::none()

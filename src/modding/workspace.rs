@@ -20,11 +20,15 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use super::apply::{ApplyReport, ModEntry, RevertReport, apply_all, revert_to_vanilla};
+use super::apply::{
+    ApplyReport, ModEntry, RevertReport, apply_all_with_fs, revert_to_vanilla_with_fs,
+};
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, FsHandle, OsFs};
 use super::manifest::ModManifest;
 use super::package::{self, ModPackage};
 use super::registry::PatcherRegistry;
@@ -52,23 +56,45 @@ struct EnabledFile {
 }
 
 /// Open or create a mod workspace at `root`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Workspace {
     root: PathBuf,
     vanilla: VanillaStore,
+    fs: FsHandle,
+}
+
+impl std::fmt::Debug for Workspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Workspace")
+            .field("root", &self.root)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Workspace {
     /// Open (and create-on-first-use) a workspace rooted at `root`.
     pub fn open(root: PathBuf) -> Result<Self> {
-        fs::create_dir_all(&root)?;
-        fs::create_dir_all(root.join(MODS_DIR))?;
+        Self::with_fs(root, Arc::new(OsFs))
+    }
+
+    /// Open a workspace whose vanilla/apply I/O goes through `fs` instead of
+    /// the real filesystem. Package and state files still live under `root`
+    /// on the real filesystem (they are small and fully owned by us).
+    pub fn with_fs(root: PathBuf, fs: FsHandle) -> Result<Self> {
+        std::fs::create_dir_all(&root)?;
+        std::fs::create_dir_all(root.join(MODS_DIR))?;
         let vanilla_root = root.join(VANILLA_DIR);
-        fs::create_dir_all(&vanilla_root)?;
+        std::fs::create_dir_all(&vanilla_root)?;
         Ok(Self {
-            vanilla: VanillaStore::new(vanilla_root),
+            vanilla: VanillaStore::with_fs(vanilla_root, fs.clone()),
             root,
+            fs,
         })
+    }
+
+    /// The filesystem port used for game/vanilla I/O.
+    pub fn fs(&self) -> &dyn Fs {
+        self.fs.as_ref()
     }
 
     pub fn root(&self) -> &Path {
@@ -353,10 +379,13 @@ impl Workspace {
         package::write_zip(file, &pkg)
     }
 
-    /// Apply all enabled mods to `game_dir`. Honors any persisted pins —
-    /// stale pins (pointing at disabled mods) are auto-pruned and persisted
-    /// before the apply runs.
-    pub fn apply(&self, game_dir: &Path, registry: &PatcherRegistry) -> Result<ApplyReport> {
+    /// Load the enabled mods in load order together with their resolution map.
+    ///
+    /// Shared by [`Self::apply`] and [`Self::detect_conflicts`]: both stages of
+    /// the detect → pin → apply state machine must see the *same* packages and
+    /// the *same* (pruned) pins, otherwise the conflict UI can disagree with
+    /// what actually gets written.
+    fn enabled_state(&self) -> Result<(Vec<String>, Vec<ModPackage>, ResolutionMap)> {
         let order = self.enabled_order()?;
         let mut resolutions = self.resolutions()?;
         if resolutions.prune_to(&order) > 0 {
@@ -366,38 +395,56 @@ impl Workspace {
             .iter()
             .map(|slug| self.read_mod(slug))
             .collect::<Result<Vec<_>>>()?;
-        let mods: Vec<ModEntry<'_>> = order
+        Ok((order, packages, resolutions))
+    }
+
+    /// Borrow the loaded packages as apply-engine entries, in load order.
+    fn entries<'a>(order: &'a [String], packages: &'a [ModPackage]) -> Vec<ModEntry<'a>> {
+        order
             .iter()
             .zip(packages.iter())
             .map(|(slug, pkg)| ModEntry {
                 mod_id: slug.as_str(),
                 changes: &pkg.changes,
             })
-            .collect();
-        apply_all(&mods, game_dir, &self.vanilla, registry, &resolutions)
+            .collect()
+    }
+
+    /// Apply all enabled mods to `game_dir`. Honors any persisted pins —
+    /// stale pins (pointing at disabled mods) are auto-pruned and persisted
+    /// before the apply runs.
+    pub fn apply(&self, game_dir: &Path, registry: &PatcherRegistry) -> Result<ApplyReport> {
+        self.apply_with_fs(&*self.fs, game_dir, registry)
+    }
+
+    /// Apply through an explicit filesystem port (used by the facade).
+    pub fn apply_with_fs(
+        &self,
+        fs: &dyn Fs,
+        game_dir: &Path,
+        registry: &PatcherRegistry,
+    ) -> Result<ApplyReport> {
+        let (order, packages, resolutions) = self.enabled_state()?;
+        let mods = Self::entries(&order, &packages);
+        apply_all_with_fs(fs, &mods, game_dir, &self.vanilla, registry, &resolutions)
     }
 
     /// Restore every snapshotted file back to vanilla state.
     pub fn revert(&self, game_dir: &Path) -> Result<RevertReport> {
-        revert_to_vanilla(game_dir, &self.vanilla)
+        self.revert_with_fs(&*self.fs, game_dir)
     }
 
-    /// Detect conflicts across the enabled mods, in load order.
+    /// Revert through an explicit filesystem port (used by the facade).
+    pub fn revert_with_fs(&self, fs: &dyn Fs, game_dir: &Path) -> Result<RevertReport> {
+        revert_to_vanilla_with_fs(fs, game_dir, &self.vanilla)
+    }
+
+    /// Detect conflicts across the enabled mods, in load order. Uses the same
+    /// pruned pin map as [`Self::apply`] so the reported winner is the value
+    /// that will actually be written.
     pub fn detect_conflicts(&self) -> Result<Vec<super::conflicts::Conflict>> {
-        let order = self.enabled_order()?;
-        let packages: Vec<ModPackage> = order
-            .iter()
-            .map(|slug| self.read_mod(slug))
-            .collect::<Result<Vec<_>>>()?;
-        let mods: Vec<ModEntry<'_>> = order
-            .iter()
-            .zip(packages.iter())
-            .map(|(slug, pkg)| ModEntry {
-                mod_id: slug.as_str(),
-                changes: &pkg.changes,
-            })
-            .collect();
-        let resolutions = self.resolutions()?;
+        let (order, packages, resolutions) = self.enabled_state()?;
+        let mods = Self::entries(&order, &packages);
         Ok(super::conflicts::detect_conflicts_with(&mods, &resolutions))
     }
 
