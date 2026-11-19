@@ -75,48 +75,11 @@ impl EditorType {
     }
 
     /// Map a catalog `editor` id to its GUI variant.
+    ///
+    /// The string→variant table used to be hand-copied here and validated only
+    /// against itself; it is now derived from the authoritative editor catalog.
     pub(crate) fn from_catalog_editor(id: &str) -> Option<Self> {
-        Some(match id {
-            "AllMapIniEditor" => Self::AllMapIniEditor,
-            "MapIniEditor" => Self::MapIniEditor,
-            "ExtraIniEditor" => Self::ExtraIniEditor,
-            "EventIniEditor" => Self::EventIniEditor,
-            "MonsterIniEditor" => Self::MonsterIniEditor,
-            "NpcIniEditor" => Self::NpcIniEditor,
-            "WaveIniEditor" => Self::WaveIniEditor,
-            "WeaponEditor" => Self::WeaponEditor,
-            "MonsterEditor" => Self::MonsterEditor,
-            "MagicEditor" => Self::MagicEditor,
-            "StoreEditor" => Self::StoreEditor,
-            "MiscItemEditor" => Self::MiscItemEditor,
-            "HealItemEditor" => Self::HealItemEditor,
-            "EventItemEditor" => Self::EventItemEditor,
-            "EditItemEditor" => Self::EditItemEditor,
-            "PartyLevelDbEditor" => Self::PartyLevelDbEditor,
-            "PartyIniEditor" => Self::PartyIniEditor,
-            "ChDataEditor" => Self::ChDataEditor,
-            "PartyRefEditor" => Self::PartyRefEditor,
-            "DrawItemEditor" => Self::DrawItemEditor,
-            "NpcRefEditor" => Self::NpcRefEditor,
-            "MonsterRefEditor" => Self::MonsterRefEditor,
-            "ExtraRefEditor" => Self::ExtraRefEditor,
-            "EventNpcRefEditor" => Self::EventNpcRefEditor,
-            "DialogueScriptEditor" => Self::DialogueScriptEditor,
-            "DialogueTextEditor" => Self::DialogueTextEditor,
-            "QuestScrEditor" => Self::QuestScrEditor,
-            "MessageScrEditor" => Self::MessageScrEditor,
-            "EventScrEditor" => Self::EventScrEditor,
-            "MapEditor" => Self::MapEditor,
-            "TilesetEditor" => Self::TilesetEditor,
-            "SpriteViewer" => Self::SpriteViewer,
-            "SaveIfoEditor" => Self::SaveIfoEditor,
-            "ChestSpawnEditor" => Self::ChestSpawnEditor,
-            "MonsterSpawnEditor" => Self::MonsterSpawnEditor,
-            "MapInfoMultiEditor" => Self::MapInfoMultiEditor,
-            "TileGridEditor" => Self::TileGridEditor,
-            "SaveFileViewer" => Self::SaveFileViewer,
-            _ => return None,
-        })
+        crate::editor_catalog::from_catalog_editor(id)
     }
 
     /// Exact (extension, stem) pairs that have no catalog entry.

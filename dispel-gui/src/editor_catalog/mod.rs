@@ -8,11 +8,16 @@
 //! * the capability predicates ([`EditorType::supports_save`],
 //!   [`EditorType::supports_undo_redo`], [`EditorType::has_edit_history`],
 //!   [`EditorType::auto_load_catalog`]),
-//! * an [`EditorDescriptor`] table carrying view / save / load / spreadsheet
-//!   function pointers, and
+//! * an [`EditorDescriptor`] table carrying view / save / load / spreadsheet /
+//!   JSON-export / lifecycle function pointers, and
 //! * the corresponding dispatch entry points ([`dispatch_view`],
 //!   [`save_task_for_editor`], [`catalog_load_task`],
-//!   [`spreadsheet_nav_msg`]).
+//!   [`spreadsheet_nav_msg`], [`from_catalog_editor`]).
+//!
+//! The descriptor's `lifecycle` field is the single owner of the six
+//! `EditorRegistry` lifecycle operations (undo/redo, `remove_tab`,
+//! `close_all_tabs`, `refresh_spreadsheet`, `get_active_edit_history` and
+//! `clear_all`) that used to be six hand-maintained field lists.
 //!
 //! Adding a new editor therefore requires touching **one** entry here. The
 //! compiler then rejects every non-exhaustive `match` over `EditorType`
@@ -22,16 +27,23 @@
 //! This is a "deep module": callers only use the small surface above and never
 //! need to know that it is backed by a declarative macro.
 
+use crate::editor_registry::LifecycleFns;
+use crate::editor_registry::{
+    lc_box_undo, lc_fog_map, lc_hash_map, lc_none, lc_owned, lc_owned_box, lc_sprite_map,
+    lc_standard, lc_standard_and, lc_standard_no_history, lc_tabbed,
+};
 use crate::message::{Message, MessageExt};
 
 /// Render an editor for the given immutable app reference.
 pub type ViewFn = for<'a> fn(&'a crate::app::App) -> iced::Element<'a, Message>;
 /// Build the `Save` message for an editor. Receives the active tab id.
 pub type SaveFn = fn(usize) -> Message;
-/// Build the `LoadCatalog` task for an editor opened without a file path.
-pub type LoadFn = fn() -> iced::Task<Message>;
+/// Build the raw `LoadCatalog` message for an editor opened without a file path.
+pub type LoadFn = fn() -> Message;
 /// Build a spreadsheet-navigation message for an editor.
 pub type SheetFn = fn(crate::view::editor::SpreadsheetMessage) -> Message;
+/// Extract an editor's file to JSON ("Extract to JSON" in the file tree).
+pub type ExtractFn = fn(&std::path::Path) -> Result<serde_json::Value, String>;
 
 /// Static description of one editor kind.
 #[derive(Clone, Copy)]
@@ -46,18 +58,27 @@ pub struct EditorDescriptor {
     pub load: Option<LoadFn>,
     /// `None` when the editor has no generic spreadsheet.
     pub sheet: Option<SheetFn>,
+    /// `None` when "Extract to JSON" is unsupported for the editor's file.
+    pub extract: Option<ExtractFn>,
+    /// Homogeneous lifecycle operations (undo/redo, tab removal/reset,
+    /// spreadsheet cache refresh, edit-history lookup and full reset).
+    ///
+    /// Declared once per editor here, so adding a HashMap/tabbed/boxed editor
+    /// no longer requires editing the seven hand-maintained tables that used
+    /// to live in `editor_registry`.
+    pub lifecycle: LifecycleFns,
 }
 
 macro_rules! define_editor_catalog {
     ($(
         $(#[$attr:meta])*
         $variant:ident {
-            undo: $undo:literal,
-            history: $history:literal,
             view: $view:expr,
             save: $save:expr,
             load: $load:expr,
             sheet: $sheet:expr,
+            extract: $extract:expr,
+            lifecycle: $lifecycle:expr,
         }
     ),+ $(,)?) => {
         /// Editor type identifier for workspace tabs.
@@ -76,6 +97,8 @@ macro_rules! define_editor_catalog {
                 save: $save,
                 load: $load,
                 sheet: $sheet,
+                extract: $extract,
+                lifecycle: $lifecycle,
             },)+
         ];
 
@@ -108,12 +131,15 @@ macro_rules! define_editor_catalog {
                 self.descriptor().load.is_some()
             }
 
+            /// `true` when the editor has undo/redo support. Derived from its
+            /// lifecycle declaration so it cannot disagree with the behavior.
             pub fn supports_undo_redo(self) -> bool {
-                match self { $(EditorType::$variant => $undo,)+ }
+                self.descriptor().lifecycle.has_undo
             }
 
+            /// `true` when the editor exposes an `EditHistory`.
             pub fn has_edit_history(self) -> bool {
-                match self { $(EditorType::$variant => $history,)+ }
+                self.descriptor().lifecycle.has_history
             }
         }
     };
@@ -122,370 +148,424 @@ macro_rules! define_editor_catalog {
 define_editor_catalog! {
     /// Weapon database (WeaponItem.db).
     WeaponEditor {
-        undo: true, history: true,
         view: Some(crate::editors::weapon::view as ViewFn),
         save: Some(|_t: usize| Message::weapon(crate::editors::weapon::WeaponEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::weapon(crate::editors::weapon::WeaponEditorMessage::LoadCatalog))),
+        load: Some(|| Message::weapon(crate::editors::weapon::WeaponEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::weapon(crate::editors::weapon::WeaponEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_weapon),
+        lifecycle: lc_standard!(weapon_editor),
     },
     /// Monster combat database (Monster.db).
     MonsterEditor {
-        undo: true, history: false,
         view: Some(crate::editors::monster::view as ViewFn),
         save: Some(|_t: usize| Message::monster(crate::editors::monster::MonsterEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::monster(crate::editors::monster::MonsterEditorMessage::LoadCatalog))),
+        load: Some(|| Message::monster(crate::editors::monster::MonsterEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::monster(crate::editors::monster::MonsterEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_monster),
+        lifecycle: lc_standard_no_history!(monster_editor),
     },
     /// Monster visuals (Monster.ini).
     MonsterIniEditor {
-        undo: true, history: false,
         view: Some(crate::editors::monster_ini::view as ViewFn),
         save: Some(|_t: usize| Message::monster_ini(crate::editors::monster_ini::MonsterIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::monster_ini(crate::editors::monster_ini::MonsterIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::monster_ini(crate::editors::monster_ini::MonsterIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::monster_ini(crate::editors::monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_monster_ini),
+        lifecycle: lc_standard_no_history!(monster_ini_editor),
     },
     /// Healing items (HealItem.db).
     HealItemEditor {
-        undo: true, history: true,
         view: Some(crate::editors::heal_item::view as ViewFn),
         save: Some(|_t: usize| Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::LoadCatalog))),
+        load: Some(|| Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_heal_item),
+        lifecycle: lc_standard!(heal_item_editor),
     },
     /// Miscellaneous items (MiscItem.db).
     MiscItemEditor {
-        undo: true, history: true,
         view: Some(crate::editors::misc_item::view as ViewFn),
         save: Some(|_t: usize| Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::LoadCatalog))),
+        load: Some(|| Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_misc_item),
+        lifecycle: lc_standard!(misc_item_editor),
     },
     /// Edit items (EditItem.db).
     EditItemEditor {
-        undo: true, history: true,
         view: Some(crate::editors::edit_item::view as ViewFn),
         save: Some(|_t: usize| Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::LoadCatalog))),
+        load: Some(|| Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_edit_item),
+        lifecycle: lc_standard!(edit_item_editor),
     },
     /// Event items (EventItem.db).
     EventItemEditor {
-        undo: true, history: true,
         view: Some(crate::editors::event_item::view as ViewFn),
         save: Some(|_t: usize| Message::event_item(crate::editors::event_item::EventItemEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::event_item(crate::editors::event_item::EventItemEditorMessage::LoadCatalog))),
+        load: Some(|| Message::event_item(crate::editors::event_item::EventItemEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::event_item(crate::editors::event_item::EventItemEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_event_item),
+        lifecycle: lc_standard!(event_item_editor),
     },
     /// Magic spells (Magic.db).
     MagicEditor {
-        undo: true, history: true,
         view: Some(crate::editors::magic::view as ViewFn),
         save: Some(|_t: usize| Message::magic(crate::editors::magic::MagicEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::magic(crate::editors::magic::MagicEditorMessage::LoadCatalog))),
+        load: Some(|| Message::magic(crate::editors::magic::MagicEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::magic(crate::editors::magic::MagicEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_magic),
+        lifecycle: lc_standard!(magic_editor),
     },
     /// Stores (Store.db).
     StoreEditor {
-        undo: true, history: true,
         view: Some(crate::editors::store::view as ViewFn),
         save: Some(|_t: usize| Message::store(crate::editors::store::StoreEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::store(crate::editors::store::StoreEditorMessage::LoadCatalog))),
+        load: Some(|| Message::store(crate::editors::store::StoreEditorMessage::LoadCatalog)),
         sheet: None, // custom layout, no generic spreadsheet
+        extract: Some(crate::state::extract_store),
+        lifecycle: lc_box_undo!(store_editor),
     },
     /// Character data (ChData.db).
     ChDataEditor {
-        undo: true, history: true,
         view: Some(crate::editors::chdata::view as ViewFn),
         save: Some(|_t: usize| Message::chdata(crate::editors::chdata::ChDataEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::chdata(crate::editors::chdata::ChDataEditorMessage::LoadCatalog))),
+        load: Some(|| Message::chdata(crate::editors::chdata::ChDataEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::chdata(crate::editors::chdata::ChDataEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_chdata),
+        lifecycle: lc_standard!(chdata_editor),
     },
     /// Party level database (prtlevel.db).
     PartyLevelDbEditor {
-        undo: true, history: true,
         view: Some(crate::editors::party_level_db::view as ViewFn),
         save: Some(|_t: usize| Message::party_level_db(crate::editors::party_level_db::PartyLevelDbEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::party_level_db(crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog))),
+        load: Some(|| Message::party_level_db(crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::party_level_db(crate::editors::party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_party_level),
+        lifecycle: lc_standard_and!(party_level_db_level_editor, party_level_db_editor),
     },
     /// Dialogue script (.dlg), one file per tab.
     DialogueScriptEditor {
-        undo: true, history: true,
         view: Some(crate::editors::dialogue_script::view as ViewFn),
         save: Some(|_t: usize| Message::dialogue_script(crate::editors::dialogue_script::DialogueScriptEditorMessage::Save)),
         load: None, // opened by explicit file path
         sheet: Some(|sm| Message::dialogue_script(crate::editors::dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_dialog),
+        lifecycle: lc_tabbed!(dialogue_script_editor),
     },
     /// Dialogue text (.pgp), one file per tab.
     DialogueTextEditor {
-        undo: true, history: true,
         view: Some(crate::editors::dialogue_paragraph::view as ViewFn),
         save: Some(|_t: usize| Message::dialogue_paragraph(crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save)),
         load: None, // opened by explicit file path
         sheet: Some(|sm| Message::dialogue_paragraph(crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_dialog_text),
+        lifecycle: lc_tabbed!(dialogue_paragraph_editor),
     },
     /// Draw items (DrawItem.ref).
     DrawItemEditor {
-        undo: true, history: true,
         view: Some(crate::editors::draw_item::view as ViewFn),
         save: Some(|_t: usize| Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::LoadCatalog))),
+        load: Some(|| Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_draw_item),
+        lifecycle: lc_standard!(draw_item_editor),
     },
     /// Events (Event.ini).
     EventIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::event_ini::view as ViewFn),
         save: Some(|_t: usize| Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_event_ini),
+        lifecycle: lc_standard!(event_ini_editor),
     },
     /// Event NPCs (eventnpc.ref).
     EventNpcRefEditor {
-        undo: true, history: true,
         view: Some(crate::editors::event_npc_ref::view as ViewFn),
         save: Some(|_t: usize| Message::event_npc_ref(crate::editors::event_npc_ref::EventNpcRefEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::event_npc_ref(crate::editors::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog))),
+        load: Some(|| Message::event_npc_ref(crate::editors::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::event_npc_ref(crate::editors::event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_event_npc_ref),
+        lifecycle: lc_standard!(event_npc_ref_editor),
     },
     /// Extra objects (Extra.ini).
     ExtraIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::extra_ini::view as ViewFn),
         save: Some(|_t: usize| Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_extra_ini),
+        lifecycle: lc_standard!(extra_ini_editor),
     },
     /// Extra object placements (Ext*.ref), one file per tab.
     ExtraRefEditor {
-        undo: true, history: true,
         view: Some(crate::editors::extra_ref::view as ViewFn),
         save: Some(|_t: usize| Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Save)),
         load: None, // opened by explicit file path
         sheet: Some(|sm| Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_extra_ref),
+        lifecycle: lc_tabbed!(extra_ref_editor),
     },
     /// Per-map configuration (Map.ini).
     MapIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::map_ini::view as ViewFn),
         save: Some(|_t: usize| Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_map_ini),
+        lifecycle: lc_standard!(map_ini_editor),
     },
     /// Text messages (message.scr).
     MessageScrEditor {
-        undo: true, history: true,
         view: Some(crate::editors::message_scr::view as ViewFn),
         save: Some(|_t: usize| Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::LoadCatalog))),
+        load: Some(|| Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_message),
+        lifecycle: lc_standard!(message_scr_editor),
     },
     /// Monster placements (Mondun*.ref), one file per tab.
     MonsterRefEditor {
-        undo: true, history: true,
         view: Some(crate::editors::monster_ref::view as ViewFn),
         save: Some(|_t: usize| Message::monster_ref(crate::editors::monster_ref::MonsterRefEditorMessage::Save)),
         load: None, // opened by explicit file path
         sheet: Some(|sm| Message::monster_ref(crate::editors::monster_ref::MonsterRefEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_monster_ref),
+        lifecycle: lc_tabbed!(monster_ref_editor),
     },
     /// NPC visuals (Npc.ini).
     NpcIniEditor {
-        undo: true, history: false,
         view: Some(crate::editors::npc_ini::view as ViewFn),
         save: Some(|_t: usize| Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_npc_ini),
+        lifecycle: lc_standard_no_history!(npc_ini_editor),
     },
     /// NPC placements (Npc*.ref), one file per tab.
     NpcRefEditor {
-        undo: true, history: true,
         view: Some(crate::editors::npc_ref::view as ViewFn),
         save: Some(|_t: usize| Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Save)),
         load: None, // opened by explicit file path
         sheet: Some(|sm| Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_npc_ref),
+        lifecycle: lc_tabbed!(npc_ref_editor),
     },
     /// Party references (partyref.ref).
     PartyRefEditor {
-        undo: true, history: true,
         view: Some(crate::editors::party_ref::view as ViewFn),
         save: Some(|_t: usize| Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::LoadCatalog))),
+        load: Some(|| Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_party_ref),
+        lifecycle: lc_standard!(party_ref_editor),
     },
     /// Party NPCs (prtini.db).
     PartyIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::party_ini::view as ViewFn),
         save: Some(|_t: usize| Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_party_ini),
+        lifecycle: lc_standard!(party_ini_editor),
     },
     /// Quests (quest.scr).
     QuestScrEditor {
-        undo: true, history: true,
         view: Some(crate::editors::quest_scr::view as ViewFn),
         save: Some(|_t: usize| Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::LoadCatalog))),
+        load: Some(|| Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_quest),
+        lifecycle: lc_standard!(quest_scr_editor),
     },
     /// Event scripts (event*.scr). View is wrapped by the caller.
     EventScrEditor {
-        undo: false, history: false,
         view: None, // rendered by view/mod.rs with EditorMessage::EventScr wrapping
         save: Some(|_t: usize| Message::event_scr(crate::editors::event_scr::EventScrEditorMessage::SaveScript)),
         load: None, // opened by explicit file path
         sheet: None,
+        extract: Some(crate::state::extract_event_scr),
+        lifecycle: lc_owned_box!(event_scr_editor),
     },
     /// Wave configuration (wave.ini).
     WaveIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::wave_ini::view as ViewFn),
         save: Some(|_t: usize| Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_wave_ini),
+        lifecycle: lc_standard!(wave_ini_editor),
     },
     /// Global map list (AllMap.ini).
     AllMapIniEditor {
-        undo: true, history: true,
         view: Some(crate::editors::all_map_ini::view as ViewFn),
         save: Some(|_t: usize| Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::LoadCatalog))),
+        load: Some(|| Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm))),
+        extract: Some(crate::state::extract_all_maps),
+        lifecycle: lc_standard!(all_map_ini_editor),
     },
     /// Sprite viewer (.spr), one per tab; snapshot-based undo.
     SpriteViewer {
-        undo: true, history: false,
         view: Some(crate::editors::sprite_editor::view as ViewFn),
         save: Some(|_t: usize| Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)),
         load: None, // opened by explicit file path
         sheet: None,
+        extract: Some(crate::state::extract_sprite_file_json),
+        lifecycle: lc_sprite_map!(sprite_viewers),
     },
     /// Sound effects (.snf), read-only playback, one per tab.
     SnfEditor {
-        undo: false, history: false,
         view: Some(crate::editors::snf_editor::view as ViewFn),
         save: None,
         load: None, // opened by explicit file path
         sheet: None,
+        extract: None,
+        lifecycle: lc_hash_map!(snf_editors),
     },
     /// SQLite database viewer (tool tab, no EditorMessage variant).
     DbViewer {
-        undo: false, history: false,
         view: None, // rendered by App::view_db_viewer()
         save: None,
         load: None,
         sheet: None,
+        extract: None,
+        lifecycle: lc_owned_box!(viewer),
     },
     /// Tileset browser (.btl/.gtl), one per tab.
     TilesetEditor {
-        undo: false, history: false,
         view: Some(crate::editors::tileset::view as ViewFn),
         save: None,
         load: None, // opened by explicit file path
         sheet: None,
+        extract: Some(crate::state::extract_tileset_file_json),
+        lifecycle: lc_hash_map!(tileset_editors),
     },
     /// Visual map editor (.map), one per tab; own undo stack.
     MapEditor {
-        undo: false, history: false,
         view: Some(crate::editors::map_editor::view as ViewFn),
         save: Some(|t: usize| Message::map_editor(crate::editors::map_editor::MapEditorMessage::SaveEntities(t))),
         load: None, // opened by explicit file path
         sheet: None,
+        extract: Some(crate::state::extract_map_file_json),
+        lifecycle: lc_hash_map!(map_editors),
     },
     /// Mod packaging tool tab.
     ModPackager {
-        undo: false, history: false,
         view: Some(crate::editors::mod_packager::view as ViewFn),
         save: None,
         load: None,
         sheet: None,
+        extract: None,
+        lifecycle: lc_owned!(mod_packager_editor),
     },
     /// Localization manager tool tab.
     LocalizationManager {
-        undo: false, history: false,
         view: Some(crate::editors::localization_manager::view as ViewFn),
         save: None,
         load: None,
         sheet: None,
+        extract: None,
+        lifecycle: lc_owned!(localization_manager),
     },
     /// Read-only save-file viewer (.sav), one per tab.
     SaveFileViewer {
-        undo: false, history: false,
         view: Some(crate::editors::save_file_viewer::view as ViewFn),
         save: None,
         load: None, // opened by explicit file path (custom async parse in app.rs)
         sheet: None,
+        extract: None,
+        lifecycle: lc_hash_map!(save_file_viewers),
     },
     /// Save-slot manager (Save.ifo).
     SaveIfoEditor {
-        undo: true, history: true,
         view: Some(crate::editors::save_ifo::view as ViewFn),
         save: Some(|_t: usize| Message::save_ifo(crate::editors::save_ifo::SaveIfoEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::save_ifo(crate::editors::save_ifo::SaveIfoEditorMessage::LoadCatalog))),
+        load: Some(|| Message::save_ifo(crate::editors::save_ifo::SaveIfoEditorMessage::LoadCatalog)),
         sheet: None, // custom layout, no generic spreadsheet
+        extract: None,
+        lifecycle: lc_box_undo!(save_ifo_editor),
     },
     /// Map-lighting fade tables (fogdata.dat), one per tab.
     FogDataEditor {
-        undo: true, history: false,
         view: Some(crate::editors::fog_data::view as ViewFn),
         save: Some(|t: usize| Message::fog_data(crate::editors::fog_data::FogDataMessage::Save(t))),
         load: None, // opened by explicit file path
         sheet: None,
+        extract: None,
+        lifecycle: lc_fog_map!(fog_editors),
     },
     /// Multiplayer chest spawns (.cst).
     ChestSpawnEditor {
-        undo: true, history: true,
         view: Some(crate::editors::chest_spawn::view as ViewFn),
         save: Some(|_t: usize| Message::chest_spawn(crate::editors::chest_spawn::ChestSpawnEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::chest_spawn(crate::editors::chest_spawn::ChestSpawnEditorMessage::LoadCatalog))),
+        load: Some(|| Message::chest_spawn(crate::editors::chest_spawn::ChestSpawnEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::chest_spawn(crate::editors::chest_spawn::ChestSpawnEditorMessage::Spreadsheet(sm))),
+        extract: None,
+        lifecycle: lc_standard!(chest_spawn_editor),
     },
     /// Multiplayer monster spawns (.mon).
     MonsterSpawnEditor {
-        undo: true, history: true,
         view: Some(crate::editors::monster_spawn::view as ViewFn),
         save: Some(|_t: usize| Message::monster_spawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::monster_spawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage::LoadCatalog))),
+        load: Some(|| Message::monster_spawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::monster_spawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage::Spreadsheet(sm))),
+        extract: None,
+        lifecycle: lc_standard!(monster_spawn_editor),
     },
     /// Multiplayer map metadata (.ifm).
     MapInfoMultiEditor {
-        undo: true, history: true,
         view: Some(crate::editors::map_info_multi::view as ViewFn),
         save: Some(|_t: usize| Message::map_info_multi(crate::editors::map_info_multi::MapInfoMultiEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::map_info_multi(crate::editors::map_info_multi::MapInfoMultiEditorMessage::LoadCatalog))),
+        load: Some(|| Message::map_info_multi(crate::editors::map_info_multi::MapInfoMultiEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::map_info_multi(crate::editors::map_info_multi::MapInfoMultiEditorMessage::Spreadsheet(sm))),
+        extract: None,
+        lifecycle: lc_standard!(map_info_multi_editor),
     },
     /// Multiplayer tile grid (.dat), canvas-based view.
     TileGridEditor {
-        undo: true, history: true,
         view: Some(crate::editors::tile_grid_canvas::view as ViewFn),
         save: Some(|_t: usize| Message::tile_grid(crate::editors::tile_grid::TileGridEditorMessage::Save)),
-        load: Some(|| iced::Task::done(Message::tile_grid(crate::editors::tile_grid::TileGridEditorMessage::LoadCatalog))),
+        load: Some(|| Message::tile_grid(crate::editors::tile_grid::TileGridEditorMessage::LoadCatalog)),
         sheet: Some(|sm| Message::tile_grid(crate::editors::tile_grid::TileGridEditorMessage::Spreadsheet(sm))),
+        extract: None,
+        lifecycle: lc_standard_and!(tile_grid_editor, tile_grid_view),
     },
     /// Universal fallback binary editor.
     HexEditor {
-        undo: false, history: false,
         view: Some(crate::editors::hex_wrapper::view as ViewFn),
         save: None,
         load: None, // opened by explicit file path
         sheet: None,
+        extract: None,
+        lifecycle: lc_hash_map!(hex_editors),
     },
     /// Deserialized fallback for unknown editor types (serde `other`).
     #[serde(other)]
     Unknown {
-        undo: false, history: false,
         view: None,
         save: None,
         load: None,
         sheet: None,
+        extract: None,
+        lifecycle: lc_none!(),
     },
 }
 
 /// Look up the descriptor for an editor kind.
 pub fn descriptor(et: EditorType) -> &'static EditorDescriptor {
     et.descriptor()
+}
+
+/// Map a `dispel-core` catalog `editor` id to its GUI variant.
+///
+/// Derived from `EditorType::name()` (which is generated from the same macro
+/// declaration as the enum), so the id→variant table cannot drift from the
+/// catalog. Returns `None` for ids that have no GUI editor.
+pub fn from_catalog_editor(id: &str) -> Option<EditorType> {
+    EditorType::ALL.iter().copied().find(|et| et.name() == id)
 }
 
 /// Route an `EditorType` to its view, or `None` for editors rendered specially
@@ -506,7 +586,9 @@ pub fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<ic
 
 /// Return the auto-load catalog task for an editor opened without a file path.
 pub fn catalog_load_task(editor_type: EditorType) -> Option<iced::Task<Message>> {
-    descriptor(editor_type).load.map(|build| build())
+    descriptor(editor_type)
+        .load
+        .map(|build| iced::Task::done(build()))
 }
 
 /// Map a spreadsheet-navigation message to the editor's `Message` variant, or

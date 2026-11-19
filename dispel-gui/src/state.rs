@@ -262,60 +262,66 @@ impl Default for AppState {
 // JSON extraction helpers for "Extract to JSON" in the file tree
 // ===========================================================================
 
-/// Dispatch file extraction to the correct parser based on [`EditorType`].
+/// Dispatch file extraction to the parser declared in the editor catalog.
 fn extract_file(path: &Path, editor_type: crate::workspace::EditorType) -> Result<String, String> {
-    use crate::workspace::EditorType;
-
-    let value = match editor_type {
-        EditorType::WeaponEditor => extract_std::<dispel_core::WeaponItem>(path, "weapons")?,
-        EditorType::MonsterEditor => extract_std::<dispel_core::Monster>(path, "monsters")?,
-        EditorType::MonsterIniEditor => {
-            extract_std::<dispel_core::MonsterIni>(path, "monster_ini")?
-        }
-        EditorType::HealItemEditor => extract_std::<dispel_core::HealItem>(path, "heal_item")?,
-        EditorType::MiscItemEditor => extract_std::<dispel_core::MiscItem>(path, "misc_item")?,
-        EditorType::EditItemEditor => extract_std::<dispel_core::EditItem>(path, "edit_item")?,
-        EditorType::EventItemEditor => extract_std::<dispel_core::EventItem>(path, "event_item")?,
-        EditorType::MagicEditor => extract_std::<dispel_core::MagicSpell>(path, "magic")?,
-        EditorType::StoreEditor => extract_std::<dispel_core::Store>(path, "store")?,
-        EditorType::ChDataEditor => extract_std::<dispel_core::ChData>(path, "chdata")?,
-        EditorType::PartyLevelDbEditor => {
-            extract_std::<dispel_core::PartyLevelNpc>(path, "party_level")?
-        }
-        EditorType::DialogueScriptEditor => {
-            extract_std::<dispel_core::DialogueScript>(path, "dialog")?
-        }
-        EditorType::DialogueTextEditor => {
-            extract_std::<dispel_core::DialogueParagraph>(path, "dialog_text")?
-        }
-        EditorType::DrawItemEditor => extract_std::<dispel_core::DrawItem>(path, "draw_item")?,
-        EditorType::EventIniEditor => extract_std::<dispel_core::Event>(path, "event_ini")?,
-        EditorType::EventNpcRefEditor => {
-            extract_std::<dispel_core::EventNpcRef>(path, "event_npc_ref")?
-        }
-        EditorType::ExtraIniEditor => extract_std::<dispel_core::Extra>(path, "extra_ini")?,
-        EditorType::ExtraRefEditor => extract_std::<dispel_core::ExtraRef>(path, "extra_ref")?,
-        EditorType::MapIniEditor => extract_std::<dispel_core::MapIni>(path, "map_ini")?,
-        EditorType::MessageScrEditor => extract_std::<dispel_core::Message>(path, "message")?,
-        EditorType::MonsterRefEditor => {
-            extract_std::<dispel_core::MonsterRef>(path, "monster_ref")?
-        }
-        EditorType::NpcIniEditor => extract_std::<dispel_core::NpcIni>(path, "npc_ini")?,
-        EditorType::NpcRefEditor => extract_std::<dispel_core::NPC>(path, "npc_ref")?,
-        EditorType::PartyRefEditor => extract_std::<dispel_core::PartyRef>(path, "party_ref")?,
-        EditorType::PartyIniEditor => extract_std::<dispel_core::PartyIniNpc>(path, "party_ini")?,
-        EditorType::QuestScrEditor => extract_std::<dispel_core::Quest>(path, "quest")?,
-        EditorType::EventScrEditor => extract_std::<dispel_core::EventScript>(path, "event_scr")?,
-        EditorType::WaveIniEditor => extract_std::<dispel_core::WaveIni>(path, "wave_ini")?,
-        EditorType::AllMapIniEditor => extract_std::<dispel_core::Map>(path, "all_maps")?,
-        EditorType::MapEditor => extract_map_file_json(path)?,
-        EditorType::TilesetEditor => extract_tileset_file_json(path)?,
-        EditorType::SpriteViewer => extract_sprite_file_json(path)?,
-        _ => return Err("JSON export not supported for this file type".to_string()),
-    };
-
+    let extract = editor_type
+        .descriptor()
+        .extract
+        .ok_or_else(|| "JSON export not supported for this file type".to_string())?;
+    let value = extract(path)?;
     serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
 }
+
+/// Generate a named catalog extraction wrapper for a standard `Extractor` type.
+macro_rules! extract_std_fn {
+    ($name:ident, $ty:ty, $key:literal) => {
+        pub(crate) fn $name(path: &Path) -> Result<serde_json::Value, String> {
+            extract_std::<$ty>(path, $key)
+        }
+    };
+}
+
+extract_std_fn!(extract_weapon, dispel_core::WeaponItem, "weapons");
+extract_std_fn!(extract_monster, dispel_core::Monster, "monsters");
+extract_std_fn!(extract_monster_ini, dispel_core::MonsterIni, "monster_ini");
+extract_std_fn!(extract_heal_item, dispel_core::HealItem, "heal_item");
+extract_std_fn!(extract_misc_item, dispel_core::MiscItem, "misc_item");
+extract_std_fn!(extract_edit_item, dispel_core::EditItem, "edit_item");
+extract_std_fn!(extract_event_item, dispel_core::EventItem, "event_item");
+extract_std_fn!(extract_magic, dispel_core::MagicSpell, "magic");
+extract_std_fn!(extract_store, dispel_core::Store, "store");
+extract_std_fn!(extract_chdata, dispel_core::ChData, "chdata");
+extract_std_fn!(
+    extract_party_level,
+    dispel_core::PartyLevelNpc,
+    "party_level"
+);
+extract_std_fn!(extract_dialog, dispel_core::DialogueScript, "dialog");
+extract_std_fn!(
+    extract_dialog_text,
+    dispel_core::DialogueParagraph,
+    "dialog_text"
+);
+extract_std_fn!(extract_draw_item, dispel_core::DrawItem, "draw_item");
+extract_std_fn!(extract_event_ini, dispel_core::Event, "event_ini");
+extract_std_fn!(
+    extract_event_npc_ref,
+    dispel_core::EventNpcRef,
+    "event_npc_ref"
+);
+extract_std_fn!(extract_extra_ini, dispel_core::Extra, "extra_ini");
+extract_std_fn!(extract_extra_ref, dispel_core::ExtraRef, "extra_ref");
+extract_std_fn!(extract_map_ini, dispel_core::MapIni, "map_ini");
+extract_std_fn!(extract_message, dispel_core::Message, "message");
+extract_std_fn!(extract_monster_ref, dispel_core::MonsterRef, "monster_ref");
+extract_std_fn!(extract_npc_ini, dispel_core::NpcIni, "npc_ini");
+extract_std_fn!(extract_npc_ref, dispel_core::NPC, "npc_ref");
+extract_std_fn!(extract_party_ref, dispel_core::PartyRef, "party_ref");
+extract_std_fn!(extract_party_ini, dispel_core::PartyIniNpc, "party_ini");
+extract_std_fn!(extract_quest, dispel_core::Quest, "quest");
+extract_std_fn!(extract_event_scr, dispel_core::EventScript, "event_scr");
+extract_std_fn!(extract_wave_ini, dispel_core::WaveIni, "wave_ini");
+extract_std_fn!(extract_all_maps, dispel_core::Map, "all_maps");
 
 /// Generic extraction for types that implement [`Extractor`] + [`Serialize`].
 fn extract_std<T: Extractor + Serialize>(
@@ -332,7 +338,7 @@ fn extract_std<T: Extractor + Serialize>(
 }
 
 /// Extract a `.map` file to JSON.
-fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
     use std::fs::File;
     use std::io::BufReader;
 
@@ -349,7 +355,7 @@ fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Extract a `.gtl`/`.btl` tileset file to JSON (metadata only, no pixel data).
-fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
     let tiles = dispel_core::map::tileset::extract(path)
         .map_err(|e| format!("Failed to read tileset: {}", e))?;
     let tile_entries: Vec<serde_json::Value> = tiles
@@ -371,7 +377,7 @@ fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Extract a `.spr` sprite file info to JSON.
-fn extract_sprite_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_sprite_file_json(path: &Path) -> Result<serde_json::Value, String> {
     let info = dispel_core::sprite::get_sprite_info(path)
         .map_err(|e| format!("Failed to read sprite info: {}", e))?;
     let data = serde_json::to_value(&info).map_err(|e| format!("Serialization failed: {}", e))?;
