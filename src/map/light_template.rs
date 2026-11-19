@@ -1,10 +1,8 @@
 //! The viewport light template.
 //!
-//! The game never reads light levels from the map: the world tick rewrites
-//! bits 15–29 of every visible tile's access word **every frame** from a
-//! static 500-byte table. The table
-//! is indexed by *visible slot* — a 32-row tile diamond anchored to the
-//! camera tile:
+//! Light levels are supplied per visible slot rather than read from the map.
+//! The template is a fixed 500-byte table indexed by *visible slot* — a
+//! 32-row tile diamond anchored to the camera tile:
 //!
 //! ```text
 //! row runs: 1,3,…,27 (rows 0–13) · 27×5 (rows 14–18) · 25,23,…,1 (rows 19–31)
@@ -15,9 +13,9 @@
 //! anchor at top + (−13, +13). Rows 0–12 hold `dx ∈ [−dy, dy]`, rows 13–18
 //! hold `dx ∈ [dy−26, dy]`, rows 19–31 hold `dx ∈ [dy−26, dy−26+run−1]`.
 //!
-//! Because the `.map` file's own light bits are dead data, a static render
-//! that uses them shows every dark map as pitch black. Feeding the template
-//! in reproduces the lighting the game actually draws.
+//! The `.map` file's own light bits are not used for rendering, so a static
+//! render that relies on them shows every dark map as pitch black. Feeding
+//! the template in supplies the intended lighting.
 
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -102,7 +100,7 @@ impl LightTemplate {
 
     /// Writes the template's levels into the map's access words (bits 15–29),
     /// anchored at `camera`. Tiles outside the visible diamond keep their own
-    /// (dead) bits.
+    /// bits.
     pub fn apply(&self, words: &mut HashMap<Coords, u32>, camera: Coords) {
         for slot in 0..SLOT_COUNT {
             let Some((dx, dy)) = Self::slot_offset(slot) else {

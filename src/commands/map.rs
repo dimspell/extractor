@@ -33,9 +33,8 @@ impl Command for MapCommand {
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                // The ground pass copies the tile rows opaquely; the
-                // BTL pass skips the black pixels of the shadowed refs whose
-                // per-ref blend byte is non-zero.
+                // Ground tilesets copy tile rows opaquely; building tilesets
+                // skip the black pixels of shadowed refs.
                 let is_gtl = input.to_ascii_lowercase().ends_with(".gtl");
                 let opaque = opaque.unwrap_or(is_gtl);
                 eprintln!(

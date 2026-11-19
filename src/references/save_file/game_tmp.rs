@@ -571,8 +571,20 @@ pub struct ExtraObjectRecord {
     pub additional_loot_1: u32,
     pub additional_loot_1_count: u32,
     pub additional_loot_2: u32,
-    /// Third loot quantity plus interaction configuration. See `ExtraRef`.
-    pub additional_loot_2_count_and_config: [u8; 28],
+    /// Quantity of the third loot item. See `ExtraRef`.
+    pub additional_loot_2_count: u32,
+    /// Loot delivery mode. See `ExtraRef`.
+    pub loot_delivery_mode: u32,
+    /// Trap arming flag (record `+0x70`). See `ExtraRef`.
+    pub is_trapped: u32,
+    /// Trap spell id (record `+0x74`). See `ExtraRef`.
+    pub trap_spell_id: u32,
+    /// Unassigned configuration word (record `+0x78`). Preserve verbatim.
+    pub interaction_config_reserved_1: u32,
+    /// Unassigned configuration word (record `+0x7C`). Preserve verbatim.
+    pub interaction_config_reserved_2: u32,
+    /// Remaining interaction uses (record `+0x80`). See `ExtraRef`.
+    pub use_counter: u32,
     pub interaction_event_id: u32,
     pub interaction_message_id: u32,
     pub footprint_width: u32,
@@ -586,10 +598,11 @@ pub struct ExtraObjectRecord {
     pub post_activation_footprint_mode: u32,
     pub preserve_final_sprite_frame: u32,
     pub alternate_render_mode: u32,
-    pub activation_effect_id: u8,
-    /// Reserved byte adjacent to the activation effect ID. Preserve it verbatim.
-    pub activation_effect_reserved: u8,
-    pub activation_effect_padding: i16,
+    /// Wave.ini open-SFX index (record `+0xAC`). See `ExtraRef`.
+    pub open_sfx_id: u8,
+    /// Reserved byte after [`Self::open_sfx_id`]. Preserve it verbatim.
+    pub open_sfx_reserved: u8,
+    pub open_sfx_padding: i16,
     /// Active-object overlay: 0=disabled, non-zero=enabled.
     pub active_overlay_enabled: u32,
     /// Map-grid/update participation: 0=inactive, non-zero=active.

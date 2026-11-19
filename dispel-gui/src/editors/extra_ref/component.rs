@@ -1,5 +1,5 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::{ActivationEffectId, BooleanFlag, ExtraObjectType, ExtraRef, SmallRange0to3};
+use dispel_core::{BooleanFlag, ExtraObjectType, ExtraRef, SmallRange0to3};
 
 use crate::editable_record_fields;
 
@@ -29,7 +29,13 @@ editable_record_fields!(ExtraRef, {
     { additional_loot_1 = Integer / "Additional loot 1:" },
     { additional_loot_1_count = Integer / "Additional loot 1 count:" },
     { additional_loot_2 = Integer / "Additional loot 2:" },
-    { additional_loot_2_count_and_config = HexString / "Additional loot 2 count and config:" },
+    { additional_loot_2_count = Integer / "Additional loot 2 count:" },
+    { loot_delivery_mode = Integer / "Loot delivery mode:" },
+    { is_trapped = Integer / "Is trapped:" },
+    { trap_spell_id = Integer / "Trap spell ID:" },
+    { interaction_config_reserved_1 = Integer / "Reserved config 1:" },
+    { interaction_config_reserved_2 = Integer / "Reserved config 2:" },
+    { use_counter = Integer / "Use counter:" },
     { interaction_event_id = Integer / "Interaction event ID:" },
     { interaction_message_id = Integer / "Interaction message ID:" },
     { footprint_width = DispEnum(SmallRange0to3, ["0", "1", "2", "3"]) / "Footprint width:" },
@@ -42,9 +48,9 @@ editable_record_fields!(ExtraRef, {
     { post_activation_footprint_mode = DispEnum(BooleanFlag, ["True", "False"]) / "Post-activation footprint mode:" },
     { preserve_final_sprite_frame = Integer / "Preserve final sprite frame:" },
     { alternate_render_mode = DispEnum(BooleanFlag, ["True", "False"]) / "Alternate render mode:" },
-    { activation_effect_id = Enum(ActivationEffectId, ["None", "Effect10"]) / "Activation effect:" },
-    { activation_effect_reserved_flag = DispEnum(BooleanFlag, ["True", "False"]) / "Activation-effect reserved flag:" },
-    { activation_effect_padding = Integer / "Activation effect padding:" },
+    { open_sfx_id = Integer / "Open SFX (Wave.ini, 0 = none):" },
+    { open_sfx_reserved = Integer / "Open SFX reserved:" },
+    { open_sfx_padding = Integer / "Open SFX padding:" },
     { active_overlay_enabled = DispEnum(BooleanFlag, ["True", "False"]) / "Active overlay enabled:" },
     { map_object_active = DispEnum(BooleanFlag, ["True", "False"]) / "Map object active:" },
 });

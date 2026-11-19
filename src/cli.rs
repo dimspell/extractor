@@ -195,11 +195,10 @@ pub enum MapCommands {
         input: String,
         /// File path for the resulting atlas PNG
         output: String,
-        /// Draw the tiles' black pixels instead of skipping them. The ground
-        /// pass is an opaque row-copy; the BTL pass uses
-        /// the skip-zero blit for the shadowed refs whose per-ref blend byte
-        /// is non-zero. Defaults to the tileset kind: opaque for .GTL,
-        /// skip-zero for .BTL.
+        /// Draw the tiles' black pixels instead of skipping them. Ground
+        /// tilesets use an opaque row-copy; building tilesets use a skip-zero
+        /// blit for shadowed refs. Defaults to the tileset kind: opaque for
+        /// .GTL, skip-zero for .BTL.
         #[arg(long)]
         opaque: Option<bool>,
     },

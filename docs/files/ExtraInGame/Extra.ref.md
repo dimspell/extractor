@@ -54,7 +54,13 @@ items) on specific maps. Each map has its own `Ext*.ref` file containing all int
 - additional_loot_1: i32 (second loot item identifier; 9999 = unused)
 - additional_loot_1_count: i32 (quantity of the second loot item)
 - additional_loot_2: i32 (third loot item identifier; 9999 = unused)
-- additional_loot_2_count_and_config: 28 bytes (first i32 is the third loot quantity; the remaining 24 bytes are object-specific configuration)
+- additional_loot_2_count: i32
+- loot_delivery_mode: i32 (0 = deterministic, 1 = roll-gated)
+- is_trapped: i32 (trap arming flag)
+- trap_spell_id: i32 (Magic.db index used when a trap triggers)
+- interaction_config_reserved_1: i32 (record +0x78; preserve verbatim)
+- interaction_config_reserved_2: i32 (record +0x7C; preserve verbatim)
+- use_counter: i32 (record +0x80; remaining uses, default 999)
 - interaction_event_id: i32 (links to Event.ini)
 - interaction_message_id: i32 (links to Message.scr)
 - footprint_width: i32 (occupied map-cell width)
@@ -67,9 +73,9 @@ items) on specific maps. Each map has its own `Ext*.ref` file containing all int
 - post_activation_footprint_mode: i32 (selects the post-activation map-grid footprint update mode)
 - preserve_final_sprite_frame: i32 (prevents the terminal sprite frame from being reset after interaction)
 - alternate_render_mode: i32 (selects the alternative object renderer)
-- activation_effect_id: u8 (index passed to the activation-effect dispatcher; observed values 0 and 10)
-- activation_effect_reserved: u8 (reserved; preserve verbatim)
-- activation_effect_padding: i16 (padding, normally 0)
+- open_sfx_id: u8 (record +0xAC; Wave.ini index played by `extra_play_open_sfx` on activation; 0 = none)
+- open_sfx_reserved: u8 (reserved; preserve verbatim)
+- open_sfx_padding: i16 (padding, normally 0)
 - active_overlay_enabled: i32 (enables the active-object overlay render path)
 - map_object_active: i32 (marks the object active in the map-object grid and update loop)
 
@@ -90,10 +96,9 @@ items) on specific maps. Each map has its own `Ext*.ref` file containing all int
 - `footprint_width`, `footprint_height`, and `footprint_orientation` determine which map cells the object occupies.
   `interaction_range` limits activation distance.
 
-The 28-byte `additional_loot_2_count_and_config` field contains mixed configuration: its first `i32` is the third loot
-quantity, its second `i32`
-selects the loot-delivery mode, and its final `i32` is a remaining-use counter. The intervening 16 bytes vary by object
-type.
+The seven words from `additional_loot_2_count` through `use_counter` were formerly exported as one opaque
+28-byte `additional_loot_2_count_and_config` BLOB. Two of those words are the trap flag and trap spell
+index; both are zero in every shipped placement. They are **not** the same as `open_sfx_id`.
 
 #### Core Identification
 
@@ -117,7 +122,7 @@ type.
 | Field                | Type | Description                                                               |
 |----------------------|------|---------------------------------------------------------------------------|
 | object_type          | u8   | Object category enum                                                      |
-| activation_effect_id | u8   | Index passed to the activation-effect dispatcher (observed: 0, 10).       |
+| open_sfx_id          | u8   | Wave.ini index played on successful activation (`extra_play_open_sfx`).  |
 | interaction_range    | u8   | Maximum tile distance at which the engine allows activation.              |
 | is_quest_element     | i32  | Quest-related interaction flag; set after a successful requirement check. |
 
@@ -131,7 +136,7 @@ type.
 | alternate_render_mode          | BooleanFlag | Selects the alternate renderer.                                       |
 | active_overlay_enabled         | BooleanFlag | Enables the active-object overlay render path.                        |
 | map_object_active              | BooleanFlag | Makes the object participate in the map-object grid and update loop.  |
-| activation_effect_reserved     | u8          | Reserved byte adjacent to the effect ID; preserve verbatim.           |
+| open_sfx_reserved              | u8          | Reserved byte adjacent to `open_sfx_id`; preserve verbatim.         |
 
 #### Container State
 
@@ -178,12 +183,15 @@ type.
 | 6     | Interactive | General interactive element |
 | 7     | Magic       | Magical object              |
 
-#### Activation Effect ID (activation_effect_id)
+#### Trap fields and open sound
 
-| Value | Name     | Description                                                    |
-|-------|----------|----------------------------------------------------------------|
-| 0     | None     | No activation effect dispatched.                               |
-| 10    | Effect10 | Effect index 10; the exact effect asset is not yet identified. |
+`is_trapped` and `trap_spell_id` are the trap arming flag and `Magic.db` spell index. All 1,039
+shipped placements carry zero in both, so no shipped placement uses a trap.
+
+`open_sfx_id` is a **Wave.ini sound index** played when a door, lever, chest, key, or subtype-8 object
+is activated successfully. It was previously exported as `activation_effect_id` with the bogus values
+`None`/`Effect10`; that mapping also rewrote any index other than 0 or 10 to 255 on save. It is a
+plain `u8` now.
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 

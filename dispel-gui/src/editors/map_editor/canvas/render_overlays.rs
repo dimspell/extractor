@@ -35,7 +35,7 @@ fn tile_diamond_path(px: f32, py: f32, zoom: f32) -> canvas::Path {
     })
 }
 
-/// True when the native visible-area spell gate blocks a cast from `anchor`.
+/// True when the visible-area spell gate blocks a cast from `anchor`.
 /// This inverts the map marker view: it identifies the player/camera anchors
 /// from which at least one no-spell marker is visible.
 fn no_spell_cast_is_blocked_at_anchor(

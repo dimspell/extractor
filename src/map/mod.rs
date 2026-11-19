@@ -5,7 +5,7 @@
 //  types.rs        – Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
 //                    coordinate constants and helpers
 //  model.rs        – MapModel struct and geometry parser (read_map_model)
-//  reader.rs       – Binary block readers for the native .map file format
+//  reader.rs       – Binary block readers for the .map file format
 //  render.rs       – Isometric rendering pipeline (ground / objects / roofs,
 //                    sprite on bitmap)
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
@@ -560,9 +560,8 @@ pub fn extract(
         .and_then(|s| s.to_str())
         .unwrap_or("map");
 
-    // The map file's own light bits are dead data — the game rewrites them
-    // every frame from the viewport template. Apply the template so a dark
-    // map renders the lighting the game actually draws.
+    // The map file's own light bits are not used for rendering; the viewport
+    // template supplies the levels. Apply it so dark maps render correctly.
     if let Some(template) = light_template.as_ref() {
         let camera = match camera {
             Some(spec) => parse_camera(spec)?,

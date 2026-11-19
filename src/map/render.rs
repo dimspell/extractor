@@ -430,10 +430,9 @@ pub fn plot_base(
                 sx -= model.map_non_occluded_start_x;
                 sy -= model.map_non_occluded_start_y;
 
-                // The ground pass copies the tile rows opaquely; the ground tile's
-                // black pixels are drawn
-                // like any other. The skip-zero variant belongs to the BTL
-                // pass, which picks the mode per ref.
+                // Ground tiles are drawn with an opaque row-copy: the
+                // tile's black pixels are drawn like any other. The
+                // skip-zero variant is used for building tiles.
                 plot_tile_opaque(image, gtl_tile.colors, sx, sy);
             }
         }
@@ -537,15 +536,8 @@ pub fn plot_roofs(
 //   level == 0     → span diamond filled solid black (fog of war)
 //   level 1..=123  → per pixel pair, red, green and blue are scaled by f/32
 //                    where f = fogdata.dat[(level-1)*512 + pair]. The
-//                    channel set is cited from the fade object's masks
-//                    (16bpp mode): maskB
-//                    (fade+4) = 0x07E0F81F covers red + blue, maskA
-//                    (fade+8) = 0xF81F07E0 covers green, and the blend at
-//                    each masked channel is scaled by f/32. An
-//                    earlier reading ("blue is never modified") was a hedge
-//                    that turned out to be wrong: with the fogdata's
-//                    minimum factor of 2 it painted every shadowed pixel
-//                    deep blue instead of near-black. Flag bits 30–31 mark
+//                    all three channels are scaled by f/32. Flag bits
+//                    30–31 mark
 //                    tiles whose factor is blended with dynamic entity
 //                    lights via max(); statically we render the tile's own
 //                    pattern.
@@ -716,9 +708,7 @@ fn plot_shadows(
                         if let Some(pixel) =
                             image.get_pixel_mut_checked((x0 + dx) as u32, py_row as u32)
                         {
-                            // The native blend scales red, green AND blue by
-                            // f/32 (masks: red+blue in
-                            // maskB, green in maskA).
+                            // The blend scales red, green AND blue by f/32.
                             pixel[0] = (u32::from(pixel[0]) * f / 32) as u8;
                             pixel[1] = (u32::from(pixel[1]) * f / 32) as u8;
                             pixel[2] = (u32::from(pixel[2]) * f / 32) as u8;
