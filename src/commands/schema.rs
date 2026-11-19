@@ -1,25 +1,15 @@
 use std::error::Error;
 
+use crate::cli::SchemaArgs;
 use crate::commands::Command;
 use crate::commands::registry::{self, FileType};
 
-#[derive(clap::Args, Clone)]
-pub struct SchemaArgs {
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-}
-
-pub struct SchemaCommand {
-    pub args: SchemaArgs,
-}
-
-impl Command for SchemaCommand {
+impl Command for SchemaArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
+        let file_type = registry::get_by_key(&self.r#type).ok_or_else(|| {
             format!(
                 "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
+                self.r#type,
                 registry::format_type_list()
             )
         })?;

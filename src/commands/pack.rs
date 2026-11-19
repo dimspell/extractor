@@ -5,34 +5,12 @@ use std::path::{Path, PathBuf};
 use crate::references::event_scr::EventScript;
 use crate::references::extractor::Extractor;
 
+use crate::cli::ModPackArgs;
 use crate::commands::Command;
 
-#[derive(clap::Args, Clone)]
-pub struct ModPackArgs {
-    /// Path to the Dispel game directory (contains Ref/Event*.scr)
-    #[arg(short, long)]
-    pub game_path: String,
-
-    /// Output directory for JSON files
-    #[arg(short, long, default_value = "mod-pack")]
-    pub output: String,
-
-    /// Pretty-print JSON
-    #[arg(short, long)]
-    pub pretty: bool,
-
-    /// Output as a single JSON array file instead of individual files
-    #[arg(short, long)]
-    pub single_file: bool,
-}
-
-pub struct ModPackCommand {
-    pub args: ModPackArgs,
-}
-
-impl Command for ModPackCommand {
+impl Command for ModPackArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let game_dir = Path::new(&self.args.game_path);
+        let game_dir = Path::new(&self.game_path);
         let ref_dir = game_dir.join("Ref");
 
         if !ref_dir.exists() {
@@ -61,9 +39,9 @@ impl Command for ModPackCommand {
             ref_dir.display()
         );
 
-        let output_dir = Path::new(&self.args.output);
+        let output_dir = Path::new(&self.output);
 
-        if self.args.single_file {
+        if self.single_file {
             self.export_single_file(&scr_files, output_dir)?;
         } else {
             self.export_individual_files(&scr_files, output_dir)?;
@@ -73,7 +51,7 @@ impl Command for ModPackCommand {
     }
 }
 
-impl ModPackCommand {
+impl ModPackArgs {
     fn export_single_file(
         &self,
         scr_files: &[PathBuf],
@@ -108,7 +86,7 @@ impl ModPackCommand {
         fs::create_dir_all(output_dir)?;
         let output_path = output_dir.join("event_scripts.json");
 
-        let json_str = if self.args.pretty {
+        let json_str = if self.pretty {
             serde_json::to_string_pretty(&output)?
         } else {
             serde_json::to_string(&output)?
@@ -138,7 +116,7 @@ impl ModPackCommand {
             match EventScript::read_file(path) {
                 Ok(records) => {
                     for record in records {
-                        let json_str = if self.args.pretty {
+                        let json_str = if self.pretty {
                             serde_json::to_string_pretty(&record)?
                         } else {
                             serde_json::to_string(&record)?

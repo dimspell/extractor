@@ -46,11 +46,13 @@ if ! cargo fmt --all --check; then
     exit 1
 fi
 
-# echo "Running tests..."
-# if ! cargo test --workspace --all-features; then
-#     echo "Tests failed. Fix before releasing."
-#     exit 1
-# fi
+# Running the full suite is mandatory before a release; PR CI already does
+# this, but a release can be cut from a local master that skipped it.
+echo "Running tests..."
+if ! cargo test --workspace --all-features; then
+    echo "Tests failed. Fix before releasing."
+    exit 1
+fi
 
 # --- Bump versions ---
 

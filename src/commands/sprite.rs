@@ -1,22 +1,10 @@
 use super::Command;
-use crate::cli::SpriteMode as CliSpriteMode;
+use crate::cli::{SpriteArgs, SpriteMode};
 use crate::sprite;
 use std::error::Error;
 use std::path::Path;
 
-/// Sprite command implementation
-pub struct SpriteCommand {
-    pub input: String,
-    pub mode: CliSpriteMode,
-    pub no_origin_offset: bool,
-    pub preserve_black: bool,
-    pub info: bool,
-}
-
-/// Re-export for main.rs dispatch
-pub use crate::cli::SpriteMode;
-
-impl Command for SpriteCommand {
+impl Command for SpriteArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         if self.info {
             let info = sprite::get_sprite_info(Path::new(&self.input))

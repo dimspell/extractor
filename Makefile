@@ -10,8 +10,11 @@
 #   db_path    = database.sqlite
 #   out        = out
 
-.PHONY: help fmt cargo_test iced_test hexedit_test clippy run run-custom-context-menu \
-        check build hexedit \
+# Keep in sync with the target list below. The Rust `test_makefile_invocations_*`
+# tests in src/cli.rs validate every CLI invocation in the recipes below against
+# the declarative command specification.
+.PHONY: help command-list fmt cargo_test iced_test hexedit_test clippy check build run \
+        run-custom-context-menu hexedit check_iced_config \
         extract-help extracts-help extract-file extract-file-pretty \
         extract-all-maps extract-map extract-monsters extract-heal-item \
         extract-draw-item extract-misc-item extract-edit-item \
@@ -34,7 +37,7 @@
         database-databases database-refs database-rest \
         sprite sprite-animation sprite-animation-legacy sprite-sprite sprite-info \
         sound sound-legacy dialog dialog-basic dialogs \
-        mod-pack mod-pack-pretty mod-pack-single
+        mod-pack mod-pack-pretty mod-pack-single cli-smoke
 
 # ============================================================================
 # Configuration variables (overridable via `make TARGET var=val`)
@@ -52,6 +55,10 @@ sprite_path ?= $(game_path)/CharacterInGame/M_BODY1.SPR
 
 help:
 	cargo run -- --help
+
+# Machine-friendly command list generated from the declarative spec in src/cli.rs.
+command-list:
+	cargo run -- --list-commands
 
 fmt:
 	cargo fmt --all
@@ -536,7 +543,8 @@ sprite-animation-legacy:
 # ============================================================================
 # sound — Convert SNF audio to WAV
 # ============================================================================
-# Usage: sound <INPUT> <OUTPUT>
+# Usage: make sound INPUT=<file.snf> OUTPUT=<file.wav>
+# The CLI requires an explicit direction: `sound to-wav|from-wav <IN> <OUT>`.
 
 sound:
 	cargo run -- sound to-wav "$(INPUT)" "$(OUTPUT)"
@@ -562,7 +570,7 @@ dialogs:
 	cargo run -- dialog "$(game_path)/NpcInGame/Dlgcat1.dlg" \
 		-p "$(game_path)/NpcInGame/Pgpcat1.pgp" \
 		-n "$(game_path)/NpcInGame/Npccat1.ref" \
-		-d "$(db_path)"
+		--database "$(db_path)"
 
 # ============================================================================
 # mod-pack — Export event scripts to JSON (for Godot etc.)
@@ -580,3 +588,10 @@ mod-pack-pretty:
 
 mod-pack-single:
 	cargo run -- mod-pack -g "$(game_path)" -o "$(OUTPUT)" --single-file
+
+# ============================================================================
+# cli-smoke — CLI smoke test (uses a real registered subcommand)
+# ============================================================================
+
+cli-smoke:
+	cargo run -- list --format json

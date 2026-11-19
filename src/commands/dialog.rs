@@ -1,5 +1,6 @@
 use super::Command;
 use crate::DialogType;
+use crate::cli::DialogArgs;
 use crate::references::dialogue_paragraph::read_dialogue_paragraphs;
 use crate::references::dialogue_script::{DialogueScript, read_dialogs};
 use crate::references::npc_ref::read_npc_ref;
@@ -42,21 +43,13 @@ struct DialogFunctionCall {
     dialog_ids: Vec<i32>,
 }
 
-pub struct DialogCommand {
-    pub dlg_path: String,
-    pub pgp_path: Option<String>,
-    pub npc_ref_path: Option<String>,
-    pub database_path: Option<String>,
-}
-
-impl Command for DialogCommand {
+impl Command for DialogArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let dlg_path = Path::new(&self.dlg_path);
-        let dialogs =
-            read_dialogs(dlg_path).map_err(|e| format!("ERROR: could not read DLG file: {e}"))?;
+        let dialogs = read_dialogs(&self.dlg_path)
+            .map_err(|e| format!("ERROR: could not read DLG file: {e}"))?;
 
         let texts: HashMap<i32, String> = if let Some(pgp_path) = &self.pgp_path {
-            let pgp_path = Path::new(pgp_path);
+            let pgp_path = pgp_path.as_path();
             let dialogue_paragraphs = read_dialogue_paragraphs(pgp_path)
                 .map_err(|e| format!("ERROR: could not read PGP file: {e}"))?;
             dialogue_paragraphs
@@ -68,7 +61,7 @@ impl Command for DialogCommand {
         };
 
         let npcs: HashMap<i32, NpcInfo> = if let Some(npc_ref_path) = &self.npc_ref_path {
-            let npc_ref_path = Path::new(npc_ref_path);
+            let npc_ref_path = npc_ref_path.as_path();
             let npc_list = read_npc_ref(npc_ref_path)
                 .map_err(|e| format!("ERROR: could not read NPC ref file: {e}"))?;
             npc_list
@@ -90,7 +83,7 @@ impl Command for DialogCommand {
 
         // Load event information from database if provided
         let event_info: HashMap<i32, EventInfo> = if let Some(db_path) = &self.database_path {
-            load_event_information(Path::new(db_path)).unwrap_or_else(|e| {
+            load_event_information(db_path.as_path()).unwrap_or_else(|e| {
                 eprintln!(
                     "WARNING: Could not load event information from database: {}",
                     e
