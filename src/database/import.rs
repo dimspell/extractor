@@ -195,6 +195,39 @@ pub fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dy
     Ok(())
 }
 
+/// PGP paragraph files imported into `dialogue_script_files` / paragraphs.
+/// Each path must be unique so a paragraph file is written only once.
+const PGP_FILES: &[&str] = &[
+    "NpcInGame/PartyPgp.pgp",
+    "NpcInGame/Pgpcat1.pgp",
+    "NpcInGame/Pgpcat2.pgp",
+    "NpcInGame/Pgpcat3.pgp",
+    "NpcInGame/Pgpcatp.pgp",
+    "NpcInGame/Pgpdun04.pgp",
+    "NpcInGame/Pgpdun07.pgp",
+    "NpcInGame/Pgpdun08.pgp",
+    "NpcInGame/Pgpdun10.pgp",
+    "NpcInGame/Pgpdun19.pgp",
+    "NpcInGame/Pgpdun22.pgp",
+    "NpcInGame/Pgpmap1.pgp",
+    "NpcInGame/Pgpmap2.pgp",
+    "NpcInGame/Pgpmap3.pgp",
+];
+
+/// Resolves the `dialogue_script_files` row id for a PGP paragraph file.
+fn dialogue_file_id(
+    pgp_to_file_id: &HashMap<String, i32>,
+    pgp_file: &str,
+) -> Result<i32, Box<dyn Error>> {
+    pgp_to_file_id.get(pgp_file).copied().ok_or_else(|| {
+        format!(
+            "No dialogue_script_files entry found for PGP file: {}",
+            pgp_file
+        )
+        .into()
+    })
+}
+
 pub fn import_dialogues_paragraphs(
     main_path: &Path,
     conn: &mut Connection,
@@ -238,34 +271,12 @@ pub fn import_dialogues_paragraphs(
     }
     // Dialogue paragraphs are written before scripts so paragraph lookups by
     // (file_id, id) can resolve them; the schema has no SQL foreign keys.
-    let pgp_files = [
-        "NpcInGame/PartyPgp.pgp",
-        "NpcInGame/Pgpcat1.pgp",
-        "NpcInGame/Pgpcat2.pgp",
-        "NpcInGame/Pgpcat3.pgp",
-        "NpcInGame/Pgpcatp.pgp",
-        "NpcInGame/Pgpdun04.pgp",
-        "NpcInGame/Pgpdun07.pgp",
-        "NpcInGame/Pgpdun08.pgp",
-        "NpcInGame/Pgpdun10.pgp",
-        "NpcInGame/Pgpdun19.pgp",
-        "NpcInGame/Pgpdun22.pgp",
-        "NpcInGame/Pgpmap1.pgp",
-        "NpcInGame/Pgpmap2.pgp",
-        "NpcInGame/Pgpmap3.pgp",
-        "NpcInGame/PartyPgp.pgp",
-    ];
     println!("Saving dialogue texts...");
-    for pgp_file in &pgp_files {
+    for pgp_file in PGP_FILES {
         let texts = crate::references::dialogue_paragraph::read_dialogue_paragraphs(
             &main_path.join(pgp_file),
         )?;
-        let file_id = pgp_to_file_id.get(*pgp_file).copied().unwrap_or_else(|| {
-            panic!(
-                "No dialogue_script_files entry found for PGP file: {}",
-                pgp_file
-            )
-        });
+        let file_id = dialogue_file_id(&pgp_to_file_id, pgp_file)?;
         save_dialogue_paragraphs(conn, file_id, &texts)?;
     }
     println!("Saving dialogs...");
@@ -780,5 +791,43 @@ mod map_inventory_tests {
             .map(|m| normalize_map_stem(&m.map_filename))
             .collect();
         assert_eq!(stems, vec!["map3", "cat1", "dun01"]);
+    }
+}
+
+#[cfg(test)]
+mod dialogue_import_tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_pgp_files_have_no_duplicate_paths() {
+        let mut seen = HashSet::new();
+        for path in PGP_FILES {
+            assert!(
+                seen.insert(*path),
+                "duplicate PGP path in import list: {}",
+                path
+            );
+        }
+    }
+
+    #[test]
+    fn test_dialogue_file_id_returns_mapped_id() {
+        let mut pgp_to_file_id = HashMap::new();
+        pgp_to_file_id.insert("NpcInGame/Pgpcat1.pgp".to_owned(), 3);
+        assert_eq!(
+            dialogue_file_id(&pgp_to_file_id, "NpcInGame/Pgpcat1.pgp").unwrap(),
+            3
+        );
+    }
+
+    #[test]
+    fn test_dialogue_file_id_missing_entry_returns_err() {
+        let pgp_to_file_id = HashMap::new();
+        let err = dialogue_file_id(&pgp_to_file_id, "NpcInGame/Missing.pgp").unwrap_err();
+        assert!(
+            err.to_string().contains("NpcInGame/Missing.pgp"),
+            "lookup error must name the missing PGP file"
+        );
     }
 }
