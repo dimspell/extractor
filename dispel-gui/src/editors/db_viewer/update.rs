@@ -241,8 +241,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         }
         ViewerMessage::CellConfirm => {
             // Confirm cell edit
-            app.state.editors.viewer.status_msg =
-                "Cell edit confirmed (implementation needed)".into();
+            app.state.editors.viewer.status_msg = "Cell edit staged for commit".into();
             app.state.editors.viewer.status_icon = None;
             if let Some((r, c)) = app.state.editors.viewer.editing_cell {
                 let original = app
@@ -344,7 +343,6 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.editing_cell = None;
             crate::editors::db_viewer::fetch::fetch_sql_data(&mut app.state.editors.viewer)
 
-            // AI:
             // Execute SQL query
             // if app.state.editors.viewer.sql_query.is_empty() {
             //     app.state.editors.viewer.status_msg = "No SQL query to execute".into();
@@ -444,5 +442,33 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.status_icon = None;
             Task::none()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::App;
+    use crate::workspace::Workspace;
+
+    #[test]
+    fn test_cell_confirm_reports_staged_edit() {
+        let mut app = App::test_new(Workspace::new());
+        let viewer = &mut app.state.editors.viewer;
+        viewer.rows = vec![vec!["old value".into()]];
+        viewer.editing_cell = Some((0, 0));
+        viewer.edit_buffer = "new value".into();
+
+        let _ = handle(ViewerMessage::CellConfirm, &mut app);
+
+        assert_eq!(
+            app.state.editors.viewer.status_msg,
+            "Cell edit staged for commit"
+        );
+        assert_eq!(
+            app.state.editors.viewer.pending_edits.get(&(0, 0)),
+            Some(&"new value".to_string())
+        );
+        assert_eq!(app.state.editors.viewer.editing_cell, None);
     }
 }
