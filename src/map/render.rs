@@ -763,7 +763,7 @@ where
 pub fn collect_external_entities(
     map_id: &str,
     game_path: &Path,
-    model: &MapModel,
+    _model: &MapModel,
 ) -> Result<ExternalEntities> {
     use crate::references::{
         draw_item::DrawItem, extra_ini::Extra, extra_ref::ExtraRef, extractor::Extractor,
@@ -807,9 +807,6 @@ pub fn collect_external_entities(
             format!("No Map.ini entry found for map '{}'", map_base_name),
         ));
     };
-
-    let diagonal = model.tiled_map_width + model.tiled_map_height;
-    let _ = diagonal; // used for resolving offsets, kept for consistency
 
     let resolve = |dir: &str, filename: &str| -> PathBuf {
         let upper = filename.to_ascii_uppercase();

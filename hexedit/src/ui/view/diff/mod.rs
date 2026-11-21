@@ -33,7 +33,7 @@ use crate::domain::selection::Selection;
 use crate::ui::theme::HexEditorTheme;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
-use self::layout::{HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS};
+use self::layout::{HEADER_HEIGHT, SCROLLBAR_THICKNESS};
 use super::minimap;
 
 /// Number of unchanged rows retained on each side of a changed region in
@@ -289,11 +289,6 @@ impl<'a, Message> DiffView<'a, Message> {
         } else {
             total.div_ceil(bpr) as u64
         }
-    }
-
-    #[allow(dead_code)]
-    fn total_height(&self) -> f32 {
-        self.total_rows() as f32 * ROW_HEIGHT
     }
 
     pub(super) fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {

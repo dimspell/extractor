@@ -179,17 +179,6 @@ fn get_image_info_with_pixel_stride<R: Read + Seek>(
 
     let image_start_position = reader.stream_position()?;
 
-    if width < 1 || height < 1 {
-        // return Err(std::io::Error::new(
-        //     std::io::ErrorKind::InvalidData,
-        //     "frame width or height is zero",
-        // ));
-        // True for the following:
-        // fixtures/Dispel/CharacterInGame/m_hair1_5.spr
-        // fixtures/Dispel/CharacterInGame/m_hair1_2.spr
-        // fixtures/Dispel/CharacterInGame/m_hair1_3.spr
-    }
-
     Ok(ImageInfo {
         origin_x,
         origin_y,
@@ -208,10 +197,10 @@ fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo
 
 /// Parses a single sequence header and all its frame metadata.
 ///
-/// The reader must be positioned at the start of a valid sequence header
-/// (as found by `seek_next_sequence`). After this function returns, the
-/// reader is positioned at `sequence_end_position` (after all pixel data),
-/// ready for the next `seek_next_sequence` call.
+/// The reader must be positioned at the start of a valid sequence header.
+/// After this function returns, the reader is positioned at
+/// `sequence_end_position` (after all pixel data), ready for the next
+/// sequence.
 ///
 /// To render the frames, seek back to `sequence_start_position` before
 /// reading pixel data.
@@ -373,61 +362,6 @@ pub fn get_sprite_sequence_infos(file_path: &Path) -> Result<Vec<SequenceInfo>> 
     read_sprite_sequence_infos(&mut reader)
 }
 
-/// Scans forward from `start_pos` to find the next valid sequence header.
-///
-/// Reads 15 consecutive i32 values (60 bytes) and checks for known sequence
-/// patterns. If no match, advances by 4 bytes and retries.
-///
-/// Returns `true` if a valid sequence header was found (reader positioned
-/// at the header). Returns `false` if no more sequences exist in the file.
-pub fn seek_next_sequence<R: Read + Seek>(
-    reader: &mut BufReader<R>,
-    start_pos: u64,
-    file_len: u64,
-) -> Result<bool> {
-    let mut number_of_skips = 0;
-
-    loop {
-        let pos = reader.stream_position()?;
-        if pos + 60 >= file_len {
-            break;
-        }
-
-        let mut ints = [0; 15];
-        for int in &mut ints {
-            *int = reader.read_i32::<LittleEndian>()?;
-        }
-
-        let valid = (ints[0] == 0
-            && ints[1] > 0
-            && ints[1] < 255
-            && ints[2] == 0
-            && ints[11] > 0
-            && ints[12] > 0
-            && i64::from(ints[11]) * i64::from(ints[12]) == i64::from(ints[13]))
-            || (ints[0] == 8
-                && ints[1] == 0
-                && ints[2] > 0
-                && ints[2] < 255
-                && ints[3] == 0
-                && ints[12] > 0
-                && ints[13] > 0
-                && i64::from(ints[12]) * i64::from(ints[13]) == i64::from(ints[14]));
-
-        if valid {
-            reader.seek(SeekFrom::Start(start_pos + (number_of_skips * 60)))?;
-            return Ok(true);
-        }
-        number_of_skips += 1;
-    }
-
-    if number_of_skips == 1 {
-        number_of_skips = 0;
-    }
-    reader.seek(SeekFrom::Start(start_pos + (number_of_skips * 60)))?;
-    Ok(false)
-}
-
 // ===========================================================================
 // Frame rendering helpers
 // ===========================================================================
@@ -567,51 +501,6 @@ pub fn render_frame_to_rgba_with_options<R: Read + Seek>(
     Ok(imgbuf)
 }
 
-/// Compatibility wrapper: decode with default options (transparent black,
-/// no origin offsets). New code should pass [`SpriteRenderOptions`] explicitly.
-pub fn render_frame_to_rgba<R: Read + Seek>(
-    reader: &mut BufReader<R>,
-    frame: &ImageInfo,
-    rect_w: u32,
-    rect_h: u32,
-    offset_x: u32,
-    offset_y: u32,
-) -> Result<RgbaImage> {
-    render_frame_to_rgba_with_options(
-        reader,
-        frame,
-        rect_w,
-        rect_h,
-        offset_x,
-        offset_y,
-        SpriteRenderOptions::default(),
-    )
-}
-
-/// Compatibility wrapper: decode with `0x0000` kept as opaque black.
-pub fn render_frame_to_rgba_with_black<R: Read + Seek>(
-    reader: &mut BufReader<R>,
-    frame: &ImageInfo,
-    rect_w: u32,
-    rect_h: u32,
-    offset_x: u32,
-    offset_y: u32,
-    preserve_black: bool,
-) -> Result<RgbaImage> {
-    render_frame_to_rgba_with_options(
-        reader,
-        frame,
-        rect_w,
-        rect_h,
-        offset_x,
-        offset_y,
-        SpriteRenderOptions {
-            preserve_black,
-            ..SpriteRenderOptions::default()
-        },
-    )
-}
-
 // ===========================================================================
 // Sequence iteration helper
 // ===========================================================================
@@ -645,34 +534,6 @@ pub fn animation_with_options(file_path: &Path, options: SpriteRenderOptions) ->
     Ok(())
 }
 
-/// Compatibility wrapper: export atlases with the given origin-offset policy
-/// and transparent `0x0000` pixels.
-pub fn animation(file_path: &Path, apply_origin_offsets: bool) -> Result<()> {
-    animation_with_options(
-        file_path,
-        SpriteRenderOptions {
-            apply_origin_offsets,
-            ..SpriteRenderOptions::default()
-        },
-    )
-}
-
-/// Compatibility wrapper: export atlases with `0x0000` optionally kept as
-/// opaque black.
-pub fn animation_with_black(
-    file_path: &Path,
-    apply_origin_offsets: bool,
-    preserve_black: bool,
-) -> Result<()> {
-    animation_with_options(
-        file_path,
-        SpriteRenderOptions {
-            preserve_black,
-            apply_origin_offsets,
-        },
-    )
-}
-
 /// Export individual frames using explicit [`SpriteRenderOptions`].
 pub fn extract_with_options(
     file_path: &Path,
@@ -690,28 +551,6 @@ pub fn extract_with_options(
     })?;
     println!("Finished");
     Ok(())
-}
-
-/// Compatibility wrapper: export individual frames with default options.
-pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
-    extract_with_options(file_path, out_file_prefix, SpriteRenderOptions::default())
-}
-
-/// Compatibility wrapper: export individual frames with `0x0000` optionally
-/// kept as opaque black.
-pub fn extract_with_black(
-    file_path: &Path,
-    out_file_prefix: String,
-    preserve_black: bool,
-) -> Result<()> {
-    extract_with_options(
-        file_path,
-        out_file_prefix,
-        SpriteRenderOptions {
-            preserve_black,
-            ..SpriteRenderOptions::default()
-        },
-    )
 }
 
 /// Save one animation atlas using explicit [`SpriteRenderOptions`].
@@ -737,45 +576,6 @@ pub fn save_sequence_anim_with_options(
         .unwrap();
 
     Ok(())
-}
-
-/// Compatibility wrapper: save an atlas with the given origin-offset policy
-/// and transparent `0x0000` pixels.
-pub fn save_sequence_anim(
-    reader: &mut BufReader<File>,
-    frames: &[ImageInfo],
-    sequence_counter: i32,
-    apply_origin_offsets: bool,
-) -> Result<()> {
-    save_sequence_anim_with_options(
-        reader,
-        frames,
-        sequence_counter,
-        SpriteRenderOptions {
-            apply_origin_offsets,
-            ..SpriteRenderOptions::default()
-        },
-    )
-}
-
-/// Compatibility wrapper: save an atlas with `0x0000` optionally kept as
-/// opaque black.
-pub fn save_sequence_anim_with_black(
-    reader: &mut BufReader<File>,
-    frames: &[ImageInfo],
-    sequence_counter: i32,
-    apply_origin_offsets: bool,
-    preserve_black: bool,
-) -> Result<()> {
-    save_sequence_anim_with_options(
-        reader,
-        frames,
-        sequence_counter,
-        SpriteRenderOptions {
-            preserve_black,
-            apply_origin_offsets,
-        },
-    )
 }
 
 /// Renders every frame of a sequence into a horizontal animation atlas.
@@ -844,43 +644,6 @@ pub fn save_sequence_with_options(
     }
 
     Ok(())
-}
-
-/// Compatibility wrapper: save individual frames with default options.
-pub fn save_sequence(
-    reader: &mut BufReader<File>,
-    frames: &[ImageInfo],
-    sequence_counter: i32,
-    out_file_prefix: &str,
-) -> Result<()> {
-    save_sequence_with_options(
-        reader,
-        frames,
-        sequence_counter,
-        out_file_prefix,
-        SpriteRenderOptions::default(),
-    )
-}
-
-/// Compatibility wrapper: save individual frames with `0x0000` optionally
-/// kept as opaque black.
-pub fn save_sequence_with_black(
-    reader: &mut BufReader<File>,
-    frames: &[ImageInfo],
-    sequence_counter: i32,
-    out_file_prefix: &str,
-    preserve_black: bool,
-) -> Result<()> {
-    save_sequence_with_options(
-        reader,
-        frames,
-        sequence_counter,
-        out_file_prefix,
-        SpriteRenderOptions {
-            preserve_black,
-            ..SpriteRenderOptions::default()
-        },
-    )
 }
 
 // ===========================================================================
@@ -1066,15 +829,6 @@ impl SpriteFrameData {
     /// Compatibility wrapper: decode with default options (transparent black).
     pub fn decode_to_rgba(&self) -> Vec<u8> {
         self.decode_to_rgba_with_options(SpriteRenderOptions::default())
-    }
-
-    /// Compatibility wrapper: decode with `0x0000` optionally kept as opaque
-    /// black.
-    pub fn decode_to_rgba_with_black(&self, preserve_black: bool) -> Vec<u8> {
-        self.decode_to_rgba_with_options(SpriteRenderOptions {
-            preserve_black,
-            ..SpriteRenderOptions::default()
-        })
     }
 
     /// Encode RGBA bytes (width×height×4) into this frame's 16-bit packing,
@@ -1467,7 +1221,7 @@ mod tests {
         }
     }
 
-    // ── Boundary: black-transparency options and wrappers ────────────
+    // ── Boundary: black-transparency options ──────────────────────────
 
     #[test]
     fn test_preserve_black_option_behavior_in_both_models() {
@@ -1516,16 +1270,9 @@ mod tests {
             transparent.as_raw().as_slice()
         );
         assert_eq!(
-            editor_frame.decode_to_rgba_with_black(true),
+            editor_frame.decode_to_rgba_with_options(SpriteRenderOptions::with_black()),
             opaque.as_raw().as_slice()
         );
-        // Compatibility wrappers must delegate to the same canonical path.
-        let wrapper_transparent =
-            render_frame_to_rgba(&mut reader, frame, 2, 1, 0, 0).expect("wrapper render");
-        let wrapper_opaque = render_frame_to_rgba_with_black(&mut reader, frame, 2, 1, 0, 0, true)
-            .expect("wrapper render with black");
-        assert_eq!(wrapper_transparent.as_raw(), transparent.as_raw());
-        assert_eq!(wrapper_opaque.as_raw(), opaque.as_raw());
     }
 
     // ── Boundary: origin-offset option ────────────────────────────────

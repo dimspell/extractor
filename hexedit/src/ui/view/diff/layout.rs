@@ -37,10 +37,6 @@ pub const MID_GAP: f32 = 18.0;
 /// Gap between the comparison ASCII column and the annotation column.
 pub const ANN_COL_GAP: f32 = 8.0;
 
-/// Minimum annotation column width.
-#[allow(dead_code)]
-pub const MIN_ANN_COL_WIDTH: f32 = 40.0;
-
 /// Maximum annotation column width.
 pub const MAX_ANN_COL_WIDTH: f32 = 200.0;
 

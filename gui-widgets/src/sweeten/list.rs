@@ -880,10 +880,6 @@ mod tests {
             &viewport,
         );
 
-        let state = tree.state.downcast_ref::<State>();
-        eprintln!("visible_layouts: {}", state.visible_layouts.len());
-        eprintln!("visible_elements: {}", widget.visible_elements.len());
-
         assert!(
             !widget.visible_elements.is_empty(),
             "After RedrawRequested with computed offsets, visible elements should be populated"

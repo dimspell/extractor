@@ -71,52 +71,6 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.sql_mode = false;
             app.state.editors.viewer.sql_query = format!("SELECT * FROM \"{}\"", table);
             crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
-            // ----
-
-            // // Select table and load its data
-            // if app.state.editors.viewer.tables.is_empty() {
-            //     app.state.editors.viewer.status_msg = "No tables available".into();
-            //     return Task::none();
-            // }
-            //
-            // app.state.editors.viewer.loading_state = loading_state::LoadingState::Loading;
-            // app.state.editors.viewer.status_msg = format!("Loading table: {}", table);
-            // app.state.editors.viewer.active_table = Some(table.clone());
-            //
-            // let db_path = app.state.editors.viewer.db_path.clone();
-            // let table_clone = table.clone();
-            // return Task::perform(
-            //     async move {
-            //         let columns = db::table_columns(&db_path, &table_clone)?;
-            //         let query =
-            //             db::build_table_query(&table_clone, &columns, "", None, SortDir::Asc);
-            //         let data = db::execute_query(&db_path, &query, 100, 0)?;
-            //         Ok(data.rows)
-            //     },
-            //     |result: Result<Vec<Vec<String>>, String>| {
-            //         app.state.editors.viewer.loading_state = loading_state::LoadingState::Loaded(());
-            //         match result {
-            //             Ok(rows) => {
-            //                 let columns =
-            //                     db::table_columns(&db_path, &table_clone).unwrap_or_default();
-            //                 app.state.editors.viewer.columns = columns;
-            //                 app.state.editors.viewer.rows = rows.clone();
-            //                 app.state.editors.viewer.total_rows = app.state.editors.viewer.rows.len();
-            //                 app.state.editors.viewer.status_msg =
-            //                     format!("Loaded {} rows from table: {}", rows.len(), table_clone);
-            //             }
-            //             Err(e) => {
-            //                 app.state.editors.viewer.status_msg = format!("Failed to load table: {}", e);
-            //                 app.state.editors.viewer.active_table = None;
-            //             }
-            //         }
-            //         crate::message::Message::Viewer(ViewerMessage::DataLoaded(Ok(app
-            //             .state
-            //             .editors.viewer
-            //             .rows
-            //             .clone())))
-            //     },
-            // );
         }
         ViewerMessage::DataLoaded(result) => {
             app.state.editors.viewer.loading_state =
@@ -342,53 +296,6 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.pending_edits.clear();
             app.state.editors.viewer.editing_cell = None;
             crate::editors::db_viewer::fetch::fetch_sql_data(&mut app.state.editors.viewer)
-
-            // Execute SQL query
-            // if app.state.editors.viewer.sql_query.is_empty() {
-            //     app.state.editors.viewer.status_msg = "No SQL query to execute".into();
-            //     return Task::none();
-            // }
-            //
-            // app.state.editors.viewer.status_msg = "Executing SQL query...".into();
-            // app.state.editors.viewer.loading_state = loading_state::LoadingState::Loading;
-            //
-            // let db_path = app.state.editors.viewer.db_path.clone();
-            // let sql = app.state.editors.viewer.sql_query.clone();
-            //
-            // return Task::perform(
-            //     async move { db::execute_query(&db_path, &sql, 100, 0) },
-            //     move |result| {
-            //         app.state.editors.viewer.loading_state = loading_state::LoadingState::Loaded(());
-            //         match result {
-            //             Ok(data) => {
-            //                 app.state.editors.viewer.columns = data.columns.clone();
-            //                 app.state.editors.viewer.rows = data.rows.clone();
-            //                 app.state.editors.viewer.status_msg =
-            //                     format!("SQL executed: {} rows returned", data.rows.len());
-            //             }
-            //             Err(e) => {
-            //                 app.state.editors.viewer.status_msg = format!("SQL error: {}", e);
-            //             }
-            //         }
-            //         // Process result directly instead of sending message
-            //         match result {
-            //             Ok(data) => {
-            //                 app.state.editors.viewer.columns = data.columns.clone();
-            //                 app.state.editors.viewer.rows = data.rows.clone();
-            //                 app.state.editors.viewer.status_msg =
-            //                     format!("SQL executed: {} rows returned", data.rows.len());
-            //             }
-            //             Err(e) => {
-            //                 app.state.editors.viewer.status_msg = format!("SQL error: {}", e);
-            //             }
-            //         }
-            //         crate::message::Message::Viewer(ViewerMessage::DataLoaded(Ok(app
-            //             .state
-            //             .editors.viewer
-            //             .rows
-            //             .clone())))
-            //     },
-            // );
         }
         ViewerMessage::ExportCsv => {
             // Export data to CSV
