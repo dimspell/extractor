@@ -231,34 +231,26 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         SystemMessage::CacheIndexationComplete(cache) => {
-            eprintln!(
-                "DEBUG: CacheIndexationComplete - {} files",
-                cache.files.len()
-            );
             // Cache indexation completed successfully
             if let Some(ref mut cache_manager) = app.state.file_index_cache_manager {
-                eprintln!("DEBUG: Saving cache to disk...");
                 if let Err(e) = cache_manager.save_cache(&cache) {
                     eprintln!("Failed to save file index cache: {}", e);
-                } else {
-                    eprintln!("DEBUG: Cache saved successfully!");
                 }
                 // Update file tree with cached data
                 if let Some(ref game_path) = app.state.workspace.game_path {
-                    eprintln!(
-                        "DEBUG: Updating file tree with {} cached files",
-                        cache.files.len()
-                    );
                     app.file_tree = FileTree::scan_with_cache(
                         game_path,
                         &app.state.file_index_cache_manager.clone(),
                     );
-                    eprintln!("DEBUG: File tree updated");
                 } else {
-                    eprintln!("DEBUG: No game_path in workspace");
+                    eprintln!(
+                        "File index cache completed without a configured game path; file tree not refreshed"
+                    );
                 }
             } else {
-                eprintln!("DEBUG: No cache_manager in state");
+                eprintln!(
+                    "File index cache completed without a configured cache manager; file tree not refreshed"
+                );
             }
             app.is_indexing = false;
             Task::none()

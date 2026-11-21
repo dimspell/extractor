@@ -170,11 +170,6 @@ impl AppState {
         let game_path = self.workspace.game_path.as_ref()?.clone();
         let cache_manager = self.file_index_cache_manager.as_ref()?.clone();
 
-        eprintln!(
-            "DEBUG: start_file_indexation_if_needed called with game_path: {:?}",
-            game_path
-        );
-
         // Check if cache exists and is valid
         if let Ok(Some(cache)) = cache_manager.load_cache()
             && crate::indexation::indexation_service::IndexationService::validate_sprite_cache(
@@ -182,7 +177,6 @@ impl AppState {
             )
         {
             // Cache is valid, no need to reindex
-            eprintln!("DEBUG: Cache is valid, skipping reindex");
             return None;
         }
 
@@ -192,7 +186,6 @@ impl AppState {
 
         Some(Task::perform(
             async move {
-                eprintln!("DEBUG: Starting indexation for: {:?}", game_path_clone);
                 let indexation_service =
                     crate::indexation::indexation_service::IndexationService::new(
                         cache_manager_clone.clone(),
@@ -218,8 +211,6 @@ impl AppState {
                     eprintln!(
                         "Warning: File indexation returned no files - possible error during scan"
                     );
-                } else {
-                    eprintln!("DEBUG: Indexation returned {} files", cache.files.len());
                 }
 
                 cache

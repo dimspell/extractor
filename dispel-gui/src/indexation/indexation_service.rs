@@ -101,17 +101,14 @@ impl IndexationService {
     /// Start indexation with fallback to direct scan on error
     /// This provides a simpler API for cases where partial results or fallback are needed
     pub fn start_indexation_with_fallback(&self, game_path: PathBuf) -> JoinHandle<FileIndexCache> {
-        eprintln!("DEBUG: start_indexation_with_fallback called");
         let _cache_manager = self.cache_manager.clone();
 
         tokio::spawn(async move {
-            eprintln!("DEBUG: Starting async spawn for path: {:?}", game_path);
             let cancellation_flag = Arc::new(std::sync::Mutex::new(false));
             let progress_sender = mpsc::channel::<IndexationProgress>(100).0;
 
             let game_path_clone = game_path.clone();
             let files_vec = tokio::task::spawn_blocking(move || {
-                eprintln!("DEBUG: Starting blocking scan for: {:?}", game_path_clone);
                 let mut files_inner = Vec::new();
                 let mut start_time = None;
                 let mut last_update_time = None;
@@ -127,9 +124,8 @@ impl IndexationService {
                     &mut last_update_time,
                     &mut update_count,
                 );
-                match result {
-                    Ok(()) => eprintln!("DEBUG: scan completed OK, {} files", files_inner.len()),
-                    Err(e) => eprintln!("DEBUG: scan error: {}", e),
+                if let Err(e) = result {
+                    eprintln!("Error scanning directory during indexation: {}", e);
                 }
                 files_inner
             })
@@ -138,8 +134,6 @@ impl IndexationService {
                 eprintln!("[IndexationService WARNING] spawn_blocking error: {}", e);
                 Vec::new()
             });
-
-            eprintln!("DEBUG: Got {} files from spawn_blocking", files_vec.len());
 
             let mut cache = FileIndexCache {
                 game_path: game_path.clone(),
