@@ -46,9 +46,6 @@ pub const SCROLLBAR_THICKNESS: f32 = 10.0;
 /// Number of extra rows rendered off-screen for smooth scrolling.
 pub const OVERSCAN: u32 = 2;
 
-/// Font size for all text in the diff view.
-pub const TEXT_SIZE: f32 = 11.0;
-
 /// Return the number of group gaps for a given `bytes_per_row`.
 /// e.g. 16 → 1 gap (between bytes 7 and 8), 32 → 3 gaps.
 pub fn group_count(bpr: usize) -> usize {

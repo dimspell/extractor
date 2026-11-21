@@ -16,6 +16,9 @@ use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 use crate::coloring::default_byte_colors;
 use crate::domain::byte_stats::entropy_to_color;
 use crate::ui::theme::HexEditorTheme;
+use crate::ui::view::draw_helpers::{
+    draw_glyph_string, fill_cell, hscrollbar_thumb, scrollbar_thumb, scrollbar_track,
+};
 
 use crate::ui::view::minimap::{self};
 
@@ -713,34 +716,6 @@ const HEX_DIGITS: [&str; 16] = [
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F",
 ];
 
-fn fill_cell(
-    renderer: &mut iced::Renderer,
-    x: f32,
-    y: f32,
-    width: f32,
-    color: Color,
-    clip: Rectangle,
-) {
-    let cell = Rectangle {
-        x,
-        y,
-        width,
-        height: ROW_HEIGHT,
-    };
-    let Some(rect) = clip.intersection(&cell) else {
-        return;
-    };
-    renderer.fill_quad(
-        renderer::Quad {
-            bounds: rect,
-            border: Border::default(),
-            shadow: Shadow::default(),
-            snap: true,
-        },
-        Background::Color(color),
-    );
-}
-
 fn paint_glyph(
     renderer: &mut iced::Renderer,
     paragraph: &Paragraph,
@@ -769,51 +744,6 @@ fn paint_glyph(
     <iced::Renderer as text::Renderer>::fill_paragraph(renderer, paragraph, pos, color, cell_clip);
 }
 
-fn draw_glyph_string(
-    renderer: &mut iced::Renderer,
-    cache: &ParagraphCache,
-    text_str: &str,
-    font: Font,
-    bounds: Rectangle,
-    color: Color,
-    clip: Rectangle,
-) {
-    let key = ParagraphKey::new(text_str, TEXT_SIZE, bounds.width, font);
-    let para = cache.get_or_insert(key, || {
-        Paragraph::with_text(text::Text {
-            content: text_str,
-            bounds: Size::new(bounds.width, bounds.height),
-            size: Pixels(TEXT_SIZE),
-            line_height: text::LineHeight::default(),
-            font,
-            align_x: text::Alignment::Default,
-            align_y: alignment::Vertical::Top,
-            shaping: text::Shaping::Basic,
-            wrapping: text::Wrapping::None,
-            ellipsis: text::Ellipsis::None,
-            hint_factor: None,
-        })
-    });
-    let pos = bounds.anchor(
-        para.min_bounds(),
-        alignment::Horizontal::Left,
-        alignment::Vertical::Center,
-    );
-    let Some(cell_clip) = clip.intersection(&bounds) else {
-        return;
-    };
-    <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
-}
-
-pub(super) fn scrollbar_track(bounds: Rectangle, viewport_h: f32) -> Rectangle {
-    Rectangle {
-        x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
-        y: bounds.y,
-        width: SCROLLBAR_THICKNESS,
-        height: viewport_h,
-    }
-}
-
 pub(super) fn hscrollbar_track(bounds: Rectangle) -> Rectangle {
     Rectangle {
         x: bounds.x,
@@ -823,49 +753,12 @@ pub(super) fn hscrollbar_track(bounds: Rectangle) -> Rectangle {
     }
 }
 
-pub(super) fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
-    (track.height / total_h * track.height).max(20.0)
-}
-
 /// Y position of a file address on the scrollbar track, as a fraction 0..1.
 fn scrollbar_y_frac(addr: u64, total_len: u64, track: Rectangle) -> f32 {
     if total_len <= 1 {
         return track.y;
     }
     track.y + (addr as f32 / (total_len - 1) as f32) * track.height
-}
-
-pub(super) fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
-    let h = thumb_height(track, total_h);
-    let max_off = (total_h - track.height).max(1.0);
-    let y = track.y + (scroll / max_off) * (track.height - h);
-    Rectangle {
-        x: track.x + 1.0,
-        y,
-        width: track.width - 2.0,
-        height: h,
-    }
-}
-
-pub(super) fn hthumb_len(track: Rectangle, content_w: f32, _avail_w: f32) -> f32 {
-    (track.width / content_w * track.width).max(20.0)
-}
-
-pub(super) fn hscrollbar_thumb(
-    track: Rectangle,
-    scroll_x: f32,
-    content_w: f32,
-    avail_w: f32,
-) -> Rectangle {
-    let w = hthumb_len(track, content_w, avail_w);
-    let max_off = (content_w - avail_w).max(1.0);
-    let x = track.x + (scroll_x / max_off) * (track.width - w);
-    Rectangle {
-        x,
-        y: track.y + 1.0,
-        width: w,
-        height: track.height - 2.0,
-    }
 }
 
 /// Marker dot size in pixels.
