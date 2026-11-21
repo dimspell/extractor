@@ -655,18 +655,44 @@ fn print_node_recursive(
     depth: usize,
     printed: &mut HashMap<i32, bool>,
 ) {
+    let mut lines = Vec::new();
+    collect_node_lines(
+        &mut lines, dialog_map, texts, npcs, event_info, id, depth, printed,
+    );
+    for line in lines {
+        println!("{line}");
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_node_lines(
+    lines: &mut Vec<String>,
+    dialog_map: &HashMap<i32, &DialogueScript>,
+    texts: &HashMap<i32, String>,
+    npcs: &HashMap<i32, NpcInfo>,
+    event_info: &HashMap<i32, EventInfo>,
+    id: i32,
+    depth: usize,
+    printed: &mut HashMap<i32, bool>,
+) {
+    macro_rules! emit {
+        ($($arg:tt)*) => {
+            lines.push(format!($($arg)*))
+        };
+    }
+
     if id == 0 {
         return;
     }
 
     if printed.contains_key(&id) {
-        println!("{}└─ [→ {} (loopback)]", "   ".repeat(depth), id);
+        emit!("{}└─ [→ {} (loopback)]", "   ".repeat(depth), id);
         return;
     }
     printed.insert(id, true);
 
     let Some(dialog) = dialog_map.get(&id) else {
-        println!("{}└─ [DLG {}: not found]", "   ".repeat(depth), id);
+        emit!("{}└─ [DLG {}: not found]", "   ".repeat(depth), id);
         return;
     };
 
@@ -707,7 +733,7 @@ fn print_node_recursive(
         String::new()
     };
 
-    println!(
+    emit!(
         "{}┌─ DLG {} {} (speaker: {}){}",
         "   ".repeat(depth),
         id,
@@ -720,7 +746,7 @@ fn print_node_recursive(
     if depth == 0
         && let Some(npc) = npcs.get(&id)
     {
-        println!(
+        emit!(
             "{}│   NPC: {} - {}",
             "   ".repeat(depth),
             npc.name,
@@ -729,25 +755,25 @@ fn print_node_recursive(
     }
 
     if !text.is_empty() {
-        let lines: Vec<&str> = text.lines().collect();
+        let text_lines: Vec<&str> = text.lines().collect();
         // Limit to 5 lines to avoid overwhelming output
         let max_lines = 5;
-        let lines_to_show = lines.len().min(max_lines);
-        for line in &lines[..lines_to_show] {
-            println!("{}│   \"{}\"", "   ".repeat(depth), line);
+        let lines_to_show = text_lines.len().min(max_lines);
+        for line in &text_lines[..lines_to_show] {
+            emit!("{}│   \"{}\"", "   ".repeat(depth), line);
         }
-        if lines.len() > max_lines {
-            println!(
+        if text_lines.len() > max_lines {
+            emit!(
                 "{}│   ... ({} more lines)",
                 "   ".repeat(depth),
-                lines.len() - max_lines
+                text_lines.len() - max_lines
             );
         }
     }
 
     // Show event connections from the DLG file itself
     if req_event != 0 {
-        println!(
+        emit!(
             "{}│   🔒 Requires: Event {}",
             "   ".repeat(depth),
             req_event
@@ -756,11 +782,11 @@ fn print_node_recursive(
         if let Some(event) = event_info.get(&req_event)
             && let Some(ref filename) = event.event_filename
         {
-            println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
+            emit!("{}│      📁 File: {}", "   ".repeat(depth), filename);
         }
     }
     if trig_event != 0 {
-        println!(
+        emit!(
             "{}│   🎯 Triggers: Event {}",
             "   ".repeat(depth),
             trig_event
@@ -769,7 +795,7 @@ fn print_node_recursive(
         if let Some(event) = event_info.get(&trig_event)
             && let Some(ref filename) = event.event_filename
         {
-            println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
+            emit!("{}│      📁 File: {}", "   ".repeat(depth), filename);
         }
     }
 
@@ -778,8 +804,17 @@ fn print_node_recursive(
             if let Some(next) = dialog.next_dialog_id1
                 && next != 0
             {
-                println!("{}│", "   ".repeat(depth));
-                print_node_recursive(dialog_map, texts, npcs, event_info, next, depth, printed);
+                emit!("{}│", "   ".repeat(depth));
+                collect_node_lines(
+                    lines,
+                    dialog_map,
+                    texts,
+                    npcs,
+                    event_info,
+                    next,
+                    depth + 1,
+                    printed,
+                );
             }
         }
         DialogType::Choice => {
@@ -793,8 +828,9 @@ fn print_node_recursive(
                 if let Some(next) = next_id
                     && *next != 0
                 {
-                    println!("{}└─ {}─ ", "   ".repeat(depth), label);
-                    print_node_recursive(
+                    emit!("{}└─ {}─ ", "   ".repeat(depth), label);
+                    collect_node_lines(
+                        lines,
                         dialog_map,
                         texts,
                         npcs,
@@ -834,4 +870,57 @@ fn find_entry_points(
 
     entry_points.sort();
     entry_points
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_flat_chain_indentation_progresses_per_node() {
+        let scripts = [
+            DialogueScript {
+                id: 1,
+                dialog_type: Some(DialogType::Normal),
+                next_dialog_id1: Some(2),
+                ..Default::default()
+            },
+            DialogueScript {
+                id: 2,
+                dialog_type: Some(DialogType::Normal),
+                next_dialog_id1: Some(3),
+                ..Default::default()
+            },
+            DialogueScript {
+                id: 3,
+                dialog_type: Some(DialogType::Normal),
+                ..Default::default()
+            },
+        ];
+        let dialog_map: HashMap<i32, &DialogueScript> =
+            scripts.iter().map(|script| (script.id, script)).collect();
+        let texts = HashMap::new();
+        let npcs = HashMap::new();
+        let event_info = HashMap::new();
+        let mut printed = HashMap::new();
+        let mut lines = Vec::new();
+
+        collect_node_lines(
+            &mut lines,
+            &dialog_map,
+            &texts,
+            &npcs,
+            &event_info,
+            1,
+            0,
+            &mut printed,
+        );
+
+        let indents: Vec<usize> = lines
+            .iter()
+            .filter(|line| line.contains("┌─ DLG"))
+            .map(|line| line.len() - line.trim_start().len())
+            .collect();
+        assert_eq!(indents, vec![0, 3, 6]);
+    }
 }
