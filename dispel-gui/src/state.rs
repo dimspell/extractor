@@ -139,10 +139,30 @@ impl AppState {
         }
     }
 
-    /// Validate file
-    pub fn validate_file(&self, path: &Path) {
-        // TODO: Implement actual validation logic
-        println!("Validating file: {}", path.display());
+    /// Validate a file by parsing it with the extractor declared in the editor
+    /// catalog. A successful parse/serialize means the file is structurally
+    /// readable; a failure reports the parser's error in the status bar.
+    pub fn validate_file(&mut self, path: &Path) {
+        let editor_type = crate::workspace::EditorType::from_path(path);
+        if editor_type.descriptor().extract.is_none() {
+            self.status_msg = format!(
+                "Validation not available for this file type: {}",
+                path.display()
+            );
+            return;
+        }
+
+        match extract_file(path, editor_type) {
+            Ok(_) => {
+                self.status_msg = format!(
+                    "Validated {}: file is structurally readable",
+                    path.display()
+                );
+            }
+            Err(e) => {
+                self.status_msg = format!("Validation failed for {}: {}", path.display(), e);
+            }
+        }
     }
 
     /// Start background file indexation if needed
@@ -417,5 +437,63 @@ impl Default for PaneState {
             maximized: None,
             sidebar_split,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_unsupported_type_reports_not_available() {
+        let mut state = AppState::default();
+        state.validate_file(Path::new("effects.snf"));
+        assert!(
+            state
+                .status_msg
+                .contains("not available for this file type"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+    }
+
+    #[test]
+    fn test_validate_missing_file_reports_parse_error() {
+        let mut state = AppState::default();
+        state.validate_file(Path::new("/nonexistent/WeaponItem.db"));
+        assert!(
+            state.status_msg.contains("Validation failed"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+        assert!(
+            state.status_msg.contains("Failed to read weapons"),
+            "parse error missing from status: {}",
+            state.status_msg
+        );
+        assert!(
+            !state
+                .status_msg
+                .contains("not available for this file type")
+        );
+    }
+
+    #[test]
+    fn test_validate_parseable_file_reports_success() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("WeaponItem.db");
+        // One count word followed by a single zeroed 284-byte WeaponItem record.
+        let mut bytes = 1i32.to_le_bytes().to_vec();
+        bytes.extend(std::iter::repeat_n(0u8, 284));
+        std::fs::write(&path, bytes).expect("write synthetic weapon database");
+
+        let mut state = AppState::default();
+        state.validate_file(&path);
+        assert!(
+            state.status_msg.contains("structurally readable"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+        assert!(state.status_msg.contains("WeaponItem.db"));
     }
 }
