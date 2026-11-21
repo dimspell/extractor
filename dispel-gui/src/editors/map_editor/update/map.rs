@@ -41,7 +41,7 @@ pub fn layer_visible(view: &MapViewState, layer: MapLayer) -> bool {
     }
 }
 
-fn set_layer_visible(view: &mut MapViewState, layer: MapLayer, visible: bool) {
+pub fn set_layer_visible(view: &mut MapViewState, layer: MapLayer, visible: bool) {
     match layer {
         MapLayer::Ground => view.show_ground = visible,
         MapLayer::Buildings => view.show_buildings = visible,

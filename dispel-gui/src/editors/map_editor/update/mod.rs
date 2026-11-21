@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::editors::map_editor::canvas::{find_hovered_element, find_tile_at};
-use crate::editors::map_editor::{MapEditorMessage, MapLayer, MapTool, SelectedEntity};
+use crate::editors::map_editor::{MapEditorMessage, MapTool, SelectedEntity};
 use crate::message::{Message, MessageExt};
 use gui_widgets::components::toast;
 use iced::Task;
@@ -178,37 +178,8 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::LayerToggled(tab_id, layer) => {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-                match layer {
-                    MapLayer::Ground => state.view.show_ground = !state.view.show_ground,
-                    MapLayer::Buildings => state.view.show_buildings = !state.view.show_buildings,
-                    MapLayer::Roofs => state.view.show_roofs = !state.view.show_roofs,
-                    MapLayer::InternalSprites => {
-                        state.view.show_internal_sprites = !state.view.show_internal_sprites
-                    }
-                    MapLayer::Collisions => {
-                        state.view.show_collisions = !state.view.show_collisions
-                    }
-                    MapLayer::Events => state.view.show_events = !state.view.show_events,
-                    MapLayer::UnderRoofMarkers => {
-                        state.view.show_under_roof_markers = !state.view.show_under_roof_markers
-                    }
-                    MapLayer::NoSpellCastZones => {
-                        state.view.show_no_spell_cast_zones = !state.view.show_no_spell_cast_zones
-                    }
-                    MapLayer::BtlOverlaysInDarkMaps => {
-                        state.view.show_btl_overlays_in_dark_maps =
-                            !state.view.show_btl_overlays_in_dark_maps
-                    }
-                    MapLayer::Monsters => state.view.show_monsters = !state.view.show_monsters,
-                    MapLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
-                    MapLayer::NpcWaypoints => {
-                        state.view.show_npc_waypoints = !state.view.show_npc_waypoints
-                    }
-                    MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
-                    MapLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
-                    MapLayer::ObjectIds => state.view.show_object_ids = !state.view.show_object_ids,
-                    MapLayer::Shadows => state.view.show_shadows = !state.view.show_shadows,
-                }
+                let visible = !map::layer_visible(&state.view, layer);
+                map::set_layer_visible(&mut state.view, layer, visible);
                 // Hiding the layer that owns the active editing tool makes that
                 // tool meaningless — reset to Pan.
                 if let Some(owner) = state.view.active_tool.owning_layer()
