@@ -279,29 +279,13 @@ impl Modding {
 mod tests {
     use super::*;
     use crate::modding::fs::MemFs;
+    use crate::modding::test_helpers::misc_bytes;
     use crate::modding::value::Value;
     use crate::references::extractor::Extractor;
-    use crate::references::layout::RecordLayout;
     use crate::references::misc_item_db::MiscItem;
     use std::io::Cursor;
 
     const REL: &str = "CharacterInGame/MiscItem.db";
-
-    fn misc_bytes(name: &str, price: i32) -> Vec<u8> {
-        // Offsets come from the generated layout, not duplicated literals.
-        let layout = MiscItem::LAYOUT;
-        let mut data = vec![0u8; layout.footprint() as usize];
-        data[..layout.header_size as usize].copy_from_slice(&1i32.to_le_bytes());
-        let name_def = layout.field("name").unwrap();
-        let n = name.len().min(name_def.size as usize - 1);
-        let name_start = layout.header_size as usize + name_def.offset as usize;
-        data[name_start..name_start + n].copy_from_slice(&name.as_bytes()[..n]);
-        let price_def = layout.field("base_price").unwrap();
-        let price_start = layout.header_size as usize + price_def.offset as usize;
-        data[price_start..price_start + price_def.size as usize]
-            .copy_from_slice(&price.to_le_bytes());
-        data
-    }
 
     fn names(bytes: &[u8]) -> Vec<String> {
         MiscItem::parse(&mut Cursor::new(bytes), bytes.len() as u64)

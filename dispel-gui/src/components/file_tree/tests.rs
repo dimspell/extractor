@@ -121,33 +121,35 @@ fn test_file_tree_toggle_functionality() {
     }
 }
 
-/// Test search functionality
+/// Search builds a set of matching paths from the scanned tree
 #[test]
-fn test_file_tree_search_functionality() {
+fn test_file_tree_search_filters_matching_files() {
+    use super::filter::FileTreeFilter;
+
     let temp_dir = tempdir().unwrap();
-    let path = temp_dir.path();
+    let path = temp_dir.path().join("game");
+    std::fs::create_dir(&path).unwrap();
 
-    // Create test files
-    std::fs::File::create(path.join("searchable.txt")).unwrap();
-    std::fs::File::create(path.join("other.txt")).unwrap();
-    std::fs::File::create(path.join("also_searchable.txt")).unwrap();
+    let matching = path.join("ZZQQXX_match.txt");
+    let other = path.join("other.txt");
+    std::fs::File::create(&matching).unwrap();
+    std::fs::File::create(&other).unwrap();
 
-    let mut tree = FileTree::scan(path);
+    let tree = FileTree::scan(&path);
+    let mut filter = FileTreeFilter::new().with_search_query("zzqqxx".to_string());
+    filter.build_matching_paths(tree.data.root.as_ref());
 
-    // Test search for "search"
-    tree.state.search_query = "search".to_string();
-
-    // In a real implementation, this would filter the view
-    // For this test, we just verify the search query is set
-    assert_eq!(tree.state.search_query, "search");
-
-    // Test resetting search (empty query should show all files)
-    tree.state.search_query = "".to_string();
-    assert_eq!(tree.state.search_query, "");
-
-    // Test that the tree structure is maintained when search is reset
-    // The tree root may be None if no files were found during scanning
-    // but the search query should still be reset correctly
+    let matches = filter
+        .matching_paths()
+        .expect("a non-empty query builds a match set");
+    assert!(
+        matches.contains(&matching),
+        "files matching the query should be in the result set"
+    );
+    assert!(
+        !matches.contains(&other),
+        "files that do not match the query should be excluded"
+    );
 }
 
 /// Test filter functionality
@@ -189,43 +191,65 @@ fn test_tree_node_path_methods() {
     assert_eq!(dir_node.data.path, dir_path);
 }
 
-/// Test file tree cache usage
+/// Scanning a directory with one file yields a root holding that single file
 #[test]
-fn test_file_tree_cache_usage() {
+fn test_file_tree_scan_single_file() {
     let temp_dir = tempdir().unwrap();
-    let path = temp_dir.path();
+    let path = temp_dir.path().join("game");
+    std::fs::create_dir(&path).unwrap();
 
-    // Create a simple file structure
     std::fs::File::create(path.join("test.txt")).unwrap();
 
-    let tree = FileTree::scan(path);
+    let tree = FileTree::scan(&path);
 
-    if tree.data.root.is_none() {
-        // Directory might not be accessible in test environment
-        return; // Skip this test if we can't scan the directory
-    }
-    let root = tree.data.root.unwrap();
-    // Should have 1 child: test.txt
-    assert!(root.children.is_empty());
+    let root = tree
+        .data
+        .root
+        .expect("regular-named directory should be scannable");
+    assert_eq!(root.children.len(), 1);
+    assert_eq!(root.children[0].data.name, "test.txt");
+    assert!(!root.children[0].data.is_dir);
 }
 
-/// Test file tree deep nesting
+/// Deeply nested files appear in the scanned tree
 #[test]
 fn test_file_tree_deep_nesting() {
     let temp_dir = tempdir().unwrap();
-    let path = temp_dir.path();
+    let path = temp_dir.path().join("game");
+    std::fs::create_dir(&path).unwrap();
 
-    // Create deeply nested structure
     let deep_path = path.join("level1").join("level2").join("level3");
     std::fs::create_dir_all(&deep_path).unwrap();
     std::fs::File::create(deep_path.join("deep.txt")).unwrap();
 
-    let tree = FileTree::scan(path);
+    let tree = FileTree::scan(&path);
+    let root = tree
+        .data
+        .root
+        .expect("regular-named directory should be scannable");
 
-    // Should be able to handle deep nesting without crashing
-    if tree.data.root.is_none() {
-        // Directory might not be accessible in test environment// Skip this test if we can't scan the directory
-    }
+    let level1 = root
+        .children
+        .iter()
+        .find(|n| n.data.name == "level1")
+        .unwrap();
+    let level2 = level1
+        .children
+        .iter()
+        .find(|n| n.data.name == "level2")
+        .unwrap();
+    let level3 = level2
+        .children
+        .iter()
+        .find(|n| n.data.name == "level3")
+        .unwrap();
+    assert!(
+        level3
+            .children
+            .iter()
+            .any(|n| n.data.name == "deep.txt" && !n.data.is_dir),
+        "the deeply nested file should appear in the scanned tree"
+    );
 }
 
 /// Test state management separation

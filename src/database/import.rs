@@ -722,19 +722,6 @@ fn visit_dirs(
 #[cfg(test)]
 mod map_inventory_tests {
     use super::*;
-    use crate::references::all_map_ini::Map as AllMap;
-    use crate::references::enums::MapLighting;
-
-    fn record(stem: &str) -> AllMap {
-        AllMap {
-            id: 1,
-            map_filename: stem.to_owned(),
-            map_name: "Test Map".to_owned(),
-            pgp_filename: None,
-            dlg_filename: None,
-            lighting: MapLighting::Light,
-        }
-    }
 
     #[test]
     fn test_map_stems_follow_all_map_ini_order_and_strip_extension() {
@@ -781,16 +768,6 @@ mod map_inventory_tests {
         assert_eq!(normalize_map_stem(" cat1 "), "cat1");
         assert_eq!(normalize_map_stem("dun01.map"), "dun01");
         assert_eq!(normalize_map_stem("final.MAP"), "final");
-    }
-
-    #[test]
-    fn test_stems_from_records_keep_ini_order() {
-        let records = [record("map3"), record("cat1"), record("dun01.map")];
-        let stems: Vec<String> = records
-            .iter()
-            .map(|m| normalize_map_stem(&m.map_filename))
-            .collect();
-        assert_eq!(stems, vec!["map3", "cat1", "dun01"]);
     }
 }
 

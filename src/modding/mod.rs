@@ -19,6 +19,8 @@ pub mod patcher;
 pub mod patchers;
 pub mod registry;
 pub mod resolution;
+#[cfg(test)]
+mod test_helpers;
 pub mod value;
 pub mod vanilla;
 pub mod workspace;
