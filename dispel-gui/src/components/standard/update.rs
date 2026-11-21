@@ -11,10 +11,10 @@ use std::path::PathBuf;
 
 /// Handle all standard arms of a `StandardEditorMessage<T>`.
 ///
-/// The `Spreadsheet` variant is handled by the thin per-editor wrapper (it
-/// must call the `handle_spreadsheet_messages!` macro with editor-specific
-/// ident names). This function returns `Task::none()` if it ever receives
-/// `Spreadsheet` — that arm should never reach here.
+/// The `Spreadsheet` variant is handled by the thin per-editor wrapper, which
+/// calls the `handle_spreadsheet_messages!` macro with editor-specific ident
+/// names. If `Spreadsheet` reaches this function, its match arm is a no-op that
+/// returns `Task::none()`.
 pub fn handle<T, F>(
     msg: StandardEditorMessage<T>,
     bundle: &mut StandardEditor<T>,

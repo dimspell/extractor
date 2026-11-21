@@ -42,12 +42,10 @@ use hexedit::HexEditorState;
 // ===========================================================================
 //
 // Every EditorType declares one `LifecycleFns` value in the authoritative
-// editor catalog.  The operations below used to be hand-maintained match/field
-// lists in this file; they drifted (see the "boxed editors that were missing
-// from reset" block that had to be bolted onto `clear_all`).  Now each editor
-// field is named exactly once, in its catalog entry.  Spreadsheet caches are
-// refreshed inside the undo/redo operation itself (via the shared
-// `refresh_spreadsheet_caches` helper), so no separate refresh pass is needed.
+// editor catalog; each editor field is named exactly once, in its catalog
+// entry. Spreadsheet caches are refreshed inside the undo/redo operation
+// itself (via the shared `refresh_spreadsheet_caches` helper), so no separate
+// refresh pass is needed.
 
 /// Lookup table passed to undo/redo for display-name resolution.
 pub type Lookups = HashMap<String, Vec<(String, String)>>;

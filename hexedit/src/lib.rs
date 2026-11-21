@@ -30,13 +30,8 @@ mod state;
 
 // ── Re-exports for downstream convenience ────────────────────────────────
 //
-// Keep the same public API surface that existed before the domain/ui split.
-// These are intentionally retained: `hexedit` is an embeddable library with
-// external hosts, and in-workspace callers (dispel-gui + this crate's own
-// tests/bin) still use both the type-level and module-level aliases below (e.g.
-// `crate::provider::BufferProvider`, `hexedit::selection::NavDir`). New code
-// should prefer the canonical `domain::*` / `ui::*` module paths; the flat
-// aliases are compatibility shims, not a second API surface.
+// Types live under the canonical `domain::*` / `ui::*` module paths; these
+// flat re-exports give embedders a shorter path to the same items.
 
 pub use app::{AppMessage, HexEditorApp, HexEditorDocument, app_update, app_view};
 pub use config::{HexEditorConfig, SavePort, WriteModeCallback, standalone_config};

@@ -17,15 +17,12 @@
 //! The descriptor's `lifecycle` field is the single owner of the five
 //! `EditorRegistry` lifecycle operations (undo/redo — including spreadsheet
 //! cache refresh —, `remove_tab`, `close_all_tabs`, `get_active_edit_history`
-//! and `clear_all`) that used to be hand-maintained field lists.
+//! and `clear_all`).
 //!
-//! Adding a new editor therefore requires touching **one** entry here. The
-//! compiler then rejects every non-exhaustive `match` over `EditorType`
-//! elsewhere in the crate, so the dispatch arms in `editor_registry` and
-//! `update/system` cannot silently drift.
-//!
-//! This is a "deep module": callers only use the small surface above and never
-//! need to know that it is backed by a declarative macro.
+//! Adding a new editor requires one entry here; the compiler then rejects
+//! every non-exhaustive `match` over `EditorType` elsewhere in the crate, so
+//! the dispatch arms in `editor_registry` and `update/system` cannot silently
+//! drift. Callers use the generated surface above directly.
 
 use crate::editor_registry::LifecycleFns;
 use crate::editor_registry::{
@@ -62,10 +59,7 @@ pub struct EditorDescriptor {
     pub extract: Option<ExtractFn>,
     /// Homogeneous lifecycle operations (undo/redo — including spreadsheet
     /// cache refresh —, tab removal/reset, edit-history lookup and full reset).
-    ///
-    /// Declared once per editor here, so adding a HashMap/tabbed/boxed editor
-    /// no longer requires editing the seven hand-maintained tables that used
-    /// to live in `editor_registry`.
+    /// Declared once per editor in its catalog entry.
     pub lifecycle: LifecycleFns,
 }
 

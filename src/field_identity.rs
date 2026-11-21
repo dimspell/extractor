@@ -1,6 +1,6 @@
 //! The canonical *in-process* identity of one logical game-data cell.
 //!
-//! The same cell used to be addressed four different ways:
+//! A logical cell is addressed through four wire shapes:
 //!
 //! * [`crate::modding::resolution::FieldKey`] — flat `(file, record_id, field)`;
 //! * [`crate::localization::TextEntry`] — `(file, usize record_id, &'static str field)`;
@@ -9,9 +9,8 @@
 //! * byte offsets — generated `RecordLayout` metadata on one side and literal
 //!   offsets in hand-written parsers/tests on the other.
 //!
-//! [`FieldAddress`] is the one typed representation that can express all of
-//! these *without* packing nested coordinates into strings or a single
-//! integer. The wire shapes above are intentionally left unchanged; this
+//! [`FieldAddress`] is the typed representation that expresses all of these
+//! without packing nested coordinates into strings or a single integer. This
 //! module owns the conversions so every boundary funnels through one place:
 //!
 //! ```text
@@ -19,9 +18,9 @@
 //!        (flat, serde-stable)              (typed, nested-capable)
 //! ```
 //!
-//! No on-disk format or user-visible JSON schema changes: converting a flat
-//! key yields the identical `(file, record_id, field)` triple, and rendering a
-//! nested address reproduces the legacy dotted / packed string verbatim.
+//! The conversions preserve the existing wire shapes: converting a flat key
+//! yields the identical `(file, record_id, field)` triple, and rendering a
+//! nested address reproduces the dotted / packed string verbatim.
 
 use crate::modding::resolution::FieldKey;
 

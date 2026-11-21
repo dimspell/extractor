@@ -11,9 +11,8 @@
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
 //  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
 //
-// Persistence lives in `src/database/map_persistence.rs` (the single owner of
-// the map table writers); it is re-exported below so existing paths such as
-// `map::save_to_db` keep working. This module owns parsing and extraction only.
+// Map-table persistence is owned by `src/database/map_persistence.rs` and
+// re-exported here. This module owns parsing and extraction.
 
 // ===========================================================================
 // DISPEL GAME MAP FILE FORMAT (.MAP)

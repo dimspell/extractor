@@ -101,14 +101,11 @@ impl Command for DialogArgs {
             Vec::new()
         };
 
-        // Filter dialog functions to only show those relevant to the current DLG file
-        // Collect all dialog IDs from the current file
+        // Keep only dialog functions referencing an ID from the current DLG file.
         let current_dialog_ids: HashSet<i32> = dialogs.iter().map(|d| d.id).collect();
 
-        // For each dialog function call, check if any of its dialog IDs match the current file
         if !dialog_functions.is_empty() {
             dialog_functions.retain(|func| {
-                // Keep if any of the dialog IDs from the function parameters match our current dialogs
                 func.dialog_ids
                     .iter()
                     .any(|id| current_dialog_ids.contains(id))
@@ -258,8 +255,7 @@ fn parse_dialog_ids_from_parameters(function_name: &str, params: &Option<String>
                 }
             }
             _ => {
-                // For any other function (shouldn't happen as we filter by dialog functions)
-                // Try to get the first numeric parameter
+                // Unrecognized functions: use the first numeric parameter as the ID.
                 for part in parts {
                     let trimmed = part.trim();
                     if trimmed.chars().all(|c| c.is_ascii_digit() || c == '-')

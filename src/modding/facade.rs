@@ -1,9 +1,6 @@
 //! The deep modding facade — one small interface over the whole pipeline.
 //!
-//! Everything that used to be wired up ad-hoc across [`super::change`],
-//! [`super::changelog`], [`super::conflicts`], [`super::resolution`],
-//! [`super::vanilla`], [`super::apply`], [`super::package`] and
-//! [`super::workspace`] is owned here:
+//! The facade owns the following parts of the modding pipeline:
 //!
 //! * **field identity** — one [`FieldKey`] type, carried by [`FieldChange`]
 //!   and derived from every [`ChangeOp`];
@@ -344,7 +341,7 @@ mod tests {
         m.record(&slug, field_change("Helmet")).unwrap();
         m.set_enabled(&slug, true).unwrap();
 
-        // Assert the final ChangeLog, not a pending-map check.
+        // The flushed ChangeLog contains the recorded field delta.
         let log = m.changelog(&slug).unwrap();
         assert_eq!(log.len(), 1);
         match &log.actions()[0].op {

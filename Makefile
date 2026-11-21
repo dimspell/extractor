@@ -339,9 +339,9 @@ MAP_RENDER_ARGS = --map="$(game_path)/Map/$(map_id).map" \
                   --output="map.png" \
                   --game-path="$(game_path)"
 
-# Render with the game's viewport light template (500x1 PNG). Without it a dark
-# map renders pitch black: the .map file's own light bits are dead data,
-# overwritten every frame by the world tick.
+# Render with the game's viewport light template (500x1 PNG). The renderer
+# ignores the .map file's own light bits and takes one light level per visible
+# slot from the template instead, so dark maps need it to render lit.
 #   make map-render-lit map_id=dun01 camera=124,124
 # The asset location is configurable; no sibling-repo checkout is assumed.
 #   make map-render-lit light_template=/path/to/light_template.png

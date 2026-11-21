@@ -63,11 +63,9 @@ pub fn internal_sprite_sort_key(bottom_right_y: i32) -> i32 {
 /// Y-depth of an external entity placed at tile `(tx, ty)` in the interlaced
 /// render pass.
 ///
-/// The CLI renderer and the GUI viewport used to compute this inline
-/// (`convert(..).1 + 32 - non_occluded_start_y`). Keeping the single formula
-/// here means a depth-order fix is made once, not twice. The `+ 16 * 2` term
-/// puts the entity's feet at the bottom edge of its isometric tile; subtracting
-/// the origin converts world pixels into map-local pixels.
+/// The `+ TILE_HEIGHT_HALF * 2` term puts the entity's feet at the bottom edge
+/// of its isometric tile; subtracting `non_occluded_start_y` converts world
+/// pixels into map-local pixels.
 pub fn entity_sort_key(
     tx: i32,
     ty: i32,

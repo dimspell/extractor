@@ -1,10 +1,10 @@
 //! The single binary codec contract shared by every save-file section.
 //!
 //! Save sections differ only in the width of their record count (`u16` or
-//! `u32`) and in the size/parser of an individual record. Count widths,
-//! truncation handling, bounds checks, section names and byte offsets used to
-//! live in four separate modules and in the reader/writer wrappers. They now
-//! live here so that reading and writing cannot disagree about the format.
+//! `u32`) and in the size/parser of an individual record. This module is the
+//! single codec contract for all save-file sections: count widths, truncation
+//! handling, bounds checks, section names and byte offsets are defined here so
+//! that reading and writing cannot disagree about the format.
 //!
 //! [`Positioned`] is the position-aware IO wrapper used by both
 //! [`super::reader::SaveReader`] and [`super::writer::SaveWriter`]. Its
@@ -14,7 +14,7 @@
 //!
 //! [`validate`] is also shared: the writer refuses to emit a model it cannot
 //! represent, and the reader refuses to return a model the writer could not
-//! reproduce. Two checks are intentionally *not* part of validation:
+//! reproduce. The following two conditions are not validated:
 //!
 //! * `game_tmp_blob_size` is preserved verbatim on read but recomputed as
 //!   `8 + maps.len()` on write. Real saves may include padding between the map
@@ -252,8 +252,8 @@ pub(super) fn validate(save: &SaveFile, verb: &'static str) -> io::Result<()> {
             map.draw_items_event.len(),
         )?;
         check_map_trailer_size(map).map_err(|error| {
-            // `read_maps` reports a trailer mismatch as InvalidData; the
-            // preflight writer contract has always used InvalidInput here.
+            // `read_maps` reports a trailer mismatch as InvalidData; this
+            // writer preflight reports InvalidInput.
             contextual_error(
                 verb,
                 "maps",

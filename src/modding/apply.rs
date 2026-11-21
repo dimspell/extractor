@@ -9,15 +9,13 @@
 //! 3. For each touched path, **start from the vanilla bytes** (or absent) and
 //!    replay the effective actions targeting that path, in mod load order then
 //!    in per-mod insertion order. "Effective" means a mod's last contribution
-//!    to each destination ([`effective_actions`]) — the very same view
-//!    conflict detection uses, so the reported winner cannot disagree with the
-//!    bytes written here.
+//!    to each destination ([`effective_actions`]), the same view conflict
+//!    detection uses.
 //! 4. Write the resulting bytes back to the game directory (or delete the
 //!    file if the final state is "absent").
 //!
-//! Conflict detection is intentionally absent here — last-writer-wins is
-//! enough to verify correctness end-to-end. A real conflict surface can be
-//! layered on top of this same engine.
+//! This engine applies last-writer-wins; it does not perform conflict
+//! detection.
 //!
 //! [`VanillaStore`]: super::vanilla::VanillaStore
 //! [`effective_actions`]: super::changelog::effective_actions

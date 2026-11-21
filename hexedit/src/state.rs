@@ -132,8 +132,6 @@ pub struct HexEditorState {
     pub search: SearchState,
     /// Pending transient notifications displayed over the editor.
     pub notifications: Vec<Toast>,
-    /// Latest notification body, retained for compatibility with embedders.
-    /// It is not rendered in the editor chrome; use [`notifications`] instead.
     /// Toggle: false → hex addresses (default), true → decimal.
     pub show_decimal: bool,
     pub status_msg: String,

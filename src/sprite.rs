@@ -91,17 +91,14 @@ pub struct SequenceInfo {
     pub frame_infos: Vec<ImageInfo>,
 }
 
-// Color conversion and the 16-bit channel packing are owned by `crate::decode`
-// (the version-agnostic rendering abstraction). Re-exported here so all
-// existing `sprite::Color` / `sprite::SpritePixelFormat` paths keep working.
 pub use crate::decode::{Color, SpritePixelFormat};
 
 /// Explicit decode/render options for every sprite entry point.
 ///
-/// Passing one value at the call boundary replaces the former `*_with_black`
-/// boolean twins and scattered `apply_origin_offsets` flags. `Default` keeps
-/// the historical behavior of the plain functions: `0x0000` pixels stay
-/// transparent and frames are not shifted within an animation atlas.
+/// A single value passed at the call boundary controls two rendering choices:
+/// whether raw `0x0000` pixels are drawn as opaque black, and whether frames
+/// are placed inside their sequence's shared bounding box in an animation
+/// atlas. Defaults leave `0x0000` transparent and origin offsets disabled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SpriteRenderOptions {
     /// Render raw `0x0000` pixels as opaque black instead of transparent.

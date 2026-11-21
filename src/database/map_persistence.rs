@@ -2,8 +2,8 @@
 //!
 //! This module owns the *write side* of map data: a [`crate::map::MapData`]
 //! value is converted into rows in the map tables registered in the schema
-//! manifest. The [`crate::map`] module owns parsing/extraction and re-exports
-//! this API so existing callers keep their original paths.
+//! manifest. This module owns the write-side API; [`crate::map`] owns parsing
+//! and extraction and re-exports it.
 //!
 //! Every writer uses the INSERT statements from [`crate::database::insert_sql`]
 //! and commits each logical group in one transaction, so a failed import never
