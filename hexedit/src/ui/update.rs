@@ -10,6 +10,7 @@ use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::state::{ComparisonFile, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::ui::theme::ThemeVariant;
+use crate::ui::view::panel::MAX_PANELS;
 
 use crate::HexProvider;
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
@@ -81,7 +82,7 @@ pub fn update(
         }
         HexEditorMessage::SplitPane(axis) => {
             let focus = state.pane_focus;
-            let can_split = state.panes.len() < 8;
+            let can_split = state.panes.len() < MAX_PANELS;
             if can_split {
                 let new_panel = HexPanel::new(crate::domain::panel::HexPanelContent::Matrix);
                 let _ = state.panes.split(axis, focus, new_panel);
@@ -386,7 +387,7 @@ pub fn update(
                 state.show_stats = false;
             } else {
                 let focus = state.pane_focus;
-                let can_split = state.panes.len() < 8;
+                let can_split = state.panes.len() < MAX_PANELS;
                 if can_split {
                     let _ = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
@@ -721,7 +722,7 @@ pub fn update(
                 }
             } else {
                 let focus = state.pane_focus;
-                let can_split = state.panes.len() < 8;
+                let can_split = state.panes.len() < MAX_PANELS;
                 if can_split
                     && let Some((_, split)) = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
@@ -758,7 +759,7 @@ pub fn update(
                 state.show_pattern_list = false;
             } else {
                 let focus = state.pane_focus;
-                let can_split = state.panes.len() < 8;
+                let can_split = state.panes.len() < MAX_PANELS;
                 if can_split {
                     let _ = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
