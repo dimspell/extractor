@@ -27,28 +27,56 @@ mod global_search_tests {
     }
 
     #[test]
-    fn input_two_chars_returns_async_task() {
+    fn input_two_chars_searches_directly_without_task() {
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        app.search_index.file_mappings = vec![
+            crate::indexation::search_index::FileMapping {
+                file_path: "Monster.db".into(),
+                editor_type: "MonsterEditor".into(),
+            },
+            crate::indexation::search_index::FileMapping {
+                file_path: "WeaponItem.db".into(),
+                editor_type: "WeaponEditor".into(),
+            },
+        ];
 
-        // 2+ chars triggers async search
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchInput(
-            "te".into(),
+            "mon".into(),
         )));
-        assert_eq!(app.global_search.query, "te");
-        assert!(task.units() > 0, "async search spawned for 2+ chars");
+
+        assert_eq!(app.global_search.query, "mon");
+        assert_eq!(
+            task.units(),
+            0,
+            "search runs synchronously, no task spawned"
+        );
+        assert_eq!(app.global_search.results.len(), 1);
+        assert_eq!(app.global_search.results[0].display_text, "Monster.db");
     }
 
     #[test]
-    fn input_empty_returns_async_task() {
+    fn input_empty_clears_results_directly() {
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
+                catalog_type: "test".into(),
+                record_idx: 0,
+                display_text: "foo".into(),
+                source_file: None,
+            });
+        app.global_search.selected_index = 0;
 
-        // Empty input also triggers async search (resets results)
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchInput(
             String::new(),
         )));
-        assert!(task.units() > 0, "async search spawned for empty input");
+
+        assert!(app.global_search.query.is_empty());
+        assert!(app.global_search.results.is_empty(), "results cleared");
+        assert_eq!(app.global_search.selected_index, 0);
+        assert_eq!(task.units(), 0);
     }
 
     #[test]

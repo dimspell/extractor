@@ -2,7 +2,6 @@
 
 use crate::app::App;
 use crate::components::tab_bar;
-use crate::message::Message;
 use crate::message::workspace::WorkspaceMessage;
 use crate::update::file_tree;
 use iced::Task;
@@ -213,19 +212,10 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         WorkspaceMessage::GlobalSearchInput(input) => {
             app.global_search.query = input.clone();
 
-            // Optimize: Only search if query has minimum length
+            // Only search when the query has a minimum length
             if input.len() >= 2 || input.is_empty() {
-                // Use async search to keep UI responsive
-                let query = input.clone();
-                return Task::perform(
-                    async move {
-                        // Simulate async work (in real app, this would be actual async I/O)
-                        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-                        query
-                    },
-                    |query| Message::Workspace(WorkspaceMessage::GlobalSearchAsync(query)),
-                );
-            } else if !input.is_empty() {
+                run_global_search(app, &input);
+            } else {
                 // Clear results for very short queries
                 app.global_search.results.clear();
                 app.global_search.selected_index = 0;
@@ -249,29 +239,6 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             app.global_search.query.clear();
             Task::none()
         }
-        WorkspaceMessage::GlobalSearchAsync(query) => {
-            // Process async search query on main thread
-            app.global_search.results.clear();
-            app.global_search.selected_index = 0;
-
-            if query.is_empty() {
-                Task::none()
-            } else {
-                let file_results = app.search_index.search_files(&query);
-                for entry in file_results.iter().take(app.global_search.max_results) {
-                    app.global_search.results.push(
-                        crate::components::global_search::SearchResult {
-                            catalog_type: entry.editor_type.clone(),
-                            record_idx: 0,
-                            display_text: entry.file_path.clone(),
-                            source_file: Some(entry.file_path.clone()),
-                        },
-                    );
-                }
-                Task::none()
-            }
-        }
-
         WorkspaceMessage::GlobalSearchConfirm => {
             if let Some(result) = app
                 .global_search
@@ -346,5 +313,26 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             }
             Task::none()
         }
+    }
+}
+
+fn run_global_search(app: &mut App, query: &str) {
+    app.global_search.results.clear();
+    app.global_search.selected_index = 0;
+
+    if query.is_empty() {
+        return;
+    }
+
+    let file_results = app.search_index.search_files(query);
+    for entry in file_results.iter().take(app.global_search.max_results) {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
+                catalog_type: entry.editor_type.clone(),
+                record_idx: 0,
+                display_text: entry.file_path.clone(),
+                source_file: Some(entry.file_path.clone()),
+            });
     }
 }
