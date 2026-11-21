@@ -10,11 +10,10 @@
 //! per-cell widths as the regular matrix. A configurable `mid_gap`
 //! separates the two sides visually.
 
+pub(crate) use crate::ui::view::draw_helpers::{ROW_HEIGHT, SCROLLBAR_THICKNESS};
+
 /// Height of the column header row (same as row height).
 pub const HEADER_HEIGHT: f32 = 16.0;
-
-/// Single row height for data rows.
-pub const ROW_HEIGHT: f32 = 16.0;
 
 /// Width of one hex nibble cell in the hex column.
 pub const HEX_CELL_WIDTH: f32 = 18.0;
@@ -39,9 +38,6 @@ pub const ANN_COL_GAP: f32 = 8.0;
 
 /// Maximum annotation column width.
 pub const MAX_ANN_COL_WIDTH: f32 = 200.0;
-
-/// Thickness of scrollbars.
-pub const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// Number of extra rows rendered off-screen for smooth scrolling.
 pub const OVERSCAN: u32 = 2;

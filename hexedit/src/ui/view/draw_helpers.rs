@@ -14,9 +14,9 @@ use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 type Paragraph = GraphicsParagraph;
 
 // Match the geometry and text sizes used by the matrix and diff views.
-const ROW_HEIGHT: f32 = 16.0;
-const TEXT_SIZE: f32 = 11.0;
-const SCROLLBAR_THICKNESS: f32 = 10.0;
+pub(crate) const ROW_HEIGHT: f32 = 16.0;
+pub(crate) const TEXT_SIZE: f32 = 11.0;
+pub(crate) const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 pub(crate) fn fill_cell(
     renderer: &mut iced::Renderer,
@@ -107,7 +107,7 @@ pub(crate) fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Re
     }
 }
 
-pub(crate) fn hthumb_len(track: Rectangle, content_w: f32, _avail_w: f32) -> f32 {
+pub(crate) fn hthumb_len(track: Rectangle, content_w: f32) -> f32 {
     (track.width / content_w * track.width).max(20.0)
 }
 
@@ -117,7 +117,7 @@ pub(crate) fn hscrollbar_thumb(
     content_w: f32,
     avail_w: f32,
 ) -> Rectangle {
-    let w = hthumb_len(track, content_w, avail_w);
+    let w = hthumb_len(track, content_w);
     let max_off = (content_w - avail_w).max(1.0);
     let x = track.x + (scroll_x / max_off) * (track.width - w);
     Rectangle {

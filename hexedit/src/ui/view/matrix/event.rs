@@ -309,7 +309,7 @@ pub fn handle_event<'a, Message>(
                 let htrack = hscrollbar_track(bounds);
                 let content_w = widget.total_content_width();
                 let avail_w = bounds.width - SCROLLBAR_THICKNESS;
-                let thumb_w = hthumb_len(htrack, content_w, avail_w);
+                let thumb_w = hthumb_len(htrack, content_w);
                 let travel = (htrack.width - thumb_w).max(1.0);
                 let max_off = (content_w - avail_w).max(1.0);
                 let dx = p.x - state.drag_start_cursor_x;
