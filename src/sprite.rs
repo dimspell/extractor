@@ -33,9 +33,10 @@ use std::{fs::File, path::Path};
 //   CLI extractors and the SQLite importer. The editor-facing `SpriteFile`
 //   model is a conversion layer built on that same decoder by
 //   `parse_sprite_bytes`: it copies the per-frame bytes into owned buffers and
-//   synthesizes a normalized header. Both views share `pixels_to_rgba`, so a
-//   given 16-bit pixel always decodes to the same RGBA value. Use
-//   `SpriteRenderOptions` to select decode/rendering behavior explicitly.
+//   flattens each non-empty group into a sequence. Both views share
+//   `pixels_to_rgba`, so a given 16-bit pixel always decodes to the same RGBA
+//   value. Use `SpriteRenderOptions` to select decode/rendering behavior
+//   explicitly.
 //
 // ===========================================================================
 
@@ -762,17 +763,12 @@ pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
 /// This is a conversion layer over the authoritative streaming decoder, not a
 /// second decoder: [`parse_sprite_bytes`] calls
 /// [`read_sprite_sequence_infos`] and copies the decoded frames into owned
-/// buffers. Per-frame unknown bytes and raw pixels are preserved, but the
-/// outer 268-byte header is synthesized (original archives do not store one
-/// in this view) and empty groups are dropped. Consequently
-/// [`write_sprite_to_path`] emits a normalized one-record archive; unmodified
-/// frames round-trip bit-exactly, while outer header/group partitioning does
-/// not survive a write-back.
+/// buffers. Per-frame unknown bytes and raw pixels are preserved, but empty
+/// groups are dropped. Consequently [`write_sprite_to_path`] emits a
+/// normalized one-record archive; unmodified frames round-trip bit-exactly,
+/// while outer header/group partitioning does not survive a write-back.
 #[derive(Debug, Clone)]
 pub struct SpriteFile {
-    /// 268-byte header describing the normalized archive emitted by
-    /// [`write_sprite_to_path`]; synthesized on parse, not copied from disk.
-    pub header: [u8; 268],
     /// All animation sequences in the file.
     pub sequences: Vec<SpriteSequence>,
 }
@@ -875,10 +871,6 @@ pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
 
     let mut reader = BufReader::new(Cursor::new(bytes));
     let infos = read_sprite_sequence_infos(&mut reader)?;
-    // SpriteFile is the editor's flattened group view. Its header describes
-    // the normalized one-record archive emitted by write_sprite_to_path.
-    let mut header = [0_u8; 268];
-    header[..4].copy_from_slice(&1_i32.to_le_bytes());
 
     let mut sequences = Vec::with_capacity(infos.len());
     for info in infos {
@@ -931,7 +923,7 @@ pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
         });
     }
 
-    Ok(SpriteFile { header, sequences })
+    Ok(SpriteFile { sequences })
 }
 
 /// Write the in-memory [`SpriteFile`] back to a .spr binary file.
@@ -1140,7 +1132,6 @@ mod tests {
             let reloaded = parse_sprite_bytes(&rewritten).expect("reparse normalized archive");
             std::fs::remove_file(&path).expect("remove temp sprite");
 
-            assert_eq!(reloaded.header, original.header, "{label} header");
             assert_eq!(
                 reloaded.sequences.len(),
                 original.sequences.len(),
