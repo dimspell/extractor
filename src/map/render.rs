@@ -106,7 +106,7 @@ pub struct ExternalEntities {
 /// effective shadow level becomes `max(static_level, covering_light_level)`
 /// ("max wins", see `reader.rs` word layout). Radius is Chebyshev distance in
 /// tile units; the flat-inside-radius falloff model is an approximation until
-/// validated against game captures (`docs/rendering_discrepancies.md` §1.1).
+/// validated against game captures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EntityLight {
     /// Light position in map tile coordinates.
@@ -739,9 +739,8 @@ fn plot_shadows(
 /// Reads an INI entity catalog, reporting (not swallowing) failures.
 ///
 /// A corrupt or missing file yields an empty catalog so the remaining entity
-/// kinds still render, but the problem is reported loudly on stderr — silent
-/// zero-entity renders have bitten us before (see
-/// `docs/rendering_discrepancies.md` §6.1).
+/// kinds still render, but the problem is reported loudly on stderr rather
+/// than being swallowed.
 fn read_ini_catalog<T>(label: &str, path: &Path) -> Vec<T>
 where
     T: crate::references::extractor::Extractor,

@@ -245,11 +245,12 @@ Store.db (shops/inns)
     └── Commerce system with haggling and dialogue
 
 Item Type Enum (used in Extra.ref and Store.db):
-    ├── 0: Weapon → WeaponItem.db
-    ├── 1: Heal → HealItem.db
-    ├── 2: Misc → MiscItem.db
+    ├── 1: Weapon → WeaponItem.db
+    ├── 2: Healing → HealItem.db
     ├── 3: Edit → EditItem.db
-    └── 4: Event → EventItem.db
+    ├── 4: Event → EventItem.db
+    ├── 5: Misc → MiscItem.db
+    └── 255: Other → catch-all
 ```
 
 ### 8. Audio System Relationships

@@ -96,6 +96,13 @@ editor_dirs = [
 ] if (root / "dispel-gui/src/editors").is_dir() else []
 reference_rs = walk("src/references", "*.rs")
 
+# The metadata self-test's advertised drift count must track its real drift
+# sites so AGENTS.md cannot claim a stale number.
+selftest_src = read("scripts/test-check-project-metadata.sh")
+selftest_drift_count = len(re.findall(r"^expect_fail\s+", selftest_src, re.M))
+drift_words = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+selftest_drift_word = drift_words[selftest_drift_count] if selftest_drift_count < len(drift_words) else str(selftest_drift_count)
+
 doc_expectations = [
     (f"{crate_count}-crate Cargo workspace", "workspace crate count"),
     (f"{len(sql_files)} SQL files ({len(ddl_files)} schema DDL + {len(insert_files)} INSERTs)", "SQL file counts"),
@@ -109,6 +116,7 @@ doc_expectations = [
     (f"{len(registry_fields)} state fields", "EditorRegistry field count"),
     (f"{len(editor_dirs)} editor subdirectories", "editor directory count"),
     (f"{len(reference_rs)} source files", "references source file count"),
+    (f"injects {selftest_drift_word} independent drifts", "metadata selftest drift count"),
 ]
 for needle, label in doc_expectations:
     check(needle in agents, f"AGENTS.md {label} is stale (expected {needle!r})")

@@ -13,7 +13,7 @@ trap 'rm -rf "$tmp"' EXIT
 seed() {
   mkdir -p "$tmp/scripts" "$tmp/.github/workflows" "$tmp/src" "$tmp/hexedit" "$tmp/dispel-gui/src" "$tmp/docs"
   cp AGENTS.md Makefile Cargo.toml "$tmp/"
-  cp scripts/ci-commands.sh "$tmp/scripts/"
+  cp scripts/ci-commands.sh scripts/test-check-project-metadata.sh "$tmp/scripts/"
   cp .github/build-matrix.json "$tmp/.github/"
   cp .github/workflows/*.yml "$tmp/.github/workflows/"
   cp -R src/. "$tmp/src/"

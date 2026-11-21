@@ -431,7 +431,6 @@ pub struct Workspace {
 | `docs/file_formats.md` | Binary format specs for SNF, map, tileset, sprite |
 | `docs/rendering.md` | Isometric map rendering: coordinate transforms, layer ordering, painter's algorithm, sprite transparency |
 | `docs/database_and_references.md` | SQLite schema overview |
-| `docs/iced-overlay-system.md` | Overlay system notes for the forked iced |
 | `docs/iced-fork-config.md` | Single iced fork pin set, feature matrix, headless test backend, consistency check |
 | `docs/files/*.md` | **36 per-format docs** (in subdirectories `CharacterInGame/`, `MonsterInGame/`, `NpcInGame/`, `Ref/`, `Map/`, `ExtraInGame/`, `MagicInGame/` and at the top level) + `CROSS_REFERENCES.md` — 37 files total |
 
@@ -459,7 +458,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - `.github/workflows/release.yml` — Release on tag `v*.*.*`: the same 5 builds, archives with SHA256, uploads to GitHub release (draft)
 - Both matrix workflows read the **single** matrix definition in `.github/build-matrix.json` via a `build-matrix` job and `fromJSON(needs.build-matrix.outputs.matrix)` — target lists cannot drift between PR and release.
 - All three workflows use `dtolnay/rust-toolchain@stable` and call `scripts/ci-commands.sh` for fmt/clippy/test.
-- `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects seven independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
+- `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects eight independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
 
 ### Release script
 `scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo check --workspace` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions. (Master-branch and clean-tree checks are currently commented out.)
@@ -524,7 +523,7 @@ cargo run -- sound "file.snf" output.wav
 # SQLite (optional)
 cargo run -- database import "path/to/Dispel/" db.sqlite
 
-# Modding (see src/commands/modding or src/modding/ for full surface)
+# Modding (see src/commands/ and src/modding/ for full surface)
 cargo run -- mod-pack ...
 ```
 
