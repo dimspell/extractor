@@ -6,11 +6,11 @@
 //! - Custom editors: `wave_ini`, `store`
 //! - Tab-based editors (5) — tested via `npc_ref` representative
 //!
-//! The test strategy relies on behavioral assertions (catalog values, pending
-//! entry counts, session state) rather than `Task::units()` because both
-//! `Task::none()` and `Task::done(...)` have units == 0 (only `Task::perform`
-//! has units > 0). The `units == 0` assertions on no-session / no-change cases
-//! are kept because they happen to match `Task::none()` returning 0.
+//! `FieldChanged` handlers emit the recording effect as a `Task::done` message
+//! instead of mutating session state directly, so the recording assertions
+//! drain that task's messages and dispatch the resulting `RecordingObserved`
+//! event before checking the pending map. Catalog assertions stay in place.
+//! The `units == 0` checks on no-session / no-change cases are kept as-is.
 
 use crate::app::App;
 
@@ -30,6 +30,83 @@ use dispel_core::modding::Value;
 use dispel_core::{NPC, Store, WaveIni, WeaponItem};
 use std::path::{Path, PathBuf};
 
+/// Pull the `RecordingObserved` events out of a handler task.
+///
+/// A field edit under an active session is delivered as
+/// `Task::done(Message::mod_packager(RecordingObserved(..)))`, so the effect is
+/// carried by the task itself — it does not appear in `App` state until that
+/// message is dispatched. Polling the stream directly keeps these tests from
+/// needing a full iced runtime; every future behind `Task::done` is ready
+/// immediately, so a no-op waker is enough to drain it.
+#[cfg(feature = "iced_test")]
+fn recording_events(task: iced::Task<crate::message::Message>) -> Vec<ObservedAction> {
+    use iced::futures::task::noop_waker;
+    use std::task::{Context, Poll};
+
+    let Some(mut stream) = iced_test::runtime::task::into_stream(task) else {
+        return Vec::new();
+    };
+    let waker = noop_waker();
+    let mut context = Context::from_waker(&waker);
+    let mut events = Vec::new();
+
+    loop {
+        match stream.as_mut().poll_next(&mut context) {
+            Poll::Ready(Some(iced_test::runtime::Action::Output(msg))) => {
+                if let crate::message::Message::Editor(
+                    crate::message::EditorMessage::ModPackager(
+                        ModPackagerMessage::RecordingObserved(event),
+                    ),
+                ) = msg
+                {
+                    events.push(event);
+                }
+            }
+            Poll::Ready(Some(_)) => {}
+            Poll::Ready(None) | Poll::Pending => break,
+        }
+    }
+    events
+}
+
+/// Assert that a handler's task recorded exactly one edit and that the edit
+/// landed in the active session's pending map with the expected address/values.
+#[cfg(feature = "iced_test")]
+fn assert_recorded_edit(
+    app: &mut App,
+    task: iced::Task<crate::message::Message>,
+    file: &str,
+    record_id: u32,
+    field: &str,
+    old: &str,
+    new: &str,
+) {
+    let events = recording_events(task);
+    assert_eq!(
+        events.len(),
+        1,
+        "handler must emit exactly one recording observation"
+    );
+    for event in events {
+        let _ = mod_packager::handle(ModPackagerMessage::RecordingObserved(event), app);
+    }
+
+    let session = app
+        .state
+        .recording
+        .as_ref()
+        .expect("recording session active");
+    assert_eq!(session.next_generation, 1, "one edit observed");
+    let key = make_key(file, record_id, field);
+    let pending = session
+        .pending
+        .get(&key)
+        .unwrap_or_else(|| panic!("pending edit for {file}:{record_id}:{field}"));
+    assert_eq!(pending.original_old, Value::String(old.into()));
+    assert_eq!(pending.latest_new, Value::String(new.into()));
+    assert_eq!(pending.generation, 1);
+}
+
 // ============================================================================
 // observe_field_change  (core recording primitive)
 // ============================================================================
@@ -43,8 +120,12 @@ fn observe_field_change_returns_none_when_no_session() {
 
 #[test]
 fn observe_field_change_returns_task_when_session_active() {
-    let app = app_with_recording();
-    let _task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
+    let mut app = app_with_recording();
+    let task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(&mut app, task, "test.db", 0, "name", "old", "new");
+    #[cfg(not(feature = "iced_test"))]
+    let _ = task;
 }
 
 // ============================================================================
@@ -69,6 +150,16 @@ fn weapon_editor_records_when_session_active() {
     assert_eq!(
         app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].name,
         "NewName"
+    );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "CharacterInGame/weaponItem.db",
+        0,
+        "name",
+        "OldName",
+        "NewName",
     );
 }
 
@@ -139,6 +230,16 @@ fn wave_ini_editor_records_when_session_active() {
         Some("new.wav"),
         "field value updated"
     );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "Wave.ini",
+        0,
+        "snf_filename",
+        "old.wav",
+        "new.wav",
+    );
 }
 
 #[test]
@@ -191,6 +292,16 @@ fn store_editor_records_when_session_active() {
     assert_eq!(
         app.state.editors.store_editor.catalog.as_ref().unwrap()[0].store_name,
         "NewShop"
+    );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "CharacterInGame/STORE.DB",
+        0,
+        "store_name",
+        "OldShop",
+        "NewShop",
     );
 }
 
@@ -281,6 +392,16 @@ fn npc_ref_editor_records_when_session_active() {
             .name,
         "NewNPC",
         "field value updated"
+    );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "NpcInGame/Npccat1.ref",
+        0,
+        "name",
+        "OldNPC",
+        "NewNPC",
     );
 }
 
@@ -921,6 +1042,16 @@ fn chdata_editor_records_when_session_active() {
         15,
         "field value updated"
     );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "CharacterInGame/ChData.db",
+        0,
+        "warrior_strength",
+        "10",
+        "15",
+    );
 }
 
 // ============================================================================
@@ -977,6 +1108,16 @@ fn party_level_db_editor_records_when_session_active() {
             .strength,
         20,
         "field value updated"
+    );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "NpcInGame/PrtLevel.db",
+        0,
+        "strength",
+        "10",
+        "20",
     );
 }
 

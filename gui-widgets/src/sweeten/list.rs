@@ -852,12 +852,8 @@ mod tests {
         let content: Content<u8> = Content::with_items(vec![1, 2, 3]);
         let mut widget = List::new(&content, fixed_item).spacing(10);
 
-        let mut tree = Tree::new(Element::<Never, Theme, ()>::from(
-            List::new(&content, fixed_item).spacing(10),
-        ));
-        let element: Element<'_, Never, Theme, ()> =
-            List::new(&content, fixed_item).spacing(10).into();
-        tree.diff(element);
+        let mut tree = Tree::new(&widget as &dyn Widget<Never, Theme, ()>);
+        widget.diff(&mut tree);
 
         // Layout first to compute offsets
         let layout_node = widget.layout(&mut tree, &(), &LIMITS);
@@ -880,9 +876,21 @@ mod tests {
             &viewport,
         );
 
-        assert!(
-            !widget.visible_elements.is_empty(),
-            "After RedrawRequested with computed offsets, visible elements should be populated"
+        let state = tree.state.downcast_ref::<State>();
+        let visible_indices: Vec<usize> = state
+            .visible_layouts
+            .iter()
+            .map(|(index, _, _)| *index)
+            .collect();
+        assert_eq!(
+            visible_indices,
+            vec![0, 1, 2],
+            "each of the three items has one visible layout"
+        );
+        assert_eq!(
+            widget.visible_elements.len(),
+            3,
+            "each visible layout has one materialized element"
         );
     }
 }
