@@ -150,7 +150,7 @@ pub fn save_monster_refs(
                     monster_ref
                         .loot_item_1
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
+                        .unwrap_or(ItemTypeId::NoItem)
                 ) as i32,
                 monster_ref.loot_item_1.raw(),
                 monster_ref.loot_item_2.item_id() as i32,
@@ -158,7 +158,7 @@ pub fn save_monster_refs(
                     monster_ref
                         .loot_item_2
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
+                        .unwrap_or(ItemTypeId::NoItem)
                 ) as i32,
                 monster_ref.loot_item_2.raw(),
                 monster_ref.loot_item_3.item_id() as i32,
@@ -166,7 +166,7 @@ pub fn save_monster_refs(
                     monster_ref
                         .loot_item_3
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
+                        .unwrap_or(ItemTypeId::NoItem)
                 ) as i32,
                 monster_ref.loot_item_3.raw(),
                 i32::from(monster_ref.drop_all_loot),
@@ -253,8 +253,8 @@ mod tests {
     }
 
     #[test]
-    fn test_other_typed_loot_round_trips_bytes() {
-        let loot = InventoryItem::new(ItemTypeId::Other, 5);
+    fn test_no_item_typed_loot_round_trips_bytes() {
+        let loot = InventoryItem::new(ItemTypeId::NoItem, 5);
         assert_eq!(loot.raw(), 0x0000_FF05);
 
         let mut data = 1i32.to_le_bytes().to_vec();
@@ -264,7 +264,7 @@ mod tests {
 
         let mut c = Cursor::new(&data[..]);
         let records = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
-        assert_eq!(records[0].loot_item_1.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(records[0].loot_item_1.item_type(), Some(ItemTypeId::NoItem));
         assert_eq!(records[0].loot_item_1.item_id(), 5);
 
         let mut out = Vec::new();
@@ -279,7 +279,7 @@ mod tests {
         crate::database::create_all(conn).unwrap();
 
         let monster = MonsterRef {
-            loot_item_1: InventoryItem::new(ItemTypeId::Other, 5),
+            loot_item_1: InventoryItem::new(ItemTypeId::NoItem, 5),
             ..Default::default()
         };
         save_monster_refs(conn, 1, &[monster]).unwrap();

@@ -1,7 +1,7 @@
 -- Decodes a Dispel ItemTypeId byte into its human-readable name.
 -- Useful when inspecting item records in WeaponItem.db, HealItem.db, etc.
 --
--- The enum is signed: 1-5 are the defined types and -1 is the catch-all,
+-- The enum is signed: 1-5 are the defined types and -1 is no item,
 -- stored on disk as 0xFF. SQL and GUI numeric keys keep the byte value 255.
 
 local ITEM_TYPES = {
@@ -10,7 +10,7 @@ local ITEM_TYPES = {
     [3] = "Edit",
     [4] = "Event",
     [5] = "Misc",
-    [0xFF] = "Other",
+    [0xFF] = "NoItem",
 }
 
 local function name_for(v)
@@ -21,7 +21,7 @@ return {
     name = "ItemTypeId",
     min_size = 1,
     category = "Dispel",
-    description = "Dispel item type enum (1=Weapon, 2=Healing, 3=Edit, 4=Event, 5=Misc, 0xFF/-1=Other; SQL/GUI keys use 255)",
+    description = "Dispel item type enum (1=Weapon, 2=Healing, 3=Edit, 4=Event, 5=Misc, 0xFF/-1=NoItem; SQL/GUI keys use 255)",
 
     decode = function(bytes)
         local v = string.byte(bytes, 1)
@@ -47,6 +47,6 @@ return {
             end
         end
         error("unknown item type '" .. str ..
-              "'; expected: Weapon, Healing, Edit, Event, Misc, Other, or a number")
+              "'; expected: Weapon, Healing, Edit, Event, Misc, NoItem, or a number")
     end,
 }

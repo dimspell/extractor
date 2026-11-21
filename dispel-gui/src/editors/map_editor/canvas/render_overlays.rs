@@ -273,7 +273,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 let color = draw_item_color(
                                     di.item
                                         .item_type()
-                                        .unwrap_or(dispel_core::ItemTypeId::Other),
+                                        .unwrap_or(dispel_core::ItemTypeId::NoItem),
                                 );
                                 let r = 6.0 * zoom;
                                 frame.fill(&diamond_path(tile_cx, tile_cy, r), color);

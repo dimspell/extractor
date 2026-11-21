@@ -395,7 +395,7 @@ macro_rules! __er_get {
                 $this
                     .$field
                     .item_type()
-                    .unwrap_or(dispel_core::ItemTypeId::Other)
+                    .unwrap_or(dispel_core::ItemTypeId::NoItem)
             ),
             $this.$field.item_id()
         )
@@ -474,7 +474,7 @@ macro_rules! __er_set {
             let type_byte = parts[0].parse::<u8>().unwrap_or(255);
             let item_id = parts[1].parse::<u8>().unwrap_or(0);
             let item_type = dispel_core::ItemTypeId::from_u8(type_byte)
-                .unwrap_or(dispel_core::ItemTypeId::Other);
+                .unwrap_or(dispel_core::ItemTypeId::NoItem);
             $this.$field = dispel_core::InventoryItem::new(item_type, item_id);
             true
         } else {

@@ -806,8 +806,8 @@ fn test_draw_item_color_misc() {
 }
 
 #[test]
-fn test_draw_item_color_other() {
-    let c = draw_item_color(ItemTypeId::Other);
+fn test_draw_item_color_no_item() {
+    let c = draw_item_color(ItemTypeId::NoItem);
     assert_eq!(c.r, 0.6);
     assert_eq!(c.g, 0.6);
     assert_eq!(c.b, 0.6);

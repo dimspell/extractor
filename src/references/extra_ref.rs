@@ -233,7 +233,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                     extra_ref
                         .required_item
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
+                        .unwrap_or(ItemTypeId::NoItem)
                 ) as i32, // 14
                 extra_ref.required_item.raw(), // 15 — raw
                 extra_ref.requirement_range_1_padding, // 16
@@ -242,7 +242,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                     extra_ref
                         .required_item2
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
+                        .unwrap_or(ItemTypeId::NoItem)
                 ) as i32, // 18
                 extra_ref.required_item2.raw(), // 19 — raw
                 extra_ref.requirement_range_2_start, // 20
@@ -251,7 +251,12 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 extra_ref.requirement_range_3_end, // 23
                 extra_ref.gold_amount,   // 24
                 extra_ref.loot_item.item_id() as i32, // 25
-                u8::from(extra_ref.loot_item.item_type().unwrap_or(ItemTypeId::Other)) as i32, // 26
+                u8::from(
+                    extra_ref
+                        .loot_item
+                        .item_type()
+                        .unwrap_or(ItemTypeId::NoItem)
+                ) as i32, // 26
                 extra_ref.loot_item.raw(), // 27 — raw
                 extra_ref.loot_item_padding, // 28
                 extra_ref.loot_item_count, // 29
@@ -384,8 +389,8 @@ mod tests {
     }
 
     #[test]
-    fn test_other_typed_required_item2_round_trips_bytes() {
-        let item = InventoryItem::new(ItemTypeId::Other, 5);
+    fn test_no_item_typed_required_item2_round_trips_bytes() {
+        let item = InventoryItem::new(ItemTypeId::NoItem, 5);
         assert_eq!(item.raw(), 0x0000_FF05);
 
         let mut data = 1i32.to_le_bytes().to_vec();
@@ -397,7 +402,7 @@ mod tests {
         let records = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(
             records[0].required_item2.item_type(),
-            Some(ItemTypeId::Other)
+            Some(ItemTypeId::NoItem)
         );
         assert_eq!(records[0].required_item2.item_id(), 5);
         assert_eq!(records[0].required_item2.raw(), item.raw());

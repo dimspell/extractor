@@ -65,7 +65,7 @@ pub fn draw_item_color(item_type: dispel_core::references::enums::ItemTypeId) ->
         ItemTypeId::Edit => Color::from_rgba(0.15, 0.45, 0.9, 0.85),
         ItemTypeId::Event => Color::from_rgba(0.8, 0.15, 0.8, 0.85),
         ItemTypeId::Misc => Color::from_rgba(0.95, 0.85, 0.1, 0.85),
-        ItemTypeId::Other => Color::from_rgba(0.6, 0.6, 0.6, 0.85),
+        ItemTypeId::NoItem => Color::from_rgba(0.6, 0.6, 0.6, 0.85),
     }
 }
 

@@ -1369,7 +1369,7 @@ fn draw_item_color(item_type: Option<crate::references::enums::ItemTypeId>) -> [
         ItemTypeId::Edit => [40, 115, 230],
         ItemTypeId::Event => [200, 40, 200],
         ItemTypeId::Misc => [240, 215, 25],
-        ItemTypeId::Other => [155, 155, 155],
+        ItemTypeId::NoItem => [155, 155, 155],
     }
 }
 

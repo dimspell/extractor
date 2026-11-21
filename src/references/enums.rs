@@ -687,10 +687,11 @@ pub enum ItemTypeId {
     Event = 4,
     /// Miscellaneous item type
     Misc = 5,
-    /// Other/Unknown item type (catch-all for undefined values)
+    /// No item: denotes an empty or undefined item slot
     ///
-    /// On disk the catch-all byte is `0xFF`; the signed value is `-1`.
-    Other = -1,
+    /// On disk the byte is `0xFF`; the signed value is `-1`, and SQL/GUI
+    /// numeric keys keep the on-disk byte value `255`.
+    NoItem = -1,
 }
 
 /// Encodes an inventory item as a packed `i32`.
@@ -708,7 +709,7 @@ impl InventoryItem {
     /// Create a new inventory item from a type and ID (encodes into low 16 bits).
     ///
     /// The type is reinterpreted as its on-disk byte before widening: the
-    /// catch-all discriminant is `-1` in memory but `0xFF` on disk, so widening
+    /// no-item discriminant is `-1` in memory but `0xFF` on disk, so widening
     /// the signed value directly would corrupt the upper bytes of the field.
     pub fn new(item_type: ItemTypeId, item_id: u8) -> Self {
         Self(i32::from(u8::from(item_type)) << 8 | i32::from(item_id))
@@ -761,8 +762,8 @@ impl From<InventoryItem> for i32 {
 }
 
 impl ItemTypeId {
-    /// Convert from the signed on-disk value, with a catch-all for undefined
-    /// discriminants.
+    /// Convert from the signed on-disk value; undefined discriminants map to
+    /// no item.
     pub fn from_i8(value: i8) -> Option<Self> {
         match value {
             1 => Some(ItemTypeId::Weapon),
@@ -770,7 +771,7 @@ impl ItemTypeId {
             3 => Some(ItemTypeId::Edit),
             4 => Some(ItemTypeId::Event),
             5 => Some(ItemTypeId::Misc),
-            _ => Some(ItemTypeId::Other),
+            _ => Some(ItemTypeId::NoItem),
         }
     }
 
@@ -787,8 +788,8 @@ impl ItemTypeId {
             "3" => Some(ItemTypeId::Edit),
             "4" => Some(ItemTypeId::Event),
             "5" => Some(ItemTypeId::Misc),
-            // The catch-all byte is 0xFF on disk, which is -1 when signed.
-            "255" | "-1" => Some(ItemTypeId::Other),
+            // The no-item byte is 0xFF on disk, which is -1 when signed.
+            "255" | "-1" => Some(ItemTypeId::NoItem),
             _ => None,
         }
     }
@@ -801,7 +802,7 @@ impl ItemTypeId {
             "Edit" => Some(ItemTypeId::Edit),
             "Misc" => Some(ItemTypeId::Misc),
             "Event" => Some(ItemTypeId::Event),
-            "Other" => Some(ItemTypeId::Other),
+            "NoItem" => Some(ItemTypeId::NoItem),
             _ => None,
         }
     }
@@ -820,7 +821,7 @@ impl std::fmt::Display for ItemTypeId {
             ItemTypeId::Edit => write!(f, "Edit"),
             ItemTypeId::Event => write!(f, "Event"),
             ItemTypeId::Misc => write!(f, "Misc"),
-            ItemTypeId::Other => write!(f, "Other"),
+            ItemTypeId::NoItem => write!(f, "NoItem"),
         }
     }
 }
@@ -844,7 +845,7 @@ impl TryFrom<i8> for ItemTypeId {
 impl From<ItemTypeId> for u8 {
     fn from(item_type: ItemTypeId) -> Self {
         // Reinterpret the signed discriminant as its on-disk byte so SQL and
-        // GUI numeric keys keep the 0xFF value for the catch-all.
+        // GUI numeric keys keep the 0xFF value for no item.
         item_type.value() as u8
     }
 }
@@ -1956,35 +1957,35 @@ mod tests {
         assert_eq!(ItemTypeId::from_i8(3), Some(ItemTypeId::Edit));
         assert_eq!(ItemTypeId::from_i8(4), Some(ItemTypeId::Event));
         assert_eq!(ItemTypeId::from_i8(5), Some(ItemTypeId::Misc));
-        assert_eq!(ItemTypeId::from_i8(-1), Some(ItemTypeId::Other));
-        assert_eq!(ItemTypeId::from_i8(0), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_i8(-1), Some(ItemTypeId::NoItem));
+        assert_eq!(ItemTypeId::from_i8(0), Some(ItemTypeId::NoItem));
 
         assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
         assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Misc));
-        assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::NoItem));
 
-        assert_eq!(ItemTypeId::from_id("255"), Some(ItemTypeId::Other));
-        assert_eq!(ItemTypeId::from_id("-1"), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_id("255"), Some(ItemTypeId::NoItem));
+        assert_eq!(ItemTypeId::from_id("-1"), Some(ItemTypeId::NoItem));
 
-        assert_eq!(ItemTypeId::Other as i8, -1);
-        assert_eq!(i8::from(ItemTypeId::Other), -1);
-        assert_eq!(u8::from(ItemTypeId::Other), 255);
+        assert_eq!(ItemTypeId::NoItem as i8, -1);
+        assert_eq!(i8::from(ItemTypeId::NoItem), -1);
+        assert_eq!(u8::from(ItemTypeId::NoItem), 255);
         assert_eq!(u8::from(ItemTypeId::Edit), 3);
         assert_eq!(ItemTypeId::Edit.value(), 3i8);
-        assert_eq!(ItemTypeId::Other.value(), -1i8);
-        assert_eq!(ItemTypeId::try_from(-1i8), Ok(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::NoItem.value(), -1i8);
+        assert_eq!(ItemTypeId::try_from(-1i8), Ok(ItemTypeId::NoItem));
     }
 
     #[test]
-    fn test_inventory_item_other_keeps_0xff_byte() {
-        let item = InventoryItem::new(ItemTypeId::Other, 5);
+    fn test_inventory_item_no_item_keeps_0xff_byte() {
+        let item = InventoryItem::new(ItemTypeId::NoItem, 5);
         assert_eq!(item.raw(), 0x0000_FF05);
         assert_eq!(item.raw().to_le_bytes(), [0x05, 0xFF, 0x00, 0x00]);
         assert_eq!(item.item_id(), 5);
-        assert_eq!(item.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(item.item_type(), Some(ItemTypeId::NoItem));
 
         let decoded = InventoryItem::from(item.raw());
-        assert_eq!(decoded.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(decoded.item_type(), Some(ItemTypeId::NoItem));
         assert_eq!(decoded.item_id(), 5);
         assert_eq!(decoded.raw(), item.raw());
     }

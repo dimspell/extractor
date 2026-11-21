@@ -120,7 +120,7 @@ pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result
                 draw_item.x_coord,
                 draw_item.y_coord,
                 draw_item.item.item_id() as i32,
-                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::NoItem)) as i32,
                 draw_item.item.raw(),
             ])?;
         }
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].map_id, 2);
         assert_eq!(items[0].item.item_id(), 1);
-        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::Other)); // byte[1]=0 → no match → Other
+        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::NoItem)); // byte[1]=0 → no match → NoItem
     }
 
     #[test]
@@ -177,8 +177,8 @@ mod tests {
     }
 
     #[test]
-    fn test_other_item_type_serializes_raw_decimal() {
-        let item = InventoryItem::new(ItemTypeId::Other, 5);
+    fn test_no_item_type_serializes_raw_decimal() {
+        let item = InventoryItem::new(ItemTypeId::NoItem, 5);
         assert_eq!(item.raw(), 65285);
         let record = DrawItem {
             map_id: 1,

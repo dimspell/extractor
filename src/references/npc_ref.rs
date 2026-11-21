@@ -227,7 +227,7 @@ pub fn save_npc_refs(
                 u8::from(
                     npc.interaction_result_item
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other),
+                        .unwrap_or(ItemTypeId::NoItem),
                 ) as i32,
                 npc.interaction_result_item.raw(),
                 npc.interaction_range_offset,

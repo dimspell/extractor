@@ -195,8 +195,8 @@ plain `u8` now.
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 
-The signed value is `-1` for the catch-all, stored on disk as the byte `0xFF`.
-SQL columns and GUI numeric keys keep the on-disk byte value, so the catch-all reads as `255` there.
+The signed value is `-1` for no item, stored on disk as the byte `0xFF`.
+SQL columns and GUI numeric keys keep the on-disk byte value, so no item reads as `255` there.
 
 | Value (signed) | On-disk byte | Name    | Description                 |
 |----------------|--------------|---------|-----------------------------|
@@ -205,7 +205,7 @@ SQL columns and GUI numeric keys keep the on-disk byte value, so the catch-all r
 | 3              | 0x03         | Edit    | Edit item category          |
 | 4              | 0x04         | Event   | Event item category         |
 | 5              | 0x05         | Misc    | Miscellaneous item category |
-| -1             | 0xFF         | Other   | Undefined/catch-all         |
+| -1             | 0xFF         | NoItem  | No item                     |
 
 ### Interactive Element Types
 
