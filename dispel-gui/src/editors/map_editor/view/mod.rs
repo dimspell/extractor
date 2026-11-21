@@ -218,6 +218,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 state.view.show_ground,
                 state.view.show_buildings,
                 state.view.show_roofs,
+                state.view.show_shadows,
                 state.view.show_internal_sprites,
                 state.view.show_collisions,
                 state.view.show_events,
@@ -232,7 +233,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 state.view.show_object_ids,
             ];
             let visible_layers = layer_visibility.iter().filter(|&&v| v).count();
-            let total_layers = layer_visibility.len();
+            let total_layers = MapLayer::ALL.len();
 
             let layers_trigger = button(
                 row![

@@ -264,6 +264,28 @@ pub enum MapLayer {
     ObjectIds,
 }
 
+impl MapLayer {
+    /// Every layer, in the order shown by the visibility toggles.
+    pub const ALL: [MapLayer; 16] = [
+        MapLayer::Ground,
+        MapLayer::Buildings,
+        MapLayer::Roofs,
+        MapLayer::Shadows,
+        MapLayer::InternalSprites,
+        MapLayer::Collisions,
+        MapLayer::Events,
+        MapLayer::UnderRoofMarkers,
+        MapLayer::NoSpellCastZones,
+        MapLayer::BtlOverlaysInDarkMaps,
+        MapLayer::Monsters,
+        MapLayer::Npcs,
+        MapLayer::NpcWaypoints,
+        MapLayer::Objects,
+        MapLayer::DrawItems,
+        MapLayer::ObjectIds,
+    ];
+}
+
 /// Active canvas tool. Visibility of a layer no longer implies editability:
 /// editing tools must be explicitly selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -296,4 +318,47 @@ pub enum MapViewMode {
     #[default]
     Map,
     Sprites,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_all_layers_matches_variant_count() {
+        // An exhaustive match makes adding a MapLayer variant a compile error
+        // here, so the layer table cannot silently fall behind the enum.
+        fn is_known(layer: MapLayer) {
+            match layer {
+                MapLayer::Ground
+                | MapLayer::Buildings
+                | MapLayer::Roofs
+                | MapLayer::Shadows
+                | MapLayer::InternalSprites
+                | MapLayer::Collisions
+                | MapLayer::Events
+                | MapLayer::UnderRoofMarkers
+                | MapLayer::NoSpellCastZones
+                | MapLayer::BtlOverlaysInDarkMaps
+                | MapLayer::Monsters
+                | MapLayer::Npcs
+                | MapLayer::NpcWaypoints
+                | MapLayer::Objects
+                | MapLayer::DrawItems
+                | MapLayer::ObjectIds => {}
+            }
+        }
+
+        assert_eq!(MapLayer::ALL.len(), 16);
+        let mut seen: Vec<MapLayer> = Vec::new();
+        for layer in MapLayer::ALL {
+            is_known(layer);
+            assert!(
+                !seen.contains(&layer),
+                "MapLayer::ALL lists a layer more than once"
+            );
+            seen.push(layer);
+        }
+        assert_eq!(seen.len(), MapLayer::ALL.len());
+    }
 }
