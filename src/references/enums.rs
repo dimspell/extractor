@@ -52,14 +52,9 @@ impl_wire_value!(Unknown012, i32, from_i32);
 impl_wire_value!(NpcMovementMode, i32, from_i32);
 impl_wire_value!(NpcRoleResult, i32, from_i32);
 impl_wire_value!(NpcInteractionMode, i32, from_i32);
-impl_wire_value!(Unknown0to7, i32, from_i32);
-impl_wire_value!(Unknown0110, i32, from_i32);
 impl_wire_value!(TriStateFlag, i32, from_i32);
-impl_wire_value!(ByteFlag, u8, from_u8);
-impl_wire_value!(Special9999Flag, i32, from_i32);
 impl_wire_value!(SmallRange0to3, i32, from_i32);
 impl_wire_value!(SmallRange0to3, u8, from_u8);
-impl_wire_value!(SpecialPatternFlag, i32, from_i32);
 impl_wire_value!(HealItemFlag, u8, from_u8);
 impl_wire_value!(MagicType, u32, from_u32);
 impl_wire_value!(SpellTargetType, u32, from_u32);
@@ -1115,129 +1110,6 @@ impl std::fmt::Display for NpcInteractionMode {
     }
 }
 
-/// Enum for unknown field with values 0-7
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum Unknown0to7 {
-    /// Value 0
-    #[default]
-    Value0 = 0,
-    /// Value 1
-    Value1 = 1,
-    /// Value 2
-    Value2 = 2,
-    /// Value 3
-    Value3 = 3,
-    /// Value 4
-    Value4 = 4,
-    /// Value 5
-    Value5 = 5,
-    /// Value 6
-    Value6 = 6,
-    /// Value 7
-    Value7 = 7,
-}
-
-impl Unknown0to7 {
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(Unknown0to7::Value0),
-            1 => Some(Unknown0to7::Value1),
-            2 => Some(Unknown0to7::Value2),
-            3 => Some(Unknown0to7::Value3),
-            4 => Some(Unknown0to7::Value4),
-            5 => Some(Unknown0to7::Value5),
-            6 => Some(Unknown0to7::Value6),
-            7 => Some(Unknown0to7::Value7),
-            _ => None,
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "0" => Some(Unknown0to7::Value0),
-            "1" => Some(Unknown0to7::Value1),
-            "2" => Some(Unknown0to7::Value2),
-            "3" => Some(Unknown0to7::Value3),
-            "4" => Some(Unknown0to7::Value4),
-            "5" => Some(Unknown0to7::Value5),
-            "6" => Some(Unknown0to7::Value6),
-            "7" => Some(Unknown0to7::Value7),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for Unknown0to7 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Unknown0to7::Value0 => write!(f, "0"),
-            Unknown0to7::Value1 => write!(f, "1"),
-            Unknown0to7::Value2 => write!(f, "2"),
-            Unknown0to7::Value3 => write!(f, "3"),
-            Unknown0to7::Value4 => write!(f, "4"),
-            Unknown0to7::Value5 => write!(f, "5"),
-            Unknown0to7::Value6 => write!(f, "6"),
-            Unknown0to7::Value7 => write!(f, "7"),
-        }
-    }
-}
-
-impl From<Unknown0to7> for i32 {
-    fn from(value: Unknown0to7) -> Self {
-        value as i32
-    }
-}
-
-/// Enum for unknown field with values 0, 1, or 10
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum Unknown0110 {
-    /// Value 0
-    #[default]
-    Value0 = 0,
-    /// Value 1
-    Value1 = 1,
-    /// Value 10
-    Value10 = 10,
-}
-
-impl Unknown0110 {
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(Unknown0110::Value0),
-            1 => Some(Unknown0110::Value1),
-            10 => Some(Unknown0110::Value10),
-            _ => None,
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "0" => Some(Unknown0110::Value0),
-            "1" => Some(Unknown0110::Value1),
-            "10" => Some(Unknown0110::Value10),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for Unknown0110 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Unknown0110::Value0 => write!(f, "0"),
-            Unknown0110::Value1 => write!(f, "1"),
-            Unknown0110::Value10 => write!(f, "10"),
-        }
-    }
-}
-
-impl From<Unknown0110> for i32 {
-    fn from(value: Unknown0110) -> Self {
-        value as i32
-    }
-}
-
 /// Enum for tri-state flags (-1, 0, 1)
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -1288,98 +1160,6 @@ impl std::str::FromStr for TriStateFlag {
             "1" => Ok(TriStateFlag::One),
             _ => Err("Invalid TriStateFlag value"),
         }
-    }
-}
-
-/// Enum for byte flags (0 or 255)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
-pub enum ByteFlag {
-    /// Value 0 (default)
-    #[default]
-    Zero = 0,
-    /// Value 255
-    FF = 255,
-}
-
-impl ByteFlag {
-    pub fn from_u8(value: u8) -> Option<Self> {
-        match value {
-            0 => Some(ByteFlag::Zero),
-            255 => Some(ByteFlag::FF),
-            _ => None,
-        }
-    }
-}
-
-impl From<ByteFlag> for u8 {
-    fn from(flag: ByteFlag) -> Self {
-        flag as u8
-    }
-}
-
-impl std::fmt::Display for ByteFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ByteFlag::Zero => write!(f, "0"),
-            ByteFlag::FF => write!(f, "255"),
-        }
-    }
-}
-
-impl std::str::FromStr for ByteFlag {
-    type Err = &'static str;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "0" => Ok(ByteFlag::Zero),
-            "255" => Ok(ByteFlag::FF),
-            _ => Err("Invalid ByteFlag value"),
-        }
-    }
-}
-
-/// Enum for special value flags (0 or 9999)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum Special9999Flag {
-    /// Value 0 (default)
-    #[default]
-    Zero = 0,
-    /// Value 9999
-    Max = 9999,
-}
-
-impl Special9999Flag {
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(Special9999Flag::Zero),
-            9999 => Some(Special9999Flag::Max),
-            _ => None,
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "0" => Some(Special9999Flag::Zero),
-            "9999" => Some(Special9999Flag::Max),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for Special9999Flag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Special9999Flag::Zero => write!(f, "0"),
-            Special9999Flag::Max => write!(f, "9999"),
-        }
-    }
-}
-
-impl From<Special9999Flag> for i32 {
-    fn from(flag: Special9999Flag) -> Self {
-        flag as i32
     }
 }
 
@@ -1464,65 +1244,6 @@ impl std::str::FromStr for SmallRange0to3 {
             "3" => Ok(SmallRange0to3::Value3),
             _ => Err("Invalid SmallRange0to3 value"),
         }
-    }
-}
-
-/// Enum for special pattern (0, 28, 84, 258, 9999)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum SpecialPatternFlag {
-    /// Value 0 (default)
-    #[default]
-    Zero = 0,
-    /// Value 28
-    Value28 = 28,
-    /// Value 84
-    Value84 = 84,
-    /// Value 258
-    Value258 = 258,
-    /// Value 9999
-    Value9999 = 9999,
-}
-
-impl SpecialPatternFlag {
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(SpecialPatternFlag::Zero),
-            28 => Some(SpecialPatternFlag::Value28),
-            84 => Some(SpecialPatternFlag::Value84),
-            258 => Some(SpecialPatternFlag::Value258),
-            9999 => Some(SpecialPatternFlag::Value9999),
-            _ => None,
-        }
-    }
-
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "0" => Some(SpecialPatternFlag::Zero),
-            "28" => Some(SpecialPatternFlag::Value28),
-            "84" => Some(SpecialPatternFlag::Value84),
-            "258" => Some(SpecialPatternFlag::Value258),
-            "9999" => Some(SpecialPatternFlag::Value9999),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for SpecialPatternFlag {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SpecialPatternFlag::Zero => write!(f, "0"),
-            SpecialPatternFlag::Value28 => write!(f, "28"),
-            SpecialPatternFlag::Value84 => write!(f, "84"),
-            SpecialPatternFlag::Value258 => write!(f, "258"),
-            SpecialPatternFlag::Value9999 => write!(f, "9999"),
-        }
-    }
-}
-
-impl From<SpecialPatternFlag> for i32 {
-    fn from(flag: SpecialPatternFlag) -> Self {
-        flag as i32
     }
 }
 
@@ -2386,14 +2107,9 @@ mod tests {
         assert_wire_fallback!(NpcMovementMode, i32, from_i32, 0, i32::MIN);
         assert_wire_fallback!(NpcRoleResult, i32, from_i32, 1, i32::MIN);
         assert_wire_fallback!(NpcInteractionMode, i32, from_i32, 1, i32::MIN);
-        assert_wire_fallback!(Unknown0to7, i32, from_i32, 0, i32::MIN);
-        assert_wire_fallback!(Unknown0110, i32, from_i32, 1, i32::MIN);
         assert_wire_fallback!(TriStateFlag, i32, from_i32, 1, i32::MIN);
-        assert_wire_fallback!(ByteFlag, u8, from_u8, 0, 254);
-        assert_wire_fallback!(Special9999Flag, i32, from_i32, 0, i32::MIN);
         assert_wire_fallback!(SmallRange0to3, i32, from_i32, 3, i32::MIN);
         assert_wire_fallback!(SmallRange0to3, u8, from_u8, 3, 254);
-        assert_wire_fallback!(SpecialPatternFlag, i32, from_i32, 0, i32::MIN);
         assert_wire_fallback!(HealItemFlag, u8, from_u8, 1, 254);
         assert_wire_fallback!(MagicType, u32, from_u32, 1, u32::MAX);
         assert_wire_fallback!(SpellTargetType, u32, from_u32, 1, u32::MAX);
