@@ -45,13 +45,21 @@ grep -Eq "iced-rs/winit\.git.*rev = \"$WINIT_REV\"" Cargo.toml \
 
 # 4. GUI/hexedit test commands must request the headless software backend.
 #    Commands are defined once in scripts/ci-commands.sh and called by both the
-#    Makefile and CI (enforced by scripts/check-project-metadata.sh).
-grep -qF 'ICED_TEST_BACKEND=software cargo test -p dispel-gui --features "iced_test"' scripts/ci-commands.sh \
-  || fail "ci-commands.sh iced-test must set ICED_TEST_BACKEND=software"
-grep -qF 'ICED_TEST_BACKEND=software cargo test -p hexedit --quiet' scripts/ci-commands.sh \
-  || fail "ci-commands.sh hexedit-test must set ICED_TEST_BACKEND=software"
-grep -qF 'ICED_TEST_BACKEND=software cargo test --workspace --all-features' scripts/ci-commands.sh \
-  || fail "ci-commands.sh test must set ICED_TEST_BACKEND=software"
+#    Makefile and CI (enforced by scripts/check-project-metadata.sh). Read each
+#    dispatch arm from that script instead of repeating its command text here.
+assert_software_test_backend() {
+  local arm="$1" body
+  body="$(sed -n "/^  ${arm})/,/^    ;;/p" scripts/ci-commands.sh)"
+  [ -n "$body" ] \
+    || fail "ci-commands.sh has no $arm dispatch arm"
+  printf '%s\n' "$body" | grep -q 'cargo test' \
+    || fail "ci-commands.sh $arm arm must run cargo test"
+  printf '%s\n' "$body" | grep -qF 'ICED_TEST_BACKEND=software' \
+    || fail "ci-commands.sh $arm must set ICED_TEST_BACKEND=software"
+}
+assert_software_test_backend test
+assert_software_test_backend iced-test
+assert_software_test_backend hexedit-test
 
 # 5. The software backend needs tiny-skia compiled in on both iced_test paths.
 grep -q 'iced/tiny-skia' dispel-gui/Cargo.toml \

@@ -227,12 +227,17 @@ check("MAP_RENDER_TARGETS" in make_vars, "MAP_RENDER_TARGETS list is missing")
 # ---------------------------------------------------------------------------
 # 3. One canonical command set, used by Makefile and all workflows
 # ---------------------------------------------------------------------------
-command_block = re.search(r"COMMANDS=\(\s*(.*?)\s*\)", commands_sh, re.S)
-commands = re.findall(r"^\s*([a-z][a-z-]*)\s*$", command_block.group(1), re.M) if command_block else []
-required_commands = {
+# The ten canonical command names live here once; every check below derives its
+# command set from this tuple. ci-commands.sh's COMMANDS array is still read
+# separately so a missing dispatch entry remains detectable.
+CANONICAL_COMMANDS = (
     "fmt", "fmt-check", "clippy", "test", "check",
     "iced-test", "hexedit-test", "check-iced-config", "check-metadata", "check-metadata-test",
-}
+)
+required_commands = set(CANONICAL_COMMANDS)
+
+command_block = re.search(r"COMMANDS=\(\s*(.*?)\s*\)", commands_sh, re.S)
+commands = re.findall(r"^\s*([a-z][a-z-]*)\s*$", command_block.group(1), re.M) if command_block else []
 check(required_commands <= set(commands), f"ci-commands.sh missing commands: {sorted(required_commands - set(commands))}")
 for command in commands:
     check(
@@ -240,10 +245,17 @@ for command in commands:
         f"ci-commands.sh has no dispatch arm for {command!r}",
     )
 
-for command in ("fmt", "clippy", "test", "check", "iced-test", "hexedit-test", "check-iced-config", "check-metadata", "check-metadata-test"):
+# The Makefile drives every canonical command except fmt-check, which is a
+# CI-only verification step.
+makefile_commands = tuple(c for c in CANONICAL_COMMANDS if c != "fmt-check")
+for command in makefile_commands:
     check(f"scripts/ci-commands.sh {command}" in makefile, f"Makefile does not use canonical command {command!r}")
 
-verify_commands = ("fmt-check", "check-iced-config", "check-metadata", "check-metadata-test", "clippy", "test")
+# The shared verify job (test.yml + pr.yml) runs this six-command subset.
+VERIFY_COMMANDS = frozenset({
+    "fmt-check", "check-iced-config", "check-metadata", "check-metadata-test", "clippy", "test",
+})
+verify_commands = tuple(c for c in CANONICAL_COMMANDS if c in VERIFY_COMMANDS)
 for name in ("test", "pr"):
     for command in verify_commands:
         needle = f"bash scripts/ci-commands.sh {command}"
