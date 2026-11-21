@@ -382,4 +382,29 @@ mod tests {
         assert_eq!(records[0].map_y, records2[0].map_y);
         assert_eq!(records[0].gold_amount, records2[0].gold_amount);
     }
+
+    #[test]
+    fn test_other_typed_required_item2_round_trips_bytes() {
+        let item = InventoryItem::new(ItemTypeId::Other, 5);
+        assert_eq!(item.raw(), 0x0000_FF05);
+
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes("Chest1", 10, 20, 50));
+        // required_item2 is the i32 at record offset 60.
+        data[4 + 60..4 + 64].copy_from_slice(&item.raw().to_le_bytes());
+
+        let mut c = Cursor::new(&data[..]);
+        let records = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(
+            records[0].required_item2.item_type(),
+            Some(ItemTypeId::Other)
+        );
+        assert_eq!(records[0].required_item2.item_id(), 5);
+        assert_eq!(records[0].required_item2.raw(), item.raw());
+
+        let mut out = Vec::new();
+        ExtraRef::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
+        assert_eq!(&out[64..68], &[0x05, 0xFF, 0x00, 0x00]);
+    }
 }

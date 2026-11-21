@@ -250,7 +250,7 @@ Item Type Enum (used in Extra.ref and Store.db):
     ├── 3: Edit → EditItem.db
     ├── 4: Event → EventItem.db
     ├── 5: Misc → MiscItem.db
-    └── 255: Other → catch-all
+    └── -1: Other → catch-all (0xFF on disk; SQL/GUI keys use 255)
 ```
 
 ### 8. Audio System Relationships
@@ -354,7 +354,7 @@ Message.scr (UI messages)
 3: Edit → EditItem.db
 4: Event → EventItem.db
 5: Misc → MiscItem.db
-255: Other → catch-all
+-1: Other → catch-all (0xFF on disk; SQL/GUI numeric keys use 255)
 ```
 
 ### Item Database Cross-References

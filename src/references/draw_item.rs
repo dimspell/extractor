@@ -175,4 +175,19 @@ mod tests {
         assert_eq!(records[0].x_coord, records2[0].x_coord);
         assert_eq!(records[0].item.raw(), records2[0].item.raw());
     }
+
+    #[test]
+    fn test_other_item_type_serializes_raw_decimal() {
+        let item = InventoryItem::new(ItemTypeId::Other, 5);
+        assert_eq!(item.raw(), 65285);
+        let record = DrawItem {
+            map_id: 1,
+            x_coord: 10,
+            y_coord: 20,
+            item,
+        };
+        let mut out = Vec::new();
+        DrawItem::to_writer(&[record], &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), "(1,10,20,65285)\r\n");
+    }
 }

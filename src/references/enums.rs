@@ -45,7 +45,7 @@ impl_wire_value!(MapLighting, i32, from_i32);
 impl_wire_value!(EditItemModification, u8, from_u8);
 impl_wire_value!(EditItemEffect, i16, from_i16);
 impl_wire_value!(ExtraObjectType, u8, from_u8);
-impl_wire_value!(ItemTypeId, u8, from_u8);
+impl_wire_value!(ItemTypeId, i8, from_i8);
 impl_wire_value!(BooleanFlag, i32, from_i32);
 impl_wire_value!(BooleanFlag, u8, from_u8);
 impl_wire_value!(Unknown012, i32, from_i32);
@@ -674,7 +674,7 @@ impl std::fmt::Display for ExtraObjectType {
 
 /// Item type identifiers for inventory and requirements
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(u8)]
+#[repr(i8)]
 pub enum ItemTypeId {
     /// Weapon item type
     #[default]
@@ -688,7 +688,9 @@ pub enum ItemTypeId {
     /// Miscellaneous item type
     Misc = 5,
     /// Other/Unknown item type (catch-all for undefined values)
-    Other = 255,
+    ///
+    /// On disk the catch-all byte is `0xFF`; the signed value is `-1`.
+    Other = -1,
 }
 
 /// Encodes an inventory item as a packed `i32`.
@@ -704,6 +706,10 @@ pub struct InventoryItem(i32);
 
 impl InventoryItem {
     /// Create a new inventory item from a type and ID (encodes into low 16 bits).
+    ///
+    /// The type is reinterpreted as its on-disk byte before widening: the
+    /// catch-all discriminant is `-1` in memory but `0xFF` on disk, so widening
+    /// the signed value directly would corrupt the upper bytes of the field.
     pub fn new(item_type: ItemTypeId, item_id: u8) -> Self {
         Self(i32::from(u8::from(item_type)) << 8 | i32::from(item_id))
     }
@@ -715,7 +721,8 @@ impl InventoryItem {
 
     /// The item type (decoded from the second byte).
     pub fn item_type(self) -> Option<ItemTypeId> {
-        ItemTypeId::from_u8(((self.0 as u16) >> 8) as u8)
+        let byte = ((self.0 as u16) >> 8) as u8;
+        ItemTypeId::from_i8(byte as i8)
     }
 
     /// True when the item slot is empty (low 16 bits == `0xFFFF`).
@@ -754,8 +761,9 @@ impl From<InventoryItem> for i32 {
 }
 
 impl ItemTypeId {
-    /// Convert from u8 with validation
-    pub fn from_u8(value: u8) -> Option<Self> {
+    /// Convert from the signed on-disk value, with a catch-all for undefined
+    /// discriminants.
+    pub fn from_i8(value: i8) -> Option<Self> {
         match value {
             1 => Some(ItemTypeId::Weapon),
             2 => Some(ItemTypeId::Healing),
@@ -766,6 +774,11 @@ impl ItemTypeId {
         }
     }
 
+    /// Convert from u8 with validation
+    pub fn from_u8(value: u8) -> Option<Self> {
+        Self::from_i8(value as i8)
+    }
+
     /// Convert from a string ID
     pub fn from_id(id: &str) -> Option<Self> {
         match id {
@@ -774,7 +787,8 @@ impl ItemTypeId {
             "3" => Some(ItemTypeId::Edit),
             "4" => Some(ItemTypeId::Event),
             "5" => Some(ItemTypeId::Misc),
-            "255" => Some(ItemTypeId::Other),
+            // The catch-all byte is 0xFF on disk, which is -1 when signed.
+            "255" | "-1" => Some(ItemTypeId::Other),
             _ => None,
         }
     }
@@ -792,9 +806,9 @@ impl ItemTypeId {
         }
     }
 
-    /// Get the numeric value
-    pub fn value(&self) -> u8 {
-        *self as u8
+    /// Get the signed numeric value
+    pub fn value(&self) -> i8 {
+        *self as i8
     }
 }
 
@@ -819,7 +833,23 @@ impl TryFrom<u8> for ItemTypeId {
     }
 }
 
+impl TryFrom<i8> for ItemTypeId {
+    type Error = &'static str;
+
+    fn try_from(value: i8) -> Result<Self, Self::Error> {
+        ItemTypeId::from_i8(value).ok_or("Invalid item type ID value")
+    }
+}
+
 impl From<ItemTypeId> for u8 {
+    fn from(item_type: ItemTypeId) -> Self {
+        // Reinterpret the signed discriminant as its on-disk byte so SQL and
+        // GUI numeric keys keep the 0xFF value for the catch-all.
+        item_type.value() as u8
+    }
+}
+
+impl From<ItemTypeId> for i8 {
     fn from(item_type: ItemTypeId) -> Self {
         item_type.value()
     }
@@ -1921,15 +1951,42 @@ mod tests {
 
     #[test]
     fn test_item_type_id_conversion() {
+        assert_eq!(ItemTypeId::from_i8(1), Some(ItemTypeId::Weapon));
+        assert_eq!(ItemTypeId::from_i8(2), Some(ItemTypeId::Healing));
+        assert_eq!(ItemTypeId::from_i8(3), Some(ItemTypeId::Edit));
+        assert_eq!(ItemTypeId::from_i8(4), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_i8(5), Some(ItemTypeId::Misc));
+        assert_eq!(ItemTypeId::from_i8(-1), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_i8(0), Some(ItemTypeId::Other));
+
         assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
-        assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Healing));
-        assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Edit));
-        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
         assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Misc));
         assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::Other));
 
+        assert_eq!(ItemTypeId::from_id("255"), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_id("-1"), Some(ItemTypeId::Other));
+
+        assert_eq!(ItemTypeId::Other as i8, -1);
+        assert_eq!(i8::from(ItemTypeId::Other), -1);
+        assert_eq!(u8::from(ItemTypeId::Other), 255);
         assert_eq!(u8::from(ItemTypeId::Edit), 3);
-        assert_eq!(ItemTypeId::Edit.value(), 3);
+        assert_eq!(ItemTypeId::Edit.value(), 3i8);
+        assert_eq!(ItemTypeId::Other.value(), -1i8);
+        assert_eq!(ItemTypeId::try_from(-1i8), Ok(ItemTypeId::Other));
+    }
+
+    #[test]
+    fn test_inventory_item_other_keeps_0xff_byte() {
+        let item = InventoryItem::new(ItemTypeId::Other, 5);
+        assert_eq!(item.raw(), 0x0000_FF05);
+        assert_eq!(item.raw().to_le_bytes(), [0x05, 0xFF, 0x00, 0x00]);
+        assert_eq!(item.item_id(), 5);
+        assert_eq!(item.item_type(), Some(ItemTypeId::Other));
+
+        let decoded = InventoryItem::from(item.raw());
+        assert_eq!(decoded.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(decoded.item_id(), 5);
+        assert_eq!(decoded.raw(), item.raw());
     }
 
     #[test]
@@ -2092,7 +2149,7 @@ mod tests {
 
     #[test]
     fn every_enum_fallback_matches_default_and_strict_conversion() {
-        // i32/i16/u32/u8 sentinels below are outside every enum's defined range.
+        // i32/i16/i8/u32/u8 sentinels below are outside every enum's defined range.
         assert_wire_fallback!(EventType, i32, from_i32, 2, i32::MIN);
         assert_wire_fallback!(MonsterAiType, i32, from_i32, 1, i32::MIN);
         assert_wire_fallback!(PropertyFlag, i32, from_i32, 1, i32::MIN);
@@ -2100,7 +2157,7 @@ mod tests {
         assert_wire_fallback!(EditItemModification, u8, from_u8, 1, 254);
         assert_wire_fallback!(EditItemEffect, i16, from_i16, 1, i16::MIN);
         assert_wire_fallback!(ExtraObjectType, u8, from_u8, 2, 254);
-        assert_wire_fallback!(ItemTypeId, u8, from_u8, 1, 254);
+        assert_wire_fallback!(ItemTypeId, i8, from_i8, 1, i8::MIN);
         assert_wire_fallback!(BooleanFlag, i32, from_i32, 1, i32::MIN);
         assert_wire_fallback!(BooleanFlag, u8, from_u8, 1, 254);
         assert_wire_fallback!(Unknown012, i32, from_i32, 1, i32::MIN);

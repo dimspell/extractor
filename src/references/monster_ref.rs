@@ -251,4 +251,44 @@ mod tests {
         assert_eq!(records[0].map_x, records2[0].map_x);
         assert_eq!(records[0].map_y, records2[0].map_y);
     }
+
+    #[test]
+    fn test_other_typed_loot_round_trips_bytes() {
+        let loot = InventoryItem::new(ItemTypeId::Other, 5);
+        assert_eq!(loot.raw(), 0x0000_FF05);
+
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes(1, 5, 10, 20));
+        // loot_item_1 is field 9 of the 14 i32 record words.
+        data[4 + 36..4 + 40].copy_from_slice(&loot.raw().to_le_bytes());
+
+        let mut c = Cursor::new(&data[..]);
+        let records = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(records[0].loot_item_1.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(records[0].loot_item_1.item_id(), 5);
+
+        let mut out = Vec::new();
+        MonsterRef::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
+        assert_eq!(&out[40..44], &[0x05, 0xFF, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn test_other_item_type_binds_255_to_sqlite() {
+        let conn = &mut rusqlite::Connection::open_in_memory().unwrap();
+        crate::database::create_all(conn).unwrap();
+
+        let monster = MonsterRef {
+            loot_item_1: InventoryItem::new(ItemTypeId::Other, 5),
+            ..Default::default()
+        };
+        save_monster_refs(conn, 1, &[monster]).unwrap();
+
+        let stored: i32 = conn
+            .query_row("SELECT loot_item_1_type FROM monster_refs", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(stored, 255);
+    }
 }

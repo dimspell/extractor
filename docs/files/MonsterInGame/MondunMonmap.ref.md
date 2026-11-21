@@ -92,7 +92,7 @@ preserved when writing.
 - `Edit` (3): Modifiable equipment
 - `Event` (4): Quest-related objects
 - `Misc` (5): Various utility items
-- `Other` (255): Undefined/catch-all
+- `Other` (-1, `0xFF` on disk; SQL/GUI numeric keys use 255): Undefined/catch-all
 
 ## Related Files
 

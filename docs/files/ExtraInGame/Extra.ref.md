@@ -195,15 +195,17 @@ plain `u8` now.
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 
-| Value | Name   | Description                 |
-|-------|--------|-----------------------------|
-| 0     | Weapon | Weapon category             |
-| 1     | Armor  | Armor category              |
-| 2     | Heal   | Healing item category       |
-| 3     | Misc   | Miscellaneous item category |
-| 4     | Edit   | Edit item category          |
-| 5     | Event  | Event item category         |
-| 6     | Extra  | Extra item category         |
+The signed value is `-1` for the catch-all, stored on disk as the byte `0xFF`.
+SQL columns and GUI numeric keys keep the on-disk byte value, so the catch-all reads as `255` there.
+
+| Value (signed) | On-disk byte | Name    | Description                 |
+|----------------|--------------|---------|-----------------------------|
+| 1              | 0x01         | Weapon  | Weapon category             |
+| 2              | 0x02         | Healing | Healing item category       |
+| 3              | 0x03         | Edit    | Edit item category          |
+| 4              | 0x04         | Event   | Event item category         |
+| 5              | 0x05         | Misc    | Miscellaneous item category |
+| -1             | 0xFF         | Other   | Undefined/catch-all         |
 
 ### Interactive Element Types
 
