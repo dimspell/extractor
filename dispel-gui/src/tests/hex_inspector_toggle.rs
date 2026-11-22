@@ -201,32 +201,6 @@ mod hex_inspector_toggle_tests {
 
         // Click the real button and collect what the app would receive.
         let mut ui = simulator(app.view());
-        {
-            use iced_test::selector::Candidate;
-            let _ = ui.find(|c: Candidate| -> Option<()> {
-                if let Some(vb) = c.visible_bounds()
-                    && vb.y <= 235.0
-                    && vb.y + vb.height >= 205.0
-                {
-                    match &c {
-                        Candidate::Text { content, .. } => {
-                            eprintln!("MATRIX DEBUG text {content:?} bounds={vb:?}");
-                        }
-                        Candidate::Container { .. } => {
-                            eprintln!("MATRIX DEBUG container bounds={vb:?}");
-                        }
-                        Candidate::Focusable { .. } => {
-                            eprintln!("MATRIX DEBUG focusable bounds={vb:?}");
-                        }
-                        _ => {
-                            eprintln!("MATRIX DEBUG other bounds={vb:?}");
-                        }
-                    }
-                }
-
-                None
-            });
-        }
         ui.click("B").expect("B toggle button must be clickable");
         let messages: Vec<Message> = ui.into_messages().collect();
         assert!(
@@ -280,24 +254,9 @@ mod hex_inspector_toggle_tests {
 
         // Click the real "B" toggle button and route through the app.
         let mut ui = simulator(app.view());
-        // Debug: pane layout of the hex editor state.
-        {
-            let tab_id = app.state.workspace.active().unwrap().id;
-            let st = app.state.editors.hex_editors.get(&tab_id).unwrap();
-            eprintln!("DEBUG-DIFF pane_focus={:?}", st.pane_focus);
-            for (id, panel) in st.panes.iter() {
-                eprintln!("DEBUG-DIFF pane id={id:?} content={:?}", panel.content);
-            }
-            let b = ui.find("B").expect("B node");
-            let center = b.visible_bounds().unwrap().center();
-            eprintln!("DEBUG-DIFF point={center:?}");
-            let hit = ui.find(center).expect("widget at point");
-            eprintln!("DEBUG-DIFF top widget at point: {hit:?}");
-        }
         ui.click("B")
             .expect("B toggle must be clickable with the diff view active");
         let messages: Vec<Message> = ui.into_messages().collect();
-        eprintln!("DEBUG diff-view-active click messages: {messages:?}");
         for msg in messages {
             let _ = app.update(msg);
         }

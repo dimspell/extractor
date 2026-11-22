@@ -840,14 +840,9 @@ mod tests {
     // ── resolve_map_id ──────────────────────────────────────────────────────────
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_resolve_map_id_found() {
-        let gp = match game_path() {
-            Some(p) => p,
-            None => {
-                eprintln!("Skipping: fixtures not found");
-                return;
-            }
-        };
+        let gp = game_path().expect("local game fixtures are required for this test");
         assert_eq!(resolve_map_id("cat1", &gp), Some(3));
         assert_eq!(resolve_map_id("map1", &gp), Some(0));
         assert_eq!(resolve_map_id("dun04", &gp), Some(10));
@@ -855,14 +850,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_resolve_map_id_not_found() {
-        let gp = match game_path() {
-            Some(p) => p,
-            None => {
-                eprintln!("Skipping: fixtures not found");
-                return;
-            }
-        };
+        let gp = game_path().expect("local game fixtures are required for this test");
         assert_eq!(resolve_map_id("nonexistent", &gp), None);
     }
 
@@ -875,28 +865,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_resolve_map_id_empty_stem() {
-        let gp = match game_path() {
-            Some(p) => p,
-            None => {
-                eprintln!("Skipping: fixtures not found");
-                return;
-            }
-        };
+        let gp = game_path().expect("local game fixtures are required for this test");
         assert_eq!(resolve_map_id("", &gp), None);
     }
 
     // ── load_entities ──────────────────────────────────────────────────────────
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_load_entities_draw_items_and_map_id() {
-        let gp = match game_path() {
-            Some(p) => p,
-            None => {
-                eprintln!("Skipping: fixtures not found");
-                return;
-            }
-        };
+        let gp = game_path().expect("local game fixtures are required for this test");
 
         // cat1 = Palace of Aesh: AllMap.ini id=3, has no draw items
         let cat1 = load_entities(&gp.join("Map/cat1.map"), Some(gp.clone()));
@@ -933,14 +913,9 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_load_entities() {
-        let gp = match game_path() {
-            Some(p) => p,
-            None => {
-                eprintln!("Skipping: fixtures not found");
-                return;
-            }
-        };
+        let gp = game_path().expect("local game fixtures are required for this test");
 
         // cat1 = Palace of Aesh: NPCs only (24), no monsters, no extras
         let cat1_entities = load_entities(&gp.join("Map/cat1.map"), Some(gp.clone()));

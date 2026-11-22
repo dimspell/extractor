@@ -682,11 +682,9 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn light_map_loads_no_shadow_data() {
-        let Some(gp) = fixture_game_path() else {
-            eprintln!("Skipping: fixtures not found");
-            return;
-        };
+        let gp = fixture_game_path().expect("local game fixtures are required for this test");
         // cat1 is flagged Light (0) in AllMap.ini → no lighting pass
         // is applied there.
         assert!(
@@ -696,11 +694,9 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn dark_map_loads_fog_data_with_known_factors() {
-        let Some(gp) = fixture_game_path() else {
-            eprintln!("Skipping: fixtures not found");
-            return;
-        };
+        let gp = fixture_game_path().expect("local game fixtures are required for this test");
         // final is flagged Dark (1) in AllMap.ini.
         let fog = dispel_core::map::render::load_fog_if_dark(&gp, "final")
             .expect("Dark map must load fogdata.dat");
@@ -711,11 +707,9 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn unknown_map_loads_no_shadow_data() {
-        let Some(gp) = fixture_game_path() else {
-            eprintln!("Skipping: fixtures not found");
-            return;
-        };
+        let gp = fixture_game_path().expect("local game fixtures are required for this test");
         assert!(
             dispel_core::map::render::load_fog_if_dark(&gp, "not_a_map").is_none(),
             "maps missing from AllMap.ini get no shadow pass"
@@ -723,11 +717,9 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn map_render_source_exposes_loaded_shadow_data() {
-        let Some(gp) = fixture_game_path() else {
-            eprintln!("Skipping: fixtures not found");
-            return;
-        };
+        let gp = fixture_game_path().expect("local game fixtures are required for this test");
 
         let mut state = MapEditorState::default();
         assert!(
