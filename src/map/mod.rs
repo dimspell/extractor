@@ -462,7 +462,6 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         let (refs, words) = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
         btl_tiles = refs;
         access_ref_words = words;
-        let _ = &overlay_modes;
     } else if remaining_bytes > 0 {
         // If there are remaining bytes but not enough for a full grid,
         // this might indicate a different file structure or corruption

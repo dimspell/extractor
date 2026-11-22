@@ -527,9 +527,7 @@ where
 pub fn animation_with_options(file_path: &Path, options: SpriteRenderOptions) -> Result<()> {
     for_each_sequence(file_path, |reader, info, seq_idx| {
         save_sequence_anim_with_options(reader, &info.frame_infos, seq_idx as i32, options)
-    })?;
-    println!("Finished");
-    Ok(())
+    })
 }
 
 /// Export individual frames using explicit [`SpriteRenderOptions`].
@@ -546,9 +544,7 @@ pub fn extract_with_options(
             &out_file_prefix,
             options,
         )
-    })?;
-    println!("Finished");
-    Ok(())
+    })
 }
 
 /// Save one animation atlas using explicit [`SpriteRenderOptions`].
@@ -558,20 +554,16 @@ pub fn save_sequence_anim_with_options(
     sequence_counter: i32,
     options: SpriteRenderOptions,
 ) -> Result<()> {
-    println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
-
     let (rect_x, rect_y, rect_w, rect_h) = compute_rect(frames);
     let rect_w = rect_w.unsigned_abs();
     let rect_h = rect_h.unsigned_abs();
-
-    println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
     let imgbuf =
         render_sequence_animation(reader, frames, rect_x, rect_y, rect_w, rect_h, options)?;
 
     imgbuf
         .save(format!("image_{:?}.png", sequence_counter))
-        .unwrap();
+        .map_err(std::io::Error::other)?;
 
     Ok(())
 }
@@ -622,13 +614,9 @@ pub fn save_sequence_with_options(
     out_file_prefix: &str,
     options: SpriteRenderOptions,
 ) -> Result<()> {
-    println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
-
     let (rect_x, rect_y, rect_w, rect_h) = compute_rect(frames);
     let rect_w = rect_w.unsigned_abs();
     let rect_h = rect_h.unsigned_abs();
-
-    println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
     for (i, frame) in frames.iter().enumerate() {
         let (offset_x, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
@@ -638,7 +626,7 @@ pub fn save_sequence_with_options(
         )?;
 
         let outfile = format!("./{}_{:?}-{:?}.png", out_file_prefix, sequence_counter, i);
-        frame_rgba.save(outfile).unwrap();
+        frame_rgba.save(outfile).map_err(std::io::Error::other)?;
     }
 
     Ok(())

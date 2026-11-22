@@ -66,19 +66,15 @@ pub trait Localizable {
 
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
-fn encoding_rs_for(enc: &TextEncoding) -> &'static encoding_rs::Encoding {
-    enc.encoding_rs()
-}
-
 fn encoded_len(s: &str, enc: &TextEncoding) -> usize {
-    let (bytes, _, _) = encoding_rs_for(enc).encode(s);
+    let (bytes, _, _) = enc.encoding_rs().encode(s);
     bytes.len()
 }
 
 /// Truncate `s` so it fits within `max_bytes` when re-encoded, working character by character.
 /// Returns `(truncated_string, was_truncated)`.
 pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String, bool) {
-    let encoder = encoding_rs_for(enc);
+    let encoder = enc.encoding_rs();
     let (full, _, _) = encoder.encode(s);
     if full.len() <= max_bytes {
         return (s.to_owned(), false);
@@ -491,7 +487,10 @@ mod tests {
                     "spelling {spelling:?} must resolve to {encoding:?}"
                 );
                 assert_eq!(
-                    encoding_rs_for(&TextEncoding::from_spelling(spelling).unwrap()).name(),
+                    TextEncoding::from_spelling(spelling)
+                        .unwrap()
+                        .encoding_rs()
+                        .name(),
                     encoding.encoding_rs().name(),
                 );
             }

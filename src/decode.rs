@@ -166,37 +166,21 @@ pub fn tile_colors_to_rgba(colors: &[Color; TILE_PIXEL_COUNT]) -> Vec<u8> {
 
 /// Decode 2048 raw RGB565 bytes (one 32×32 tile) straight into a 62×32 RGBA
 /// byte buffer. This is the version-agnostic entry point used by the GUI map
-/// renderer: it owns both the color conversion and the diamond geometry.
+/// renderer: it owns the color conversion and delegates the diamond geometry
+/// to [`blit_tile_rgba`], so only one blit loop exists.
 pub fn decode_tile_rgba(tile_bytes: &[u8]) -> Vec<u8> {
-    let mut rgba = vec![0u8; (TILE_WIDTH * TILE_HEIGHT * 4) as usize];
-    let mask = tile_mask();
-    let mut src = 0usize;
-
-    for (y, row) in mask.iter().enumerate() {
-        for x in 0..row[1] {
-            let lo = match src.checked_mul(2) {
-                Some(base) if base + 1 < tile_bytes.len() => base,
-                // Truncated input: leave this and all remaining pixels clear.
-                _ => return rgba,
-            };
-            let pixel = u16::from_le_bytes([tile_bytes[lo], tile_bytes[lo + 1]]);
-            src += 1;
-
-            let color = rgb565_to_color(pixel);
-            if color.r == 0 && color.g == 0 && color.b == 0 {
-                continue;
-            }
-
-            let px = row[0] + x;
-            if px < 0 || px >= TILE_WIDTH as i32 {
-                continue;
-            }
-            let dst = (y * TILE_WIDTH as usize + px as usize) * 4;
-            rgba[dst..dst + 4].copy_from_slice(&[color.r, color.g, color.b, 255]);
+    let mut colors = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_COUNT];
+    for (i, color) in colors.iter_mut().enumerate() {
+        let base = i * 2;
+        if base + 1 >= tile_bytes.len() {
+            // Truncated input: leave this and all remaining texels black.
+            // blit_tile_rgba treats black as transparent, matching the old
+            // early-return behavior which left them clear.
+            break;
         }
+        *color = rgb565_to_color(u16::from_le_bytes([tile_bytes[base], tile_bytes[base + 1]]));
     }
-
-    rgba
+    tile_colors_to_rgba(&colors)
 }
 
 // ===========================================================================
@@ -314,6 +298,29 @@ mod tests {
         assert_eq!(rgba.len(), (TILE_WIDTH * TILE_HEIGHT * 4) as usize);
         assert_eq!(&rgba[30 * 4..30 * 4 + 4], &[255, 0, 0, 255]);
         assert_eq!(rgba.chunks_exact(4).filter(|px| px[3] == 255).count(), 1);
+    }
+
+    #[test]
+    fn decode_tile_rgba_matches_blitting_decoded_colors() {
+        // Synthetic full tile with varied RGB565 values and scattered black
+        // texels. Both entry points must produce byte-identical RGBA output.
+        let mut tile = Vec::with_capacity(TILE_BYTE_COUNT);
+        for i in 0..TILE_PIXEL_COUNT {
+            let pixel: u16 = if i % 7 == 0 {
+                0x0000
+            } else {
+                (i as u16).wrapping_mul(0x9E37)
+            };
+            tile.extend_from_slice(&pixel.to_le_bytes());
+        }
+        assert_eq!(tile.len(), TILE_BYTE_COUNT);
+
+        let mut colors = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_COUNT];
+        for (i, color) in colors.iter_mut().enumerate() {
+            *color = rgb565_to_color(u16::from_le_bytes([tile[i * 2], tile[i * 2 + 1]]));
+        }
+
+        assert_eq!(decode_tile_rgba(&tile), tile_colors_to_rgba(&colors));
     }
 
     // ── Property tests ─────────────────────────────────────────────────

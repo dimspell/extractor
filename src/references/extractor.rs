@@ -1,5 +1,4 @@
 use std::io::{BufReader, BufWriter, Read, Result, Seek, Write};
-use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
@@ -59,16 +58,7 @@ pub fn parse_null(s: &str) -> Option<String> {
 }
 
 pub fn parse_int(s: &str) -> Option<i32> {
-    match s.parse::<i32>() {
-        Ok(value) => Some(value),
-        Err(err) => match err.kind() {
-            IntErrorKind::Empty => None,
-            _ => {
-                println!("{err:?} {s}");
-                None
-            }
-        },
-    }
+    s.parse::<i32>().ok()
 }
 
 pub fn read_mapper<R: Read>(
@@ -81,15 +71,10 @@ pub fn read_mapper<R: Read>(
         (((file_len - counter_size as u64) as f64) / property_item_size as f64).floor();
     let space_for_elements: i32 = space_for_elements as i32;
 
-    let expected_elements = if counter_size > 0 {
-        reader.read_i32::<LittleEndian>()?
-    } else {
-        space_for_elements
-    };
-    if expected_elements != space_for_elements {
-        println!(
-            "expected_elements: {expected_elements} / space_for_elements: {space_for_elements}"
-        );
+    // Consume the on-disk element counter when present. The authoritative
+    // count is derived from the file size below, so a mismatch is ignored.
+    if counter_size > 0 {
+        let _ = reader.read_i32::<LittleEndian>()?;
     }
 
     Ok(space_for_elements)
