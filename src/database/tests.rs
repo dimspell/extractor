@@ -4,7 +4,9 @@
 //! schema manifest (create/drop symmetry, no stale tables) and one real
 //! parse → write → read round trip through the registered INSERT statement.
 
-use super::{bootstrap, create_all, drop_all, insert_sql, table_names, try_insert_sql};
+use super::{
+    bootstrap, create_all, drop_all, import_sprite_files, insert_sql, table_names, try_insert_sql,
+};
 use crate::references::extractor::Extractor;
 use crate::references::weapons_db::{WeaponItem, save_weapons};
 use rusqlite::Connection;
@@ -178,4 +180,147 @@ fn test_insert_replace_is_idempotent_for_keyed_table() {
         .expect("read message");
     assert_eq!(line, "second", "last write must win");
     assert_eq!(count, 1, "upsert must not duplicate keyed rows");
+}
+
+/// A temp game directory holding one valid archive and one whose byte stream
+/// ends before its sequence header. The corrupt file exercises parse failure,
+/// which must not leave a `sprite_files` row behind.
+#[test]
+fn test_import_sprite_files_skips_corrupt_file_and_imports_valid_one() {
+    use crate::sprite::{
+        SpriteFile, SpriteFrameData, SpritePixelFormat, SpriteSequence, write_sprite_to_path,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "dispel-sprite-import-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp game dir");
+
+    // Two RGB565 pixels per frame so a clean import yields exactly two rows.
+    let frame = SpriteFrameData {
+        unknown: [0u8; 24],
+        origin_x: 0,
+        origin_y: 0,
+        width: 2,
+        height: 2,
+        pixel_format: SpritePixelFormat::Rgb565,
+        raw_pixels: vec![0x00, 0xF8, 0x00, 0xF8, 0x00, 0xF8, 0x00, 0xF8],
+    };
+    let sprite = SpriteFile {
+        sequences: vec![SpriteSequence {
+            has_stamp: false,
+            frames: vec![frame.clone(), frame],
+        }],
+    };
+    write_sprite_to_path(&dir.join("valid.spr"), &sprite).expect("write valid sprite");
+    // Sequence count of 1 but no sequence header: parsing must fail.
+    std::fs::write(dir.join("corrupt.spr"), [1u8, 0, 0, 0]).expect("write corrupt sprite");
+
+    let mut conn = Connection::open_in_memory().expect("in-memory database");
+    bootstrap(&conn).expect("bootstrap");
+    import_sprite_files(&dir, &mut conn).expect("import sprite files");
+
+    let paths: Vec<String> = {
+        let mut stmt = conn
+            .prepare("SELECT normalized_path FROM sprite_files")
+            .expect("prepare path query");
+        stmt.query_map([], |row| row.get(0))
+            .expect("query sprite_files")
+            .map(|row| row.expect("read path"))
+            .collect()
+    };
+    let frame_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sprite_frames", [], |row| row.get(0))
+        .expect("count frames");
+    let seq_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sprite_sequences", [], |row| {
+            row.get(0)
+        })
+        .expect("count sequences");
+    let valid_frames: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sprite_frames WHERE sprite_file_id = \
+             (SELECT id FROM sprite_files WHERE normalized_path = 'valid.spr')",
+            [],
+            |row| row.get(0),
+        )
+        .expect("count frames of valid sprite");
+
+    std::fs::remove_dir_all(&dir).expect("remove temp game dir");
+
+    assert_eq!(
+        paths,
+        vec!["valid.spr".to_owned()],
+        "corrupt file must have no row"
+    );
+    assert_eq!(frame_count, 2, "valid sprite must import both frames");
+    assert_eq!(seq_count, 1);
+    assert_eq!(valid_frames, 2);
+}
+
+/// A frame insert failure must roll back the file row written earlier in the
+/// same per-file transaction, leaving all three sprite tables empty.
+#[test]
+fn test_import_sprite_files_rolls_back_on_insert_failure() {
+    use crate::sprite::{
+        SpriteFile, SpriteFrameData, SpritePixelFormat, SpriteSequence, write_sprite_to_path,
+    };
+
+    let dir = std::env::temp_dir().join(format!(
+        "dispel-sprite-rollback-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).expect("create temp game dir");
+
+    let frame = SpriteFrameData {
+        unknown: [0u8; 24],
+        origin_x: 0,
+        origin_y: 0,
+        width: 1,
+        height: 1,
+        pixel_format: SpritePixelFormat::Rgb565,
+        raw_pixels: vec![0x00, 0xF8],
+    };
+    let sprite = SpriteFile {
+        sequences: vec![SpriteSequence {
+            has_stamp: false,
+            frames: vec![frame],
+        }],
+    };
+    write_sprite_to_path(&dir.join("sprite.spr"), &sprite).expect("write sprite");
+
+    let mut conn = Connection::open_in_memory().expect("in-memory database");
+    bootstrap(&conn).expect("bootstrap");
+    conn.execute_batch(
+        "CREATE TRIGGER fail_frame BEFORE INSERT ON sprite_frames
+         BEGIN SELECT RAISE(ABORT, 'forced frame failure'); END;",
+    )
+    .expect("create failing trigger");
+
+    let result = import_sprite_files(&dir, &mut conn);
+
+    std::fs::remove_dir_all(&dir).expect("remove temp game dir");
+
+    assert!(result.is_err(), "frame insert failure must propagate");
+    for (table, label) in [
+        ("sprite_files", "file"),
+        ("sprite_frames", "frame"),
+        ("sprite_sequences", "sequence"),
+    ] {
+        let count: i64 = conn
+            .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .expect("count rows");
+        assert_eq!(count, 0, "{label} rows must roll back on insert failure");
+    }
 }

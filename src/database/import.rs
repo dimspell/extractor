@@ -568,6 +568,27 @@ pub fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<()
     let mut count = 0u64;
     let mut errors = 0u64;
 
+    // Rendered frames and sequence metadata for one file, held in memory until
+    // the whole file is known to be valid.
+    struct PendingFrame {
+        frame_idx: i32,
+        png_data: Vec<u8>,
+        width: i32,
+        height: i32,
+        origin_x: i32,
+        origin_y: i32,
+    }
+
+    struct PendingSequence {
+        seq_idx: i32,
+        frame_count: i32,
+        first_width: i32,
+        first_height: i32,
+        first_origin_x: i32,
+        first_origin_y: i32,
+        frames: Vec<PendingFrame>,
+    }
+
     visit_dirs(main_path, &mut |entry| {
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) != Some("SPR")
@@ -581,117 +602,139 @@ pub fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<()
             .to_string_lossy()
             .replace('\\', "/");
 
-        // 1. Upsert sprite_files entry and get its integer ID
-        conn.execute(file_insert_sql, rusqlite::params![&normalized])?;
-        let sprite_file_id: i64 =
-            conn.query_row(id_query_sql, rusqlite::params![&normalized], |row| {
-                row.get(0)
-            })?;
+        // Open, parse, render and encode everything before writing any row. A
+        // single bad frame rejects the whole file so no partial rows remain.
+        let file = match std::fs::File::open(&path) {
+            Ok(file) => file,
+            Err(e) => {
+                eprintln!("WARNING: open failed for {}: {e}", path.display());
+                errors += 1;
+                return Ok(());
+            }
+        };
+        let mut reader = std::io::BufReader::new(file);
+        let infos = match crate::sprite::get_sprite_sequence_infos(&path) {
+            Ok(infos) => infos,
+            Err(e) => {
+                eprintln!("WARNING: sprite parse failed for {}: {e}", path.display());
+                errors += 1;
+                return Ok(());
+            }
+        };
 
-        // 2. Prepare frame + sequence statements (per-file to avoid
-        //    borrow conflicts with conn inside the loop body)
-        let mut frame_stmt = conn.prepare(frame_insert_sql)?;
-        let mut seq_stmt = conn.prepare(seq_insert_sql)?;
+        let mut pending_sequences: Vec<PendingSequence> = Vec::new();
 
-        match std::fs::File::open(&path) {
-            Ok(file) => {
-                let mut reader = std::io::BufReader::new(file);
-                let infos = match crate::sprite::get_sprite_sequence_infos(&path) {
-                    Ok(infos) => infos,
+        for (seq_idx, info) in infos.iter().enumerate() {
+            let seq_idx = seq_idx as i32;
+            let frame_count = info.frame_infos.len() as i32;
+            let mut frames = Vec::new();
+
+            for (frame_idx, fi) in info.frame_infos.iter().enumerate() {
+                if fi.width <= 0 || fi.height <= 0 {
+                    continue;
+                }
+                let img = match crate::sprite::render_frame_to_rgba_with_options(
+                    &mut reader,
+                    fi,
+                    fi.width.unsigned_abs(),
+                    fi.height.unsigned_abs(),
+                    0,
+                    0,
+                    crate::sprite::SpriteRenderOptions::default(),
+                ) {
+                    Ok(img) => img,
                     Err(e) => {
-                        eprintln!("WARNING: sprite parse failed for {}: {e}", path.display());
+                        eprintln!("WARNING: frame render failed for {}: {e}", path.display());
                         errors += 1;
                         return Ok(());
                     }
                 };
 
-                for (seq_idx, info) in infos.iter().enumerate() {
-                    let seq_idx = seq_idx as i32;
-
-                    let frame_count = info.frame_infos.len() as i32;
-                    let mut has_frame_data = false;
-
-                    for (frame_idx, fi) in info.frame_infos.iter().enumerate() {
-                        if fi.width <= 0 || fi.height <= 0 {
-                            continue;
-                        }
-                        let img = match crate::sprite::render_frame_to_rgba_with_options(
-                            &mut reader,
-                            fi,
+                let mut png_data = Vec::new();
+                {
+                    let mut cursor = std::io::Cursor::new(&mut png_data);
+                    let encoder = image::codecs::png::PngEncoder::new(&mut cursor);
+                    if encoder
+                        .write_image(
+                            img.as_raw(),
                             fi.width.unsigned_abs(),
                             fi.height.unsigned_abs(),
-                            0,
-                            0,
-                            crate::sprite::SpriteRenderOptions::default(),
-                        ) {
-                            Ok(img) => img,
-                            Err(e) => {
-                                eprintln!(
-                                    "WARNING: frame render failed for {}: {e}",
-                                    path.display()
-                                );
-                                errors += 1;
-                                continue;
-                            }
-                        };
-
-                        let mut png_data = Vec::new();
-                        {
-                            let mut cursor = std::io::Cursor::new(&mut png_data);
-                            let encoder = image::codecs::png::PngEncoder::new(&mut cursor);
-                            if encoder
-                                .write_image(
-                                    img.as_raw(),
-                                    fi.width.unsigned_abs(),
-                                    fi.height.unsigned_abs(),
-                                    image::ColorType::Rgba8,
-                                )
-                                .is_err()
-                            {
-                                eprintln!(
-                                    "WARNING: PNG encode failed for frame {} of {}",
-                                    frame_idx,
-                                    path.display()
-                                );
-                                errors += 1;
-                                continue;
-                            }
-                        }
-
-                        frame_stmt.execute(rusqlite::params![
-                            sprite_file_id,
-                            seq_idx,
-                            frame_idx as i32,
-                            &png_data,
-                            fi.width,
-                            fi.height,
-                            fi.origin_x,
-                            fi.origin_y,
-                        ])?;
-                        has_frame_data = true;
-                    }
-
-                    if has_frame_data {
-                        let first = &info.frame_infos[0];
-                        seq_stmt.execute(rusqlite::params![
-                            sprite_file_id,
-                            seq_idx,
-                            frame_count,
-                            first.width,
-                            first.height,
-                            first.origin_x,
-                            first.origin_y,
-                        ])?;
+                            image::ColorType::Rgba8,
+                        )
+                        .is_err()
+                    {
+                        eprintln!(
+                            "WARNING: PNG encode failed for frame {} of {}",
+                            frame_idx,
+                            path.display()
+                        );
+                        errors += 1;
+                        return Ok(());
                     }
                 }
 
-                count += 1;
+                frames.push(PendingFrame {
+                    frame_idx: frame_idx as i32,
+                    png_data,
+                    width: fi.width,
+                    height: fi.height,
+                    origin_x: fi.origin_x,
+                    origin_y: fi.origin_y,
+                });
             }
-            Err(e) => {
-                eprintln!("WARNING: open failed for {}: {}", path.display(), e);
-                errors += 1;
+
+            if !frames.is_empty() {
+                let first = &info.frame_infos[0];
+                pending_sequences.push(PendingSequence {
+                    seq_idx,
+                    frame_count,
+                    first_width: first.width,
+                    first_height: first.height,
+                    first_origin_x: first.origin_x,
+                    first_origin_y: first.origin_y,
+                    frames,
+                });
             }
         }
+
+        // All work succeeded: write the file, frames and sequences in one
+        // transaction so a mid-insert SQL error rolls back every row for it.
+        let tx = conn.transaction()?;
+        tx.execute(file_insert_sql, rusqlite::params![&normalized])?;
+        let sprite_file_id: i64 =
+            tx.query_row(id_query_sql, rusqlite::params![&normalized], |row| {
+                row.get(0)
+            })?;
+        {
+            let mut frame_stmt = tx.prepare(frame_insert_sql)?;
+            let mut seq_stmt = tx.prepare(seq_insert_sql)?;
+            for seq in &pending_sequences {
+                for frame in &seq.frames {
+                    frame_stmt.execute(rusqlite::params![
+                        sprite_file_id,
+                        seq.seq_idx,
+                        frame.frame_idx,
+                        &frame.png_data,
+                        frame.width,
+                        frame.height,
+                        frame.origin_x,
+                        frame.origin_y,
+                    ])?;
+                }
+                seq_stmt.execute(rusqlite::params![
+                    sprite_file_id,
+                    seq.seq_idx,
+                    seq.frame_count,
+                    seq.first_width,
+                    seq.first_height,
+                    seq.first_origin_x,
+                    seq.first_origin_y,
+                ])?;
+            }
+        }
+        tx.commit()?;
+
+        count += 1;
         Ok(())
     })?;
 
