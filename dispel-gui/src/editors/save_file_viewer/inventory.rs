@@ -185,10 +185,10 @@ fn inventory_table<'a>(
     let table_elem: Element<'a, Message> = if is_resizing {
         mouse_area(table)
             .on_move(move |p| {
-                Message::save_file_viewer(SaveFileViewerMessage::InventoryTableResizeCursor(p.x))
+                Message::save_file_viewer(SaveFileViewerMessage::TableResizeCursor(p.x))
             })
             .on_release(Message::save_file_viewer(
-                SaveFileViewerMessage::InventoryTableEndResize,
+                SaveFileViewerMessage::TableEndResize,
             ))
             .interaction(Interaction::ResizingHorizontally)
             .into()

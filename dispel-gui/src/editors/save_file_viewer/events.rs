@@ -107,11 +107,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     // whole table area so the drag isn't interrupted by the inner widget.
     let table_element: Element<'a, Message> = if is_resizing {
         mouse_area(table)
-            .on_move(|p| {
-                Message::save_file_viewer(SaveFileViewerMessage::EventsTableResizeCursor(p.x))
-            })
+            .on_move(|p| Message::save_file_viewer(SaveFileViewerMessage::TableResizeCursor(p.x)))
             .on_release(Message::save_file_viewer(
-                SaveFileViewerMessage::EventsTableEndResize,
+                SaveFileViewerMessage::TableEndResize,
             ))
             .interaction(Interaction::ResizingHorizontally)
             .into()

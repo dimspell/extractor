@@ -352,10 +352,10 @@ fn entity_table<'a>(
     let table_elem: Element<'a, Message> = if is_resizing {
         mouse_area(table_elem)
             .on_move(move |p| {
-                Message::save_file_viewer(SaveFileViewerMessage::MapsTableResizeCursor(p.x))
+                Message::save_file_viewer(SaveFileViewerMessage::TableResizeCursor(p.x))
             })
             .on_release(Message::save_file_viewer(
-                SaveFileViewerMessage::MapsTableEndResize,
+                SaveFileViewerMessage::TableEndResize,
             ))
             .interaction(Interaction::ResizingHorizontally)
             .into()
