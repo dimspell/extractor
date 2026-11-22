@@ -88,15 +88,16 @@ mod tests {
 
     /// Create a minimal synthetic .map file, write + read back, verify 3 blocks match.
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn round_trip_3x3_map() {
         let fixture = std::path::Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/fixtures/Dispel/Map/cat1.map"
         ));
-        if !fixture.exists() {
-            eprintln!("Skipping round_trip test: fixture not found");
-            return;
-        }
+        assert!(
+            fixture.exists(),
+            "local game fixtures are required for this test"
+        );
 
         // Read original
         let file = fs::File::open(fixture).unwrap();
