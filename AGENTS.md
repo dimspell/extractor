@@ -440,7 +440,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 
 ### Makefile targets (98 total)
 - Basic dev: `fmt`, `check`, `build`, `cargo_test`, `clippy`, `run`, `help`, `check_iced_config`, `check_metadata`, `check_metadata_test`
-- All fmt/clippy/test recipes delegate to **`scripts/ci-commands.sh`** — the one canonical command set shared with CI. Set `ICED_TEST_BACKEND=software` where Iced simulations need the CPU renderer.
+- Build, fmt, clippy and test recipes delegate to **`scripts/ci-commands.sh`** — the one canonical command set shared with CI. Set `ICED_TEST_BACKEND=software` where Iced simulations need the CPU renderer.
 - `iced_test`, `hexedit_test` — headless GUI/hexedit test suites
 - `hexedit` — launch the hex editor
 - Extraction/render: `sound`, `sprite-*`, `map-render` (+ 13 `map-render-*` flavors), `map-atlas-gtl/btl`, `map-to-db` / `map-from-db`
@@ -457,7 +457,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - `.github/workflows/pr.yml` — same verify job, then a 5-build release-binary matrix
 - `.github/workflows/release.yml` — Release on tag `v*.*.*`: the same 5 builds, archives with SHA256, uploads to GitHub release (draft)
 - Both matrix workflows read the **single** matrix definition in `.github/build-matrix.json` via a `build-matrix` job and `fromJSON(needs.build-matrix.outputs.matrix)` — target lists cannot drift between PR and release.
-- All three workflows use `dtolnay/rust-toolchain@stable` and call `scripts/ci-commands.sh` for fmt/clippy/test.
+- All three workflows use `dtolnay/rust-toolchain@stable`. The test.yml and pr.yml verify jobs call `scripts/ci-commands.sh` for fmt/clippy/test; test.yml also routes its workspace build through the script. Release matrix builds invoke Cargo directly with each target's flags.
 - `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects eight independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
 
 ### Release script
@@ -575,9 +575,10 @@ cargo run -p dispel-gui                              # Launch GUI
 make iced_test                                       # Iced UI simulation tests
 ```
 
-`make fmt`, `make clippy`, `make cargo_test`, `make check`, `make iced_test` and
-`make hexedit_test` are thin wrappers around `scripts/ci-commands.sh`; CI calls
-the same subcommands. Never introduce a second inline spelling of these commands.
+`make build`, `make fmt`, `make clippy`, `make cargo_test`, `make check`,
+`make iced_test` and `make hexedit_test` are thin wrappers around
+`scripts/ci-commands.sh`; CI calls the same subcommands. Never introduce a
+second inline spelling of these commands.
 
 ### rtk (Rust Token Killer)
 

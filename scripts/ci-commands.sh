@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Single source of truth for the fmt / clippy / test commands shared by the
-# Makefile and GitHub Actions. Inline these commands nowhere else:
+# Single source of truth for the fmt / clippy / test / build commands shared by
+# the Makefile and GitHub Actions. Inline these commands nowhere else:
 # scripts/check-project-metadata.sh enforces that both callers use this script.
 #
 # Usage: bash scripts/ci-commands.sh <command>
@@ -15,6 +15,7 @@ COMMANDS=(
   fmt-check
   clippy
   test
+  build
   check
   iced-test
   hexedit-test
@@ -43,6 +44,9 @@ case "$cmd" in
     # GUI simulations need Iced's CPU renderer when no GPU/window server is
     # available (CI, headless shells). Safe no-op for crates without that feature.
     ICED_TEST_BACKEND=software cargo test --workspace --all-features
+    ;;
+  build)
+    cargo build --workspace
     ;;
   check)
     cargo check --workspace

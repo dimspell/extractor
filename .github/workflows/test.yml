@@ -68,4 +68,4 @@ jobs:
         run: bash scripts/ci-commands.sh test
 
       - name: Build project
-        run: cargo build
+        run: bash scripts/ci-commands.sh build

@@ -77,8 +77,8 @@ iced_test:
 hexedit_test:
 	bash scripts/ci-commands.sh hexedit-test
 
-# All fmt/clippy/test commands live in scripts/ci-commands.sh so local `make`
-# and GitHub Actions cannot silently diverge.
+# Build, fmt, clippy and test commands live in scripts/ci-commands.sh so local
+# `make` and GitHub Actions cannot silently diverge.
 clippy:
 	bash scripts/ci-commands.sh clippy
 
@@ -98,7 +98,7 @@ check_metadata_test:
 	bash scripts/ci-commands.sh check-metadata-test
 
 build:
-	cargo build --workspace
+	bash scripts/ci-commands.sh build
 
 run:
 	cargo run -p dispel-gui

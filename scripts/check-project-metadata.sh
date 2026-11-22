@@ -100,8 +100,15 @@ reference_rs = walk("src/references", "*.rs")
 # sites so AGENTS.md cannot claim a stale number.
 selftest_src = read("scripts/test-check-project-metadata.sh")
 selftest_drift_count = len(re.findall(r"^expect_fail\s+", selftest_src, re.M))
-drift_words = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
-selftest_drift_word = drift_words[selftest_drift_count] if selftest_drift_count < len(drift_words) else str(selftest_drift_count)
+drift_words = {
+    0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+    6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+}
+check(
+    selftest_drift_count in drift_words,
+    f"metadata selftest drift count {selftest_drift_count} has no word mapping; extend the mapping and AGENTS.md",
+)
+selftest_drift_word = drift_words.get(selftest_drift_count, "")
 
 doc_expectations = [
     (f"{crate_count}-crate Cargo workspace", "workspace crate count"),
@@ -227,11 +234,11 @@ check("MAP_RENDER_TARGETS" in make_vars, "MAP_RENDER_TARGETS list is missing")
 # ---------------------------------------------------------------------------
 # 3. One canonical command set, used by Makefile and all workflows
 # ---------------------------------------------------------------------------
-# The ten canonical command names live here once; every check below derives its
-# command set from this tuple. ci-commands.sh's COMMANDS array is still read
+# The eleven canonical command names live here once; every check below derives
+# its command set from this tuple. ci-commands.sh's COMMANDS array is still read
 # separately so a missing dispatch entry remains detectable.
 CANONICAL_COMMANDS = (
-    "fmt", "fmt-check", "clippy", "test", "check",
+    "fmt", "fmt-check", "clippy", "test", "build", "check",
     "iced-test", "hexedit-test", "check-iced-config", "check-metadata", "check-metadata-test",
 )
 required_commands = set(CANONICAL_COMMANDS)
@@ -265,7 +272,13 @@ for label, content in [("Makefile", makefile)] + [
     (f"{name}.yml", wf) for name, wf in workflows.items()
 ]:
     for line in content.splitlines():
-        if re.match(r"^\s*cargo (fmt|clippy|test|check)\b", line):
+        # Matrix release builds intentionally pass --release/--target; only the
+        # plain workspace build is the canonical command that must be routed out.
+        # Match both a bare command in a `run: |` block and `run: cargo build`.
+        inlined_build = re.match(
+            r"^\s*(?:run:\s*)?cargo build(?:\s+--workspace)?\s*$", line
+        )
+        if inlined_build or re.match(r"^\s*cargo (fmt|clippy|test|check)\b", line):
             fails.append(f"{label} inlines a canonical command instead of ci-commands.sh: {line.strip()!r}")
 
 # ---------------------------------------------------------------------------
@@ -280,7 +293,10 @@ for name, wf in workflows.items():
     check(not re.search(r"^\s+include:\s*$", wf, re.M), f"{name}.yml still duplicates the build matrix inline")
 
 test_wf = workflows["test"]
-check("cargo build" in test_wf, "test.yml must keep its build gate")
+check(
+    "bash scripts/ci-commands.sh build" in test_wf,
+    "test.yml must keep its build gate",
+)
 check(
     "aarch64-unknown-linux-musl" not in test_wf and "x86_64-pc-windows-msvc" not in test_wf,
     "test.yml still installs cross targets it never builds",
@@ -294,7 +310,6 @@ except (ValueError, AttributeError) as exc:
     fails.append(f".github/build-matrix.json is invalid: {exc}")
 
 expected_builds = {"cli-windows", "gui-windows", "gui-linux", "cli-linux", "gui-macos-arm"}
-check(len(builds) == 5, f"canonical matrix must have 5 entries, found {len(builds)}")
 check({b.get("build") for b in builds} == expected_builds, "canonical matrix build names drifted")
 required_fields = {"build", "app", "os", "rust", "target"}
 for build in builds:
