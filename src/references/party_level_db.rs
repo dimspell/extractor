@@ -2,7 +2,7 @@ use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{Connection, Result as DbResult, params};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Result, Seek, Write};
+use std::io::{self, Read, Result, Seek, Write};
 use std::path::Path;
 
 /// One 36-byte (`0x24`) level-progression entry from `PrtLevel.db`.
@@ -50,14 +50,86 @@ pub struct PartyLevelNpc {
     pub records: Vec<PartyLevelRecord>,
 }
 
-/// Stub Extractor so `GenericEditorState<PartyLevelRecord>` can be used in the GUI.
-/// The actual binary format is embedded inside `PartyLevelNpc::parse`.
+/// Size of one on-disk progression row, matching `PARTY_LEVEL_RECORD.record_size`.
+const RECORD_SIZE: u64 = 36;
+
+/// Read one 36-byte progression row in on-disk field order. The derived
+/// `level` field is left at zero; callers assign it from the row's position.
+fn parse_record<R: Read>(reader: &mut R) -> Result<PartyLevelRecord> {
+    Ok(PartyLevelRecord {
+        level: 0,
+        magic_spell_id_1: reader.read_u8()?,
+        magic_spell_id_2: reader.read_u8()?,
+        magic_spell_id_3: reader.read_u8()?,
+        reserved_0x03: reader.read_u8()?,
+        strength: reader.read_u32::<LittleEndian>()?,
+        constitution: reader.read_u32::<LittleEndian>()?,
+        wisdom: reader.read_u32::<LittleEndian>()?,
+        health_points: reader.read_u16::<LittleEndian>()?,
+        mana_points: reader.read_u16::<LittleEndian>()?,
+        accuracy: reader.read_u8()?,
+        reserved_0x15: reader.read_u8()?,
+        reserved_0x16: reader.read_u8()?,
+        reserved_0x17: reader.read_u8()?,
+        dodge: reader.read_u8()?,
+        reserved_0x19: reader.read_u8()?,
+        reserved_0x1a: reader.read_u8()?,
+        reserved_0x1b: reader.read_u8()?,
+        weapon_skill_level: reader.read_u32::<LittleEndian>()?,
+        tactical_action_chance: reader.read_u32::<LittleEndian>()?,
+    })
+}
+
+/// Write one 36-byte progression row in on-disk field order. The derived
+/// `level` field is not serialized.
+fn write_record<W: Write>(record: &PartyLevelRecord, writer: &mut W) -> Result<()> {
+    writer.write_u8(record.magic_spell_id_1)?;
+    writer.write_u8(record.magic_spell_id_2)?;
+    writer.write_u8(record.magic_spell_id_3)?;
+    writer.write_u8(record.reserved_0x03)?;
+    writer.write_u32::<LittleEndian>(record.strength)?;
+    writer.write_u32::<LittleEndian>(record.constitution)?;
+    writer.write_u32::<LittleEndian>(record.wisdom)?;
+    writer.write_u16::<LittleEndian>(record.health_points)?;
+    writer.write_u16::<LittleEndian>(record.mana_points)?;
+    writer.write_u8(record.accuracy)?;
+    writer.write_u8(record.reserved_0x15)?;
+    writer.write_u8(record.reserved_0x16)?;
+    writer.write_u8(record.reserved_0x17)?;
+    writer.write_u8(record.dodge)?;
+    writer.write_u8(record.reserved_0x19)?;
+    writer.write_u8(record.reserved_0x1a)?;
+    writer.write_u8(record.reserved_0x1b)?;
+    writer.write_u32::<LittleEndian>(record.weapon_skill_level)?;
+    writer.write_u32::<LittleEndian>(record.tactical_action_chance)?;
+    Ok(())
+}
+
 impl Extractor for PartyLevelRecord {
-    fn parse<R: Read + Seek>(_reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        Ok(Vec::new())
+    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> Result<Vec<Self>> {
+        let count = len / RECORD_SIZE;
+        let mut records = Vec::with_capacity(count as usize);
+        for index in 0..count {
+            let mut record = parse_record(reader)?;
+            record.level = (index + 1) as u32;
+            records.push(record);
+        }
+        let trailing = len % RECORD_SIZE;
+        if trailing != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "party level data has {trailing} trailing bytes after {count} complete records"
+                ),
+            ));
+        }
+        Ok(records)
     }
 
-    fn to_writer<W: Write>(_records: &[Self], _writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> Result<()> {
+        for record in records {
+            write_record(record, writer)?;
+        }
         Ok(())
     }
 }
@@ -68,56 +140,19 @@ impl Extractor for PartyLevelNpc {
         for npc_index in 0..8 {
             let mut records = Vec::with_capacity(20);
             for level_index in 0..20 {
-                records.push(PartyLevelRecord {
-                    level: level_index + 1,
-                    magic_spell_id_1: reader.read_u8()?,
-                    magic_spell_id_2: reader.read_u8()?,
-                    magic_spell_id_3: reader.read_u8()?,
-                    reserved_0x03: reader.read_u8()?,
-                    strength: reader.read_u32::<LittleEndian>()?,
-                    constitution: reader.read_u32::<LittleEndian>()?,
-                    wisdom: reader.read_u32::<LittleEndian>()?,
-                    health_points: reader.read_u16::<LittleEndian>()?,
-                    mana_points: reader.read_u16::<LittleEndian>()?,
-                    accuracy: reader.read_u8()?,
-                    reserved_0x15: reader.read_u8()?,
-                    reserved_0x16: reader.read_u8()?,
-                    reserved_0x17: reader.read_u8()?,
-                    dodge: reader.read_u8()?,
-                    reserved_0x19: reader.read_u8()?,
-                    reserved_0x1a: reader.read_u8()?,
-                    reserved_0x1b: reader.read_u8()?,
-                    weapon_skill_level: reader.read_u32::<LittleEndian>()?,
-                    tactical_action_chance: reader.read_u32::<LittleEndian>()?,
-                });
+                let mut record = parse_record(reader)?;
+                record.level = level_index + 1;
+                records.push(record);
             }
             npcs.push(PartyLevelNpc { npc_index, records });
         }
         Ok(npcs)
     }
 
-    fn to_writer<W: Write>(npcs: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(npcs: &[Self], writer: &mut W) -> Result<()> {
         for npc in npcs {
             for record in &npc.records {
-                writer.write_u8(record.magic_spell_id_1)?;
-                writer.write_u8(record.magic_spell_id_2)?;
-                writer.write_u8(record.magic_spell_id_3)?;
-                writer.write_u8(record.reserved_0x03)?;
-                writer.write_u32::<LittleEndian>(record.strength)?;
-                writer.write_u32::<LittleEndian>(record.constitution)?;
-                writer.write_u32::<LittleEndian>(record.wisdom)?;
-                writer.write_u16::<LittleEndian>(record.health_points)?;
-                writer.write_u16::<LittleEndian>(record.mana_points)?;
-                writer.write_u8(record.accuracy)?;
-                writer.write_u8(record.reserved_0x15)?;
-                writer.write_u8(record.reserved_0x16)?;
-                writer.write_u8(record.reserved_0x17)?;
-                writer.write_u8(record.dodge)?;
-                writer.write_u8(record.reserved_0x19)?;
-                writer.write_u8(record.reserved_0x1a)?;
-                writer.write_u8(record.reserved_0x1b)?;
-                writer.write_u32::<LittleEndian>(record.weapon_skill_level)?;
-                writer.write_u32::<LittleEndian>(record.tactical_action_chance)?;
+                write_record(record, writer)?;
             }
         }
         Ok(())
@@ -234,5 +269,93 @@ mod tests {
         let mut out = Vec::new();
         PartyLevelNpc::to_writer(&records, &mut out).unwrap();
         assert_eq!(out, data);
+    }
+
+    #[test]
+    fn parse_single_record_reads_all_fields_and_derives_level() {
+        let block = level_block();
+        let records =
+            PartyLevelRecord::parse(&mut Cursor::new(&block), block.len() as u64).unwrap();
+        assert_eq!(records.len(), 1);
+        let record = &records[0];
+        assert_eq!(record.level, 1);
+        assert_eq!(record.magic_spell_id_1, 3);
+        assert_eq!(record.magic_spell_id_2, 1);
+        assert_eq!(record.magic_spell_id_3, 0xff);
+        assert_eq!(record.reserved_0x03, 0);
+        assert_eq!(record.strength, 100);
+        assert_eq!(record.constitution, 0);
+        assert_eq!(record.wisdom, 0);
+        assert_eq!(record.health_points, 50);
+        assert_eq!(record.mana_points, 0);
+        assert_eq!(record.accuracy, 30);
+        assert_eq!(record.reserved_0x15, 7);
+        assert_eq!(record.reserved_0x16, 8);
+        assert_eq!(record.reserved_0x17, 9);
+        assert_eq!(record.dodge, 15);
+        assert_eq!(record.reserved_0x19, 10);
+        assert_eq!(record.reserved_0x1a, 11);
+        assert_eq!(record.reserved_0x1b, 12);
+        assert_eq!(record.weapon_skill_level, 4);
+        assert_eq!(record.tactical_action_chance, 35);
+    }
+
+    #[test]
+    fn parse_two_records_numbers_levels_from_one() {
+        let block = level_block();
+        let data: Vec<u8> = block.into_iter().chain(block).collect();
+        let records = PartyLevelRecord::parse(&mut Cursor::new(&data), data.len() as u64).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].level, 1);
+        assert_eq!(records[1].level, 2);
+    }
+
+    #[test]
+    fn parse_truncated_trailing_bytes_is_an_error() {
+        let data = full_file();
+        let truncated = &data[..data.len() - 1];
+        let err = PartyLevelRecord::parse(&mut Cursor::new(truncated), truncated.len() as u64)
+            .expect_err("an incomplete trailing row must not be dropped silently");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+
+        let short = [0u8; 5];
+        let err = PartyLevelRecord::parse(&mut Cursor::new(&short), short.len() as u64)
+            .expect_err("an incomplete single row must not be dropped silently");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn record_to_writer_reproduces_exact_bytes_and_ignores_level() {
+        let block = level_block();
+        let mut records =
+            PartyLevelRecord::parse(&mut Cursor::new(&block), block.len() as u64).unwrap();
+        let mut out = Vec::new();
+        PartyLevelRecord::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, block);
+
+        records[0].level = 99;
+        let mut out = Vec::new();
+        PartyLevelRecord::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, block, "level is derived and must not affect bytes");
+    }
+
+    #[test]
+    fn read_file_loads_records() {
+        let block = level_block();
+        let data: Vec<u8> = block.into_iter().chain(block).collect();
+        let path = std::env::temp_dir().join(format!(
+            "dispel_party_level_record_test_{}_{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, &data).unwrap();
+        let records = PartyLevelRecord::read_file(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].level, 1);
+        assert_eq!(records[1].level, 2);
     }
 }
