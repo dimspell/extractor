@@ -1770,8 +1770,7 @@ fn dynamic_entity_light_max_wins_over_static() {
 #[test]
 fn clipped_shadow_rows_keep_positional_pair_indices() {
     // A tile whose top diamond rows fall above the canvas must still look up
-    // its flicker-phase bytes by POSITION. A running counter used to freeze
-    // at the clip boundary, desyncing every later pair.
+    // its flicker-phase bytes by POSITION.
     let mut data = vec![31u8; super::fogdata::EXPECTED_LEN];
     data[0] = 2; // row 0's single pair is distinctly dark
     let fog = super::fogdata::FogData::from_raw(data);
@@ -1804,20 +1803,21 @@ fn clipped_shadow_rows_keep_positional_pair_indices() {
 }
 
 #[test]
+#[ignore = "requires local game fixtures"]
 fn fog_loads_only_for_dark_maps() {
     let gp = Path::new("fixtures/Dispel");
-    if !gp.exists() {
-        eprintln!("Skipping: fixtures not found");
-        return;
-    }
+    assert!(
+        gp.exists(),
+        "local game fixtures are required for this test"
+    );
     use crate::references::all_map_ini::read_all_map_ini;
     use crate::references::enums::MapLighting;
 
     let maps = read_all_map_ini(&gp.join("AllMap.ini")).expect("parse AllMap.ini");
-    let Some(dark) = maps.iter().find(|m| m.lighting == MapLighting::Dark) else {
-        eprintln!("Skipping: no Dark map in fixture AllMap.ini");
-        return;
-    };
+    let dark = maps
+        .iter()
+        .find(|m| m.lighting == MapLighting::Dark)
+        .expect("fixture AllMap.ini must contain a Dark map");
     assert!(
         load_fog_if_dark(gp, &dark.map_filename).is_some(),
         "Dark map '{}' must load fog tables",
@@ -1834,9 +1834,8 @@ fn fog_loads_only_for_dark_maps() {
 
 #[test]
 fn entity_marker_is_placed_in_viewport_space() {
-    // Regression: external entities must be shifted into the occluded
-    // viewport like every other layer — subtracting the map origin
-    // when placing NPCs/monsters/extras, as observed.
+    // External entities are shifted into the occluded viewport like every
+    // other layer, subtracting the map origin when placing them.
     let model = MapModel {
         tiled_map_width: 1,
         tiled_map_height: 1,
@@ -1869,15 +1868,14 @@ fn entity_marker_is_placed_in_viewport_space() {
 }
 
 #[test]
+#[ignore = "requires local game fixtures"]
 fn draw_item_map_id_resolves_via_all_map_ini() {
-    // Regression: the draw-item map reference is the AllMap.ini numeric ID.
-    // Parsing digits from the file stem gave wrong IDs ("cat1" → 1 instead
-    // of 3), rendering another map's item drops.
+    // The draw-item map reference uses the AllMap.ini numeric ID.
     let gp = std::path::Path::new("fixtures/Dispel");
-    if !gp.exists() {
-        eprintln!("Skipping: fixtures not found");
-        return;
-    }
+    assert!(
+        gp.exists(),
+        "local game fixtures are required for this test"
+    );
     assert_eq!(resolve_all_map_id("cat1", gp), Some(3));
     assert_eq!(resolve_all_map_id("dun01", gp), Some(7));
     assert_eq!(resolve_all_map_id("notamap", gp), None);
