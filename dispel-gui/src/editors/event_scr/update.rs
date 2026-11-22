@@ -56,63 +56,31 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::LineAdded(section) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                match section {
-                    SectionTab::Map => script.map_content.push(String::new()),
-                    SectionTab::Chr => script.chr_content.push(String::new()),
-                    SectionTab::Npc => script.npc_content.push(String::new()),
-                    SectionTab::Wav => script.wav_content.push(String::new()),
-                    _ => {}
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(lines) = section.body_content_mut(script)
+            {
+                lines.push(String::new());
                 state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::LineContentChanged(section, index, content) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                match section {
-                    SectionTab::Map if index < script.map_content.len() => {
-                        script.map_content[index] = content;
-                        state.modified = true;
-                    }
-                    SectionTab::Chr if index < script.chr_content.len() => {
-                        script.chr_content[index] = content;
-                        state.modified = true;
-                    }
-                    SectionTab::Npc if index < script.npc_content.len() => {
-                        script.npc_content[index] = content;
-                        state.modified = true;
-                    }
-                    SectionTab::Wav if index < script.wav_content.len() => {
-                        script.wav_content[index] = content;
-                        state.modified = true;
-                    }
-                    _ => {}
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(lines) = section.body_content_mut(script)
+                && let Some(line) = lines.get_mut(index)
+            {
+                *line = content;
+                state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::LineDeleted(section, index) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                match section {
-                    SectionTab::Map if index < script.map_content.len() => {
-                        script.map_content.remove(index);
-                        state.modified = true;
-                    }
-                    SectionTab::Chr if index < script.chr_content.len() => {
-                        script.chr_content.remove(index);
-                        state.modified = true;
-                    }
-                    SectionTab::Npc if index < script.npc_content.len() => {
-                        script.npc_content.remove(index);
-                        state.modified = true;
-                    }
-                    SectionTab::Wav if index < script.wav_content.len() => {
-                        script.wav_content.remove(index);
-                        state.modified = true;
-                    }
-                    _ => {}
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(lines) = section.body_content_mut(script)
+                && index < lines.len()
+            {
+                lines.remove(index);
+                state.modified = true;
             }
             Task::none()
         }
@@ -902,6 +870,102 @@ mod tests {
             wav_content: vec![],
             actions: vec![],
         }
+    }
+
+    fn app_with_loaded_script() -> App {
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        app.state.editors.event_scr_editor.script_loading =
+            LoadingState::Loaded(create_test_script());
+        app
+    }
+
+    fn loaded_script(app: &App) -> &EventScript {
+        match &app.state.editors.event_scr_editor.script_loading {
+            LoadingState::Loaded(script) => script,
+            _ => panic!("script should stay loaded"),
+        }
+    }
+
+    #[test]
+    fn test_line_added_non_body_section_is_noop() {
+        for section in [
+            SectionTab::Header,
+            SectionTab::Var,
+            SectionTab::Spr,
+            SectionTab::Act,
+        ] {
+            let mut app = app_with_loaded_script();
+            let _ = handle(EventScrEditorMessage::LineAdded(section), &mut app);
+            assert!(
+                !app.state.editors.event_scr_editor.modified,
+                "{section:?} should not mark the editor modified"
+            );
+            let script = loaded_script(&app);
+            assert!(script.map_content.is_empty());
+            assert!(script.chr_content.is_empty());
+            assert!(script.npc_content.is_empty());
+            assert!(script.wav_content.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_line_added_body_section_adds_line_and_marks_modified() {
+        let mut app = app_with_loaded_script();
+        let _ = handle(EventScrEditorMessage::LineAdded(SectionTab::Map), &mut app);
+        assert!(app.state.editors.event_scr_editor.modified);
+        let script = loaded_script(&app);
+        assert_eq!(script.map_content, vec![String::new()]);
+        assert!(script.chr_content.is_empty());
+        assert!(script.npc_content.is_empty());
+        assert!(script.wav_content.is_empty());
+    }
+
+    #[test]
+    fn test_line_content_changed_non_body_section_is_noop() {
+        let mut app = app_with_loaded_script();
+        let _ = handle(
+            EventScrEditorMessage::LineContentChanged(
+                SectionTab::Var,
+                0,
+                "should not be written".to_string(),
+            ),
+            &mut app,
+        );
+        assert!(!app.state.editors.event_scr_editor.modified);
+        let script = loaded_script(&app);
+        assert!(script.map_content.is_empty());
+        assert!(script.chr_content.is_empty());
+        assert!(script.npc_content.is_empty());
+        assert!(script.wav_content.is_empty());
+    }
+
+    #[test]
+    fn test_line_deleted_non_body_section_is_noop() {
+        let mut app = app_with_loaded_script();
+        let _ = handle(
+            EventScrEditorMessage::LineDeleted(SectionTab::Act, 0),
+            &mut app,
+        );
+        assert!(!app.state.editors.event_scr_editor.modified);
+    }
+
+    #[test]
+    fn test_body_line_edit_out_of_range_is_noop() {
+        let mut app = app_with_loaded_script();
+        let _ = handle(
+            EventScrEditorMessage::LineContentChanged(
+                SectionTab::Map,
+                0,
+                "out of range".to_string(),
+            ),
+            &mut app,
+        );
+        let _ = handle(
+            EventScrEditorMessage::LineDeleted(SectionTab::Map, 0),
+            &mut app,
+        );
+        assert!(!app.state.editors.event_scr_editor.modified);
+        assert!(loaded_script(&app).map_content.is_empty());
     }
 
     #[test]

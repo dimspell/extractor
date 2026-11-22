@@ -33,6 +33,28 @@ impl SectionTab {
             SectionTab::Act => "ACT",
         }
     }
+
+    /// The line vectors shown as editable body rows, if this section has any.
+    pub fn body_content<'a>(&self, script: &'a EventScript) -> Option<&'a Vec<String>> {
+        match self {
+            SectionTab::Map => Some(&script.map_content),
+            SectionTab::Chr => Some(&script.chr_content),
+            SectionTab::Npc => Some(&script.npc_content),
+            SectionTab::Wav => Some(&script.wav_content),
+            SectionTab::Header | SectionTab::Var | SectionTab::Spr | SectionTab::Act => None,
+        }
+    }
+
+    /// Mutable counterpart of [`SectionTab::body_content`].
+    pub fn body_content_mut<'a>(&self, script: &'a mut EventScript) -> Option<&'a mut Vec<String>> {
+        match self {
+            SectionTab::Map => Some(&mut script.map_content),
+            SectionTab::Chr => Some(&mut script.chr_content),
+            SectionTab::Npc => Some(&mut script.npc_content),
+            SectionTab::Wav => Some(&mut script.wav_content),
+            SectionTab::Header | SectionTab::Var | SectionTab::Spr | SectionTab::Act => None,
+        }
+    }
 }
 
 /// Status of the function-index background scan.

@@ -405,12 +405,8 @@ fn body_line(
     script: &dispel_core::references::event_scr::EventScript,
     section: SectionTab,
 ) -> Vec<Element<'static, EventScrEditorMessage>> {
-    let lines: &Vec<String> = match section {
-        SectionTab::Map => &script.map_content,
-        SectionTab::Chr => &script.chr_content,
-        SectionTab::Npc => &script.npc_content,
-        SectionTab::Wav => &script.wav_content,
-        _ => return vec![text("Invalid section").into()],
+    let Some(lines) = section.body_content(script) else {
+        return Vec::new();
     };
 
     lines
