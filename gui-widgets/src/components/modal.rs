@@ -289,69 +289,65 @@ where
 
 #[cfg(test)]
 mod tests {
-    use iced::widget::container;
+    use iced::widget::text;
+    use iced_test::simulator;
 
     use super::*;
 
     #[test]
-    fn test_modal_creation() {
-        let base = container("Base content");
-        let modal_content = container("Modal content");
+    fn test_modal_builds_element() {
+        let base = text("Base content");
+        let modal_content = text("Modal content");
         let result = modal(base, modal_content, || "blur", 0.5);
         let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
     }
 
     #[test]
-    fn test_modal_zero_backdrop() {
-        let base = container("Base");
-        let modal_content = container("Modal");
-        let result = modal(base, modal_content, || "blur", 0.0);
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    fn test_modal_backdrop_alpha_is_clamped() {
+        let below = Modal::<&str, iced::Theme, iced::Renderer>::new(
+            text("base"),
+            text("modal"),
+            || "blur",
+            -0.5,
+        );
+        assert_eq!(below.backdrop.a, 0.0);
+
+        let above = Modal::<&str, iced::Theme, iced::Renderer>::new(
+            text("base"),
+            text("modal"),
+            || "blur",
+            1.5,
+        );
+        assert_eq!(above.backdrop.a, 1.0);
+
+        let inside = Modal::<&str, iced::Theme, iced::Renderer>::new(
+            text("base"),
+            text("modal"),
+            || "blur",
+            0.25,
+        );
+        assert_eq!(inside.backdrop.a, 0.25);
     }
 
     #[test]
-    fn test_modal_full_backdrop() {
-        let base = container("Base");
-        let modal_content = container("Modal");
-        let result = modal(base, modal_content, || "blur", 1.0);
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
-    }
+    fn test_modal_backdrop_click_publishes_blur() {
+        // The modal content is centered in the viewport, so a press near the
+        // top-left corner lands on the backdrop and must dismiss the modal.
+        let base = iced::widget::container(text("Base"))
+            .width(Length::Fill)
+            .height(Length::Fill);
+        let mut ui = simulator::<&str, iced::Theme, iced::Renderer>(modal(
+            base,
+            text("Modal content"),
+            || "blur",
+            0.5,
+        ));
+        ui.point_at((8.0, 8.0));
+        let _ = ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+            mouse::Button::Left,
+        ))]);
 
-    // ── Additional tests ──────────────────────────────────────────
-
-    #[test]
-    fn test_modal_backdrop_clamps_below_zero() {
-        let base = container("Base");
-        let modal_content = container("Modal");
-        let result = modal(base, modal_content, || "blur", -0.5);
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
-    }
-
-    #[test]
-    fn test_modal_backdrop_clamps_above_one() {
-        let base = container("Base");
-        let modal_content = container("Modal");
-        let result = modal(base, modal_content, || "blur", 1.5);
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
-    }
-
-    #[derive(Debug, Clone)]
-    enum TestMsg {
-        Blur,
-    }
-
-    #[test]
-    fn test_modal_different_message_types() {
-        use iced::widget::button;
-        let base = button("Base");
-        let modal_content = button("Modal");
-        let result = modal(base, modal_content, || TestMsg::Blur, 0.5);
-        let _: Element<'_, TestMsg, iced::Theme, iced::Renderer> = result;
-    }
-
-    #[test]
-    fn test_modal_into_element_helper() {
-        let result = modal("base", "modal", || "blur", 0.5);
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+        let messages: Vec<&str> = ui.into_messages().collect();
+        assert_eq!(messages, vec!["blur"], "backdrop press must publish blur");
     }
 }

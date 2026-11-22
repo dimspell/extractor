@@ -1000,20 +1000,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tab_content_width() {
-        let tab = make_tab(0, "Hello", false, false);
-        let w = tab.content_width();
-        assert!(w > 0.0);
-    }
-
-    #[test]
-    fn test_tab_content_width_pinned() {
-        let tab = make_tab(1, "Pinned", false, true);
-        let w = tab.content_width();
-        assert!(w > 0.0);
-    }
-
-    #[test]
     fn test_tab_content_width_modified() {
         let tab_mod = make_tab(2, "Mod", true, false);
         let tab_norm = make_tab(3, "Mod", false, false);
@@ -1030,53 +1016,28 @@ mod tests {
     }
 
     #[test]
-    fn test_tab_bar_event_types() {
-        let e1 = TabBarEvent::Selected(0);
-        let e2 = TabBarEvent::Closed(1);
-        let e3 = TabBarEvent::Dragged(2, 3);
-        let e4 = TabBarEvent::DragCanceled(4);
-        let e5 = TabBarEvent::RightClicked(5);
-
-        match e1 {
-            TabBarEvent::Selected(i) => assert_eq!(i, 0),
-            _ => panic!("wrong variant"),
-        }
-        match e2 {
-            TabBarEvent::Closed(i) => assert_eq!(i, 1),
-            _ => panic!("wrong variant"),
-        }
-        match e3 {
-            TabBarEvent::Dragged(from, to) => {
-                assert_eq!(from, 2);
-                assert_eq!(to, 3);
-            }
-            _ => panic!("wrong variant"),
-        }
-        match e4 {
-            TabBarEvent::DragCanceled(i) => assert_eq!(i, 4),
-            _ => panic!("wrong variant"),
-        }
-        match e5 {
-            TabBarEvent::RightClicked(i) => assert_eq!(i, 5),
-            _ => panic!("wrong variant"),
-        }
-    }
-
-    #[test]
     fn test_style_default() {
         let style = Style::default();
-        assert!(style.border_radius > 0.0);
+        assert_eq!(style.border_radius, 4.0);
+        assert_eq!(style.border_width, 1.0);
+        assert_eq!(
+            style.background,
+            Background::Color(Color::from_rgb(0.18, 0.18, 0.18))
+        );
+        assert_eq!(style.text_color, Color::from_rgb(0.75, 0.75, 0.75));
     }
 
     #[test]
     fn test_style_active() {
-        let style = Style::active();
-        assert!(style.border_radius > 0.0);
-    }
-
-    #[test]
-    fn test_style_status_eq() {
-        assert_eq!(Status::Active, Status::Active);
-        assert_ne!(Status::Active, Status::Idle);
+        let active = Style::active();
+        let idle = Style::default();
+        assert_eq!(active.text_color, Color::from_rgb(1.0, 0.9, 0.7));
+        assert_eq!(active.border_color, Color::from_rgb(0.6, 0.5, 0.2));
+        assert_eq!(
+            active.background,
+            Background::Color(Color::from_rgb(0.25, 0.22, 0.18))
+        );
+        assert_ne!(active.text_color, idle.text_color);
+        assert_ne!(active.border_color, idle.border_color);
     }
 }

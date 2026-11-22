@@ -380,11 +380,12 @@ where
 #[cfg(test)]
 mod tests {
     use iced::widget::{button, container};
+    use iced_test::simulator;
 
     use super::*;
 
     #[test]
-    fn test_popover_creation_closed() {
+    fn test_popover_builds_element() {
         let trigger = button("Layers");
         let panel = container("Panel content");
         let result = popover(trigger, panel, false, || "toggle", || "blur");
@@ -392,43 +393,40 @@ mod tests {
     }
 
     #[test]
-    fn test_popover_creation_open() {
-        let trigger = button("Layers");
-        let panel = container("Panel content");
-        let result = popover(trigger, panel, true, || "toggle", || "blur");
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    fn test_popover_trigger_click_publishes_toggle() {
+        // While closed, pressing the trigger must ask the caller to open the
+        // popover; the trigger's own message handler must not also fire.
+        let mut ui = simulator::<&str, iced::Theme, iced::Renderer>(popover(
+            button("Layers"),
+            container("Panel content"),
+            false,
+            || "toggle",
+            || "blur",
+        ));
+
+        ui.click("Layers")
+            .expect("popover trigger should be clickable");
+
+        let messages: Vec<&str> = ui.into_messages().collect();
+        assert_eq!(messages, vec!["toggle"]);
     }
 
     #[test]
-    fn test_popover_size_follows_trigger() {
-        // Compile-level check: the widget's `size()` delegates to the trigger;
-        // constructing with differently sized triggers must be valid.
-        let result = popover("tiny", container(column_of_text()), true, || "t", || "b");
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
-    }
+    fn test_popover_panel_item_click_publishes_item_message() {
+        // While open, the overlay owns clicks inside the panel: an item press
+        // must emit its own message without also emitting a blur.
+        let mut ui = simulator::<&str, iced::Theme, iced::Renderer>(popover(
+            button("Layers"),
+            button("Floor 1").on_press("selected-floor"),
+            true,
+            || "toggle",
+            || "blur",
+        ));
 
-    fn column_of_text() -> iced::widget::Column<'static, &'static str, iced::Theme> {
-        iced::widget::column!["a", "b", "c"]
-    }
+        ui.click("Floor 1")
+            .expect("open popover item should be clickable");
 
-    #[derive(Debug, Clone)]
-    enum TestMsg {
-        Toggle,
-        Blur,
-        ItemSelected,
-    }
-
-    #[test]
-    fn test_popover_different_message_types() {
-        let trigger = button("Trigger").on_press(TestMsg::Toggle);
-        let panel = button("Item").on_press(TestMsg::ItemSelected);
-        let result = popover(trigger, panel, true, || TestMsg::Toggle, || TestMsg::Blur);
-        let _: Element<'_, TestMsg, iced::Theme, iced::Renderer> = result;
-    }
-
-    #[test]
-    fn test_popover_into_element_helper() {
-        let result = popover("trigger", "panel", false, || "toggle", || "blur");
-        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+        let messages: Vec<&str> = ui.into_messages().collect();
+        assert_eq!(messages, vec!["selected-floor"]);
     }
 }

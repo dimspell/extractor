@@ -165,21 +165,6 @@ mod tests {
     }
 
     #[test]
-    fn test_paragraph_key_debug() {
-        let key = ParagraphKey::new("debug", 12.0, 100.0, Font::default());
-        let debug = format!("{:?}", key);
-        assert!(debug.contains("ParagraphKey"));
-    }
-
-    #[test]
-    fn test_paragraph_cache_debug() {
-        let cache = ParagraphCache::default();
-        let debug = format!("{:?}", cache);
-        assert!(debug.contains("ParagraphCache"));
-        assert!(debug.contains("len"));
-    }
-
-    #[test]
     fn test_paragraph_cache_build_only_when_missing() {
         let cache = ParagraphCache::default();
         let key = ParagraphKey::new("only once", 12.0, 100.0, Font::default());
@@ -213,13 +198,32 @@ mod tests {
     }
 
     #[test]
-    fn test_paragraph_cache_clone() {
+    fn test_paragraph_cache_clone_shares_entries() {
         let cache = ParagraphCache::default();
         let key = ParagraphKey::new("clone", 12.0, 100.0, Font::default());
-        let _p = cache.get_or_insert(key.clone(), Paragraph::new);
+        let build_count = Arc::new(AtomicI32::new(0));
+
+        let _p = cache.get_or_insert(key.clone(), {
+            let count = Arc::clone(&build_count);
+            move || {
+                count.fetch_add(1, Ordering::SeqCst);
+                Paragraph::new()
+            }
+        });
+        assert_eq!(build_count.load(Ordering::SeqCst), 1);
 
         let cloned = cache.clone();
-        // Cloned cache should return the same cached paragraph
-        let _p2 = cloned.get_or_insert(key, Paragraph::new);
+        let _p2 = cloned.get_or_insert(key, {
+            let count = Arc::clone(&build_count);
+            move || {
+                count.fetch_add(1, Ordering::SeqCst);
+                Paragraph::new()
+            }
+        });
+        assert_eq!(
+            build_count.load(Ordering::SeqCst),
+            1,
+            "clone shares the cache, so the entry must not be rebuilt"
+        );
     }
 }
