@@ -984,13 +984,48 @@ fn recording_persisted_ok_increments_count() {
     let mut app = app_with_recording();
     assert_eq!(app.state.recording.as_ref().unwrap().recorded_count, 0);
 
-    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(())), &mut app);
+    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(0)), &mut app);
 
     assert_eq!(task.units(), 0, "RecordingPersisted returns no task");
     assert_eq!(
         app.state.recording.as_ref().unwrap().recorded_count,
         1,
         "recorded_count incremented"
+    );
+}
+
+#[test]
+fn recording_persisted_pruned_sets_status_warning() {
+    let mut app = app_with_recording();
+
+    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(3)), &mut app);
+
+    assert_eq!(task.units(), 0);
+    let status = &app.state.editors.mod_packager_editor.status_msg;
+    assert!(
+        status.contains('3'),
+        "warning names the dropped count: {status}"
+    );
+    assert!(
+        status.contains("dropped"),
+        "warning says edits were dropped: {status}"
+    );
+    assert_eq!(
+        app.state.recording.as_ref().unwrap().recorded_count,
+        1,
+        "a pruned persist still counts as recorded"
+    );
+}
+
+#[test]
+fn recording_persisted_without_prune_leaves_status_untouched() {
+    let mut app = app_with_recording();
+
+    let _task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(0)), &mut app);
+
+    assert!(
+        app.state.editors.mod_packager_editor.status_msg.is_empty(),
+        "no warning when nothing was pruned"
     );
 }
 

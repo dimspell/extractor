@@ -49,6 +49,15 @@ pub struct InstalledMod {
     pub enabled: bool,
 }
 
+/// What a recording append did to the changelog it wrote.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct AppendOutcome {
+    /// Actions removed by field-delta flattening.
+    pub collapsed: usize,
+    /// Oldest actions dropped at [`super::HISTORY_CAP`].
+    pub pruned: usize,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct EnabledFile {
     /// Slugs in load order (first = applied first).
@@ -333,27 +342,47 @@ impl Workspace {
     /// it applies exactly the same normalization, so no append path can leave
     /// an unnormalized changelog behind.
     pub fn append_action(&self, slug: &str, action: super::change::ChangeAction) -> Result<()> {
-        self.append_actions_and_flatten(slug, vec![action])?;
+        self.append_action_reporting(slug, action)?;
         Ok(())
     }
 
-    /// Append actions in one read-mutate-write cycle and normalize the result
-    /// by collapsing repeated `FieldDelta` entries on the same
-    /// `(file, record_id, field)` (earliest `old`, latest `new`; no-ops drop).
-    /// Every append path funnels through here. Returns the number of actions
-    /// removed by the flatten pass.
+    /// Single-action form of [`Self::append_actions_reporting`], returning the
+    /// number of oldest actions dropped at the cap.
+    pub fn append_action_reporting(
+        &self,
+        slug: &str,
+        action: super::change::ChangeAction,
+    ) -> Result<usize> {
+        Ok(self.append_actions_reporting(slug, vec![action])?.pruned)
+    }
+
+    /// Append actions in one read-mutate-write cycle, normalize the result by
+    /// collapsing repeated `FieldDelta` entries on the same
+    /// `(file, record_id, field)` (earliest `old`, latest `new`; no-ops drop),
+    /// and report both the collapsed and cap-pruned counts. Every append path
+    /// funnels through here; the flattened action set is what gets persisted.
+    pub fn append_actions_reporting(
+        &self,
+        slug: &str,
+        actions: Vec<super::change::ChangeAction>,
+    ) -> Result<AppendOutcome> {
+        let mut pkg = self.read_mod(slug)?;
+        let mut pruned = 0;
+        for a in actions {
+            pruned += pkg.changes.push(a);
+        }
+        let collapsed = pkg.changes.flatten_field_deltas();
+        self.write_mod(slug, &pkg)?;
+        Ok(AppendOutcome { collapsed, pruned })
+    }
+
+    /// Append actions and return only the number removed by flattening.
     pub fn append_actions_and_flatten(
         &self,
         slug: &str,
         actions: Vec<super::change::ChangeAction>,
     ) -> Result<usize> {
-        let mut pkg = self.read_mod(slug)?;
-        for a in actions {
-            pkg.changes.push(a);
-        }
-        let removed = pkg.changes.flatten_field_deltas();
-        self.write_mod(slug, &pkg)?;
-        Ok(removed)
+        Ok(self.append_actions_reporting(slug, actions)?.collapsed)
     }
 
     pub fn delete_mod(&self, slug: &str) -> Result<()> {
@@ -711,6 +740,77 @@ mod tests {
         assert_eq!(
             log.actions()[0].op.field_key("MiscItem.db").unwrap().field,
             "name"
+        );
+    }
+
+    #[test]
+    fn append_actions_reporting_surfaces_cap_prune() {
+        let (_fs, ws) = setup("/ws-cap-bulk");
+        let slug = ws.create_mod(ModManifest::new("long-history")).unwrap();
+        let actions: Vec<_> = (0..=crate::modding::HISTORY_CAP)
+            .map(|i| {
+                field_action(
+                    "MiscItem.db",
+                    i as u32,
+                    "name",
+                    Value::String(format!("v{i}")),
+                )
+            })
+            .collect();
+
+        let outcome = ws.append_actions_reporting(&slug, actions).unwrap();
+        assert_eq!(outcome.pruned, 1);
+        assert_eq!(outcome.collapsed, 0);
+
+        let log = ws.read_mod(&slug).unwrap().changes;
+        assert_eq!(log.len(), crate::modding::HISTORY_CAP);
+        let ChangeOp::FieldDelta {
+            record_id: first, ..
+        } = &log.actions()[0].op
+        else {
+            unreachable!()
+        };
+        let ChangeOp::FieldDelta {
+            record_id: last, ..
+        } = &log.actions()[crate::modding::HISTORY_CAP - 1].op
+        else {
+            unreachable!()
+        };
+        assert_eq!(*first, 1);
+        assert_eq!(*last, crate::modding::HISTORY_CAP as u32);
+    }
+
+    #[test]
+    fn append_action_reporting_surfaces_cap_prune() {
+        let (_fs, ws) = setup("/ws-cap-single");
+        let slug = ws.create_mod(ModManifest::new("long-history")).unwrap();
+        for i in 0..crate::modding::HISTORY_CAP {
+            assert_eq!(
+                ws.append_action_reporting(
+                    &slug,
+                    field_action(
+                        "MiscItem.db",
+                        i as u32,
+                        "name",
+                        Value::String(format!("v{i}")),
+                    ),
+                )
+                .unwrap(),
+                0
+            );
+        }
+        assert_eq!(
+            ws.append_action_reporting(
+                &slug,
+                field_action(
+                    "MiscItem.db",
+                    crate::modding::HISTORY_CAP as u32,
+                    "name",
+                    Value::String("last".into()),
+                ),
+            )
+            .unwrap(),
+            1
         );
     }
 

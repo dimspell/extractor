@@ -31,7 +31,7 @@ use super::package::ModPackage;
 use super::registry::PatcherRegistry;
 use super::resolution::{FieldKey, ResolutionMap};
 use super::vanilla::VanillaStore;
-use super::workspace::{InstalledMod, Workspace};
+use super::workspace::{AppendOutcome, InstalledMod, Workspace};
 
 /// Fraction of the full file size at which a bsdiff patch stops being a space
 /// win; beyond it we record a whole-file replace instead.
@@ -145,7 +145,15 @@ impl Modding {
 
     /// Record one field edit into `slug`'s changelog.
     pub fn record(&self, slug: &str, change: FieldChange) -> Result<()> {
-        self.workspace.append_action(slug, change.into_action())
+        self.record_reporting(slug, change)?;
+        Ok(())
+    }
+
+    /// Record one field edit, returning the number of oldest actions dropped
+    /// at the history cap.
+    pub fn record_reporting(&self, slug: &str, change: FieldChange) -> Result<usize> {
+        self.workspace
+            .append_action_reporting(slug, change.into_action())
     }
 
     /// Record several field edits in one read-mutate-write cycle, collapsing
@@ -155,8 +163,18 @@ impl Modding {
         slug: &str,
         changes: impl IntoIterator<Item = FieldChange>,
     ) -> Result<usize> {
+        Ok(self.record_many_reporting(slug, changes)?.collapsed)
+    }
+
+    /// Record several field edits and report both the collapsed and cap-pruned
+    /// counts.
+    pub fn record_many_reporting(
+        &self,
+        slug: &str,
+        changes: impl IntoIterator<Item = FieldChange>,
+    ) -> Result<AppendOutcome> {
         let actions = changes.into_iter().map(FieldChange::into_action).collect();
-        self.workspace.append_actions_and_flatten(slug, actions)
+        self.workspace.append_actions_reporting(slug, actions)
     }
 
     /// Build (but do not persist) a whole-file change for `relative` from the
@@ -175,14 +193,33 @@ impl Modding {
 
     /// Snapshot + record a whole-file change in one call (hex editor saves).
     pub fn record_file(&self, slug: &str, relative: &str, current: &[u8]) -> Result<()> {
+        self.record_file_reporting(slug, relative, current)?;
+        Ok(())
+    }
+
+    /// Snapshot + record a whole-file change, returning the number of oldest
+    /// actions dropped at the history cap.
+    pub fn record_file_reporting(
+        &self,
+        slug: &str,
+        relative: &str,
+        current: &[u8],
+    ) -> Result<usize> {
         let action = self.file_change(relative, current)?;
-        self.append(slug, action)
+        self.append_reporting(slug, action)
     }
 
     /// Append an already-built action. Used by callers that need to describe
     /// the op in a status message before persisting it.
     pub fn append(&self, slug: &str, action: ChangeAction) -> Result<()> {
-        self.workspace.append_action(slug, action)
+        self.append_reporting(slug, action)?;
+        Ok(())
+    }
+
+    /// Append an already-built action, returning the number of oldest actions
+    /// dropped at the history cap.
+    pub fn append_reporting(&self, slug: &str, action: ChangeAction) -> Result<usize> {
+        self.workspace.append_action_reporting(slug, action)
     }
 
     /// The final changelog for one mod — the object boundary tests assert on.
@@ -430,6 +467,41 @@ mod tests {
             }
             other => panic!("wrong op: {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_record_many_reporting_surfaces_pruned_count() {
+        let fs = Arc::new(MemFs::new());
+        let m = seeded(&fs, "/virtual/ws-report", "/virtual/game-report");
+        let slug = m.create_mod(ModManifest::new("long")).unwrap();
+        let changes = (0..=crate::modding::HISTORY_CAP).map(|i| {
+            FieldChange::new(
+                FieldKey::new(REL, i as u32, "name"),
+                Value::Null,
+                Value::String(format!("v{i}")),
+            )
+        });
+
+        let outcome = m.record_many_reporting(&slug, changes).unwrap();
+        assert_eq!(outcome.pruned, 1);
+        assert_eq!(outcome.collapsed, 0);
+
+        let log = m.changelog(&slug).unwrap();
+        assert_eq!(log.len(), crate::modding::HISTORY_CAP);
+        let ChangeOp::FieldDelta {
+            record_id: first, ..
+        } = &log.actions()[0].op
+        else {
+            unreachable!()
+        };
+        let ChangeOp::FieldDelta {
+            record_id: last, ..
+        } = &log.actions()[crate::modding::HISTORY_CAP - 1].op
+        else {
+            unreachable!()
+        };
+        assert_eq!(*first, 1);
+        assert_eq!(*last, crate::modding::HISTORY_CAP as u32);
     }
 
     #[test]

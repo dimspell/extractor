@@ -88,9 +88,14 @@ fn build_and_append_action(
         }
         _ => format!("Saved into `{mod_slug}`."),
     };
-    pipeline
-        .append(mod_slug, action)
+    let pruned = pipeline
+        .append_reporting(mod_slug, action)
         .map_err(|e| e.to_string())?;
+    if pruned > 0 {
+        return Ok(format!(
+            "{summary} Warning: the mod changelog is full — {pruned} oldest edit(s) were dropped and are not in the mod."
+        ));
+    }
     Ok(summary)
 }
 

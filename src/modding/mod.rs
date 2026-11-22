@@ -40,4 +40,4 @@ pub use registry::PatcherRegistry;
 pub use resolution::{FieldKey, ResolutionMap};
 pub use value::Value;
 pub use vanilla::VanillaStore;
-pub use workspace::{InstalledMod, Workspace};
+pub use workspace::{AppendOutcome, InstalledMod, Workspace};

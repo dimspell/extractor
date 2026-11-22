@@ -73,15 +73,23 @@ impl ChangeLog {
         Self::default()
     }
 
-    pub fn from_actions(actions: Vec<ChangeAction>) -> Self {
+    /// Build a changelog from actions, returning it together with the number
+    /// of oldest actions dropped by the cap.
+    pub fn from_actions_reporting(actions: Vec<ChangeAction>) -> (Self, usize) {
         let mut log = Self { actions };
-        log.enforce_cap();
-        log
+        let pruned = log.enforce_cap();
+        (log, pruned)
     }
 
-    pub fn push(&mut self, action: ChangeAction) {
+    /// Build a changelog from actions, silently applying the cap.
+    pub fn from_actions(actions: Vec<ChangeAction>) -> Self {
+        Self::from_actions_reporting(actions).0
+    }
+
+    /// Append an action and return the number of oldest actions the cap dropped.
+    pub fn push(&mut self, action: ChangeAction) -> usize {
         self.actions.push(action);
-        self.enforce_cap();
+        self.enforce_cap()
     }
 
     /// Remove a change action by its [`Uuid`]. Returns `true` if found and
@@ -182,10 +190,15 @@ impl ChangeLog {
         removed
     }
 
-    fn enforce_cap(&mut self) {
+    /// Drop the oldest actions beyond [`HISTORY_CAP`] and return how many were
+    /// removed. The surviving actions keep their order.
+    pub fn enforce_cap(&mut self) -> usize {
         if self.actions.len() > HISTORY_CAP {
-            let drop = self.actions.len() - HISTORY_CAP;
-            self.actions.drain(..drop);
+            let removed = self.actions.len() - HISTORY_CAP;
+            self.actions.drain(..removed);
+            removed
+        } else {
+            0
         }
     }
 }
@@ -243,6 +256,55 @@ mod tests {
         let actions: Vec<_> = (0..(HISTORY_CAP as u32 + 10)).map(dummy_action).collect();
         let log = ChangeLog::from_actions(actions);
         assert_eq!(log.len(), HISTORY_CAP);
+    }
+
+    #[test]
+    fn push_reports_exactly_one_pruned_at_the_cap() {
+        let mut log = ChangeLog::new();
+        for i in 0..(HISTORY_CAP as u32) {
+            assert_eq!(log.push(dummy_action(i)), 0);
+        }
+        assert_eq!(log.push(dummy_action(HISTORY_CAP as u32)), 1);
+
+        assert_eq!(log.len(), HISTORY_CAP);
+        let ChangeOp::FieldDelta {
+            record_id: first, ..
+        } = &log.actions()[0].op
+        else {
+            unreachable!();
+        };
+        let ChangeOp::FieldDelta {
+            record_id: last, ..
+        } = &log.actions()[HISTORY_CAP - 1].op
+        else {
+            unreachable!();
+        };
+        // The dropped action is the oldest; ids 1..=HISTORY_CAP survive.
+        assert_eq!(*first, 1);
+        assert_eq!(*last, HISTORY_CAP as u32);
+    }
+
+    #[test]
+    fn from_actions_reporting_reports_pruned_and_keeps_newest() {
+        let actions: Vec<_> = (0..(HISTORY_CAP as u32 + 1)).map(dummy_action).collect();
+        let (log, pruned) = ChangeLog::from_actions_reporting(actions);
+        assert_eq!(pruned, 1);
+        assert_eq!(log.len(), HISTORY_CAP);
+
+        let ChangeOp::FieldDelta {
+            record_id: first, ..
+        } = &log.actions()[0].op
+        else {
+            unreachable!();
+        };
+        let ChangeOp::FieldDelta {
+            record_id: last, ..
+        } = &log.actions()[HISTORY_CAP - 1].op
+        else {
+            unreachable!();
+        };
+        assert_eq!(*first, 1);
+        assert_eq!(*last, HISTORY_CAP as u32);
     }
 
     fn fd(file: &str, rec: u32, field: &str, old: Value, new: Value) -> ChangeAction {

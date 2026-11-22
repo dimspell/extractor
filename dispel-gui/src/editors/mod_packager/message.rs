@@ -60,7 +60,9 @@ pub enum ModPackagerMessage {
         key: crate::state::RecordingKey,
         generation: u64,
     },
-    RecordingPersisted(Result<(), String>),
+    /// Persisted one flush; `Ok` carries the number of oldest changelog
+    /// actions dropped at the history cap during that write.
+    RecordingPersisted(Result<usize, String>),
 
     // Conflict resolution (per-field pin)
     PinConflict {
