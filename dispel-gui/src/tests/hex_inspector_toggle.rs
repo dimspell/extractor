@@ -5,20 +5,7 @@
 
 #[cfg(all(test, feature = "iced_test"))]
 mod hex_inspector_toggle_tests {
-    use std::cell::Cell;
-    use std::collections::{BTreeMap, BTreeSet};
-    use std::path::PathBuf;
-
-    use gui_widgets::components::paragraph_cache::ParagraphCache;
-    use hexedit::domain::panel::default_pane_grid;
-    use hexedit::domain::provider::BufferProvider;
-    use hexedit::domain::search::SearchState;
-    use hexedit::domain::selection::Selection;
-    use hexedit::domain::write_mode::WriteMode;
-    use hexedit::ui::coloring::ColorScheme;
-    use hexedit::ui::theme::{DARK_THEME, ThemeVariant};
-    use hexedit::{ComparisonFile, HexEditorState, InspectorSource};
-    use hexedit::{HexEditorMessage, LuaScriptEngine};
+    use hexedit::{ComparisonFile, HexEditorMessage, HexEditorState, InspectorSource};
     use iced_test::simulator;
 
     use crate::message::Message;
@@ -27,80 +14,22 @@ mod hex_inspector_toggle_tests {
     use crate::workspace::EditorType::HexEditor;
 
     fn state_with_comparison(baseline: Vec<u8>, comparison: Vec<u8>) -> HexEditorState {
-        let panes = default_pane_grid();
-        let pane_focus = *panes.iter().next().map(|(id, _)| id).unwrap();
-        let diff = baseline
+        let mut state = HexEditorState::from_bytes("test.bin", baseline, None, None);
+        let diff = state
+            .provider
+            .as_slice()
             .iter()
             .zip(comparison.iter())
             .enumerate()
             .filter(|(_, (a, b))| a != b)
             .map(|(i, _)| i as u64)
             .collect();
-        HexEditorState {
-            path: PathBuf::from("test.bin"),
-            name: "test.bin".to_string(),
-            layout: None,
-            outline: gui_widgets::sweeten::list::Content::new(),
-            outline_all: Vec::new(),
-            collapsed_outline: BTreeSet::new(),
-            panes,
-            pane_focus,
-            provider: BufferProvider::from_bytes(baseline),
-            bytes_per_row: 16,
-            bpr_input: "16".to_string(),
-            selection: Selection::single(0),
-            edit_mode: None,
-            inspector_edit: None,
-            inspector_source: InspectorSource::Baseline,
-            vanilla: None,
-            vanilla_diff: BTreeSet::new(),
-            comparison_file: Some(ComparisonFile {
-                name: "other.bin".into(),
-                data: comparison,
-                diff,
-            }),
-            diff_review: false,
-            patterns: Vec::new(),
-            pattern_by_addr: BTreeMap::new(),
-            show_pattern_list: false,
-            next_pattern_id: 0,
-            groups: Vec::new(),
-            next_group_id: 0,
-            collapsed_groups: BTreeSet::new(),
-            context_menu_addr: None,
-            goto: None,
-            search: SearchState::new(),
-            show_decimal: false,
-            notifications: Vec::new(),
-            status_msg: String::new(),
-            error: None,
-            cache: ParagraphCache::default(),
-            lua_engine: LuaScriptEngine::default(),
-            export_config: None,
-            fill_dialog: None,
-            extend_dialog: None,
-            repeat_pattern: None,
-            row_annotations: BTreeMap::new(),
-            active_patterns: BTreeSet::new(),
-            renaming_group: None,
-            renaming_group_draft: String::new(),
-            color_scheme: ColorScheme::Monochrome,
-            dim_nulls: true,
-            settings_open: false,
-            write_mode: WriteMode::Hex,
-            custom_encodings: Vec::new(),
-            encoding_settings_open: false,
-            encoding_settings_selection: None,
-            show_stats: false,
-            file_stats: None,
-            selection_stats: None,
-            row_entropies: None,
-            show_entropy_band: true,
-            show_minimap: true,
-            theme: &DARK_THEME,
-            theme_variant: ThemeVariant::Dark,
-            pending_center_on: Cell::new(None),
-        }
+        state.comparison_file = Some(ComparisonFile {
+            name: "other.bin".into(),
+            data: comparison,
+            diff,
+        });
+        state
     }
 
     fn app_with_hex_and_comparison() -> crate::app::App {
