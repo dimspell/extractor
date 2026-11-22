@@ -134,6 +134,18 @@ pub struct MapRenderConfig<'a> {
     pub lights: &'a [EntityLight],
 }
 
+/// Selects the frame of a sprite sequence to draw. An explicit frame index is
+/// clamped to the last available frame; `None` picks frame 0. Returns `None`
+/// when the sequence carries no frames, so callers skip that sprite rather
+/// than indexing an empty slice.
+fn select_sprite_frame(frames: &[ImageInfo], requested: Option<usize>) -> Option<&ImageInfo> {
+    if frames.is_empty() {
+        return None;
+    }
+    let index = requested.unwrap_or(0).min(frames.len().saturating_sub(1));
+    frames.get(index)
+}
+
 /// Renders the full map to a PNG file.
 ///
 /// Rendering order:
@@ -225,8 +237,10 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
             for (i, block) in data.sprite_blocks.iter().enumerate() {
                 if block.sprite_id < data.internal_sprites.len() {
                     let infos = &data.internal_sprites[block.sprite_id].frame_infos;
-                    let f = toggles.sprite_frame.map_or(0, |f| f.min(infos.len() - 1));
-                    let h = infos[f].height;
+                    let Some(frame) = select_sprite_frame(infos, toggles.sprite_frame) else {
+                        continue;
+                    };
+                    let h = frame.height;
                     let pos = internal_sprite_sort_key(block.sprite_y + h);
                     items.push((
                         pos,
@@ -293,10 +307,11 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                 ItemKind::Sprite(i) => {
                     let block = &data.sprite_blocks[*i];
                     let sequence = &data.internal_sprites[block.sprite_id];
-                    let f = toggles
-                        .sprite_frame
-                        .map_or(0, |f| f.min(sequence.frame_infos.len() - 1));
-                    let sprite = &sequence.frame_infos[f];
+                    let Some(sprite) =
+                        select_sprite_frame(&sequence.frame_infos, toggles.sprite_frame)
+                    else {
+                        continue;
+                    };
                     let dest_x = block.sprite_x;
                     let dest_y = block.sprite_y;
                     plot_sprite_on_bitmap(&mut imgbuf, reader, sprite, dest_x, dest_y)?;
@@ -1927,5 +1942,40 @@ fn roof_overlay_modes_gate_and_pick_blit_style() {
         img2.get_pixel(sx as u32 + 30, sy as u32)[0],
         0,
         "black pixel (top rows) written in opaque mode"
+    );
+}
+
+#[test]
+fn test_select_sprite_frame_empty_and_clamped() {
+    // A sequence with no frames must yield no drawable frame rather than a
+    // wrapped `len() - 1` index. Both the collection and render passes rely
+    // on this to skip the sprite.
+    assert!(select_sprite_frame(&[], None).is_none());
+    assert!(select_sprite_frame(&[], Some(0)).is_none());
+    assert!(select_sprite_frame(&[], Some(usize::MAX)).is_none());
+
+    let frames: Vec<ImageInfo> = [11, 22, 33]
+        .into_iter()
+        .map(|height| ImageInfo {
+            origin_x: 0,
+            origin_y: 0,
+            width: 1,
+            height,
+            size_bytes: 2,
+            bytes_per_pixel: 2,
+            pixel_format: crate::sprite::SpritePixelFormat::Rgb565,
+            image_start_position: 0,
+        })
+        .collect();
+
+    // Default and in-range selections keep their previous meaning.
+    assert_eq!(select_sprite_frame(&frames, None).unwrap().height, 11);
+    assert_eq!(select_sprite_frame(&frames, Some(1)).unwrap().height, 22);
+    // Out-of-range selections clamp to the last frame.
+    assert_eq!(
+        select_sprite_frame(&frames, Some(usize::MAX))
+            .unwrap()
+            .height,
+        33
     );
 }
