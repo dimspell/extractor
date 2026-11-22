@@ -22,8 +22,8 @@ pub mod sprite;
 
 // Re-export key types for easy access
 pub use localization::{
-    Localizable, TextEncoding, TextEntry, TruncationStatus, export_csv, export_po, import_csv,
-    import_po, truncate_to_fit,
+    CsvApplyResult, Localizable, TextEncoding, TextEntry, TruncationStatus, export_csv, export_po,
+    import_csv, import_po, truncate_to_fit,
 };
 pub use references::{
     all_map_ini::Map,

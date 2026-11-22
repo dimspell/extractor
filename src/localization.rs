@@ -130,9 +130,21 @@ pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+/// Outcome of importing translations from CSV.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CsvApplyResult {
+    /// Data rows whose translation was applied to a matching entry.
+    pub updated: usize,
+    /// Data rows that were not applied: the key was invalid (missing file,
+    /// field or record id) or matched no known entry.
+    pub skipped: usize,
+}
+
 /// Import translations from CSV; matches rows by (file_path, record_id, field_name).
-/// Only updates the `translation` field of matching entries; returns error count.
-pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<usize, csv::Error> {
+/// Only updates the `translation` field of matching entries. Rows with an
+/// unparseable record id or a missing file/field are skipped rather than being
+/// coerced onto record 0; both applied and skipped counts are reported.
+pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<CsvApplyResult, csv::Error> {
     let mut rdr = csv::Reader::from_reader(csv.as_bytes());
     // Build a lookup: (file_path, record_id, field_name) → index in entries
     let mut index: HashMap<(String, usize, String), usize> = HashMap::new();
@@ -143,18 +155,30 @@ pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<usize, csv::Er
         );
     }
     let mut updated = 0;
+    let mut skipped = 0;
     for record in rdr.records() {
         let record = record?;
-        let file_path = record.get(0).unwrap_or("").to_owned();
-        let record_id: usize = record.get(1).unwrap_or("0").parse().unwrap_or(0);
-        let field_name = record.get(2).unwrap_or("").to_owned();
+        let Some(file_path) = record.get(0).filter(|s| !s.is_empty()) else {
+            skipped += 1;
+            continue;
+        };
+        let Some(field_name) = record.get(2).filter(|s| !s.is_empty()) else {
+            skipped += 1;
+            continue;
+        };
+        let Ok(record_id) = record.get(1).unwrap_or("").parse::<usize>() else {
+            skipped += 1;
+            continue;
+        };
         let translation = record.get(4).unwrap_or("").to_owned();
-        if let Some(&idx) = index.get(&(file_path, record_id, field_name)) {
+        if let Some(&idx) = index.get(&(file_path.to_owned(), record_id, field_name.to_owned())) {
             entries[idx].translation = translation;
             updated += 1;
+        } else {
+            skipped += 1;
         }
     }
-    Ok(updated)
+    Ok(CsvApplyResult { updated, skipped })
 }
 
 // ─── PO export / import ──────────────────────────────────────────────────────
@@ -197,6 +221,25 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         by_original.entry(e.original.clone()).or_default().push(i);
     }
 
+    // Apply a completed msgid/msgstr pair to every entry sharing the original.
+    // Called when a new msgid begins, a blank line ends the entry, and at EOF.
+    let flush_entry =
+        |id: &Option<String>, msgstr: &str, entries: &mut [TextEntry], updated: &mut usize| {
+            let Some(id) = id else {
+                return;
+            };
+            if msgstr.is_empty() {
+                return;
+            }
+            let Some(idxs) = by_original.get(id) else {
+                return;
+            };
+            for &i in idxs {
+                entries[i].translation = msgstr.to_owned();
+                *updated += 1;
+            }
+        };
+
     let mut updated = 0;
     let mut current_msgid: Option<String> = None;
     let mut in_msgstr = false;
@@ -206,16 +249,7 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         let line = line.trim();
         if let Some(stripped) = line.strip_prefix("msgid ") {
             if in_msgstr {
-                // flush previous pair
-                if let Some(ref id) = current_msgid
-                    && !msgstr_buf.is_empty()
-                    && let Some(idxs) = by_original.get(id)
-                {
-                    for &i in idxs {
-                        entries[i].translation = msgstr_buf.clone();
-                        updated += 1;
-                    }
-                }
+                flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
             }
             in_msgstr = false;
             msgstr_buf.clear();
@@ -228,31 +262,14 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
             msgstr_buf.push_str(&po_unquote(line));
         } else if line.is_empty() && in_msgstr {
             // end of entry
-            if let Some(ref id) = current_msgid
-                && !msgstr_buf.is_empty()
-                && let Some(idxs) = by_original.get(id)
-            {
-                for &i in idxs {
-                    entries[i].translation = msgstr_buf.clone();
-                    updated += 1;
-                }
-            }
+            flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
             in_msgstr = false;
             current_msgid = None;
             msgstr_buf.clear();
         }
     }
     // flush last entry
-    if in_msgstr
-        && let Some(ref id) = current_msgid
-        && !msgstr_buf.is_empty()
-        && let Some(idxs) = by_original.get(id)
-    {
-        for &i in idxs {
-            entries[i].translation = msgstr_buf.clone();
-            updated += 1;
-        }
-    }
+    flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
     updated
 }
 
@@ -270,16 +287,32 @@ fn po_quote(s: &str) -> String {
 
 fn po_unquote(s: &str) -> String {
     let s = s.trim();
-    if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-        let inner = &s[1..s.len() - 1];
-        inner
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\")
-    } else {
-        s.to_owned()
+    if !(s.starts_with('"') && s.ends_with('"') && s.len() >= 2) {
+        return s.to_owned();
     }
+    // Consume escapes left-to-right so a literal backslash before n/r/quote
+    // is not mistaken for the start of an escape. Unknown escapes are kept.
+    let inner = &s[1..s.len() - 1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('"') => out.push('"'),
+            Some('\\') => out.push('\\'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -311,14 +344,52 @@ mod tests {
         ]
     }
 
+    fn text_entry(original: &str) -> TextEntry {
+        TextEntry {
+            file_path: "test.db".to_owned(),
+            record_id: 1,
+            field_name: "name",
+            original: original.to_owned(),
+            translation: String::new(),
+            encoding: TextEncoding::Windows1250,
+            max_bytes: 64,
+        }
+    }
+
     #[test]
     fn csv_round_trip() {
         let entries = sample_entries();
         let csv = export_csv(&entries).unwrap();
         let mut entries2 = sample_entries();
-        let updated = import_csv(&csv, &mut entries2).unwrap();
-        assert_eq!(updated, 2);
+        let result = import_csv(&csv, &mut entries2).unwrap();
+        assert_eq!(
+            result,
+            CsvApplyResult {
+                updated: 2,
+                skipped: 0
+            }
+        );
         assert_eq!(entries2[1].translation, "Witaj, wędrowcze.");
+    }
+
+    #[test]
+    fn csv_import_skips_invalid_keys_without_touching_entry_zero() {
+        let mut entries = sample_entries();
+        entries[0].translation = "sentinel".to_owned();
+        let csv = "file_path,record_id,field_name,original,translation,encoding,max_bytes\n\
+                   CharacterInGame/STORE.DB,,store_name,Weapon Shop,CORRUPT,WINDOWS-1250,32\n\
+                   CharacterInGame/STORE.DB,garbage,invitation,Welcome,BAD,WINDOWS-1250,512\n\
+                   CharacterInGame/STORE.DB,0,,Weapon Shop,NOFIELD,WINDOWS-1250,32\n";
+        let result = import_csv(csv, &mut entries).unwrap();
+        assert_eq!(
+            result,
+            CsvApplyResult {
+                updated: 0,
+                skipped: 3
+            }
+        );
+        assert_eq!(entries[0].translation, "sentinel");
+        assert_eq!(entries[1].translation, "Witaj, wędrowcze.");
     }
 
     #[test]
@@ -331,6 +402,56 @@ mod tests {
         assert_eq!(updated, 2);
         assert_eq!(entries2[0].translation, "Sklep z bronią");
         assert_eq!(entries2[1].translation, "Witaj, wędrowcze.");
+    }
+
+    #[test]
+    fn po_unquote_decodes_escapes_left_to_right() {
+        assert_eq!(po_unquote("\"C:\\\\new\""), "C:\\new");
+        assert_eq!(po_unquote("\"a\\\\\\\"b\""), "a\\\"b");
+        assert_eq!(po_unquote("\"x\\\\\\\\y\""), "x\\\\y");
+        assert_eq!(po_unquote("\"a\\\\nb\""), "a\\nb");
+        assert_eq!(po_unquote("\"\\\""), "\\");
+        assert_eq!(po_unquote("\"a\\nb\""), "a\nb");
+        assert_eq!(po_unquote("\"a\\rb\""), "a\rb");
+        assert_eq!(po_unquote("\"a\\qb\""), "a\\qb");
+    }
+
+    #[test]
+    fn po_quote_output_round_trips_through_unquote() {
+        for original in [
+            "C:\\new",
+            "a\"b",
+            "x\\y",
+            "line1\nline2",
+            "a\r\nb",
+            "\\",
+            "\\n",
+        ] {
+            assert_eq!(
+                po_unquote(&po_quote(original)),
+                original,
+                "failed for {original:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn po_import_flushes_at_msgid_blank_line_and_eof() {
+        let po = concat!(
+            "msgid \"one\"\n",
+            "msgstr \"Uno\"\n",
+            "msgid \"two\"\n",
+            "msgstr \"Dos\"\n",
+            "\n",
+            "msgid \"three\"\n",
+            "msgstr \"Tres\"\n",
+        );
+        let mut entries = vec![text_entry("one"), text_entry("two"), text_entry("three")];
+        let updated = import_po(po, &mut entries);
+        assert_eq!(updated, 3);
+        assert_eq!(entries[0].translation, "Uno");
+        assert_eq!(entries[1].translation, "Dos");
+        assert_eq!(entries[2].translation, "Tres");
     }
 
     #[test]

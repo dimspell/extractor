@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
-use crate::editors::localization_manager::{LocalizationMessage, PackageResult};
+use crate::editors::localization_manager::{ImportResult, LocalizationMessage, PackageResult};
 use crate::editors::mod_packager::recording::prune_warning;
 use crate::message::MessageExt;
 use dispel_core::localization::{Localizable, TruncationStatus};
@@ -254,16 +254,25 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                         .pick_file()
                         .await;
                     let Some(handle) = handle else {
-                        return Ok(current_entries);
+                        return Ok(ImportResult {
+                            entries: current_entries,
+                            skipped: 0,
+                        });
                     };
                     let path = handle.path().to_path_buf();
                     let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-                    if path.extension().and_then(|e| e.to_str()) == Some("po") {
+                    let skipped = if path.extension().and_then(|e| e.to_str()) == Some("po") {
                         import_po(&content, &mut current_entries);
+                        0
                     } else {
-                        import_csv(&content, &mut current_entries).map_err(|e| e.to_string())?;
-                    }
-                    Ok(current_entries)
+                        import_csv(&content, &mut current_entries)
+                            .map_err(|e| e.to_string())?
+                            .skipped
+                    };
+                    Ok(ImportResult {
+                        entries: current_entries,
+                        skipped,
+                    })
                 },
                 |result| {
                     crate::message::Message::localization(LocalizationMessage::Imported(result))
@@ -272,15 +281,19 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         }
         LocalizationMessage::Imported(result) => {
             match result {
-                Ok(entries) => {
+                Ok(import) => {
+                    let ImportResult { entries, skipped } = import;
                     let count = entries.iter().filter(|e| e.is_translated()).count();
                     let overlong = entries.iter().filter(|e| e.would_truncate()).count();
                     app.state.editors.localization_manager.entries = entries;
-                    let msg = if overlong > 0 {
+                    let mut msg = if overlong > 0 {
                         format!("Imported. {count} strings translated, {overlong} overlong.")
                     } else {
                         format!("Imported. {count} strings translated.")
                     };
+                    if skipped > 0 {
+                        msg.push_str(&format!(" {skipped} row(s) skipped."));
+                    }
                     app.state.editors.localization_manager.status_msg = msg;
                     // Refresh editor panel if selected entry changed
                     if let Some(idx) = app.state.editors.localization_manager.selected_idx

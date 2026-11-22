@@ -21,6 +21,16 @@ pub struct PackageResult {
     pub pruned: usize,
 }
 
+/// Outcome of a CSV/PO import, carried back to the UI from the async worker.
+#[derive(Debug, Clone)]
+pub struct ImportResult {
+    /// Entries with translations applied.
+    pub entries: Vec<TextEntry>,
+    /// CSV rows that were skipped because their key was invalid or unmatched;
+    /// always zero for PO imports.
+    pub skipped: usize,
+}
+
 #[derive(Debug, Clone)]
 pub enum LocalizationMessage {
     Scan,
@@ -39,7 +49,7 @@ pub enum LocalizationMessage {
     ExportPo,
     ExportDone(Result<(), String>),
     ImportFile,
-    Imported(Result<Vec<TextEntry>, String>),
+    Imported(Result<ImportResult, String>),
     TargetLangChanged(String),
     ModNameChanged(String),
     ModVersionChanged(String),
