@@ -179,7 +179,6 @@ impl IndexationService {
         let entries = match entries_result {
             Ok(entries) => entries,
             Err(e) => {
-                let _processed = files.len() as u32;
                 return Err(IndexationError::IndexationFailed(format!(
                     "Failed to read directory '{}': {}",
                     path.display(),
@@ -188,10 +187,9 @@ impl IndexationService {
             }
         };
 
-        let mut entries = match entries.collect::<Result<Vec<_>, _>>() {
+        let entries = match entries.collect::<Result<Vec<_>, _>>() {
             Ok(entries) => entries,
             Err(e) => {
-                let _processed = files.len() as u32;
                 return Err(IndexationError::IndexationFailed(format!(
                     "Failed to read directory entries in '{}': {}",
                     path.display(),
@@ -200,13 +198,6 @@ impl IndexationService {
             }
         };
 
-        // Get file types synchronously
-        for entry in entries.iter_mut() {
-            if let Ok(file_type) = entry.file_type() {
-                let _is_dir = file_type.is_dir();
-                // We can't store additional data in the entry, so we'll check during iteration
-            }
-        }
         let mut entries_with_types: Vec<(std::fs::DirEntry, bool)> = entries
             .into_iter()
             .map(|entry| {
@@ -224,7 +215,6 @@ impl IndexationService {
         for (entry, is_directory) in entries_with_types {
             // Check for cancellation periodically
             if *cancellation_flag.lock().unwrap() {
-                let _count = files.len() as u32;
                 return Err(IndexationError::Cancelled);
             }
 

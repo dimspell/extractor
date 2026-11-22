@@ -108,27 +108,36 @@ pub async fn build_index(game_path: &Path) -> SearchIndex {
 }
 
 fn index_all_files_recursive(game_path: &Path, dir: &Path, file_mappings: &mut Vec<FileMapping>) {
-    if let Ok(read_dir) = std::fs::read_dir(dir) {
-        for entry in read_dir.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                index_all_files_recursive(game_path, &path, file_mappings);
-            } else if path.extension().is_some()
-                && let Ok(relative_path) = path.strip_prefix(game_path)
-            {
-                // The editor name comes from the authoritative catalog via the
-                // same path detection used when opening a file, so bogus names
-                // like "DatabaseEditor"/"IniEditor" can no longer appear and
-                // new editors are covered automatically.
-                let editor_type = crate::workspace::EditorType::from_path(&path)
-                    .name()
-                    .to_string();
-
-                file_mappings.push(FileMapping {
-                    file_path: relative_path.to_string_lossy().to_string(),
-                    editor_type,
-                });
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(read_dir) => read_dir,
+        Err(e) => {
+            eprintln!("Index: cannot read directory {}: {}", dir.display(), e);
+            return;
+        }
+    };
+    for entry in read_dir {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                eprintln!("Index: skipping unreadable entry: {}", e);
+                continue;
             }
+        };
+        let path = entry.path();
+        if path.is_dir() {
+            index_all_files_recursive(game_path, &path, file_mappings);
+        } else if path.extension().is_some()
+            && let Ok(relative_path) = path.strip_prefix(game_path)
+        {
+            // Editor names come from the catalog via the same path detection used when opening a file.
+            let editor_type = crate::workspace::EditorType::from_path(&path)
+                .name()
+                .to_string();
+
+            file_mappings.push(FileMapping {
+                file_path: relative_path.to_string_lossy().to_string(),
+                editor_type,
+            });
         }
     }
 }
@@ -151,24 +160,120 @@ fn index_sprites(
 }
 
 fn find_sprites_recursive(dir: &Path, entries: &mut Vec<IndexedEntry>, count: &mut usize) {
-    if let Ok(read_dir) = std::fs::read_dir(dir) {
-        for entry in read_dir.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                find_sprites_recursive(&path, entries, count);
-            } else if path.extension().is_some_and(|e| e == "spr")
-                && let Some(name) = path.file_stem().and_then(|n| n.to_str())
-            {
-                entries.push(IndexedEntry {
-                    label: format!("[Sprite] {}", name),
-                    editor_type: crate::workspace::EditorType::SpriteViewer
-                        .name()
-                        .to_string(),
-                    record_idx: *count,
-                    source_file: Some(path.to_string_lossy().to_string()),
-                });
-                *count += 1;
-            }
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(read_dir) => read_dir,
+        Err(e) => {
+            eprintln!("Index: cannot read directory {}: {}", dir.display(), e);
+            return;
         }
+    };
+    for entry in read_dir {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(e) => {
+                eprintln!("Index: skipping unreadable entry: {}", e);
+                continue;
+            }
+        };
+        let path = entry.path();
+        if path.is_dir() {
+            find_sprites_recursive(&path, entries, count);
+        } else if path.extension().is_some_and(|e| e == "spr")
+            && let Some(name) = path.file_stem().and_then(|n| n.to_str())
+        {
+            entries.push(IndexedEntry {
+                label: format!("[Sprite] {}", name),
+                editor_type: crate::workspace::EditorType::SpriteViewer
+                    .name()
+                    .to_string(),
+                record_idx: *count,
+                source_file: Some(path.to_string_lossy().to_string()),
+            });
+            *count += 1;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_index_normal_tree_keeps_mappings_and_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let db_dir = root.join("CharacterInGame");
+        let sprite_dir = root.join("Sprites");
+        std::fs::create_dir_all(&db_dir).unwrap();
+        std::fs::create_dir_all(&sprite_dir).unwrap();
+        std::fs::write(db_dir.join("WeaponItem.db"), b"").unwrap();
+        std::fs::write(sprite_dir.join("hero.spr"), b"").unwrap();
+        // A file without an extension is skipped by the recursive mapping pass.
+        std::fs::write(root.join("README"), b"").unwrap();
+
+        let index = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(build_index(root));
+
+        assert_eq!(index.game_path.as_deref(), Some(root.to_str().unwrap()));
+
+        let db_rel = Path::new("CharacterInGame")
+            .join("WeaponItem.db")
+            .to_string_lossy()
+            .to_string();
+        let db_mapping = index
+            .file_mappings
+            .iter()
+            .find(|m| m.file_path == db_rel)
+            .expect("WeaponItem.db mapping should be indexed");
+        assert_eq!(db_mapping.editor_type, "WeaponEditor");
+
+        let spr_rel = Path::new("Sprites")
+            .join("hero.spr")
+            .to_string_lossy()
+            .to_string();
+        assert!(
+            index
+                .file_mappings
+                .iter()
+                .any(|m| m.file_path == spr_rel && m.editor_type == "SpriteViewer"),
+            "sprite file mapping should be indexed"
+        );
+        assert!(
+            !index.file_mappings.iter().any(|m| m.file_path == "README"),
+            "extension-less files should not produce mappings"
+        );
+
+        let sprite_entries: Vec<_> = index
+            .entries
+            .iter()
+            .filter(|e| e.editor_type == "SpriteViewer")
+            .collect();
+        assert_eq!(sprite_entries.len(), 1, "exactly one sprite entry expected");
+        assert_eq!(sprite_entries[0].label, "[Sprite] hero");
+        assert_eq!(sprite_entries[0].record_idx, 0);
+        assert_eq!(
+            sprite_entries[0].source_file.as_deref(),
+            Some(sprite_dir.join("hero.spr").to_str().unwrap())
+        );
+        assert!(
+            index.file_mappings.iter().any(|m| m.file_path == "*.spr"),
+            "a *.spr summary mapping should be present when sprites exist"
+        );
+    }
+
+    #[test]
+    fn test_build_index_empty_tree_has_no_entries() {
+        let tmp = tempfile::tempdir().unwrap();
+        let index = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(build_index(tmp.path()));
+
+        assert!(index.entries.is_empty());
+        assert!(index.file_mappings.is_empty());
     }
 }

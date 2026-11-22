@@ -613,10 +613,25 @@ fn scan_pgp_files(game_path: &Path, entries: &mut Vec<TextEntry>) -> Result<(), 
 
 fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>> {
     fn collect(dir: &Path, out: &mut Vec<Result<PathBuf, std::io::Error>>) {
-        let Ok(rd) = std::fs::read_dir(dir) else {
-            return;
+        let rd = match std::fs::read_dir(dir) {
+            Ok(rd) => rd,
+            Err(e) => {
+                eprintln!(
+                    "Localization scan: cannot read directory {}: {}",
+                    dir.display(),
+                    e
+                );
+                return;
+            }
         };
-        for entry in rd.flatten() {
+        for entry in rd {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) => {
+                    eprintln!("Localization scan: skipping unreadable entry: {}", e);
+                    continue;
+                }
+            };
             let path = entry.path();
             if path.is_dir() {
                 collect(&path, out);
