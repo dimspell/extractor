@@ -8,8 +8,6 @@ use crate::domain::panel::HexPanel;
 use crate::domain::save::{SaveOutcome, SaveRequest};
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::state::{ComparisonFile, InspectorSource};
-use crate::ui::coloring::ColorScheme;
-use crate::ui::theme::ThemeVariant;
 use crate::ui::view::panel::MAX_PANELS;
 
 use crate::HexProvider;
@@ -993,14 +991,7 @@ pub fn update(
             state.show_decimal = decimal;
         }
         HexEditorMessage::ResetSettings => {
-            state.color_scheme = ColorScheme::Monochrome;
-            state.dim_nulls = true;
-            state.show_decimal = false;
-            state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
-            state.bpr_input = crate::state::DEFAULT_BYTES_PER_ROW.to_string();
-            state.show_entropy_band = true;
-            state.theme_variant = ThemeVariant::Dark;
-            state.theme = ThemeVariant::Dark.theme();
+            state.apply_settings_defaults();
             state.notify("Settings reset to defaults");
         }
 

@@ -256,6 +256,32 @@ fn test_reset_settings_from_defaults_is_idempotent() {
 }
 
 #[test]
+fn test_reset_settings_matches_fresh_state_defaults() {
+    let mut state = make_state((0..64).collect());
+    state.color_scheme = ColorScheme::Rainbow;
+    state.dim_nulls = false;
+    state.show_decimal = true;
+    state.bytes_per_row = 8;
+    state.bpr_input = "8".to_string();
+    state.show_entropy_band = false;
+    state.theme_variant = crate::ui::theme::ThemeVariant::Light;
+    state.theme = crate::ui::theme::ThemeVariant::Light.theme();
+
+    let config = default_config();
+    send(&mut state, &config, HexEditorMessage::ResetSettings);
+
+    let fresh = HexEditorState::from_bytes("test.bin", vec![0; 64], None, None);
+    assert_eq!(state.color_scheme, fresh.color_scheme);
+    assert_eq!(state.dim_nulls, fresh.dim_nulls);
+    assert_eq!(state.show_decimal, fresh.show_decimal);
+    assert_eq!(state.bytes_per_row, fresh.bytes_per_row);
+    assert_eq!(state.bpr_input, fresh.bpr_input);
+    assert_eq!(state.show_entropy_band, fresh.show_entropy_band);
+    assert_eq!(state.theme_variant, fresh.theme_variant);
+    assert_eq!(state.theme, fresh.theme);
+}
+
+#[test]
 fn test_settings_modal_view_does_not_panic() {
     // Smoke test: the settings modal view function should not panic.
     let state = make_state((0..64).collect());

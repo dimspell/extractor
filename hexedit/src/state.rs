@@ -192,6 +192,14 @@ pub struct HexEditorState {
     pub theme_variant: ThemeVariant,
 }
 
+/// Varying data-backed inputs shared by the file-loading constructors.
+struct BufferSeed {
+    provider: BufferProvider,
+    vanilla: Option<Vec<u8>>,
+    row_entropies: Option<RowEntropyCache>,
+    error: Option<String>,
+}
+
 impl HexEditorState {
     /// Replace the tab's layout and prepare its virtualized outline data.
     pub fn set_layout(&mut self, layout: Option<Box<dyn BinaryLayout>>) {
@@ -311,18 +319,27 @@ impl HexEditorState {
         Self::from_bytes_with_layout(name, data, vanilla, path, None)
     }
 
-    pub fn from_bytes_with_layout(
-        name: impl Into<String>,
-        data: Vec<u8>,
-        vanilla: Option<Vec<u8>>,
-        path: Option<PathBuf>,
+    /// Restore the settings-panel fields to their default values.
+    pub(crate) fn apply_settings_defaults(&mut self) {
+        self.color_scheme = ColorScheme::Monochrome;
+        self.dim_nulls = true;
+        self.show_decimal = false;
+        self.bytes_per_row = DEFAULT_BYTES_PER_ROW;
+        self.bpr_input = DEFAULT_BYTES_PER_ROW.to_string();
+        self.show_entropy_band = true;
+        self.theme_variant = ThemeVariant::Dark;
+        self.theme = ThemeVariant::Dark.theme();
+    }
+
+    /// Build a state with default-valued fields, taking only the inputs that
+    /// genuinely vary between construction paths.
+    fn with_defaults(
+        path: PathBuf,
+        name: String,
         layout: Option<Box<dyn BinaryLayout>>,
+        lua_engine: LuaScriptEngine,
+        buffer: BufferSeed,
     ) -> Self {
-        let name = name.into();
-        let path = path.unwrap_or_else(|| PathBuf::from(&name));
-        let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
-        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
-        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
         let panes = default_pane_grid();
         let pane_focus = *panes
             .iter()
@@ -339,14 +356,14 @@ impl HexEditorState {
             collapsed_outline: BTreeSet::new(),
             panes,
             pane_focus,
-            provider: BufferProvider::from_bytes(data),
+            provider: buffer.provider,
             bytes_per_row: DEFAULT_BYTES_PER_ROW,
             bpr_input: DEFAULT_BYTES_PER_ROW.to_string(),
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,
             inspector_source: InspectorSource::Baseline,
-            vanilla,
+            vanilla: buffer.vanilla,
             vanilla_diff: BTreeSet::new(),
             comparison_file: None,
             diff_review: false,
@@ -370,7 +387,7 @@ impl HexEditorState {
             show_decimal: false,
             notifications: Vec::new(),
             status_msg: String::new(),
-            error: None,
+            error: buffer.error,
             repeat_pattern: None,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: true,
@@ -384,13 +401,42 @@ impl HexEditorState {
             show_stats: false,
             file_stats: None,
             selection_stats: None,
-            row_entropies: Some(row_entropies),
+            row_entropies: buffer.row_entropies,
             show_entropy_band: true,
             show_minimap: true,
             pending_center_on: Cell::new(None),
             theme: &DARK_THEME,
             theme_variant: ThemeVariant::Dark,
         };
+        state.apply_settings_defaults();
+        state
+    }
+
+    pub fn from_bytes_with_layout(
+        name: impl Into<String>,
+        data: Vec<u8>,
+        vanilla: Option<Vec<u8>>,
+        path: Option<PathBuf>,
+        layout: Option<Box<dyn BinaryLayout>>,
+    ) -> Self {
+        let name = name.into();
+        let path = path.unwrap_or_else(|| PathBuf::from(&name));
+        let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
+        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
+        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
+
+        let mut state = Self::with_defaults(
+            path,
+            name,
+            layout,
+            lua_engine,
+            BufferSeed {
+                provider: BufferProvider::from_bytes(data),
+                vanilla,
+                row_entropies: Some(row_entropies),
+                error: None,
+            },
+        );
         state.recompute_vanilla_diff();
         state.rebuild_outline();
         state
@@ -423,75 +469,18 @@ impl HexEditorState {
         let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
         let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
 
-        let panes = default_pane_grid();
-        let pane_focus = *panes
-            .iter()
-            .next()
-            .map(|(id, _)| id)
-            .expect("default_pane_grid always has at least one pane");
-
-        let mut state = Self {
-            path: path.to_path_buf(),
+        let mut state = Self::with_defaults(
+            path.to_path_buf(),
             name,
             layout,
-            outline: Content::new(),
-            outline_all: Vec::new(),
-            collapsed_outline: BTreeSet::new(),
-            panes,
-            pane_focus,
-            provider,
-            bytes_per_row: DEFAULT_BYTES_PER_ROW,
-            bpr_input: DEFAULT_BYTES_PER_ROW.to_string(),
-            selection: Selection::default(),
-            edit_mode: None,
-            inspector_edit: None,
-            inspector_source: InspectorSource::Baseline,
-            vanilla,
-            vanilla_diff: BTreeSet::new(),
-            comparison_file: None,
-            diff_review: false,
-            patterns: Vec::new(),
-            pattern_by_addr: BTreeMap::new(),
-            show_pattern_list: false,
-            next_pattern_id: 0,
-            groups: Vec::new(),
-            next_group_id: 0,
-            collapsed_groups: BTreeSet::new(),
-            row_annotations: BTreeMap::new(),
-            active_patterns: BTreeSet::new(),
-            renaming_group: None,
-            renaming_group_draft: String::new(),
-            context_menu_addr: None,
-            goto: None,
-            export_config: None,
-            fill_dialog: None,
-            extend_dialog: None,
-            search: SearchState::new(),
-            show_decimal: false,
-            notifications: Vec::new(),
-            status_msg: String::new(),
-            error,
-            repeat_pattern: None,
-            color_scheme: ColorScheme::Monochrome,
-            dim_nulls: true,
-            settings_open: false,
-            cache: ParagraphCache::default(),
             lua_engine,
-            write_mode: WriteMode::Hex,
-            custom_encodings: Vec::new(),
-            encoding_settings_open: false,
-            encoding_settings_selection: None,
-
-            show_stats: false,
-            file_stats: None,
-            selection_stats: None,
-            row_entropies,
-            show_entropy_band: true,
-            show_minimap: true,
-            pending_center_on: Cell::new(None),
-            theme: &DARK_THEME,
-            theme_variant: ThemeVariant::Dark,
-        };
+            BufferSeed {
+                provider,
+                vanilla,
+                row_entropies,
+                error,
+            },
+        );
         state.rebuild_outline();
         state
     }

@@ -1,24 +1,11 @@
-use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::LuaScriptEngine;
-use crate::ui::coloring::ColorScheme;
-use crate::ui::theme::{DARK_THEME, ThemeVariant};
 
 /// Write a Lua script to the temp dir and return its path.
 /// Uses a global counter to keep paths unique across tests.
 static SCRIPT_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-/// Helper: create default pane grid + focus for test constructors.
-fn default_test_panes() -> (
-    iced::widget::pane_grid::State<crate::domain::panel::HexPanel>,
-    iced::widget::pane_grid::Pane,
-) {
-    let panes = crate::domain::panel::default_pane_grid();
-    let focus = *panes.iter().next().map(|(id, _)| id).unwrap();
-    (panes, focus)
-}
 
 fn write_script(dir: &str, name: &str, code: &str) -> PathBuf {
     let counter = SCRIPT_COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -531,68 +518,9 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
     // Non-.lua file should be ignored
     std::fs::write(dir.join("notes.txt"), "not a script").unwrap();
 
-    let (panes, pane_focus) = default_test_panes();
-    let mut state = crate::state::HexEditorState {
-        path: std::path::PathBuf::from("test.bin"),
-        name: "test.bin".to_string(),
-        layout: None,
-        outline: gui_widgets::sweeten::list::Content::new(),
-        outline_all: Vec::new(),
-        collapsed_outline: std::collections::BTreeSet::new(),
-        panes,
-        pane_focus,
-        provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
-        bytes_per_row: 16,
-        bpr_input: "16".to_string(),
-        selection: crate::selection::Selection::single(0),
-        edit_mode: None,
-        inspector_edit: None,
-        inspector_source: crate::state::InspectorSource::Baseline,
-        vanilla: None,
-        vanilla_diff: std::collections::BTreeSet::new(),
-        comparison_file: None,
-        diff_review: false,
-        patterns: Vec::new(),
-        pattern_by_addr: std::collections::BTreeMap::new(),
-        show_pattern_list: false,
-        next_pattern_id: 0,
-        groups: Vec::new(),
-        next_group_id: 0,
-        collapsed_groups: std::collections::BTreeSet::new(),
-        context_menu_addr: None,
-        goto: None,
-        search: crate::search::SearchState::new(),
-        show_decimal: false,
-        notifications: Vec::new(),
-        status_msg: String::new(),
-        error: None,
-        cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
-        lua_engine: LuaScriptEngine::new(false).unwrap(),
-        export_config: None,
-        fill_dialog: None,
-        extend_dialog: None,
-        repeat_pattern: None,
-        row_annotations: std::collections::BTreeMap::new(),
-        active_patterns: std::collections::BTreeSet::new(),
-        renaming_group: None,
-        renaming_group_draft: String::new(),
-        color_scheme: ColorScheme::Monochrome,
-        dim_nulls: false,
-        settings_open: false,
-        write_mode: crate::domain::write_mode::WriteMode::Hex,
-        custom_encodings: Vec::new(),
-        encoding_settings_open: false,
-        encoding_settings_selection: None,
-        show_stats: false,
-        file_stats: None,
-        selection_stats: None,
-        row_entropies: None,
-        show_entropy_band: true,
-        show_minimap: true,
-        theme: &DARK_THEME,
-        theme_variant: ThemeVariant::Dark,
-        pending_center_on: Cell::new(None),
-    };
+    let mut state = crate::state::HexEditorState::from_bytes("test.bin", vec![0x00], None, None);
+    state.lua_engine = LuaScriptEngine::new(false).unwrap();
+    state.dim_nulls = false;
     let errors = state.load_lua_scripts(&dir);
     assert!(errors.is_empty(), "should load without errors: {errors:?}");
     let entries = state.lua_engine.entries();
@@ -606,68 +534,9 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
     // Current behavior: non-existent dir returns empty errors (treated as
     // "no scripts to load", not an error condition).
     let engine = LuaScriptEngine::new(false).unwrap();
-    let (panes, pane_focus) = default_test_panes();
-    let mut state = crate::state::HexEditorState {
-        path: std::path::PathBuf::from("test.bin"),
-        name: "test.bin".to_string(),
-        layout: None,
-        outline: gui_widgets::sweeten::list::Content::new(),
-        outline_all: Vec::new(),
-        collapsed_outline: std::collections::BTreeSet::new(),
-        panes,
-        pane_focus,
-        provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
-        bytes_per_row: 16,
-        bpr_input: "16".to_string(),
-        selection: crate::selection::Selection::single(0),
-        edit_mode: None,
-        inspector_edit: None,
-        inspector_source: crate::state::InspectorSource::Baseline,
-        vanilla: None,
-        vanilla_diff: std::collections::BTreeSet::new(),
-        comparison_file: None,
-        diff_review: false,
-        patterns: Vec::new(),
-        pattern_by_addr: std::collections::BTreeMap::new(),
-        show_pattern_list: false,
-        next_pattern_id: 0,
-        groups: Vec::new(),
-        next_group_id: 0,
-        collapsed_groups: std::collections::BTreeSet::new(),
-        context_menu_addr: None,
-        goto: None,
-        search: crate::search::SearchState::new(),
-        show_decimal: false,
-        notifications: Vec::new(),
-        status_msg: String::new(),
-        error: None,
-        cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
-        lua_engine: engine,
-        export_config: None,
-        fill_dialog: None,
-        extend_dialog: None,
-        repeat_pattern: None,
-        row_annotations: std::collections::BTreeMap::new(),
-        active_patterns: std::collections::BTreeSet::new(),
-        renaming_group: None,
-        renaming_group_draft: String::new(),
-        color_scheme: ColorScheme::Monochrome,
-        dim_nulls: false,
-        settings_open: false,
-        write_mode: crate::domain::write_mode::WriteMode::Hex,
-        custom_encodings: Vec::new(),
-        encoding_settings_open: false,
-        encoding_settings_selection: None,
-        show_stats: false,
-        file_stats: None,
-        selection_stats: None,
-        row_entropies: None,
-        show_entropy_band: true,
-        show_minimap: true,
-        theme: &DARK_THEME,
-        theme_variant: ThemeVariant::Dark,
-        pending_center_on: Cell::new(None),
-    };
+    let mut state = crate::state::HexEditorState::from_bytes("test.bin", vec![0x00], None, None);
+    state.lua_engine = engine;
+    state.dim_nulls = false;
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
     assert!(errors.is_empty(), "non-existent dir should return 0 errors");
 }
@@ -712,68 +581,9 @@ return {
     //
     // Instead, let's verify that Lua entries decode correctly and that
     // a custom InspectorEntry built from Lua can be used in the view.
-    let (panes, pane_focus) = default_test_panes();
-    let state = crate::state::HexEditorState {
-        path: std::path::PathBuf::from("test.bin"),
-        name: "test.bin".to_string(),
-        layout: None,
-        outline: gui_widgets::sweeten::list::Content::new(),
-        outline_all: Vec::new(),
-        collapsed_outline: std::collections::BTreeSet::new(),
-        panes,
-        pane_focus,
-        provider: crate::provider::BufferProvider::from_bytes(vec![0xAB]),
-        bytes_per_row: 16,
-        bpr_input: "16".to_string(),
-        selection: crate::selection::Selection::single(0),
-        edit_mode: None,
-        inspector_edit: None,
-        inspector_source: crate::state::InspectorSource::Baseline,
-        vanilla: None,
-        vanilla_diff: std::collections::BTreeSet::new(),
-        comparison_file: None,
-        diff_review: false,
-        patterns: Vec::new(),
-        pattern_by_addr: std::collections::BTreeMap::new(),
-        show_pattern_list: false,
-        next_pattern_id: 0,
-        groups: Vec::new(),
-        next_group_id: 0,
-        collapsed_groups: std::collections::BTreeSet::new(),
-        context_menu_addr: None,
-        goto: None,
-        search: crate::search::SearchState::new(),
-        show_decimal: false,
-        notifications: Vec::new(),
-        status_msg: String::new(),
-        error: None,
-        cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
-        lua_engine: engine,
-        export_config: None,
-        fill_dialog: None,
-        extend_dialog: None,
-        repeat_pattern: None,
-        row_annotations: std::collections::BTreeMap::new(),
-        active_patterns: std::collections::BTreeSet::new(),
-        renaming_group: None,
-        renaming_group_draft: String::new(),
-        color_scheme: ColorScheme::Monochrome,
-        dim_nulls: false,
-        settings_open: false,
-        write_mode: crate::domain::write_mode::WriteMode::Hex,
-        custom_encodings: Vec::new(),
-        encoding_settings_open: false,
-        encoding_settings_selection: None,
-        show_stats: false,
-        file_stats: None,
-        selection_stats: None,
-        row_entropies: None,
-        show_entropy_band: true,
-        show_minimap: true,
-        theme: &DARK_THEME,
-        theme_variant: ThemeVariant::Dark,
-        pending_center_on: Cell::new(None),
-    };
+    let mut state = crate::state::HexEditorState::from_bytes("test.bin", vec![0xAB], None, None);
+    state.lua_engine = engine;
+    state.dim_nulls = false;
     // Verify the decode works
     assert_eq!((entries[0].decode)(&[0xAB]), "LUA:0xAB");
     // Verify it can be passed as extra_entries in config
