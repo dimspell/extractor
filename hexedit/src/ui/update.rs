@@ -4,7 +4,7 @@ use iced::{Task, clipboard};
 use crate::config::HexEditorConfig;
 use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
-use crate::domain::panel::HexPanel;
+use crate::domain::panel::{HexPanel, HexPanelContent};
 use crate::domain::save::{SaveOutcome, SaveRequest};
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::state::{ComparisonFile, InspectorSource};
@@ -14,7 +14,7 @@ use crate::HexProvider;
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
-use crate::inspector::ENTRIES;
+use crate::inspector::{ENTRIES, InspectorEntry};
 use crate::message::HexEditorMessage;
 use crate::pattern::Pattern;
 use crate::search::{SearchMode, parse_hex_query};
@@ -54,6 +54,58 @@ pub fn parse_bpr(draft: &str) -> Option<u8> {
     (crate::state::MIN_BYTES_PER_ROW..=crate::state::MAX_BYTES_PER_ROW)
         .contains(&n)
         .then_some(n)
+}
+
+/// Select and center the current search match, clamped to the last address.
+fn focus_current_search_match(state: &mut crate::HexEditorState, max_addr: u64) {
+    if let Some(addr) = state.search.current_addr() {
+        let clamped = addr.min(max_addr);
+        state.selection.select(clamped, max_addr);
+        state.pending_center_on.set(Some(clamped));
+    }
+}
+
+/// Look up a built-in or host-provided inspector entry by index.
+fn inspector_entry(config: &HexEditorConfig, idx: usize) -> Option<&InspectorEntry> {
+    if idx < ENTRIES.len() {
+        ENTRIES.get(idx)
+    } else {
+        config.extra_entries.get(idx - ENTRIES.len())
+    }
+}
+
+/// Toggle a panel by content, returning whether one was already open.
+fn toggle_content_pane(
+    state: &mut crate::HexEditorState,
+    content: HexPanelContent,
+    resize: Option<f32>,
+) -> bool {
+    let existing: Option<pane_grid::Pane> = state
+        .panes
+        .iter()
+        .find_map(|(id, panel)| (panel.content == content).then_some(id))
+        .copied();
+
+    if let Some(pane_id) = existing {
+        if state.panes.len() > 1
+            && let Some((_, sibling)) = state.panes.close(pane_id)
+        {
+            state.pane_focus = sibling;
+        }
+        return true;
+    }
+
+    let focus = state.pane_focus;
+    if state.panes.len() < MAX_PANELS
+        && let Some((_, split)) =
+            state
+                .panes
+                .split(pane_grid::Axis::Vertical, focus, HexPanel::new(content))
+        && let Some(ratio) = resize
+    {
+        state.panes.resize(split, ratio);
+    }
+    false
 }
 
 pub fn update(
@@ -276,11 +328,7 @@ pub fn update(
             let start = (cursor as usize).min(src.len());
             let end = (read_end as usize).min(src.len()).max(start);
             let bytes = &src[start..end];
-            let entry = if idx < ENTRIES.len() {
-                ENTRIES.get(idx)
-            } else {
-                config.extra_entries.get(idx - ENTRIES.len())
-            };
+            let entry = inspector_entry(config, idx);
             if let Some(entry) = entry
                 && len - cursor >= entry.min_size as u64
             {
@@ -296,12 +344,7 @@ pub fn update(
                 // main buffer, so the edit modal is unavailable there.
                 return Task::none();
             }
-            let entry = if idx < ENTRIES.len() {
-                ENTRIES.get(idx)
-            } else {
-                config.extra_entries.get(idx - ENTRIES.len())
-            };
-            let Some(entry) = entry else {
+            let Some(entry) = inspector_entry(config, idx) else {
                 return Task::none();
             };
             if entry.encode.is_none() {
@@ -333,12 +376,7 @@ pub fn update(
             let Some(ref ie) = state.inspector_edit else {
                 return Task::none();
             };
-            let entry = if ie.entry_idx < ENTRIES.len() {
-                ENTRIES.get(ie.entry_idx)
-            } else {
-                config.extra_entries.get(ie.entry_idx - ENTRIES.len())
-            };
-            let Some(entry) = entry else {
+            let Some(entry) = inspector_entry(config, ie.entry_idx) else {
                 state.inspector_edit = None;
                 return Task::none();
             };
@@ -363,53 +401,23 @@ pub fn update(
 
         // ── Byte statistics / entropy panel ───────────────────────────────
         HexEditorMessage::ToggleStats => {
-            // Check if a Statistics pane exists in the grid.
-            let existing: Option<pane_grid::Pane> = state
-                .panes
-                .iter()
-                .find_map(|(id, panel)| {
-                    if panel.content == crate::domain::panel::HexPanelContent::Statistics {
-                        Some(id)
-                    } else {
-                        None
-                    }
-                })
-                .copied();
-
-            if let Some(pane_id) = existing {
-                if state.panes.len() > 1
-                    && let Some((_, sibling)) = state.panes.close(pane_id)
-                {
-                    state.pane_focus = sibling;
-                }
-                state.show_stats = false;
-            } else {
-                let focus = state.pane_focus;
-                let can_split = state.panes.len() < MAX_PANELS;
-                if can_split {
-                    let _ = state.panes.split(
-                        iced::widget::pane_grid::Axis::Vertical,
-                        focus,
-                        HexPanel::new(crate::domain::panel::HexPanelContent::Statistics),
-                    );
-                }
-                state.show_stats = true;
-                // If stats haven't been computed yet, trigger analysis.
-                if state.file_stats.is_none() && !state.provider.is_empty() {
-                    let bytes = state.provider.as_slice().to_vec();
-                    let bpr = state.bytes_per_row;
-                    return Task::perform(
-                        async move {
-                            let stats = compute_statistics(&bytes);
-                            let entropies = compute_row_entropies(&bytes, bpr);
-                            HexEditorMessage::FileAndRowEntropiesComputed(
-                                Box::new(stats),
-                                Box::new(entropies),
-                            )
-                        },
-                        std::convert::identity,
-                    );
-                }
+            let existed = toggle_content_pane(state, HexPanelContent::Statistics, None);
+            state.show_stats = !existed;
+            // If stats haven't been computed yet, trigger analysis.
+            if !existed && state.file_stats.is_none() && !state.provider.is_empty() {
+                let bytes = state.provider.as_slice().to_vec();
+                let bpr = state.bytes_per_row;
+                return Task::perform(
+                    async move {
+                        let stats = compute_statistics(&bytes);
+                        let entropies = compute_row_entropies(&bytes, bpr);
+                        HexEditorMessage::FileAndRowEntropiesComputed(
+                            Box::new(stats),
+                            Box::new(entropies),
+                        )
+                    },
+                    std::convert::identity,
+                );
             }
         }
         HexEditorMessage::AnalyzeFile => {
@@ -487,34 +495,22 @@ pub fn update(
             state.search.visible = true;
             state.search.query = query;
             state.search.execute(state.provider.as_slice());
-            if let Some(addr) = state.search.current_addr() {
-                state.selection.select(addr.min(max_addr), max_addr);
-                state.pending_center_on.set(Some(addr.min(max_addr)));
-            }
+            focus_current_search_match(state, max_addr);
         }
         HexEditorMessage::ToggleSearchMode => {
             state.search.mode = state.search.mode.toggle();
             if !state.search.query.is_empty() {
                 state.search.execute(state.provider.as_slice());
-                if let Some(addr) = state.search.current_addr() {
-                    state.selection.select(addr.min(max_addr), max_addr);
-                    state.pending_center_on.set(Some(addr.min(max_addr)));
-                }
+                focus_current_search_match(state, max_addr);
             }
         }
         HexEditorMessage::SearchNext => {
             state.search.next_match();
-            if let Some(addr) = state.search.current_addr() {
-                state.selection.select(addr.min(max_addr), max_addr);
-                state.pending_center_on.set(Some(addr.min(max_addr)));
-            }
+            focus_current_search_match(state, max_addr);
         }
         HexEditorMessage::SearchPrev => {
             state.search.prev_match();
-            if let Some(addr) = state.search.current_addr() {
-                state.selection.select(addr.min(max_addr), max_addr);
-                state.pending_center_on.set(Some(addr.min(max_addr)));
-            }
+            focus_current_search_match(state, max_addr);
         }
         HexEditorMessage::CloseSearch => {
             state.search.clear();
@@ -526,20 +522,14 @@ pub fn update(
             state.search.width = width;
             if state.search.mode == SearchMode::Decimal && !state.search.query.is_empty() {
                 state.search.execute(state.provider.as_slice());
-                if let Some(addr) = state.search.current_addr() {
-                    state.selection.select(addr.min(max_addr), max_addr);
-                    state.pending_center_on.set(Some(addr.min(max_addr)));
-                }
+                focus_current_search_match(state, max_addr);
             }
         }
         HexEditorMessage::ToggleSearchEndian => {
             state.search.little_endian = !state.search.little_endian;
             if state.search.mode == SearchMode::Decimal && !state.search.query.is_empty() {
                 state.search.execute(state.provider.as_slice());
-                if let Some(addr) = state.search.current_addr() {
-                    state.selection.select(addr.min(max_addr), max_addr);
-                    state.pending_center_on.set(Some(addr.min(max_addr)));
-                }
+                focus_current_search_match(state, max_addr);
             }
         }
 
@@ -700,73 +690,11 @@ pub fn update(
 
         // ── Pattern list panel ──────────────────────────────────────────
         HexEditorMessage::ToggleInspector => {
-            let existing: Option<pane_grid::Pane> = state
-                .panes
-                .iter()
-                .find_map(|(id, panel)| {
-                    if panel.content == crate::domain::panel::HexPanelContent::Inspector {
-                        Some(id)
-                    } else {
-                        None
-                    }
-                })
-                .copied();
-
-            if let Some(pane_id) = existing {
-                if state.panes.len() > 1
-                    && let Some((_, sibling)) = state.panes.close(pane_id)
-                {
-                    state.pane_focus = sibling;
-                }
-            } else {
-                let focus = state.pane_focus;
-                let can_split = state.panes.len() < MAX_PANELS;
-                if can_split
-                    && let Some((_, split)) = state.panes.split(
-                        iced::widget::pane_grid::Axis::Vertical,
-                        focus,
-                        HexPanel::new(crate::domain::panel::HexPanelContent::Inspector),
-                    )
-                {
-                    state.panes.resize(split, 0.75);
-                }
-            }
+            let _ = toggle_content_pane(state, HexPanelContent::Inspector, Some(0.75));
         }
         HexEditorMessage::TogglePatternList => {
-            // With the pane grid, toggling the pattern list adds or removes
-            // a PatternList pane (Halloy-style) rather than showing/hiding a
-            // pinned section. Keep the legacy boolean in sync for the toolbar.
-            let existing: Option<pane_grid::Pane> = state
-                .panes
-                .iter()
-                .find_map(|(id, panel)| {
-                    if panel.content == crate::domain::panel::HexPanelContent::PatternList {
-                        Some(id)
-                    } else {
-                        None
-                    }
-                })
-                .copied();
-
-            if let Some(pane_id) = existing {
-                if state.panes.len() > 1
-                    && let Some((_, sibling)) = state.panes.close(pane_id)
-                {
-                    state.pane_focus = sibling;
-                }
-                state.show_pattern_list = false;
-            } else {
-                let focus = state.pane_focus;
-                let can_split = state.panes.len() < MAX_PANELS;
-                if can_split {
-                    let _ = state.panes.split(
-                        iced::widget::pane_grid::Axis::Vertical,
-                        focus,
-                        HexPanel::new(crate::domain::panel::HexPanelContent::PatternList),
-                    );
-                }
-                state.show_pattern_list = true;
-            }
+            let existed = toggle_content_pane(state, HexPanelContent::PatternList, None);
+            state.show_pattern_list = !existed;
         }
         HexEditorMessage::NavigateToPattern(id) => {
             if let Some(pat) = state.pattern_by_id(id) {
@@ -1633,6 +1561,115 @@ mod tests {
 
     fn default_config() -> ExportConfig {
         ExportConfig::default()
+    }
+
+    fn hex_state() -> crate::HexEditorState {
+        crate::HexEditorState::from_bytes("test.bin", vec![0; 64], None, None)
+    }
+
+    fn has_content(state: &crate::HexEditorState, content: HexPanelContent) -> bool {
+        state
+            .panes
+            .iter()
+            .any(|(_, panel)| panel.content == content)
+    }
+
+    // ── focus_current_search_match ─────────────────────────────────────────
+
+    #[test]
+    fn focus_current_search_match_clamps_to_last_address() {
+        let mut state = hex_state();
+        state.search.results = vec![42];
+        state.search.current_match = Some(0);
+        focus_current_search_match(&mut state, 10);
+        assert_eq!(state.selection.cursor, 10);
+        assert_eq!(state.pending_center_on.get(), Some(10));
+    }
+
+    #[test]
+    fn focus_current_search_match_without_result_keeps_position() {
+        let mut state = hex_state();
+        state.selection.select(3, 63);
+        state.pending_center_on.set(Some(2));
+        focus_current_search_match(&mut state, 63);
+        assert_eq!(state.selection.cursor, 3);
+        assert_eq!(state.pending_center_on.get(), Some(2));
+    }
+
+    // ── inspector_entry ────────────────────────────────────────────────────
+
+    #[test]
+    fn inspector_entry_indexes_builtin_and_extra_entries() {
+        let mut config = HexEditorConfig::default();
+        config.extra_entries.push(InspectorEntry {
+            name: "custom".to_string(),
+            min_size: 1,
+            decode: Box::new(|_| String::new()),
+            encode: None,
+            category: "Custom".to_string(),
+            description: String::new(),
+        });
+        assert_eq!(inspector_entry(&config, 0).unwrap().name, ENTRIES[0].name);
+        assert_eq!(
+            inspector_entry(&config, ENTRIES.len() - 1).unwrap().name,
+            ENTRIES[ENTRIES.len() - 1].name
+        );
+        assert_eq!(
+            inspector_entry(&config, ENTRIES.len()).unwrap().name,
+            "custom"
+        );
+        assert!(inspector_entry(&config, ENTRIES.len() + 1).is_none());
+    }
+
+    // ── toggle_content_pane ────────────────────────────────────────────────
+
+    #[test]
+    fn toggle_content_pane_reports_previous_presence() {
+        let mut state = hex_state();
+        assert!(!has_content(&state, HexPanelContent::Statistics));
+        assert!(!toggle_content_pane(
+            &mut state,
+            HexPanelContent::Statistics,
+            None
+        ));
+        assert!(has_content(&state, HexPanelContent::Statistics));
+        assert_eq!(state.panes.len(), 3);
+
+        assert!(toggle_content_pane(
+            &mut state,
+            HexPanelContent::Statistics,
+            None
+        ));
+        assert!(!has_content(&state, HexPanelContent::Statistics));
+        assert_eq!(state.panes.len(), 2);
+    }
+
+    #[test]
+    fn toggle_stats_flag_tracks_pane_presence() {
+        let mut state = hex_state();
+        let config = HexEditorConfig::default();
+        let _ = update(&mut state, &config, HexEditorMessage::ToggleStats);
+        assert!(state.show_stats);
+        let _ = update(&mut state, &config, HexEditorMessage::ToggleStats);
+        assert!(!state.show_stats);
+    }
+
+    #[test]
+    fn toggle_pattern_list_flag_is_true_when_panel_limit_blocks_split() {
+        let mut state = hex_state();
+        while state.panes.len() < MAX_PANELS {
+            let focus = state.pane_focus;
+            let _ = state.panes.split(
+                pane_grid::Axis::Vertical,
+                focus,
+                HexPanel::new(HexPanelContent::Matrix),
+            );
+        }
+        let config = HexEditorConfig::default();
+        let _ = update(&mut state, &config, HexEditorMessage::TogglePatternList);
+        assert_eq!(state.panes.len(), MAX_PANELS);
+        assert!(!has_content(&state, HexPanelContent::PatternList));
+        assert!(state.show_pattern_list);
     }
 
     /// Config with addresses hidden.
