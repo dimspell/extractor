@@ -4,7 +4,7 @@ use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
-use crate::editors::mod_packager::recording::record_file_replace;
+use crate::editors::mod_packager::recording::{prune_warning, record_file_replace};
 use crate::message::Message;
 use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
 use iced::Task;
@@ -267,6 +267,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             state.script_loading = LoadingState::Loaded(script);
             state.modified = false;
             state.save_error = None;
+            state.save_warning = None;
             state.act_folded.clear();
             state.panels_expanded.clear();
             state.panels_expanded.insert(SectionTab::Var);
@@ -298,23 +299,26 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     let path = path.clone();
                     return Task::perform(
                         async move {
-                            tokio::task::spawn_blocking(move || -> Result<(), String> {
-                                record_file_replace(
-                                    &workspace_root,
-                                    &game_dir,
-                                    &mod_slug,
-                                    &relative,
-                                    &new_bytes,
-                                )?;
-                                std::fs::write(&path, &new_bytes).map_err(|e| e.to_string())
-                            })
+                            tokio::task::spawn_blocking(
+                                move || -> Result<Option<String>, String> {
+                                    let pruned = record_file_replace(
+                                        &workspace_root,
+                                        &game_dir,
+                                        &mod_slug,
+                                        &relative,
+                                        &new_bytes,
+                                    )?;
+                                    std::fs::write(&path, &new_bytes).map_err(|e| e.to_string())?;
+                                    Ok(prune_warning(pruned))
+                                },
+                            )
                             .await
                             .unwrap_or_else(|e| Err(e.to_string()))
                         },
                         |result| {
                             Message::Editor(crate::message::editor::EditorMessage::EventScr(
                                 match result {
-                                    Ok(()) => EventScrEditorMessage::SaveSuccess,
+                                    Ok(warning) => EventScrEditorMessage::SaveSuccess(warning),
                                     Err(e) => EventScrEditorMessage::SaveError(e),
                                 },
                             ))
@@ -326,13 +330,15 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
-        EventScrEditorMessage::SaveSuccess => {
+        EventScrEditorMessage::SaveSuccess(warning) => {
             state.modified = false;
             state.save_error = None;
+            state.save_warning = warning;
             Task::none()
         }
         EventScrEditorMessage::SaveError(e) => {
             state.save_error = Some(e);
+            state.save_warning = None;
             Task::none()
         }
         // ── Function index ────────────────────────────────────────────────
@@ -752,7 +758,7 @@ pub fn save_to_path(path: std::path::PathBuf, script: EventScript) -> Task<Messa
         |result| {
             Message::Editor(crate::message::editor::EditorMessage::EventScr(
                 match result {
-                    Ok(()) => EventScrEditorMessage::SaveSuccess,
+                    Ok(()) => EventScrEditorMessage::SaveSuccess(None),
                     Err(e) => EventScrEditorMessage::SaveError(e.to_string()),
                 },
             ))

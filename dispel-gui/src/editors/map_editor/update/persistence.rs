@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::editors::map_editor::MapEditorMessage;
-use crate::editors::mod_packager::recording::record_file_replace;
+use crate::editors::mod_packager::recording::{prune_warning, record_file_replace};
 use crate::message::{Message, MessageExt};
 use dispel_core::map::writer::write_map_to_path;
 use dispel_core::references::extractor::Extractor;
@@ -206,12 +206,16 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
                                         .map(|n| n.to_string_lossy().to_string())
                                         .unwrap_or_default()
                                 });
-                            if let Err(e) = record_file_replace(
+                            match record_file_replace(
                                 ws_root, game_dir, mod_slug, &relative, &new_bytes,
                             ) {
-                                errors.push(format!("Recording: {e}"));
-                            } else {
-                                saved.push(format!("→ recorded in `{mod_slug}`"));
+                                Ok(pruned) => {
+                                    saved.push(format!("→ recorded in `{mod_slug}`"));
+                                    if let Some(warning) = prune_warning(pruned) {
+                                        saved.push(warning);
+                                    }
+                                }
+                                Err(e) => errors.push(format!("Recording: {e}")),
                             }
                         }
                     }

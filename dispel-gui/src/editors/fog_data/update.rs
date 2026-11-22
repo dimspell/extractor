@@ -244,22 +244,31 @@ pub async fn save_fog_data(
     tokio::task::spawn_blocking(move || {
         save_to_disk(&path, &fog)?;
 
+        let mut status = format!("Saved → {}", path.display());
         let mut recording_error = None;
         if let Some(params) = recording {
             let current_bytes =
                 std::fs::read(&path).map_err(|e| format!("Failed to read saved file: {e}"))?;
-            if let Err(e) = crate::editors::mod_packager::recording::record_file_replace(
+            match crate::editors::mod_packager::recording::record_file_replace(
                 &params.workspace_root,
                 &params.game_path,
                 &params.mod_slug,
                 &params.relative_path,
                 &current_bytes,
             ) {
-                recording_error = Some(e);
+                Ok(pruned) => {
+                    if let Some(warning) =
+                        crate::editors::mod_packager::recording::prune_warning(pruned)
+                    {
+                        status.push(' ');
+                        status.push_str(&warning);
+                    }
+                }
+                Err(e) => recording_error = Some(e),
             }
         }
 
-        Ok((format!("Saved → {}", path.display()), recording_error))
+        Ok((status, recording_error))
     })
     .await
     .map_err(|e| e.to_string())?

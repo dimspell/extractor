@@ -499,10 +499,11 @@ async fn save_sprite_file(
     tokio::task::spawn_blocking(move || {
         write_sprite_to_path(&path, &sf).map_err(|e| e.to_string())?;
 
+        let mut status = format!("Saved → {}", path.display());
         if let Some(params) = recording {
             let current_bytes =
                 std::fs::read(&path).map_err(|e| format!("Failed to read saved file: {e}"))?;
-            crate::editors::mod_packager::recording::record_file_replace(
+            let pruned = crate::editors::mod_packager::recording::record_file_replace(
                 &params.workspace_root,
                 &params.game_path,
                 &params.mod_slug,
@@ -510,9 +511,14 @@ async fn save_sprite_file(
                 &current_bytes,
             )
             .map_err(|e| format!("Recording error: {e}"))?;
+
+            if let Some(warning) = crate::editors::mod_packager::recording::prune_warning(pruned) {
+                status.push(' ');
+                status.push_str(&warning);
+            }
         }
 
-        Ok(format!("Saved → {}", path.display()))
+        Ok(status)
     })
     .await
     .map_err(|e| e.to_string())?

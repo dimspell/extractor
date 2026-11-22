@@ -14,7 +14,7 @@ use crate::editors::mod_packager::ModPackagerMessage;
 use crate::editors::mod_packager::message::{
     ApplyOutcome, LibrarySnapshot, RevertOutcome, SelectedMod,
 };
-use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction};
+use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction, prune_warning};
 use crate::message::{Message, MessageExt};
 use crate::state::{PendingEdit, RecordingKey, RecordingSession};
 
@@ -405,10 +405,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
                     if let Some(session) = app.state.recording.as_mut() {
                         session.recorded_count += 1;
                     }
-                    if pruned > 0 {
-                        app.state.editors.mod_packager_editor.status_msg = format!(
-                            "Warning: the mod changelog is full — {pruned} oldest edit(s) were dropped and are not in the mod."
-                        );
+                    if let Some(warning) = prune_warning(pruned) {
+                        app.state.editors.mod_packager_editor.status_msg = warning;
                     }
                 }
                 Err(e) => {

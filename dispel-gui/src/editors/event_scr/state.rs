@@ -54,6 +54,7 @@ pub struct EventScriptEditorState {
     pub panels_expanded: HashSet<SectionTab>,
     pub modified: bool,
     pub save_error: Option<String>,
+    pub save_warning: Option<String>,
     pub act_parse_errors: Vec<(usize, String)>,
     pub act_folded: HashSet<usize>,
     pub index_state: FunctionIndexState,

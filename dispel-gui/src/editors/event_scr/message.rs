@@ -43,7 +43,8 @@ pub enum EventScrEditorMessage {
     ScriptLoaded(EventScript),
     LoadError(String),
     SaveScript,
-    SaveSuccess,
+    /// Save completed; carries a changelog-prune warning when one was emitted.
+    SaveSuccess(Option<String>),
     SaveError(String),
     // Function index
     BuildFunctionIndex,

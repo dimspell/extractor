@@ -1,6 +1,7 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::localization_manager::{LocalizationMessage, PackageResult};
+use crate::editors::mod_packager::recording::prune_warning;
 use crate::message::MessageExt;
 use dispel_core::localization::{Localizable, TruncationStatus};
 use dispel_core::modding::{ChangeAction, ChangeOp, ModManifest, Modding};
@@ -359,6 +360,10 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                             packaged.truncated
                         ));
                     }
+                    if let Some(warning) = prune_warning(packaged.pruned) {
+                        msg.push(' ');
+                        msg.push_str(&warning);
+                    }
                     state.status_msg = msg;
                     state.loading_state = LoadingState::Loaded(());
                 }
@@ -672,6 +677,7 @@ fn apply_and_package(
     // Manager imports — no second, incompatible zip/manifest pipeline here.
     let workspace_root = game_path.join(".dispel-mods");
     let pipeline = Modding::open(&workspace_root, game_path).map_err(|e| e.to_string())?;
+    let mut pruned = 0;
     let mut manifest = ModManifest::new(meta.name.trim());
     manifest.version = meta.version.clone();
     manifest.author = meta.author.clone();
@@ -685,7 +691,9 @@ fn apply_and_package(
         }
         let content = std::fs::read(&abs_path).map_err(|e| e.to_string())?;
         let action = ChangeAction::new(*rel_path, ChangeOp::FileReplace { content });
-        pipeline.append(&slug, action).map_err(|e| e.to_string())?;
+        pruned += pipeline
+            .append_reporting(&slug, action)
+            .map_err(|e| e.to_string())?;
     }
 
     let output_dir = game_path.join("mod_output");
@@ -699,6 +707,7 @@ fn apply_and_package(
         path: zip_path,
         truncated,
         warnings,
+        pruned,
     })
 }
 

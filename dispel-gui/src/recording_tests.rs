@@ -1239,6 +1239,77 @@ fn party_level_db_no_recording_when_no_npc_selected() {
 }
 
 // ============================================================================
+// Whole-file recording reports cap pruning
+// ============================================================================
+
+#[test]
+fn record_file_replace_reports_pruned_count() {
+    use crate::editors::mod_packager::recording::{prune_warning, record_file_replace};
+    use dispel_core::modding::{ChangeAction, ChangeOp, HISTORY_CAP, ModManifest, Modding};
+
+    let base = tempfile::tempdir().expect("temp dir created");
+    let ws_root = base.path().join("ws");
+    let game_dir = base.path().join("game");
+    let relative = "Map/test.map";
+    let file_path = game_dir.join(relative);
+    std::fs::create_dir_all(file_path.parent().unwrap()).expect("game dir created");
+    let vanilla = vec![7u8; 128];
+    std::fs::write(&file_path, &vanilla).expect("original file written");
+
+    let pipeline = Modding::open(&ws_root, &game_dir).expect("modding facade opened");
+    let slug = pipeline
+        .create_mod(ModManifest::new("full changelog"))
+        .expect("mod created");
+
+    let mut current = vanilla.clone();
+    current[0] = 42;
+    assert_eq!(
+        record_file_replace(&ws_root, &game_dir, &slug, relative, &current).unwrap(),
+        0,
+        "no edits are pruned while the changelog has room"
+    );
+    assert!(prune_warning(0).is_none());
+
+    // Bring the changelog right up to the cap before the next whole-file save.
+    while pipeline.changelog(&slug).unwrap().len() < HISTORY_CAP {
+        let idx = pipeline.changelog(&slug).unwrap().len();
+        pipeline
+            .append(
+                &slug,
+                ChangeAction::new(
+                    format!("Map/filler{idx}.map"),
+                    ChangeOp::FileReplace {
+                        content: vec![idx as u8],
+                    },
+                ),
+            )
+            .expect("filler action appended");
+    }
+
+    current[1] = 43;
+    let pruned =
+        record_file_replace(&ws_root, &game_dir, &slug, relative, &current).expect("record ok");
+    assert_eq!(pruned, 1, "the oldest edit was dropped at the cap");
+    assert!(
+        prune_warning(pruned).unwrap().contains(&pruned.to_string()),
+        "callers can surface the count in the shared warning"
+    );
+
+    let log = pipeline.changelog(&slug).unwrap();
+    assert_eq!(log.len(), HISTORY_CAP, "the cap is still enforced");
+    assert!(
+        log.actions().iter().any(|a| a.file_path == relative),
+        "the new whole-file action was recorded"
+    );
+    assert!(
+        !log.actions()
+            .iter()
+            .any(|a| a.file_path == "Map/filler0.map"),
+        "the oldest filler action was the one dropped"
+    );
+}
+
+// ============================================================================
 // fog_data — whole-file recorder (save-time `record_file_replace`)
 // ============================================================================
 

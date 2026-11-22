@@ -17,6 +17,8 @@ pub struct PackageResult {
     /// Per-file truncation warnings (e.g. `"Store.db: 2 field(s) truncated"`),
     /// surfaced verbatim in `status_msg`.
     pub warnings: Vec<String>,
+    /// Oldest changelog entries dropped when the mod history cap was reached.
+    pub pruned: usize,
 }
 
 #[derive(Debug, Clone)]

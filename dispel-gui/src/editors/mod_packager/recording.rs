@@ -30,22 +30,32 @@ pub fn decide_op(vanilla: &[u8], current: &[u8]) -> Result<ChangeOp, String> {
     Ok(decide_file_op(vanilla, current))
 }
 
+/// Shared wording for a changelog that dropped its oldest edits at the cap.
+/// Returns `None` when nothing was pruned, so callers can append it verbatim
+/// to their success status without changing a clean save.
+pub fn prune_warning(pruned: usize) -> Option<String> {
+    (pruned > 0).then(|| {
+        format!("Warning: the mod changelog is full — {pruned} oldest edit(s) were dropped and are not in the mod.")
+    })
+}
+
 /// Record a file replacement into the active mod session.
 ///
 /// Ensures a vanilla snapshot exists (reads original from disk), computes a
 /// binary delta or full replace, and appends the [`ChangeAction`] to the
 /// workspace changelog. Does **not** write `new_bytes` to disk — callers
-/// should do that separately after this succeeds.
+/// should do that separately after this succeeds. Returns the number of
+/// oldest changelog entries dropped at the history cap.
 pub fn record_file_replace(
     workspace_root: &std::path::Path,
     game_dir: &std::path::Path,
     mod_slug: &str,
     relative_path: &str,
     new_bytes: &[u8],
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let pipeline = Modding::open(workspace_root, game_dir).map_err(|e| e.to_string())?;
     pipeline
-        .record_file(mod_slug, relative_path, new_bytes)
+        .record_file_reporting(mod_slug, relative_path, new_bytes)
         .map_err(|e| e.to_string())
 }
 
@@ -181,6 +191,17 @@ mod tests {
         fn save_button_label() -> &'static str {
             "Save"
         }
+    }
+
+    #[test]
+    fn prune_warning_only_reports_dropped_edits() {
+        assert_eq!(prune_warning(0), None);
+        let warning = prune_warning(2).expect("a pruned count yields a warning");
+        assert!(warning.contains('2'), "warning names the count: {warning}");
+        assert!(
+            warning.contains("dropped"),
+            "warning says edits were dropped: {warning}"
+        );
     }
 
     #[test]

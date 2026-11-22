@@ -91,10 +91,8 @@ fn build_and_append_action(
     let pruned = pipeline
         .append_reporting(mod_slug, action)
         .map_err(|e| e.to_string())?;
-    if pruned > 0 {
-        return Ok(format!(
-            "{summary} Warning: the mod changelog is full — {pruned} oldest edit(s) were dropped and are not in the mod."
-        ));
+    if let Some(warning) = super::recording::prune_warning(pruned) {
+        return Ok(format!("{summary} {warning}"));
     }
     Ok(summary)
 }
