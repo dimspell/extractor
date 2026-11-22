@@ -461,7 +461,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects eight independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
 
 ### Release script
-`scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo check --workspace` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions. (Master-branch and clean-tree checks are currently commented out.)
+`scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo check --workspace` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions.
 
 ---
 
@@ -478,10 +478,8 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - Always use `Task::perform` for async work — never block
 
 ### Code Quality
-- Clippy: zero warnings (`rtk cargo clippy --workspace --all-features --all-targets -- -D warnings`, or `make clippy`)
-- Compiler warnings: use `rtk cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
-- Format: `cargo fmt --all` before commit
-- Validate all binary bounds before indexing
+- Clippy: zero warnings; format before commit; validate all binary bounds before indexing
+- Compiler warnings: use the `cargo test … --no-run` command in [Quick Commands](#quick-commands) to compile all crates (including tests) and surface compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
 
 ### Testing
 **Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
@@ -492,7 +490,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - **Test naming**: `test_${scenario}_${condition}` e.g. `test_undo_weapon_editor_empty_history`
 - **Test helpers**: tests in `$module/tests.rs` (co-located), separate `recording_tests.rs` for recording
 - **Property tests**: use `proptest` for invariants
-- Run before every commit: `make cargo_test` (canonical: `ICED_TEST_BACKEND=software rtk cargo test --workspace --all-features`)
+- Run before every commit: `make cargo_test` (see [Quick Commands](#quick-commands))
 
 ### Tools
 - `cargo check --message-format=short`: fast compile errors
@@ -571,7 +569,7 @@ make fmt                                             # Format
 make check                                           # Check all
 make check_iced_config check_metadata                # Consistency validators
 make check_metadata_test                             # Self-test the metadata validator
-cargo test --workspace --all-features --no-run       # Compile all crates including tests (catches compiler warnings fast)
+rtk cargo test --workspace --all-features --no-run   # Compile all crates including tests (catches compiler warnings fast)
 cargo check -p dispel-gui --message-format=short     # Fast GUI errors
 cargo run -p dispel-gui                              # Launch GUI
 make iced_test                                       # Iced UI simulation tests
