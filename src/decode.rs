@@ -167,15 +167,14 @@ pub fn tile_colors_to_rgba(colors: &[Color; TILE_PIXEL_COUNT]) -> Vec<u8> {
 /// Decode 2048 raw RGB565 bytes (one 32×32 tile) straight into a 62×32 RGBA
 /// byte buffer. This is the version-agnostic entry point used by the GUI map
 /// renderer: it owns the color conversion and delegates the diamond geometry
-/// to [`blit_tile_rgba`], so only one blit loop exists.
+/// to [`blit_tile_rgba`].
 pub fn decode_tile_rgba(tile_bytes: &[u8]) -> Vec<u8> {
     let mut colors = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_COUNT];
     for (i, color) in colors.iter_mut().enumerate() {
         let base = i * 2;
         if base + 1 >= tile_bytes.len() {
             // Truncated input: leave this and all remaining texels black.
-            // blit_tile_rgba treats black as transparent, matching the old
-            // early-return behavior which left them clear.
+            // blit_tile_rgba treats black as transparent.
             break;
         }
         *color = rgb565_to_color(u16::from_le_bytes([tile_bytes[base], tile_bytes[base + 1]]));
