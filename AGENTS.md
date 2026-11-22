@@ -461,7 +461,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - `scripts/check-project-metadata.sh` (also run by the Makefile) validates AGENTS.md counts, `.PHONY` ↔ recipe parity, canonical command parity, and matrix parity. `scripts/test-check-project-metadata.sh` injects eight independent drifts into a scratch tree to test that validator; both run in `test.yml` and `pr.yml`.
 
 ### Release script
-`scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo check --workspace` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions.
+`scripts/release.sh` automates: validate semver → `cargo fmt --all --check` + `cargo test --workspace --all-features` → bump version in all workspace `Cargo.toml` (discovered via `cargo metadata`) → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions.
 
 ---
 
