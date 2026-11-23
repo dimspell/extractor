@@ -11,7 +11,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
     let tab_id = match &message {
         SnfEditorMessage::Save(id)
         | SnfEditorMessage::SaveDone(id, _)
-        | SnfEditorMessage::PlaybackReady(id, _) => *id,
+        | SnfEditorMessage::PlaybackReady(id, _, _) => *id,
         _ => app.state.workspace.active_tab_id().as_usize(),
     };
     let Some(editor) = app.state.editors.snf_editors.get_mut(&tab_id) else {
@@ -29,8 +29,11 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                 return Task::none();
             }
 
-            // Stop any previous playback cleanly before starting a new one.
+            // Stop any previous playback cleanly before starting a new one,
+            // and invalidate results from any request still opening a device.
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
+            let generation = editor.playback_generation;
 
             let Some(ref snf) = editor.snf else {
                 return Task::none();
@@ -52,24 +55,28 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                 },
                 move |result| {
                     crate::message::Message::snf_editor(SnfEditorMessage::PlaybackReady(
-                        tab_id, result,
+                        tab_id, generation, result,
                     ))
                 },
             );
         }
 
-        SnfEditorMessage::PlaybackReady(_, result) => match result {
-            Ok(pending) => {
-                if let Some(handle) = pending.take()
-                    && let Some(target) = app.state.editors.snf_editors.get_mut(&tab_id)
-                {
-                    target.playback = Some(handle);
+        SnfEditorMessage::PlaybackReady(_, generation, result) => {
+            if let Some(target) = app.state.editors.snf_editors.get_mut(&tab_id)
+                && target.playback_generation == generation
+            {
+                match result {
+                    Ok(pending) => {
+                        if let Some(handle) = pending.take() {
+                            target.playback = Some(handle);
+                        }
+                    }
+                    Err(e) => eprintln!("SNF: {e}"),
                 }
-                // If the tab was closed while the device was opening, dropping
-                // the handle stops playback.
             }
-            Err(e) => eprintln!("SNF: {e}"),
-        },
+            // A stale generation means Stop or a tab switch happened while the
+            // device was opening; dropping the pending handle stops playback.
+        }
 
         SnfEditorMessage::Pause => {
             if let Some(ref pb) = editor.playback {
@@ -83,6 +90,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
 
         SnfEditorMessage::Stop => {
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
         }
 
         SnfEditorMessage::ToggleLoop => {

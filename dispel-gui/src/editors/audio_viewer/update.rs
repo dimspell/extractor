@@ -6,7 +6,7 @@ use iced::Task;
 
 pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = match &message {
-        AudioViewerMessage::PlaybackReady(id, _) => *id,
+        AudioViewerMessage::PlaybackReady(id, _, _) => *id,
         _ => app.state.workspace.active_tab_id().as_usize(),
     };
     let Some(editor) = app.state.editors.audio_viewers.get_mut(&tab_id) else {
@@ -23,6 +23,8 @@ pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message
                 return Task::none();
             }
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
+            let generation = editor.playback_generation;
 
             let audio_bytes = editor.audio_bytes.clone();
             let is_looping = editor.is_looping;
@@ -38,23 +40,28 @@ pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message
                 },
                 move |result| {
                     crate::message::Message::audio_viewer(AudioViewerMessage::PlaybackReady(
-                        tab_id, result,
+                        tab_id, generation, result,
                     ))
                 },
             );
         }
 
-        AudioViewerMessage::PlaybackReady(_, result) => match result {
-            Ok(pending) => {
-                if let Some(handle) = pending.take()
-                    && let Some(target) = app.state.editors.audio_viewers.get_mut(&tab_id)
-                {
-                    target.playback = Some(handle);
+        AudioViewerMessage::PlaybackReady(_, generation, result) => {
+            if let Some(target) = app.state.editors.audio_viewers.get_mut(&tab_id)
+                && target.playback_generation == generation
+            {
+                match result {
+                    Ok(pending) => {
+                        if let Some(handle) = pending.take() {
+                            target.playback = Some(handle);
+                        }
+                    }
+                    Err(e) => eprintln!("audio viewer: {e}"),
                 }
-                // A closed tab drops the handle, which stops playback.
             }
-            Err(e) => eprintln!("audio viewer: {e}"),
-        },
+            // A stale generation means Stop or a tab switch happened while the
+            // device was opening; dropping the pending handle stops playback.
+        }
 
         AudioViewerMessage::Pause => {
             if let Some(pb) = &editor.playback {
@@ -68,6 +75,7 @@ pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message
 
         AudioViewerMessage::Stop => {
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
         }
 
         AudioViewerMessage::ToggleLoop => {

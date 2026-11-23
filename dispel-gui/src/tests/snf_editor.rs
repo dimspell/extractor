@@ -32,6 +32,7 @@ mod snf_editor_tests {
                 waveform: Vec::new(),
                 error: None,
                 playback: None,
+                playback_generation: 0,
                 is_looping: false,
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
@@ -62,7 +63,70 @@ mod snf_editor_tests {
         app
     }
 
+    /// Build a `PendingPlayback` backed by an in-memory mixer, so tests can
+    /// deliver a successful `PlaybackReady` without opening an audio device.
+    fn pending_without_device() -> crate::components::audio_playback::PendingPlayback {
+        use crate::components::audio_playback::{PendingPlayback, PlaybackHandle};
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+
+        let (mixer, _source) = rodio::mixer::mixer(
+            std::num::NonZero::new(1).unwrap(),
+            std::num::NonZero::new(8000).unwrap(),
+        );
+        let player = Arc::new(rodio::Player::connect_new(&mixer));
+        let handle = PlaybackHandle::new(
+            player,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            std::thread::spawn(|| {}),
+        );
+        PendingPlayback::new(handle)
+    }
+
     // ── Play / PlaybackReady ───────────────────────────────────────────────
+
+    #[test]
+    fn test_snf_editor_stop_during_device_open_does_not_start_audio() {
+        let mut app = app_with_snf_editor_loaded();
+        let tab_id = 1;
+
+        // Play defers the device open to a background task.
+        let _ = snf_editor::handle(SnfEditorMessage::Play, &mut app);
+        assert!(app.state.editors.snf_editors[&tab_id].playback.is_none());
+        let play_generation = app.state.editors.snf_editors[&tab_id].playback_generation;
+
+        // The user stops while the device is still opening.
+        let _ = snf_editor::handle(SnfEditorMessage::Stop, &mut app);
+
+        // The deferred result arrives after the Stop and must be discarded.
+        let _ = snf_editor::handle(
+            SnfEditorMessage::PlaybackReady(tab_id, play_generation, Ok(pending_without_device())),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.snf_editors[&tab_id].playback.is_none(),
+            "a PlaybackReady resolving after Stop must not start audio"
+        );
+    }
+
+    #[test]
+    fn test_snf_editor_playback_ready_installs_current_generation() {
+        let mut app = app_with_snf_editor_loaded();
+        let tab_id = 1;
+
+        let _ = snf_editor::handle(SnfEditorMessage::Play, &mut app);
+        let generation = app.state.editors.snf_editors[&tab_id].playback_generation;
+
+        let _ = snf_editor::handle(
+            SnfEditorMessage::PlaybackReady(tab_id, generation, Ok(pending_without_device())),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.snf_editors[&tab_id].playback.is_some(),
+            "the current generation's result must install a handle"
+        );
+    }
 
     #[test]
     fn test_snf_editor_play_defers_device_init_to_task() {
@@ -88,7 +152,11 @@ mod snf_editor_tests {
 
         // The deferred failure path is wired and leaves the editor untouched.
         let task = snf_editor::handle(
-            SnfEditorMessage::PlaybackReady(tab_id, Err("device unavailable".into())),
+            SnfEditorMessage::PlaybackReady(
+                tab_id,
+                app.state.editors.snf_editors[&tab_id].playback_generation,
+                Err("device unavailable".into()),
+            ),
             &mut app,
         );
         assert_eq!(task.units(), 0);
@@ -345,6 +413,71 @@ mod audio_viewer_tests {
         let _ = audio_viewer::view(&app);
     }
 
+    /// A `PendingPlayback` backed by an in-memory mixer (no audio device).
+    fn pending_without_device() -> crate::components::audio_playback::PendingPlayback {
+        use crate::components::audio_playback::{PendingPlayback, PlaybackHandle};
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+
+        let (mixer, _source) = rodio::mixer::mixer(
+            std::num::NonZero::new(1).unwrap(),
+            std::num::NonZero::new(8000).unwrap(),
+        );
+        let player = Arc::new(rodio::Player::connect_new(&mixer));
+        let handle = PlaybackHandle::new(
+            player,
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            std::thread::spawn(|| {}),
+        );
+        PendingPlayback::new(handle)
+    }
+
+    #[test]
+    fn test_audio_viewer_stop_during_device_open_does_not_start_audio() {
+        let file = wav_fixture();
+        let mut app = app_with_audio_viewer(AudioViewerState::load_from_path(file.path()));
+        let tab_id = 1;
+
+        let _ = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        assert!(app.state.editors.audio_viewers[&tab_id].playback.is_none());
+        let play_generation = app.state.editors.audio_viewers[&tab_id].playback_generation;
+
+        let _ = audio_viewer::handle(AudioViewerMessage::Stop, &mut app);
+
+        let _ = audio_viewer::handle(
+            AudioViewerMessage::PlaybackReady(
+                tab_id,
+                play_generation,
+                Ok(pending_without_device()),
+            ),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.audio_viewers[&tab_id].playback.is_none(),
+            "a PlaybackReady resolving after Stop must not start audio"
+        );
+    }
+
+    #[test]
+    fn test_audio_viewer_playback_ready_installs_current_generation() {
+        let file = wav_fixture();
+        let mut app = app_with_audio_viewer(AudioViewerState::load_from_path(file.path()));
+        let tab_id = 1;
+
+        let _ = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        let generation = app.state.editors.audio_viewers[&tab_id].playback_generation;
+
+        let _ = audio_viewer::handle(
+            AudioViewerMessage::PlaybackReady(tab_id, generation, Ok(pending_without_device())),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.audio_viewers[&tab_id].playback.is_some(),
+            "the current generation's result must install a handle"
+        );
+    }
+
     #[test]
     fn test_audio_viewer_playback_state_transitions_without_device() {
         let file = wav_fixture();
@@ -364,7 +497,11 @@ mod audio_viewer_tests {
 
         // The deferred failure path leaves state untouched.
         let task = audio_viewer::handle(
-            AudioViewerMessage::PlaybackReady(tab_id, Err("device unavailable".into())),
+            AudioViewerMessage::PlaybackReady(
+                tab_id,
+                app.state.editors.audio_viewers[&tab_id].playback_generation,
+                Err("device unavailable".into()),
+            ),
             &mut app,
         );
         assert_eq!(task.units(), 0);

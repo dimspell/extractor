@@ -467,6 +467,7 @@ impl EditorRegistry {
     pub fn stop_snf_playback(&mut self) {
         for editor in self.snf_editors.values_mut() {
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
         }
     }
 
@@ -474,6 +475,7 @@ impl EditorRegistry {
     pub fn stop_audio_playback(&mut self) {
         for viewer in self.audio_viewers.values_mut() {
             viewer.playback = None;
+            viewer.playback_generation = viewer.playback_generation.wrapping_add(1);
         }
     }
 

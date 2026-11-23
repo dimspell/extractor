@@ -21,6 +21,9 @@ pub struct AudioViewerState {
     pub duration_secs: f32,
     pub error: Option<String>,
     pub playback: Option<PlaybackHandle>,
+    /// Invalidated whenever playback is stopped, so a deferred device-open
+    /// result from an earlier Play request cannot restart audio.
+    pub playback_generation: u64,
     pub is_looping: bool,
     pub volume: f32,
 }
@@ -43,6 +46,7 @@ impl AudioViewerState {
             duration_secs: 0.0,
             error: None,
             playback: None,
+            playback_generation: 0,
             is_looping: false,
             volume: 0.5,
         };
