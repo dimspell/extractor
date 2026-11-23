@@ -92,6 +92,9 @@ pub enum EditorMessage {
     SaveIfo(SaveIfoEditorMessage),
     FogData(FogDataMessage),
     HexEditor(HexEditorMessage),
+    /// Save the hex editor for a specific tab. The tab id comes from the
+    /// editor descriptor so a delayed save cannot target the active tab.
+    HexEditorSave(usize),
     ChestSpawn(ChestSpawnEditorMessage),
     MonsterSpawn(MonsterSpawnEditorMessage),
     MapInfoMulti(MapInfoMultiEditorMessage),

@@ -81,7 +81,7 @@ mod undo_redo_save_edges {
         assert!(matches!(
             snf,
             Message::Editor(crate::message::EditorMessage::Snf(
-                crate::editors::snf_editor::SnfEditorMessage::Save
+                crate::editors::snf_editor::SnfEditorMessage::Save(1)
             ))
         ));
 
@@ -90,9 +90,7 @@ mod undo_redo_save_edges {
             .expect("HexEditor must declare a save action")(1);
         assert!(matches!(
             hex,
-            Message::Editor(crate::message::EditorMessage::HexEditor(
-                hexedit::HexEditorMessage::SaveIntoRecording
-            ))
+            Message::Editor(crate::message::EditorMessage::HexEditorSave(1))
         ));
 
         for et in [EditorType::SnfEditor, EditorType::HexEditor] {
@@ -292,4 +290,90 @@ fn app_with_tab(editor_type: EditorType) -> App {
     });
     workspace.active_tab = Some(0);
     App::test_new(workspace)
+}
+
+// ============================================================================
+// Save messages carry the tab id from the descriptor
+// ============================================================================
+
+#[cfg(test)]
+mod save_tab_routing {
+    use super::*;
+
+    fn app_with_two_tabs(editor_type: EditorType) -> (App, usize, usize) {
+        let mut app = App::test_new(Workspace::new());
+        let a = app
+            .state
+            .workspace
+            .open("a.bin".into(), Some(std::path::PathBuf::from("a.bin")));
+        let b = app
+            .state
+            .workspace
+            .open("b.bin".into(), Some(std::path::PathBuf::from("b.bin")));
+        for idx in [a, b] {
+            app.state.workspace.tabs[idx].editor_type = editor_type;
+        }
+        let a_id = app.state.workspace.tabs[a].id;
+        let b_id = app.state.workspace.tabs[b].id;
+        (app, a_id, b_id)
+    }
+
+    #[test]
+    fn test_snf_save_result_targets_carried_tab_not_active() {
+        let (mut app, saved_tab, other_tab) = app_with_two_tabs(EditorType::SnfEditor);
+        let mut a = crate::editors::snf_editor::SnfEditorState::load_from_path(
+            std::path::Path::new("a.bin"),
+        );
+        a.modified = true;
+        let mut b = crate::editors::snf_editor::SnfEditorState::load_from_path(
+            std::path::Path::new("b.bin"),
+        );
+        b.modified = true;
+        app.state.editors.snf_editors.insert(saved_tab, a);
+        app.state.editors.snf_editors.insert(other_tab, b);
+        assert_eq!(app.state.workspace.active_tab_id().as_usize(), other_tab);
+
+        let _ = app.update(Message::Editor(crate::message::EditorMessage::Snf(
+            crate::editors::snf_editor::SnfEditorMessage::SaveDone(
+                saved_tab,
+                Ok("a.bin".to_string()),
+            ),
+        )));
+
+        assert!(
+            !app.state.editors.snf_editors[&saved_tab].modified,
+            "the tab named in the save message must be cleared"
+        );
+        assert!(
+            app.state.editors.snf_editors[&other_tab].modified,
+            "the active but unrelated tab must keep its unsaved state"
+        );
+    }
+
+    #[test]
+    fn test_hex_save_targets_carried_tab_not_active() {
+        let (mut app, saved_tab, other_tab) = app_with_two_tabs(EditorType::HexEditor);
+        app.state.editors.hex_editors.insert(
+            saved_tab,
+            hexedit::HexEditorState::load_from_path(std::path::Path::new("a.bin")),
+        );
+        app.state.editors.hex_editors.insert(
+            other_tab,
+            hexedit::HexEditorState::load_from_path(std::path::Path::new("b.bin")),
+        );
+        assert_eq!(app.state.workspace.active_tab_id().as_usize(), other_tab);
+
+        let _ = app.update(Message::Editor(
+            crate::message::EditorMessage::HexEditorSave(saved_tab),
+        ));
+
+        assert_eq!(
+            app.state.editors.hex_editors[&saved_tab].status_msg, "Save not available.",
+            "the save message must reach the tab it names"
+        );
+        assert_ne!(
+            app.state.editors.hex_editors[&other_tab].status_msg, "Save not available.",
+            "the active tab must not be used as the save target"
+        );
+    }
 }

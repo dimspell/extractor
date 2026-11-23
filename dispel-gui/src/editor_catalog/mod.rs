@@ -413,7 +413,7 @@ define_editor_catalog! {
     /// Sound effects (.snf), read-only playback, one per tab.
     SnfEditor {
         view: Some(crate::editors::snf_editor::view as ViewFn),
-        save: Some(|_t: usize| Message::snf_editor(crate::editors::snf_editor::SnfEditorMessage::Save)),
+        save: Some(|t: usize| Message::snf_editor(crate::editors::snf_editor::SnfEditorMessage::Save(t))),
         load: None, // opened by explicit file path
         sheet: None,
         extract: None,
@@ -530,7 +530,7 @@ define_editor_catalog! {
     /// Universal fallback binary editor.
     HexEditor {
         view: Some(crate::editors::hex_wrapper::view as ViewFn),
-        save: Some(|_t: usize| Message::hex_editor(hexedit::HexEditorMessage::SaveIntoRecording)),
+        save: Some(|t: usize| Message::Editor(crate::message::EditorMessage::HexEditorSave(t))),
         load: None, // opened by explicit file path
         sheet: None,
         extract: None,

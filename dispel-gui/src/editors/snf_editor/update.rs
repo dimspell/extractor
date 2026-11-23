@@ -8,7 +8,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 
 pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = app.state.workspace.active_tab_id().as_usize();
+    // Save messages carry their tab id so a save that resolves after a tab
+    // switch still reaches the editor the user actually saved.
+    let tab_id = match &message {
+        SnfEditorMessage::Save(id) | SnfEditorMessage::SaveDone(id, _) => *id,
+        _ => app.state.workspace.active_tab_id().as_usize(),
+    };
     let Some(editor) = app.state.editors.snf_editors.get_mut(&tab_id) else {
         return Task::none();
     };
@@ -207,7 +212,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             }
         },
 
-        SnfEditorMessage::Save => {
+        SnfEditorMessage::Save(_) => {
             let path = editor.path.clone();
             let snf = editor.snf.clone();
             return Task::perform(
@@ -219,11 +224,11 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                         None => Err("No audio data loaded".into()),
                     }
                 },
-                |r| crate::message::Message::snf_editor(SnfEditorMessage::SaveDone(r)),
+                move |r| crate::message::Message::snf_editor(SnfEditorMessage::SaveDone(tab_id, r)),
             );
         }
 
-        SnfEditorMessage::SaveDone(result) => match result {
+        SnfEditorMessage::SaveDone(_, result) => match result {
             Ok(p) => {
                 editor.modified = false;
                 editor.export_status = ExportStatus::Done(format!("Saved: {}", p));

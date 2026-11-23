@@ -29,6 +29,15 @@ macro_rules! define_update_dispatch {
         pub fn dispatch(message: EditorMessage, app: &mut App) -> Task<Message> {
             match message {
                 $(EditorMessage::$msg(msg) => crate::editors::$mod::handle(msg, app),)+
+                // Save messages that carry their own tab id bypass the
+                // active-tab lookup in the editor handlers.
+                EditorMessage::HexEditorSave(tab_id) => {
+                    crate::editors::hex_wrapper::handle_for_tab(
+                        tab_id,
+                        hexedit::HexEditorMessage::SaveIntoRecording,
+                        app,
+                    )
+                }
             }
         }
     };

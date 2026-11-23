@@ -62,7 +62,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(4),
             )
             .style(crate::style::active_chip)
-            .on_press(Message::snf_editor(SnfEditorMessage::Save))
+            .on_press(Message::snf_editor(SnfEditorMessage::Save(tab_id)))
         } else {
             button(
                 row![

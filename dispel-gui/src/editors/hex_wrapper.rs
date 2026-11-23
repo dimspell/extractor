@@ -47,6 +47,17 @@ pub fn build_hex_config(
 
 pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
     let tab_id = app.state.workspace.active_tab_id().as_usize();
+    handle_for_tab(tab_id, msg, app)
+}
+
+/// Route a hex message to an explicit tab. Save messages carry their tab id
+/// from the editor descriptor so a save completing after a tab switch still
+/// reaches the tab the user saved.
+pub fn handle_for_tab(
+    tab_id: usize,
+    msg: hexedit::HexEditorMessage,
+    app: &mut App,
+) -> Task<Message> {
     let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
         return Task::none();
     };
