@@ -506,7 +506,7 @@ define_commands! {
     Database {
         name: "database",
         about: "Populate SQLite database",
-        long_about: "Initializes and populates a local 'database.sqlite' using the hardcoded paths for game fixtures.\n\nUsage Examples:\n  dispel-extractor database import",
+        long_about: "Initializes and populates a local 'database.sqlite' using the hardcoded paths for game fixtures.\n\nUsage Examples:\n  dispel-extractor database import example_game example.sqlite",
         args: DatabaseArgs,
     },
     Sprite {
@@ -581,6 +581,23 @@ mod tests {
                 "extract", "patch", "validate", "list", "schema", "template", "map", "database",
                 "sprite", "sound", "mod-pack"
             ]
+        );
+    }
+
+    #[test]
+    fn test_database_help_example_includes_required_arguments() {
+        let cli = Cli::command();
+        let database = cli
+            .get_subcommands()
+            .find(|cmd| cmd.get_name() == "database")
+            .expect("database subcommand");
+        let help = database
+            .get_long_about()
+            .expect("database long help")
+            .to_string();
+        assert!(
+            help.contains("dispel-extractor database import example_game example.sqlite"),
+            "the import example must show both required arguments, got: {help}"
         );
     }
 
