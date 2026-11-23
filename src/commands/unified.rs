@@ -113,9 +113,18 @@ impl Command for PatchArgs {
             }
         }
 
+        if self.output.is_none() && !self.in_place {
+            return Err(
+                "A write target is required: pass --output <path> or --in-place \
+                        (patching is read-only by default)"
+                    .into(),
+            );
+        }
+
         let output_path = if let Some(ref output) = self.output {
             PathBuf::from(output)
-        } else if self.in_place {
+        } else {
+            // The check above guarantees `--in-place` was passed here.
             if !self.no_backup {
                 let backup_path = target_path.with_extension(
                     target_path
@@ -134,8 +143,6 @@ impl Command for PatchArgs {
                 })?;
                 eprintln!("Backup created: {}", backup_path.display());
             }
-            target_path.to_path_buf()
-        } else {
             target_path.to_path_buf()
         };
 
@@ -243,5 +250,36 @@ fn extract_fields(data: &serde_json::Value) -> Vec<String> {
     match first_record {
         Some(serde_json::Value::Object(obj)) => obj.keys().cloned().collect(),
         _ => vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_patch_requires_output_or_in_place() {
+        let dir = std::env::temp_dir().join(format!("dispel-patch-target-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        let input = dir.join("patch.json");
+        fs::write(&input, "[]").expect("write input JSON");
+        let target = dir.join("WeaponItem.db");
+
+        let args = PatchArgs {
+            input: input.to_string_lossy().into_owned(),
+            target: target.to_string_lossy().into_owned(),
+            output: None,
+            r#type: Some("weapons".to_owned()),
+            dry_run: false,
+            in_place: false,
+            no_backup: false,
+        };
+        let err = args.execute().unwrap_err().to_string();
+        assert!(err.contains("--output"), "{err}");
+        assert!(err.contains("--in-place"), "{err}");
+        // Default behavior is read-only: the target must not be created.
+        assert!(!target.exists());
+
+        fs::remove_dir_all(&dir).expect("remove temp dir");
     }
 }

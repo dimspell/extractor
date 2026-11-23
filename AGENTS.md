@@ -177,7 +177,7 @@ Core modules: `apply`, `bsdiff`, `change`, `changelog`, `conflicts`, `manifest`,
 118 SQL files: 59 `create_table_*.sql` (schema DDL) + 59 parameterized `insert_*.sql`. Run by `database.rs` to drop and recreate the schema. **No foreign keys** — relationships are enforced in code, not SQL constraints.
 
 ### Tests
-**91 `#[cfg(test)]` blocks across 83 `.rs` files** in the root crate. Parsers have hardcoded-byte-slice unit tests; save-file round-trip checking lives in `examples/check_save_roundtrip.rs`.
+**92 `#[cfg(test)]` blocks across 84 `.rs` files** in the root crate. Parsers have hardcoded-byte-slice unit tests; save-file round-trip checking lives in `examples/check_save_roundtrip.rs`.
 
 ---
 
@@ -484,7 +484,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 ### Testing
 **Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
 
-- **dispel-core**: unit test every new parser with hardcoded byte slices (91 `#[cfg(test)]` blocks across 83 `.rs` files)
+- **dispel-core**: unit test every new parser with hardcoded byte slices (92 `#[cfg(test)]` blocks across 84 `.rs` files)
 - **dispel-gui**: write iced_test integration tests that simulate real user flows (open tabs, edit data, undo/redo, save). Test state transitions and behaviors, not visuals. Dedicated suite in `dispel-gui/src/tests/` (28 files) plus co-located `#[cfg(test)]` blocks.
 - **Round-trip checks**: `examples/check_save_roundtrip.rs` (parse → write → compare)
 - **Test naming**: `test_${scenario}_${condition}` e.g. `test_undo_weapon_editor_empty_history`
