@@ -85,6 +85,6 @@ Full subcommand reference: `cargo run -- --help`.
 
 1. **Parsing** — Binary/INI formats are read using `byteorder` and encoding-aware text readers (`WINDOWS-1250` or `EUC-KR`).
 2. **Processing** — Raw data (RGB 565 colors, PCM audio, tile indexes) is converted to usable representations.
-3. **Editing** — The GUI provides 44 editor types for viewing and modifying records, plus a fallback for unknown file types, with undo/redo, mod recording, and auto-save drafts.
+3. **Editing** — The GUI provides 44 editor types for viewing and modifying records, plus a fallback for unknown file types, with undo/redo and mod recording.
 4. **Modding** — Changes can be packaged into `.dispel-mod` archives for distribution, with conflict detection and binary patching.
 5. **Output** — Images (PNG), audio (WAV), JSON (extraction), or direct in-place file patching.

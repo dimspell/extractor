@@ -203,7 +203,6 @@ The GUI provides:
 - **3-pane layout** — sidebar (file tree), main content (editors), history panel (undo/redo)
 - **Undo/redo** with full edit history per editor
 - **Mod recording** — tracks every field change for mod changelog generation
-- **Auto-save drafts** — persists in-progress edits to `~/.config/dispel-gui/`
 - **Full-text search** — nucleo-matcher fuzzy search across all loaded files
 - **Hex editor** — built-in hex editor (from `hexedit` crate)
 - **Map viewer** — isometric rendering with viewport + LRU cache
