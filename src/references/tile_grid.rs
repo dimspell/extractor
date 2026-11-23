@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
 
+/// Upper bound on the eager `Vec` reservation for tile entries. The standard
+/// 249×249 grid needs 62,001 entries; anything larger grows on demand as bytes
+/// are read rather than being reserved up front.
+const MAX_EAGER_TILE_CAPACITY: usize = 1 << 20;
+
 /// `Map/Multi/*.dat` — per-tile `u32` grid (multiplayer).
 ///
 /// The payload is a flat array of tile descriptor values.
@@ -86,9 +91,23 @@ impl Extractor for TileGrid {
         }
 
         let payload_length = ReadBytesExt::read_u32::<LittleEndian>(reader)?;
-        let expected_size = (4 + payload_length as usize) as u64;
-        if file_size != expected_size as usize && file_size > expected_size as usize {
-            // Allow slightly larger files for compatibility with existing files.
+        // Reject a header that overflows the 4-byte-header + payload size, and
+        // one whose declared payload does not fit in the actual file. Both
+        // checks must run before any allocation driven by `payload_length`.
+        let expected_size = payload_length.checked_add(4).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "tile grid payload length overflows",
+            )
+        })? as u64;
+        if expected_size > len {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "tile grid declares {payload_length} payload bytes but file holds only {}",
+                    len.saturating_sub(4)
+                ),
+            ));
         }
 
         // Compute grid size from payload length
@@ -98,7 +117,11 @@ impl Extractor for TileGrid {
             // Not a perfect square; still parse the array verbatim.
         }
 
-        let mut data = Vec::with_capacity(entry_count as usize);
+        // Cap the eager reservation so even a caller supplying an inflated
+        // `len` cannot force a multi-gigabyte allocation from a small file;
+        // the loop below grows the vector as bytes are actually read.
+        let capacity = (entry_count as usize).min(MAX_EAGER_TILE_CAPACITY);
+        let mut data = Vec::with_capacity(capacity);
         for _ in 0..entry_count {
             data.push(ReadBytesExt::read_u32::<LittleEndian>(reader)?);
         }
@@ -210,5 +233,15 @@ mod tests {
             })
         );
         assert_eq!(grid.descriptor(1), None);
+    }
+
+    #[test]
+    fn test_oversized_payload_header_is_rejected() {
+        // A 4-byte file declaring a u32::MAX payload must be rejected by
+        // validation, not drive a multi-gigabyte Vec reservation first.
+        let header = u32::MAX.to_le_bytes();
+        let mut cursor = Cursor::new(&header[..]);
+        let err = TileGrid::parse(&mut cursor, header.len() as u64).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 }
