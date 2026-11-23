@@ -15,25 +15,30 @@ use std::path::PathBuf;
 /// calls the `handle_spreadsheet_messages!` macro with editor-specific ident
 /// names. If `Spreadsheet` reaches this function, its match arm is a no-op that
 /// returns `Task::none()`.
+///
+/// Returns the produced task along with a flag telling whether a `FieldChanged`
+/// message actually applied a valid edit. The caller uses that flag to decide
+/// whether to mark the tab dirty and record the edit.
 pub fn handle<T, F>(
     msg: StandardEditorMessage<T>,
     bundle: &mut StandardEditor<T>,
     game_path: &str,
     lookups: &HashMap<String, Vec<(String, String)>>,
     file_path: &'static str,
+    tab_id: usize,
     wrap: F,
-) -> Task<Message>
+) -> (Task<Message>, bool)
 where
     T: EditableRecord + Extractor + Clone + std::fmt::Debug + Send + 'static,
     F: Fn(StandardEditorMessage<T>) -> Message + Clone + Send + 'static,
 {
     let editor = &mut bundle.state;
     let spreadsheet = &mut bundle.spreadsheet;
-    match msg {
+    let task = match msg {
         StandardEditorMessage::LoadCatalog => {
             if game_path.is_empty() {
                 editor.status_msg = "Please select game path first.".into();
-                return Task::none();
+                return (Task::none(), false);
             }
             editor.loading_state = LoadingState::Loading;
             spreadsheet.is_loading = true;
@@ -99,29 +104,31 @@ where
         }
 
         StandardEditorMessage::FieldChanged(idx, field, value) => {
-            editor.update_field(idx, &field, value);
-            Task::none()
+            return (Task::none(), editor.update_field(idx, &field, value));
         }
 
         StandardEditorMessage::Save => {
             if game_path.is_empty() {
                 editor.status_msg = "Please select game path first.".into();
-                return Task::none();
+                return (Task::none(), false);
             }
             if editor.catalog.is_some() {
                 editor.status_msg = "Saving...".into();
                 editor.loading_state = LoadingState::Loading;
                 let result = editor.save(game_path, file_path);
                 let wrap2 = wrap.clone();
-                return Task::perform(async { result }, move |r| {
-                    wrap2(StandardEditorMessage::Saved(r))
-                });
+                return (
+                    Task::perform(async { result }, move |r| {
+                        wrap2(StandardEditorMessage::Saved(tab_id, r))
+                    }),
+                    false,
+                );
             }
             editor.status_msg = "Nothing to save.".into();
             Task::none()
         }
 
-        StandardEditorMessage::Saved(result) => {
+        StandardEditorMessage::Saved(_tab_id, result) => {
             editor.loading_state = LoadingState::Loaded(());
             match result {
                 Ok(()) => editor.status_msg = "Saved successfully.".into(),
@@ -149,5 +156,6 @@ where
             // Handled by the thin per-editor wrapper via handle_spreadsheet_messages!
             Task::none()
         }
-    }
+    };
+    (task, false)
 }

@@ -72,7 +72,8 @@ macro_rules! define_tab_editor {
                 Save,
                 AddEntry,
                 RemoveEntry(usize),
-                Saved(Result<(), String>),
+                /// First field is the id of the tab that issued the save.
+                Saved(usize, Result<(), String>),
                 /// Start a catalog read. Carries the path so the async result
                 /// can be tied back to the tab that requested it.
                 LoadCatalog(std::path::PathBuf),
@@ -114,6 +115,7 @@ macro_rules! define_tab_editor {
                         task
                     }
                     [<$Name EditorMessage>]::CatalogLoaded(id, result) => {
+                        let succeeded = result.is_ok();
                         $crate::update::editor::tab::catalog_loaded(
                             id,
                             result,
@@ -122,6 +124,9 @@ macro_rules! define_tab_editor {
                             $loaded_prefix,
                             $error_prefix,
                         );
+                        if succeeded {
+                            app.state.workspace.clear_modified_for(id);
+                        }
                         ::iced::Task::none()
                     }
                     $(
@@ -178,7 +183,7 @@ macro_rules! define_tab_editor {
                             $save_success_msg, $save_error_msg,
                         );
                         ::iced::Task::done($crate::message::Message::$name(
-                            [<$Name EditorMessage>]::Saved(result),
+                            [<$Name EditorMessage>]::Saved(tab_id, result),
                         ))
                     }
                     [<$Name EditorMessage>]::Spreadsheet(msg) => {
@@ -213,9 +218,9 @@ macro_rules! define_tab_editor {
                             &mut app.state.editors.$field, tab_id, index,
                         )
                     }
-                    [<$Name EditorMessage>]::Saved(result) => {
+                    [<$Name EditorMessage>]::Saved(saved_tab_id, result) => {
                         if result.is_ok() {
-                            app.state.workspace.clear_modified();
+                            app.state.workspace.clear_modified_for(saved_tab_id);
                         }
                         ::iced::Task::none()
                     }

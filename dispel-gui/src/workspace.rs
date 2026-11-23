@@ -370,6 +370,16 @@ impl Workspace {
         }
     }
 
+    /// Clear the dirty flag of the tab identified by `tab_id`, regardless of
+    /// which tab is active now. Async save results arrive after the user may
+    /// have switched tabs, so clearing the active tab would mark the wrong one
+    /// clean.
+    pub fn clear_modified_for(&mut self, tab_id: usize) {
+        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
+            tab.modified = false;
+        }
+    }
+
     /// Clear all tabs and reset workspace state
     /// This should be called when the game path changes to avoid stale editor states
     pub fn clear_all_tabs(&mut self) {

@@ -804,8 +804,9 @@ mod modified_flag_routing {
             "FieldChanged marks the active tab modified"
         );
 
+        let saved_tab = app.state.workspace.active().unwrap().id;
         let _ = crate::editors::monster::handle(
-            crate::editors::monster::MonsterEditorMessage::Saved(Ok(())),
+            crate::editors::monster::MonsterEditorMessage::Saved(saved_tab, Ok(())),
             &mut app,
         );
         assert!(
@@ -843,13 +844,167 @@ mod modified_flag_routing {
             "tabbed FieldChanged marks the active tab modified"
         );
 
+        let saved_tab = app.state.workspace.active().unwrap().id;
         let _ = crate::editors::monster_ref::handle(
-            crate::editors::monster_ref::MonsterRefEditorMessage::Saved(Ok(())),
+            crate::editors::monster_ref::MonsterRefEditorMessage::Saved(saved_tab, Ok(())),
             &mut app,
         );
         assert!(
             !app.state.workspace.active().unwrap().modified,
             "tabbed successful save clears the modified flag"
+        );
+    }
+
+    #[test]
+    fn test_saved_clears_only_the_saved_tab_after_tab_switch() {
+        use dispel_core::Monster;
+
+        let mut app = app_with_tab(EditorType::MonsterEditor);
+        let saved_tab = app.state.workspace.tabs[0].id;
+        let other_tab = app.state.workspace.open(
+            "other.db".into(),
+            Some(std::path::PathBuf::from("other.db")),
+        );
+        app.state.workspace.tabs[other_tab].editor_type = EditorType::MonsterEditor;
+        app.state.editors.monster_editor.catalog = Some(vec![Monster::default()]);
+        app.state.editors.monster_editor.refresh();
+
+        app.state.workspace.tabs[0].modified = true;
+        app.state.workspace.tabs[other_tab].modified = true;
+        assert_eq!(
+            app.state.workspace.active().unwrap().id,
+            app.state.workspace.tabs[other_tab].id,
+            "the other tab is active when the save result arrives"
+        );
+
+        let _ = crate::editors::monster::handle(
+            crate::editors::monster::MonsterEditorMessage::Saved(saved_tab, Ok(())),
+            &mut app,
+        );
+
+        assert!(
+            !app.state.workspace.tabs[0].modified,
+            "the tab that was saved must be cleared"
+        );
+        assert!(
+            app.state.workspace.tabs[other_tab].modified,
+            "switching tabs must not redirect the cleared flag"
+        );
+    }
+
+    #[test]
+    fn test_tabbed_saved_clears_only_the_saved_tab_after_tab_switch() {
+        let mut app = app_with_tab(EditorType::MonsterRefEditor);
+        let saved_tab = app.state.workspace.tabs[0].id;
+        let other_tab = app.state.workspace.open(
+            "other.ref".into(),
+            Some(std::path::PathBuf::from("other.ref")),
+        );
+        app.state.workspace.tabs[other_tab].editor_type = EditorType::MonsterRefEditor;
+        for id in [saved_tab, app.state.workspace.tabs[other_tab].id] {
+            app.state
+                .editors
+                .monster_ref_editor
+                .editors
+                .insert(id, Default::default());
+            app.state
+                .editors
+                .monster_ref_editor
+                .spreadsheets
+                .insert(id, Default::default());
+        }
+
+        app.state.workspace.tabs[0].modified = true;
+        app.state.workspace.tabs[other_tab].modified = true;
+
+        let _ = crate::editors::monster_ref::handle(
+            crate::editors::monster_ref::MonsterRefEditorMessage::Saved(saved_tab, Ok(())),
+            &mut app,
+        );
+
+        assert!(!app.state.workspace.tabs[0].modified);
+        assert!(
+            app.state.workspace.tabs[other_tab].modified,
+            "an unrelated dirty tab must stay dirty"
+        );
+    }
+
+    #[test]
+    fn test_invalid_field_change_leaves_tab_clean() {
+        use dispel_core::HealItem;
+
+        let mut app = app_with_tab(EditorType::HealItemEditor);
+        app.state.editors.heal_item_editor.catalog = Some(vec![HealItem::default()]);
+        app.state.editors.heal_item_editor.refresh();
+        app.state.editors.heal_item_editor.select(0);
+
+        let _ = crate::editors::heal_item::handle(
+            crate::editors::heal_item::HealItemEditorMessage::FieldChanged(
+                0,
+                "base_price".to_string(),
+                "not-a-number".to_string(),
+            ),
+            &mut app,
+        );
+
+        assert!(
+            !app.state.workspace.active().unwrap().modified,
+            "a rejected field value must not mark the tab dirty"
+        );
+        assert!(
+            app.state
+                .editors
+                .heal_item_editor
+                .status_msg
+                .contains("Invalid"),
+            "the validation error must be reported"
+        );
+    }
+
+    #[test]
+    fn test_successful_catalog_reload_clears_modified_flag() {
+        use dispel_core::Monster;
+
+        let mut app = app_with_tab(EditorType::MonsterEditor);
+        app.state.workspace.tabs[0].modified = true;
+
+        let _ = crate::editors::monster::handle(
+            crate::editors::monster::MonsterEditorMessage::CatalogLoaded(Ok(vec![
+                Monster::default(),
+            ])),
+            &mut app,
+        );
+
+        assert!(
+            !app.state.workspace.active().unwrap().modified,
+            "a successful reload starts from clean data"
+        );
+    }
+
+    #[test]
+    fn test_tabbed_catalog_reload_clears_modified_flag() {
+        let mut app = app_with_tab(EditorType::MonsterRefEditor);
+        let tab_id = app.state.workspace.tabs[0].id;
+        app.state
+            .editors
+            .monster_ref_editor
+            .editors
+            .insert(tab_id, Default::default());
+        app.state
+            .editors
+            .monster_ref_editor
+            .spreadsheets
+            .insert(tab_id, Default::default());
+        app.state.workspace.tabs[0].modified = true;
+
+        let _ = crate::editors::monster_ref::handle(
+            crate::editors::monster_ref::MonsterRefEditorMessage::CatalogLoaded(tab_id, Ok(vec![])),
+            &mut app,
+        );
+
+        assert!(
+            !app.state.workspace.tabs[0].modified,
+            "a successful tabbed reload starts from clean data"
         );
     }
 }

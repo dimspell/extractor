@@ -113,6 +113,7 @@ macro_rules! define_standard_editor {
                 app: &mut $crate::app::App,
             ) -> ::iced::Task<$crate::message::Message> {
                 use $crate::message::MessageExt;
+                let tab_id = app.state.workspace.active_tab_id().as_usize();
                 match msg {
                     [<$Name EditorMessage>]::Spreadsheet(sm) => {
                         $crate::handle_spreadsheet_messages!(
@@ -141,19 +142,22 @@ macro_rules! define_standard_editor {
                             })
                             .unwrap_or_default();
                         let new_value = value.clone();
-                        let task = $crate::components::standard::update::handle(
+                        let (task, applied) = $crate::components::standard::update::handle(
                             [<$Name EditorMessage>]::FieldChanged(idx, field.clone(), value),
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            tab_id,
                             $crate::message::Message::$name,
                         );
-                        app.state.workspace.mark_modified();
-                        // Only record if the edit actually changed the value
-                        // (avoids no-op observations). The field identity is
-                        // one canonical FieldKey, shared with the core
-                        // conflict/pin/apply pipeline.
+                        if applied {
+                            app.state.workspace.mark_modified();
+                        }
+                        // Only record if the edit actually applied and changed
+                        // the value (avoids no-op observations). The field
+                        // identity is one canonical FieldKey, shared with the
+                        // core conflict/pin/apply pipeline.
                         let context =
                             $crate::editors::mod_packager::recording::FieldEditContext {
                                 old: old_value,
@@ -161,7 +165,7 @@ macro_rules! define_standard_editor {
                                     $file, orig_idx_u32, &field,
                                 ),
                             };
-                        let observe = if context.old != new_value {
+                        let observe = if applied && context.old != new_value {
                             $crate::editors::mod_packager::recording::observe_field_edit(
                                 app, context, new_value,
                             )
@@ -170,18 +174,19 @@ macro_rules! define_standard_editor {
                         };
                         observe.chain(task)
                     }
-                    [<$Name EditorMessage>]::Saved(result) => {
+                    [<$Name EditorMessage>]::Saved(saved_tab_id, result) => {
                         let succeeded = result.is_ok();
-                        let task = $crate::components::standard::update::handle(
-                            [<$Name EditorMessage>]::Saved(result),
+                        let (task, _) = $crate::components::standard::update::handle(
+                            [<$Name EditorMessage>]::Saved(saved_tab_id, result),
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            saved_tab_id,
                             $crate::message::Message::$name,
                         );
                         if succeeded {
-                            app.state.workspace.clear_modified();
+                            app.state.workspace.clear_modified_for(saved_tab_id);
                         }
                         task
                     }
@@ -192,23 +197,45 @@ macro_rules! define_standard_editor {
                             &app.state.shared_game_path,
                             &mut app.state.lookups,
                         );
-                        $crate::components::standard::update::handle(
+                        let (task, _) = $crate::components::standard::update::handle(
                             msg,
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            tab_id,
                             $crate::message::Message::$name,
-                        )
+                        );
+                        task
                     }
-                    msg => $crate::components::standard::update::handle(
-                        msg,
-                        &mut app.state.editors.$field,
-                        &app.state.shared_game_path.clone(),
-                        &app.state.lookups,
-                        $file,
-                        $crate::message::Message::$name,
-                    ),
+                    [<$Name EditorMessage>]::CatalogLoaded(result) => {
+                        let succeeded = result.is_ok();
+                        let (task, _) = $crate::components::standard::update::handle(
+                            [<$Name EditorMessage>]::CatalogLoaded(result),
+                            &mut app.state.editors.$field,
+                            &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
+                            $file,
+                            tab_id,
+                            $crate::message::Message::$name,
+                        );
+                        if succeeded {
+                            app.state.workspace.clear_modified_for(tab_id);
+                        }
+                        task
+                    }
+                    msg => {
+                        let (task, _) = $crate::components::standard::update::handle(
+                            msg,
+                            &mut app.state.editors.$field,
+                            &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
+                            $file,
+                            tab_id,
+                            $crate::message::Message::$name,
+                        );
+                        task
+                    }
                 }
             }
 
@@ -249,7 +276,8 @@ macro_rules! define_standard_editor {
                 PaneResized(iced::widget::pane_grid::ResizeEvent),
                 PaneClicked(iced::widget::pane_grid::Pane),
                 Save,
-                Saved(Result<(), String>),
+                /// First field is the id of the tab that issued the save.
+                Saved(usize, Result<(), String>),
                 /// Editor-specific messages (e.g. WAV export).
                 Extension($Ext),
             }
@@ -278,8 +306,8 @@ macro_rules! define_standard_editor {
                         [<$Name EditorMessage>]::PaneClicked(p),
                     $crate::components::standard::message::StandardEditorMessage::Save =>
                         [<$Name EditorMessage>]::Save,
-                    $crate::components::standard::message::StandardEditorMessage::Saved(r) =>
-                        [<$Name EditorMessage>]::Saved(r),
+                    $crate::components::standard::message::StandardEditorMessage::Saved(t, r) =>
+                        [<$Name EditorMessage>]::Saved(t, r),
                 })
             }
 
@@ -288,6 +316,7 @@ macro_rules! define_standard_editor {
                 app: &mut $crate::app::App,
             ) -> ::iced::Task<$crate::message::Message> {
                 use $crate::message::MessageExt;
+                let tab_id = app.state.workspace.active_tab_id().as_usize();
                 match msg {
                     [<$Name EditorMessage>]::Extension(ext) => $ext_handle(ext, app),
                     [<$Name EditorMessage>]::Spreadsheet(sm) => {
@@ -316,15 +345,18 @@ macro_rules! define_standard_editor {
                             })
                             .unwrap_or_default();
                         let new_value = value.clone();
-                        let task = $crate::components::standard::update::handle(
+                        let (task, applied) = $crate::components::standard::update::handle(
                             $crate::components::standard::message::StandardEditorMessage::FieldChanged(idx, field.clone(), value),
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            tab_id,
                             [<wrap_ $name _std>],
                         );
-                        app.state.workspace.mark_modified();
+                        if applied {
+                            app.state.workspace.mark_modified();
+                        }
                         let context =
                             $crate::editors::mod_packager::recording::FieldEditContext {
                                 old: old_value,
@@ -332,7 +364,7 @@ macro_rules! define_standard_editor {
                                     $file, orig_idx_u32, &field,
                                 ),
                             };
-                        let observe = if context.old != new_value {
+                        let observe = if applied && context.old != new_value {
                             $crate::editors::mod_packager::recording::observe_field_edit(
                                 app, context, new_value,
                             )
@@ -341,18 +373,19 @@ macro_rules! define_standard_editor {
                         };
                         observe.chain(task)
                     }
-                    [<$Name EditorMessage>]::Saved(result) => {
+                    [<$Name EditorMessage>]::Saved(saved_tab_id, result) => {
                         let succeeded = result.is_ok();
-                        let task = $crate::components::standard::update::handle(
-                            $crate::components::standard::message::StandardEditorMessage::Saved(result),
+                        let (task, _) = $crate::components::standard::update::handle(
+                            $crate::components::standard::message::StandardEditorMessage::Saved(saved_tab_id, result),
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            saved_tab_id,
                             [<wrap_ $name _std>],
                         );
                         if succeeded {
-                            app.state.workspace.clear_modified();
+                            app.state.workspace.clear_modified_for(saved_tab_id);
                         }
                         task
                     }
@@ -361,14 +394,32 @@ macro_rules! define_standard_editor {
                             &app.state.shared_game_path,
                             &mut app.state.lookups,
                         );
-                        $crate::components::standard::update::handle(
+                        let (task, _) = $crate::components::standard::update::handle(
                             $crate::components::standard::message::StandardEditorMessage::LoadCatalog,
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            tab_id,
                             [<wrap_ $name _std>],
-                        )
+                        );
+                        task
+                    }
+                    [<$Name EditorMessage>]::CatalogLoaded(result) => {
+                        let succeeded = result.is_ok();
+                        let (task, _) = $crate::components::standard::update::handle(
+                            $crate::components::standard::message::StandardEditorMessage::CatalogLoaded(result),
+                            &mut app.state.editors.$field,
+                            &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
+                            $file,
+                            tab_id,
+                            [<wrap_ $name _std>],
+                        );
+                        if succeeded {
+                            app.state.workspace.clear_modified_for(tab_id);
+                        }
+                        task
                     }
                     other => {
                         use $crate::components::standard::message::StandardEditorMessage as Std;
@@ -378,8 +429,8 @@ macro_rules! define_standard_editor {
                             [<$Name EditorMessage>]::PaneResized(e) => Std::PaneResized(e),
                             [<$Name EditorMessage>]::PaneClicked(p) => Std::PaneClicked(p),
                             [<$Name EditorMessage>]::Save => Std::Save,
-                            [<$Name EditorMessage>]::Saved(r) => Std::Saved(r),
-                            // Handled by the dedicated arm above; a stray
+                            [<$Name EditorMessage>]::Saved(t, r) => Std::Saved(t, r),
+                            // Handled by the dedicated arms above; a stray
                             // extension message is a safe no-op.
                             [<$Name EditorMessage>]::Extension(_)
                             | [<$Name EditorMessage>]::Spreadsheet(_)
@@ -388,14 +439,16 @@ macro_rules! define_standard_editor {
                                 return ::iced::Task::none();
                             }
                         };
-                        $crate::components::standard::update::handle(
+                        let (task, _) = $crate::components::standard::update::handle(
                             std,
                             &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
+                            tab_id,
                             [<wrap_ $name _std>],
-                        )
+                        );
+                        task
                     }
                 }
             }
