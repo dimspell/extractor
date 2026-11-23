@@ -5,8 +5,7 @@
 //! authoritative editor catalog in `crate::editor_catalog` and re-exported
 //! here for backwards compatibility.
 //!
-//! Two editors are handled specially outside the update table:
-//! - `DbViewer` — no EditorMessage variant; view is `App::view_db_viewer()`
+//! One editor is handled specially outside the update table:
 //! - `EventScrEditor` — view wraps result in `.map(EditorMessage::EventScr)`
 
 use crate::app::App;

@@ -260,11 +260,7 @@ mod exhaustive {
             );
         }
         // Editors with no file parser must not claim export support.
-        for et in [
-            EditorType::DbViewer,
-            EditorType::HexEditor,
-            EditorType::ModPackager,
-        ] {
+        for et in [EditorType::HexEditor, EditorType::ModPackager] {
             assert!(
                 et.descriptor().extract.is_none(),
                 "EditorType::{:?} should not declare JSON export",

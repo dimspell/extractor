@@ -10,7 +10,6 @@
 pub mod all_map_ini;
 pub mod chdata;
 pub mod chest_spawn;
-pub mod db_viewer;
 pub mod dialogue_paragraph;
 pub mod dialogue_script;
 pub mod draw_item;

@@ -251,7 +251,6 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             use crate::message::MessageExt;
             use crate::workspace::EditorType;
             let label = match editor_type {
-                EditorType::DbViewer => "DB Viewer",
                 EditorType::LocalizationManager => "Localization Packager",
                 _ => "Tool",
             };

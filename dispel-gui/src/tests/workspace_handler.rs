@@ -4,7 +4,7 @@
 //! - `pane_grid.rs` (ToggleSidebar, ToggleHistoryPanel, ToggleMaximizePane, PaneClicked, PaneResized, PaneDragged)
 //! - `command_palette.rs` (ToggleCommandPalette, CommandPaletteInput/Select/Close/Confirm/ArrowUp/ArrowDown)
 //! - `global_search.rs` (ToggleGlobalSearch, GlobalSearchInput, GlobalSearchSelect/Confirm, ArrowUp/ArrowDown)
-//! - `message_routing.rs` (OpenToolTab for DbViewer)
+//! - `message_routing.rs` (OpenToolTab for tool tabs)
 //! - `workspace.rs` (ReopenActiveTabAsHex with no tab / no path)
 
 #[cfg(test)]

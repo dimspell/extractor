@@ -241,7 +241,6 @@ Structure:
 - **Async**: Tokio multi-thread runtime + `iced::Task::perform`
 - **Core**: `dispel_core` (sibling crate)
 - **Search**: nucleo-matcher 0.3 (fuzzy full-text)
-- **SQLite**: rusqlite 0.39 (bundled, for `DbViewer` only)
 - **Audio**: rodio 0.22 (SNF playback)
 - **File dialogs**: rfd 0.16
 - **Window**: 1100×800, custom "Medieval" theme (dark leather/gold)
@@ -270,14 +269,13 @@ Structure:
 
 ### Message Routing
 
-Top-level `Message` enum (`message/mod.rs`) has 6 variants:
+Top-level `Message` enum (`message/mod.rs`) has 5 variants:
 
 | Variant | Routes to | Contents |
 |---|---|---|
 | `Workspace(InternalWorkspaceMessage)` | `update/workspace.rs` | Tab bar, sidebar, command palette, global search, pane grid, tool tabs |
 | `Editor(EditorMessage)` | `update/editor/mod.rs` | per-editor messages (one family per catalog entry) |
 | `FileTree(FileTreeMessage)` | `update/file_tree.rs` | File tree actions |
-| `Viewer(ViewerMessage)` | (DbViewer handler) | SQLite DB viewer queries, pagination, CSV export |
 | `System(SystemMessage)` | `update/system.rs` | Undo, Redo, Save, index, errors, file scan |
 | `StartPage(StartPageMessage)` | `update/startpage.rs` | Game path selection |
 
@@ -291,12 +289,12 @@ Top-level `Message` enum (`message/mod.rs`) has 6 variants:
 `weapon`, `monster`, `heal_item`, `misc_item`, `edit_item`, `event_item`, `party_ref`, `all_map_ini`, `event_ini`, `draw_item`, `chdata`, `event_npc_ref`, `map_ini`, `npc_ini`, `message_scr`, `extra_ini`, `magic`, `quest_scr`, `monster_ini`, `party_ini`
 
 **Custom boxed editors** — custom state in `Box<...>` (all listed in `EditorRegistry`):
-`save_ifo_editor`, `event_scr`, `wave_ini`, `store`, `party_level_db`, `db_viewer` (viewer), `localization_manager`, …
+`save_ifo_editor`, `event_scr`, `wave_ini`, `store`, `party_level_db`, `localization_manager`, …
 
 **Tabbed editors (5)** — `TabbedEditor<T>` (HashMap<tab_id, MultiFileEditorState<T>>):
 `monster_ref`, `dialogue_script`, `dialogue_paragraph`, `extra_ref`, `npc_ref`
 
-**Single-instance special editors:** viewer (DbViewer), mod_packager_editor (ModPackagerState)
+**Single-instance special editors:** mod_packager_editor (ModPackagerState)
 
 **Per-tab HashMap editors (6)** — one state per open tab:
 `sprite_viewers`, `map_editors`, `tileset_editors`, `snf_editors`, `hex_editors`, `save_file_viewers`
@@ -416,7 +414,7 @@ pub struct Workspace {
 - **Views**: defined as `impl App` blocks in `view/*.rs`, not `app.rs`.
 - **Messages**: use `define_message_ext!` macro for shorthand constructors.
 - **Scan vs Browse**: "Scan" = load from `shared_game_path`; "Browse" = file picker.
-- **SQLite**: only `DbViewer`. Other editors read/write game files directly.
+- **Game files**: editors read/write game files directly.
 - **Enums over booleans**: e.g. `LoadingState<T> { Idle, Loading, Loaded(T), Failed(String) }`
 - **Editor state lives on `EditorRegistry`, not `AppState`**.
 - **Iced (fork)**: `container(...).center_x(width)` is a convenience setter for `container(...).width(width).align_x(alignment::Horizontal::Center)`.

@@ -5,7 +5,6 @@ use crate::components::generic_editor::TabbedEditor;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
-use crate::editors::db_viewer::DbViewerState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
@@ -387,7 +386,6 @@ pub(crate) use lc_none;
 /// non-editor concerns (workspace, UI, file tree, …).
 #[derive(Default)]
 pub struct EditorRegistry {
-    pub viewer: Box<DbViewerState>,
     pub weapon_editor: Box<StandardEditor<WeaponItem>>,
     pub heal_item_editor: Box<StandardEditor<HealItem>>,
     pub misc_item_editor: Box<StandardEditor<MiscItem>>,

@@ -18,20 +18,6 @@ mod clear_all_tests {
     }
 
     #[test]
-    fn clear_all_resets_viewer() {
-        let mut app = App::test_new(Workspace::new());
-        app.state.editors.viewer.db_path = "test.db".into();
-        assert_eq!(app.state.editors.viewer.db_path, "test.db");
-
-        app.state.editors.clear_all();
-
-        assert_eq!(
-            app.state.editors.viewer.db_path, "database.sqlite",
-            "viewer should reset to default db_path after clear_all()"
-        );
-    }
-
-    #[test]
     fn clear_all_resets_party_level_db_editor() {
         let mut app = App::test_new(Workspace::new());
         app.state.editors.party_level_db_editor.catalog = Some(vec![]);

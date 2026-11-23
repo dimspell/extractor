@@ -201,7 +201,6 @@ The GUI provides:
 - **Hex editor** — built-in hex editor (from `hexedit` crate)
 - **Map viewer** — isometric rendering with viewport + LRU cache
 - **SNF audio playback** — rodio-based sound preview
-- **DbViewer** — SQLite browser for imported databases
 - **Mod packager** — package changes into `dispel-mod` archives
 
 ---

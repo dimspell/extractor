@@ -43,7 +43,6 @@ impl App {
                     PaneContent::Sidebar => self.view_sidebar(),
                     PaneContent::MainContent => {
                         let content = match self.state.workspace.active().map(|t| t.editor_type) {
-                            Some(EditorType::DbViewer) => self.view_db_viewer(),
                             Some(EditorType::EventScrEditor) => {
                                 crate::editors::event_scr::view(self).map(|msg| {
                                     Message::Editor(
@@ -292,7 +291,6 @@ impl App {
         };
         let tools_section = column![
             container(text("Tools").size(11).style(style::subtle_text)).padding([4, 16]),
-            tool_btn("DB Viewer", EditorType::DbViewer),
             tool_btn("Store Editor", EditorType::StoreEditor),
             tool_btn("Mod Manager", EditorType::ModPackager),
             tool_btn("Localization Packager", EditorType::LocalizationManager),

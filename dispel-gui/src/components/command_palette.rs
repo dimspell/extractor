@@ -76,13 +76,6 @@ impl Command {
             },
             // ── Tool views ──────────────────────────────────────────────────
             Command {
-                id: "open-db-viewer",
-                label: "Open: DB Viewer",
-                shortcut: None,
-                action: || Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::DbViewer)),
-                applicable_editors: vec![],
-            },
-            Command {
                 id: "open-store-editor",
                 label: "Open: Store Editor",
                 shortcut: None,

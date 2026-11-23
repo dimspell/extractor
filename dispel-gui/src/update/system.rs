@@ -185,7 +185,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
 
                     return Task::batch([file_tree_task, index_task]);
                 }
-                "viewer_db" => app.state.editors.viewer.db_path = s,
                 _ => {}
             }
             Task::none()

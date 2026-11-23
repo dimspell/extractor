@@ -47,7 +47,7 @@ pub type ExtractFn = fn(&std::path::Path) -> Result<serde_json::Value, String>;
 pub struct EditorDescriptor {
     pub editor_type: EditorType,
     /// `None` for editors whose view is rendered specially by the caller
-    /// (`DbViewer`, `EventScrEditor`) and for `Unknown`.
+    /// (`EventScrEditor`) and for `Unknown`.
     pub view: Option<ViewFn>,
     /// `None` when the editor does not support Ctrl+S.
     pub save: Option<SaveFn>,
@@ -419,15 +419,6 @@ define_editor_catalog! {
         extract: None,
         lifecycle: lc_hash_map!(snf_editors),
     },
-    /// SQLite database viewer (tool tab, no EditorMessage variant).
-    DbViewer {
-        view: None, // rendered by App::view_db_viewer()
-        save: None,
-        load: None,
-        sheet: None,
-        extract: None,
-        lifecycle: lc_owned_box!(viewer),
-    },
     /// Tileset browser (.btl/.gtl), one per tab.
     TilesetEditor {
         view: Some(crate::editors::tileset::view as ViewFn),
@@ -563,7 +554,7 @@ pub fn from_catalog_editor(id: &str) -> Option<EditorType> {
 }
 
 /// Route an `EditorType` to its view, or `None` for editors rendered specially
-/// by the caller (`None` tab, `DbViewer`, `EventScrEditor`, `Unknown`).
+/// by the caller (`None` tab, `EventScrEditor`, `Unknown`).
 pub fn dispatch_view<'a>(
     editor_type: Option<EditorType>,
     app: &'a crate::app::App,

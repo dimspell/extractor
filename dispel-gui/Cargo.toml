@@ -53,10 +53,6 @@ iced_test = ["dep:iced_test", "iced/tiny-skia"]
 # iced_test by `cargo test --workspace --all-features`.
 debug = ["iced/hot"]
 
-[dependencies.rusqlite]
-version = "0.39.0"
-features = ["bundled"]
-
 [dev-dependencies]
 proptest = "1.4"
 syn = { version = "2", features = ["full"] }
