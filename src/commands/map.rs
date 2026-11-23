@@ -24,7 +24,7 @@ impl Command for MapCommands {
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                map::tileset::plot_all_tiles(&tiles, output);
+                map::tileset::plot_all_tiles(&tiles, output)?;
                 Ok(())
             }
             MapCommands::Atlas {
@@ -51,7 +51,7 @@ impl Command for MapCommands {
                         "skip-zero (BTL blend)"
                     }
                 );
-                map::tileset::plot_tileset_map_with(&tiles, output, opaque);
+                map::tileset::plot_tileset_map_with(&tiles, output, opaque)?;
                 Ok(())
             }
             MapCommands::Render {

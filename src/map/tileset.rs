@@ -141,9 +141,9 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
 ///
 /// * `tiles` - Vector of Tile structs to plot
 /// * `out_dir` - Output directory path
-pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
+pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) -> std::io::Result<()> {
     let out_path = std::path::Path::new(out_dir);
-    std::fs::create_dir_all(out_path).expect("Failed to create output directory");
+    std::fs::create_dir_all(out_path)?;
 
     for (tile_index, tile) in tiles.iter().enumerate() {
         let mut imgbuf = image::ImageBuffer::new(TILE_WIDTH, TILE_HEIGHT);
@@ -151,8 +151,9 @@ pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
         let dest_y: i32 = 0;
         plot_tile_rgba(&mut imgbuf, tile.colors, dest_x, dest_y);
         let file_path = out_path.join(format!("tile_{:04}.png", tile_index));
-        let _ = imgbuf.save(file_path);
+        imgbuf.save(file_path).map_err(std::io::Error::other)?;
     }
+    Ok(())
 }
 
 /// Plots a single tile onto an RGB image buffer
@@ -243,13 +244,13 @@ pub fn plot_tile_opaque(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i3
 ///
 /// * `tiles` - Vector of Tile structs
 /// * `out_path` - Output file path for the atlas PNG
-pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
+pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) -> std::io::Result<()> {
     plot_tileset_map_with(tiles, out_path, false)
 }
 
 /// Writes the atlas PNG. `opaque` draws the tiles' black pixels; otherwise
 /// they are skipped.
-pub fn plot_tileset_map_with(tiles: &[Tile], out_path: &str, opaque: bool) {
+pub fn plot_tileset_map_with(tiles: &[Tile], out_path: &str, opaque: bool) -> std::io::Result<()> {
     // Flexible atlas size to make it square
     // let count = tiles.len() as f64;
     // let w = count.sqrt().ceil() as u32;
@@ -289,7 +290,7 @@ pub fn plot_tileset_map_with(tiles: &[Tile], out_path: &str, opaque: bool) {
         }
     }
 
-    let _ = bitmap.save(out_path);
+    bitmap.save(out_path).map_err(std::io::Error::other)
 }
 
 /// Plots a single tile onto an RGBA image buffer, skipping its RGB(0,0,0)
@@ -392,6 +393,33 @@ mod tests {
         let color = Color { r: 0, g: 0, b: 0 };
         let result = mix_color(canvas, color, 128);
         assert_eq!(result[0].r, 127);
+    }
+
+    #[test]
+    fn test_tileset_plot_reports_unwritable_output_path() {
+        let tile = Tile {
+            colors: [Color { r: 1, g: 2, b: 3 }; 1024],
+        };
+        let tiles = [tile];
+
+        let base = std::env::temp_dir().join(format!("dispel_tileset_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        let blocker = base.join("invented_blocker.bin");
+        std::fs::write(&blocker, b"not a directory").unwrap();
+
+        let bad_dir = blocker.join("invented_tiles");
+        let result = plot_all_tiles(&tiles, &bad_dir.to_string_lossy());
+        assert!(result.is_err(), "plot_all_tiles must report a failed save");
+
+        let bad_atlas = blocker.join("invented_atlas.png");
+        let result = plot_tileset_map(&tiles, &bad_atlas.to_string_lossy());
+        assert!(
+            result.is_err(),
+            "plot_tileset_map must report a failed save"
+        );
+
+        std::fs::remove_dir_all(&base).unwrap();
     }
 
     // RGB565 golden values and the diamond-mask geometry test moved to
