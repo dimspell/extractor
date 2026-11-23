@@ -268,7 +268,14 @@ for name in ("test", "pr"):
         needle = f"bash scripts/ci-commands.sh {command}"
         check(needle in workflows[name], f"{name}.yml does not call {needle!r}")
 
-for label, content in [("Makefile", makefile)] + [
+# Shell scripts must not inline a canonical command either; ci-commands.sh is
+# the definition site and is therefore exempt from this scan.
+script_sources = [
+    (str(p.relative_to(root)), p.read_text(encoding="utf-8"))
+    for p in walk("scripts", "*.sh")
+    if p.name != "ci-commands.sh"
+]
+for label, content in [("Makefile", makefile)] + script_sources + [
     (f"{name}.yml", wf) for name, wf in workflows.items()
 ]:
     for line in content.splitlines():

@@ -28,7 +28,7 @@ fi
 # --- Pre-release checks ---
 
 echo "Checking code formatting..."
-if ! cargo fmt --all --check; then
+if ! bash scripts/ci-commands.sh fmt-check; then
     echo "Code is not formatted. Run 'cargo fmt --all' to fix."
     exit 1
 fi
@@ -36,7 +36,7 @@ fi
 # Running the full suite is mandatory before a release; PR CI already does
 # this, but a release can be cut from a local master that skipped it.
 echo "Running tests..."
-if ! cargo test --workspace --all-features; then
+if ! bash scripts/ci-commands.sh test; then
     echo "Tests failed. Fix before releasing."
     exit 1
 fi
@@ -63,7 +63,7 @@ done <<< "$MANIFESTS"
 
 # Regenerate Cargo.lock
 echo "Regenerating Cargo.lock..."
-cargo check --workspace --quiet
+bash scripts/ci-commands.sh check
 
 # --- Commit ---
 
