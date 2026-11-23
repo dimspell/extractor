@@ -67,9 +67,22 @@ pub fn read_mapper<R: Read>(
     counter_size: u8,
     property_item_size: i32,
 ) -> Result<i32> {
-    let space_for_elements =
-        (((file_len - counter_size as u64) as f64) / property_item_size as f64).floor();
-    let space_for_elements: i32 = space_for_elements as i32;
+    if property_item_size <= 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("invalid property item size: {property_item_size}"),
+        ));
+    }
+
+    let usable_len = file_len.saturating_sub(counter_size as u64);
+    let space_for_elements = (usable_len as f64 / property_item_size as f64).floor();
+    if !space_for_elements.is_finite() || space_for_elements > i32::MAX as f64 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "record count exceeds the supported range",
+        ));
+    }
+    let space_for_elements = space_for_elements as i32;
 
     // Consume the on-disk element counter when present. The authoritative
     // count is derived from the file size below, so a mismatch is ignored.
@@ -78,4 +91,34 @@ pub fn read_mapper<R: Read>(
     }
 
     Ok(space_for_elements)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_mapper_handles_files_shorter_than_the_counter() {
+        // A truncated file must produce an error, never a wrapped-around count
+        // that a generated parser would turn into a huge allocation.
+        let mut short = std::io::Cursor::new(vec![0u8; 3]);
+        assert!(
+            read_mapper(&mut short, 3, 4, 948).is_err(),
+            "a file shorter than its record counter must be rejected"
+        );
+
+        let mut empty = std::io::Cursor::new(Vec::new());
+        assert!(read_mapper(&mut empty, 0, 4, 948).is_err());
+
+        // With no counter, an empty file legitimately contains zero records.
+        let mut empty = std::io::Cursor::new(Vec::new());
+        assert_eq!(read_mapper(&mut empty, 0, 0, 948).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_read_mapper_rejects_non_positive_item_size() {
+        let mut data = std::io::Cursor::new(vec![0u8; 8]);
+        assert!(read_mapper(&mut data, 8, 0, 0).is_err());
+        assert!(read_mapper(&mut data, 8, 0, -1).is_err());
+    }
 }
