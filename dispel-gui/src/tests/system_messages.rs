@@ -70,6 +70,40 @@ mod undo_redo_save_edges {
         let _task = app.update(Message::System(SystemMessage::Save));
         assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
+
+    #[test]
+    fn save_snf_and_hex_dispatch_save_messages() {
+        // Ctrl+S calls the descriptor's save closure through
+        // `save_task_for_editor`; both editors have their own save plumbing.
+        let snf = crate::editor_catalog::descriptor(EditorType::SnfEditor)
+            .save
+            .expect("SnfEditor must declare a save action")(1);
+        assert!(matches!(
+            snf,
+            Message::Editor(crate::message::EditorMessage::Snf(
+                crate::editors::snf_editor::SnfEditorMessage::Save
+            ))
+        ));
+
+        let hex = crate::editor_catalog::descriptor(EditorType::HexEditor)
+            .save
+            .expect("HexEditor must declare a save action")(1);
+        assert!(matches!(
+            hex,
+            Message::Editor(crate::message::EditorMessage::HexEditor(
+                hexedit::HexEditorMessage::SaveIntoRecording
+            ))
+        ));
+
+        for et in [EditorType::SnfEditor, EditorType::HexEditor] {
+            let mut app = app_with_tab(et);
+            let _ = app.update(Message::System(SystemMessage::Save));
+            assert_ne!(
+                app.state.status_msg, "This editor does not support saving",
+                "{et:?} must not reject Ctrl+S"
+            );
+        }
+    }
 }
 
 // ============================================================================
