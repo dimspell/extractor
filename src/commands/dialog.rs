@@ -185,9 +185,8 @@ fn extract_dialog_functions(event_info: &HashMap<i32, EventInfo>) -> Vec<DialogF
 
             // Only match exact dialog function names
             if dialog_functions.contains(func_name.as_str()) {
-                // Parse parameters to extract dialog IDs
-                let dialog_ids =
-                    parse_dialog_ids_from_parameters(&action.function_name, &action.parameters);
+                // Parse parameters using the normalized name so mixed-case rows are handled
+                let dialog_ids = parse_dialog_ids_from_parameters(&func_name, &action.parameters);
 
                 functions.push(DialogFunctionCall {
                     event_id: *event_id,
@@ -871,6 +870,57 @@ fn find_entry_points(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_extract_dialog_functions_mixed_case_name() {
+        let event = EventInfo {
+            event_id: 7,
+            event_filename: None,
+            actions: vec![
+                EventAction {
+                    action_order: 0,
+                    function_name: "DialogToNpc".to_string(),
+                    parameters: Some("10, 42".to_string()),
+                },
+                EventAction {
+                    action_order: 1,
+                    function_name: "DIALOG".to_string(),
+                    parameters: Some("99, sprite, speaker, anim, face".to_string()),
+                },
+                EventAction {
+                    action_order: 2,
+                    function_name: "DialogToParty".to_string(),
+                    parameters: Some("77, 1".to_string()),
+                },
+            ],
+        };
+
+        let mut event_info = HashMap::new();
+        event_info.insert(7, event);
+
+        let functions = extract_dialog_functions(&event_info);
+        assert_eq!(functions.len(), 3, "all mixed-case names should match");
+
+        let ids_by_order: HashMap<i32, Vec<i32>> = functions
+            .iter()
+            .map(|f| (f.action_order, f.dialog_ids.clone()))
+            .collect();
+        assert_eq!(
+            ids_by_order.get(&0),
+            Some(&vec![42]),
+            "dialogtonpc must use the second parameter as the dialog ID"
+        );
+        assert_eq!(
+            ids_by_order.get(&1),
+            Some(&vec![99]),
+            "dialog must use the first parameter as the dialog ID"
+        );
+        assert_eq!(
+            ids_by_order.get(&2),
+            Some(&vec![77]),
+            "dialogtoparty must use the first parameter as the dialog ID"
+        );
+    }
 
     #[test]
     fn test_flat_chain_indentation_progresses_per_node() {
