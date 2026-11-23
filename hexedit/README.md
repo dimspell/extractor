@@ -418,7 +418,7 @@ pub enum SaveOutcome {
 // internal `SavedIntoRecording(SaveOutcome)` message. No hexedit message type
 // crosses either boundary.
 pub type SavePort = Arc<dyn Fn(SaveRequest) -> Task<SaveOutcome> + Send + Sync>;
-pub type WriteModeCallback = Arc<dyn Fn(WriteMode) + Send + Sync>; // domain value only
+pub type WriteModeCallback = Arc<dyn Fn(WriteMode, &[EncodingEntry]) + Send + Sync>; // domain value only
 
 pub struct HexEditorConfig {
     pub pane_gap: u16,                        // default: 4

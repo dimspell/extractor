@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 /// Outcome of packaging translated strings through the core mod pipeline.
 ///
-/// Carries both the core packaging result (`path`, `truncated`) and the
-/// per-file truncation warnings used to build the status message, so no
-/// information is dropped between the async worker and the UI.
+/// Carries the core packaging result (`path`), the totals for both kinds of
+/// rejected translation, and the per-file truncation warnings used to build
+/// the status message, so no information is dropped between the async worker
+/// and the UI.
 #[derive(Debug, Clone)]
 pub struct PackageResult {
     /// Path of the exported mod zip.
@@ -14,6 +15,9 @@ pub struct PackageResult {
     /// Total translations that did not fit their on-disk field and were
     /// truncated by the core `Localizable` implementation.
     pub truncated: usize,
+    /// Total translations the core refused to encode in the target file's
+    /// encoding. These were not applied at all.
+    pub unencodable: usize,
     /// Per-file truncation warnings (e.g. `"Store.db: 2 field(s) truncated"`),
     /// surfaced verbatim in `status_msg`.
     pub warnings: Vec<String>,

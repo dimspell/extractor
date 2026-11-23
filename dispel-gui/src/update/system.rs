@@ -17,7 +17,7 @@ fn close_dialog_text(app: &App) -> (&'static str, &'static str) {
     if app.state.workspace.tabs.iter().any(|tab| tab.modified) {
         (
             "Unsaved files",
-            "Some open files have unsaved changes. Do you want to save the workspace before closing?",
+            "Some open files have unsaved changes. Closing will discard those file edits; Yes saves workspace state and closes, No closes without saving it.",
         )
     } else {
         (
@@ -611,7 +611,7 @@ mod tests {
     }
 
     #[test]
-    fn test_modified_tab_triggers_file_save_warning() {
+    fn test_modified_tab_warns_file_edits_discarded() {
         let mut app = App::new().0;
         let (title, description) = close_dialog_text(&app);
         assert_eq!(title, "Save workspace?");
@@ -634,6 +634,19 @@ mod tests {
         assert!(
             description.contains("unsaved"),
             "close prompt must warn about unsaved files: {description}"
+        );
+        assert!(
+            description.contains("discard those file edits"),
+            "close prompt must state file edits are discarded: {description}"
+        );
+        assert!(
+            description.contains("Yes saves workspace state and closes"),
+            "close prompt must state Yes saves workspace state: {description}"
+        );
+        assert!(
+            !description.contains("save the workspace before closing")
+                && !description.contains("save your files"),
+            "close prompt must not promise saving file edits: {description}"
         );
     }
 }

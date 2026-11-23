@@ -364,15 +364,9 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             let state = &mut app.state.editors.localization_manager;
             match result {
                 Ok(ref packaged) => {
-                    // Surface both the per-file truncation warnings (round-5
-                    // behaviour) and the core pipeline's total truncated count.
-                    let mut msg = applied_status_msg(&packaged.path, &packaged.warnings);
-                    if packaged.truncated > 0 {
-                        msg.push_str(&format!(
-                            " — {} translation(s) were truncated to fit their field.",
-                            packaged.truncated
-                        ));
-                    }
+                    // Surface the per-file warnings plus the totals for both
+                    // kinds of rejected translation (truncated and unencodable).
+                    let mut msg = applied_status_msg(packaged);
                     if let Some(warning) = prune_warning(packaged.pruned) {
                         msg.push(' ');
                         msg.push_str(&warning);
@@ -651,7 +645,8 @@ fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>>
 /// the core modding facade so the produced zip is the same
 /// `manifest.json` / `changes.json` / `files` layout the Mod Manager imports —
 /// no second, incompatible zip/manifest pipeline here. Truncation is reported
-/// two ways: a per-file warning list and a total count.
+/// as a per-file warning list plus a total; unencodable translations are
+/// reported as a separate total in the status message.
 fn apply_and_package(
     game_path: &Path,
     entries: &[TextEntry],
@@ -676,6 +671,7 @@ fn apply_and_package(
 
     let mut warnings: Vec<String> = Vec::new();
     let mut truncated = 0usize;
+    let mut unencodable = 0usize;
     for (rel_path, file_entries) in &by_file {
         let abs_path = game_path.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
         if !abs_path.exists() {
@@ -693,8 +689,10 @@ fn apply_and_package(
         if !backup_path.exists() {
             std::fs::copy(&abs_path, &backup_path).map_err(|e| e.to_string())?;
         }
-        let file_truncated = apply_entries_to_file(&abs_path, rel_path, file_entries)?;
+        let (file_truncated, file_unencodable) =
+            apply_entries_to_file(&abs_path, rel_path, file_entries)?;
         truncated += file_truncated;
+        unencodable += file_unencodable;
         if file_truncated > 0 {
             warnings.push(format!("{rel_path}: {file_truncated} field(s) truncated"));
         }
@@ -734,56 +732,80 @@ fn apply_and_package(
     Ok(PackageResult {
         path: zip_path,
         truncated,
+        unencodable,
         warnings,
         pruned,
     })
 }
 
-/// Status text shown after packaging. Truncation warnings are appended so a
-/// shortened translation is never reported as a clean success.
-fn applied_status_msg(path: &Path, warnings: &[String]) -> String {
-    let mut msg = format!("Done. Mod saved to {}", path.display());
-    if !warnings.is_empty() {
+/// Status text shown after packaging. Truncation and encoding-rejection counts
+/// are appended so a shortened or refused translation is never reported as a
+/// clean success.
+fn applied_status_msg(packaged: &PackageResult) -> String {
+    let mut msg = format!("Done. Mod saved to {}", packaged.path.display());
+    if !packaged.warnings.is_empty() {
         msg.push_str(&format!(
             " WARNING: {} — translations were truncated to the game's byte limits; check the Overlong filter.",
-            warnings.join("; ")
+            packaged.warnings.join("; ")
+        ));
+    }
+    if packaged.truncated > 0 {
+        msg.push_str(&format!(
+            " — {} translation(s) were truncated to fit their field.",
+            packaged.truncated
+        ));
+    }
+    if packaged.unencodable > 0 {
+        msg.push_str(&format!(
+            " — {} translation(s) were NOT applied because they could not be encoded in the target file's encoding.",
+            packaged.unencodable
         ));
     }
     msg
 }
 
-/// Count `TruncationStatus::Truncated` results — a translated field that did
-/// not fit the game's fixed byte width was silently shortened by the core
-/// `Localizable` implementation. Report it instead of discarding it.
-fn count_truncated(statuses: &[TruncationStatus]) -> usize {
-    statuses
+/// Count `(truncated, unencodable)` results from applying translated texts.
+/// `Truncated` fields were silently shortened to the game's fixed byte width;
+/// `Unencodable` translations were refused outright by the core `Localizable`
+/// implementation. Both are surfaced in the packaging status rather than
+/// discarded.
+fn count_rejected(statuses: &[TruncationStatus]) -> (usize, usize) {
+    let truncated = statuses
         .iter()
         .filter(|s| matches!(s, TruncationStatus::Truncated { .. }))
-        .count()
+        .count();
+    let unencodable = statuses
+        .iter()
+        .filter(|s| matches!(s, TruncationStatus::Unencodable))
+        .count();
+    (truncated, unencodable)
 }
 
 // A2: generic helper eliminates repeated read→apply→save pattern
 fn apply_one<T: Extractor + Localizable>(
     abs_path: &Path,
     by_record: &std::collections::HashMap<usize, Vec<&TextEntry>>,
-) -> Result<usize, String> {
+) -> Result<(usize, usize), String> {
     let mut records = T::read_file(abs_path).map_err(|e| e.to_string())?;
     let mut truncated = 0;
+    let mut unencodable = 0;
     for (i, record) in records.iter_mut().enumerate() {
         if let Some(entries) = by_record.get(&i) {
             let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
-            truncated += count_truncated(&record.apply_texts(&owned));
+            let (t, u) = count_rejected(&record.apply_texts(&owned));
+            truncated += t;
+            unencodable += u;
         }
     }
     T::save_file(&records, abs_path).map_err(|e| e.to_string())?;
-    Ok(truncated)
+    Ok((truncated, unencodable))
 }
 
 fn apply_entries_to_file(
     abs_path: &Path,
     rel_path: &str,
     file_entries: &[&TextEntry],
-) -> Result<usize, String> {
+) -> Result<(usize, usize), String> {
     let mut by_record: std::collections::HashMap<usize, Vec<&TextEntry>> =
         std::collections::HashMap::new();
     for e in file_entries {
@@ -796,15 +818,18 @@ fn apply_entries_to_file(
         // Store uses record.index as the logical ID, not position
         let mut records = Store::read_file(abs_path).map_err(|e| e.to_string())?;
         let mut truncated = 0;
+        let mut unencodable = 0;
         for record in &mut records {
             let idx = record.index as usize;
             if let Some(entries) = by_record.get(&idx) {
                 let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
-                truncated += count_truncated(&record.apply_texts(&owned));
+                let (t, u) = count_rejected(&record.apply_texts(&owned));
+                truncated += t;
+                unencodable += u;
             }
         }
         Store::save_file(&records, abs_path).map_err(|e| e.to_string())?;
-        Ok(truncated)
+        Ok((truncated, unencodable))
     } else if lower.ends_with("weaponitem.db") {
         apply_one::<WeaponItem>(abs_path, &by_record)
     } else if lower.ends_with("healitem.db") {
@@ -836,7 +861,7 @@ fn apply_entries_to_file(
     } else if lower.ends_with("partyref.ref") {
         apply_one::<PartyRef>(abs_path, &by_record)
     } else {
-        Ok(0)
+        Ok((0, 0))
     }
 }
 
@@ -865,54 +890,94 @@ fn revert_from_backup(game_path: &Path, backup_dir: &Path) -> Result<(), String>
 mod tests {
     use super::*;
 
+    fn packaged(
+        path: &str,
+        warnings: &[&str],
+        truncated: usize,
+        unencodable: usize,
+    ) -> PackageResult {
+        PackageResult {
+            path: PathBuf::from(path),
+            truncated,
+            unencodable,
+            warnings: warnings.iter().map(|s| s.to_string()).collect(),
+            pruned: 0,
+        }
+    }
+
     #[test]
-    fn test_count_truncated_ignores_ok_statuses() {
-        assert_eq!(count_truncated(&[]), 0);
+    fn test_count_rejected_ignores_ok_statuses() {
+        assert_eq!(count_rejected(&[]), (0, 0));
         assert_eq!(
-            count_truncated(&[TruncationStatus::Ok, TruncationStatus::Ok]),
-            0
+            count_rejected(&[TruncationStatus::Ok, TruncationStatus::Ok]),
+            (0, 0)
         );
     }
 
     #[test]
-    fn test_count_truncated_counts_only_truncated_statuses() {
+    fn test_count_rejected_counts_truncated_and_unencodable_statuses() {
         let statuses = [
             TruncationStatus::Ok,
             TruncationStatus::Truncated {
                 original_bytes: 128,
             },
             TruncationStatus::Truncated { original_bytes: 20 },
+            TruncationStatus::Unencodable,
+            TruncationStatus::Unencodable,
+            TruncationStatus::Unencodable,
         ];
-        assert_eq!(count_truncated(&statuses), 2);
+        assert_eq!(count_rejected(&statuses), (2, 3));
     }
 
     #[test]
     fn test_applied_status_msg_without_warnings_reports_success_only() {
-        let msg = applied_status_msg(Path::new("mod_output/my_mod.zip"), &[]);
+        let msg = applied_status_msg(&packaged("mod_output/my_mod.zip", &[], 0, 0));
         assert_eq!(msg, "Done. Mod saved to mod_output/my_mod.zip");
     }
 
     #[test]
     fn test_applied_status_msg_with_warnings_surfaces_truncation() {
-        let msg = applied_status_msg(
-            Path::new("mod_output/my_mod.zip"),
-            &["Store.db: 2 field(s) truncated".to_string()],
-        );
+        let msg = applied_status_msg(&packaged(
+            "mod_output/my_mod.zip",
+            &["Store.db: 2 field(s) truncated"],
+            2,
+            0,
+        ));
         assert!(msg.starts_with("Done. Mod saved to mod_output/my_mod.zip"));
         assert!(msg.contains("WARNING"));
         assert!(msg.contains("Store.db: 2 field(s) truncated"));
         assert!(msg.contains("Overlong filter"));
+        assert!(msg.contains("2 translation(s) were truncated to fit their field."));
+        assert!(!msg.contains("NOT applied"));
+    }
+
+    #[test]
+    fn test_applied_status_msg_surfaces_unencodable_distinct_from_truncated() {
+        let msg = applied_status_msg(&packaged("mod_output/my_mod.zip", &[], 0, 3));
+        assert!(msg.starts_with("Done. Mod saved to mod_output/my_mod.zip"));
+        assert!(msg.contains("3 translation(s) were NOT applied"));
+        assert!(msg.contains("could not be encoded"));
+        assert!(!msg.contains("were truncated"));
+    }
+
+    #[test]
+    fn test_applied_status_msg_surfaces_both_rejection_kinds() {
+        let msg = applied_status_msg(&packaged("out.zip", &[], 2, 4));
+        assert!(msg.contains("2 translation(s) were truncated to fit their field."));
+        assert!(msg.contains("4 translation(s) were NOT applied"));
     }
 
     #[test]
     fn test_applied_status_msg_joins_multiple_file_warnings() {
-        let msg = applied_status_msg(
-            Path::new("out.zip"),
+        let msg = applied_status_msg(&packaged(
+            "out.zip",
             &[
-                "Store.db: 1 field(s) truncated".to_string(),
-                "WeaponItem.db: 3 field(s) truncated".to_string(),
+                "Store.db: 1 field(s) truncated",
+                "WeaponItem.db: 3 field(s) truncated",
             ],
-        );
+            4,
+            0,
+        ));
         assert!(
             msg.contains("Store.db: 1 field(s) truncated; WeaponItem.db: 3 field(s) truncated")
         );
