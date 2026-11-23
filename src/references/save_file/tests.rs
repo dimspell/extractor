@@ -640,7 +640,7 @@ fn test_read_map_viewport_rejects_truncated_input() {
 #[test]
 fn test_map_viewport_named_fields_preserve_the_binary_layout() {
     let mut bytes = vec![0u8; MAP_VIEWPORT_STATE_SIZE];
-    for (index, chunk) in bytes.chunks_exact_mut(4).enumerate() {
+    for (index, chunk) in bytes.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         chunk.copy_from_slice(&(index as u32).to_le_bytes());
     }
     bytes[10_128..10_132].copy_from_slice(&(-1i32).to_le_bytes());

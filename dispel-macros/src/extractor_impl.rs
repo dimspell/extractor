@@ -51,7 +51,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     let (#ident, _, _) = #encoding_tokens.decode(&#buf_ident[..#data_len_ident]);
                     let #ident = #ident.trim().to_string();
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Primitive { ident, ty } => {
                 let read_stmt = match ty.as_str() {
@@ -73,7 +73,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #read_stmt;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
                 let conversion = crate::wire_enum::from_wire_tokens(
@@ -85,7 +85,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #conversion;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::EnumFromU32 { ident, enum_ty } => {
                 let conversion = crate::wire_enum::from_wire_tokens(
@@ -97,7 +97,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #conversion;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::EnumFromI16 { ident, enum_ty } => {
                 let conversion = crate::wire_enum::from_wire_tokens(
@@ -109,7 +109,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #conversion;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::EnumFromI32 { ident, enum_ty } => {
                 let conversion = crate::wire_enum::from_wire_tokens(
@@ -121,7 +121,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #conversion;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::EnumFromI32FromU8 { ident, enum_ty } => {
                 let conversion = crate::wire_enum::from_wire_tokens(
@@ -133,14 +133,14 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #conversion;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::VecU8 { ident, size } => {
                 parse_stmts.push(quote! {
                     let mut #ident = vec![0u8; #size];
                     reader.read_exact(&mut #ident)?;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::InventoryItem { ident, wire_type } => {
                 let read_stmt = match wire_type.as_str() {
@@ -158,7 +158,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #read_stmt;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Padding {
                 ident,
@@ -183,7 +183,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     });
                 }
                 parse_stmts.push(quote! { let #ident = #default_expr; });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Array { ident, size, ty } => {
                 if ty == "u8" {
@@ -191,7 +191,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                         let mut #ident = [0u8; #size];
                         reader.read_exact(&mut #ident)?;
                     });
-                    struct_field_inits.push(quote! { #ident: #ident, });
+                    struct_field_inits.push(quote! { #ident, });
                 }
             }
             FieldInfo::Skip => {}

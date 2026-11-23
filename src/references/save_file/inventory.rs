@@ -45,7 +45,9 @@ impl InventorySlots {
         let mut equipment_raw = vec![0u8; 12 * 9];
         reader.read_exact(&mut equipment_raw)?;
         let equipped_equipment: Vec<EquipmentSlot> = equipment_raw
-            .chunks_exact(9)
+            .as_chunks::<9>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 EquipmentSlot {
@@ -60,7 +62,9 @@ impl InventorySlots {
         let mut belt_raw = vec![0u8; 6 * 16];
         reader.read_exact(&mut belt_raw)?;
         let belt_potions: Vec<BeltPotionSlot> = belt_raw
-            .chunks_exact(16)
+            .as_chunks::<16>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 BeltPotionSlot {
@@ -76,7 +80,9 @@ impl InventorySlots {
         let mut inventory_raw = vec![0u8; 189 * 20];
         reader.read_exact(&mut inventory_raw)?;
         let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
-            .chunks_exact(20)
+            .as_chunks::<20>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 InventoryPlacementEntry {

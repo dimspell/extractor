@@ -487,7 +487,7 @@ pub fn render_frame_to_rgba_with_options<R: Read + Seek>(
 
     let mut imgbuf = RgbaImage::new(rect_w, rect_h);
     let frame_width = frame.width.unsigned_abs();
-    for (pixel_idx, pixel) in rgba.chunks_exact(4).enumerate() {
+    for (pixel_idx, pixel) in rgba.as_chunks::<4>().0.iter().enumerate() {
         let x = (pixel_idx as u32 % frame_width) + offset_x;
         let y = (pixel_idx as u32 / frame_width) + offset_y;
         // Malformed rect/offset combinations must not panic during extraction.
@@ -801,7 +801,9 @@ impl SpriteFrameData {
         let count = self.pixel_count();
         let pixels = self
             .raw_pixels
-            .chunks_exact(2)
+            .as_chunks::<2>()
+            .0
+            .iter()
             .take(count)
             .map(|pair| u16::from_le_bytes([pair[0], pair[1]]));
         pixels_to_rgba(pixels, count, self.pixel_format, options.preserve_black)

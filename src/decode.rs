@@ -280,7 +280,12 @@ mod tests {
         assert_eq!(&rgba[center..center + 4], &[255, 0, 0, 255]);
 
         // Exactly the diamond texels are opaque.
-        let opaque = rgba.chunks_exact(4).filter(|px| px[3] == 255).count();
+        let opaque = rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|px| px[3] == 255)
+            .count();
         assert_eq!(opaque, TILE_PIXEL_COUNT);
     }
 
@@ -288,7 +293,7 @@ mod tests {
     fn decode_tile_rgba_treats_black_as_transparent() {
         let tile = [0x00u8, 0x00].repeat(TILE_PIXEL_COUNT);
         let rgba = decode_tile_rgba(&tile);
-        assert!(rgba.chunks_exact(4).all(|px| px == [0, 0, 0, 0]));
+        assert!(rgba.as_chunks::<4>().0.iter().all(|px| *px == [0, 0, 0, 0]));
     }
 
     #[test]
@@ -296,7 +301,14 @@ mod tests {
         let rgba = decode_tile_rgba(&[0x00, 0xF8]);
         assert_eq!(rgba.len(), (TILE_WIDTH * TILE_HEIGHT * 4) as usize);
         assert_eq!(&rgba[30 * 4..30 * 4 + 4], &[255, 0, 0, 255]);
-        assert_eq!(rgba.chunks_exact(4).filter(|px| px[3] == 255).count(), 1);
+        assert_eq!(
+            rgba.as_chunks::<4>()
+                .0
+                .iter()
+                .filter(|px| px[3] == 255)
+                .count(),
+            1
+        );
     }
 
     #[test]

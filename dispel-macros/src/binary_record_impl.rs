@@ -46,7 +46,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     let (#ident, _, _) = #encoding_tokens.decode(&#buf_ident[..#data_len_ident]);
                     let #ident = #ident.trim().to_string();
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Primitive { ident, ty } => {
                 let read_stmt = match ty.as_str() {
@@ -69,7 +69,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #read_stmt;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::InventoryItem { ident, wire_type } => {
                 let read_stmt = match wire_type.as_str() {
@@ -80,21 +80,21 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 parse_stmts.push(quote! {
                     let #ident = #inventory_item::from(#read_stmt);
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::VecU8 { ident, size } => {
                 parse_stmts.push(quote! {
                     let mut #ident = vec![0u8; #size];
                     reader.read_exact(&mut #ident)?;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Array { ident, size, .. } => {
                 parse_stmts.push(quote! {
                     let mut #ident = [0u8; #size];
                     reader.read_exact(&mut #ident)?;
                 });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Padding {
                 ident,
@@ -119,7 +119,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     });
                 }
                 parse_stmts.push(quote! { let #ident = #default_expr; });
-                struct_field_inits.push(quote! { #ident: #ident, });
+                struct_field_inits.push(quote! { #ident, });
             }
             FieldInfo::Skip => {}
             FieldInfo::Id { .. }
@@ -318,7 +318,7 @@ mod tests {
         }
     }
 
-    const GOLDEN_TOKENS: &str = r##"const GOLDEN_RECORD_SIZE : usize = 36usize ; impl Golden { # [doc = r" Parse a single record from raw bytes."] pub fn parse (data : & [u8]) -> std :: io :: Result < Self > { use byteorder :: ReadBytesExt ; use std :: io :: Read ; if data . len () != 36usize { return Err (std :: io :: Error :: new (std :: io :: ErrorKind :: InvalidData , concat ! (stringify ! (Golden) , " requires " , stringify ! (36usize) , " bytes") ,)) ; } let mut reader = std :: io :: Cursor :: new (data) ; let mut name_buf = [0u8 ; 8usize] ; reader . read_exact (& mut name_buf) ? ; let name_data_len = name_buf . iter () . position (| & b | b == 0) . unwrap_or (8usize) ; let (name , _ , _) = encoding_rs :: WINDOWS_1250 . decode (& name_buf [.. name_data_len]) ; let name = name . trim () . to_string () ; let hp = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let level = reader . read_u16 :: < byteorder :: LittleEndian > () ? ; let flag = reader . read_i8 () ? ; let weapon = crate :: references :: enums :: InventoryItem :: from (reader . read_i16 :: < byteorder :: LittleEndian > () ? as i32) ; let auto_item = crate :: references :: enums :: InventoryItem :: from (reader . read_i32 :: < byteorder :: LittleEndian > () ?) ; let mut raw = vec ! [0u8 ; 4usize] ; reader . read_exact (& mut raw) ? ; let mut fixed = [0u8 ; 6usize] ; reader . read_exact (& mut fixed) ? ; let _ = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let _ = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let pad = 7i16 ; let _ = reader . read_u8 () ? ; let _ = reader . read_u8 () ? ; let _ = reader . read_u8 () ? ; let zero = 0u8 ; Ok (Golden { name : name , hp : hp , level : level , flag : flag , weapon : weapon , auto_item : auto_item , raw : raw , fixed : fixed , pad : pad , zero : zero , }) } # [doc = r" Write this record to a writer."] pub fn write < W : std :: io :: Write > (& self , writer : & mut W) -> std :: io :: Result < () > { use byteorder :: WriteBytesExt ; use std :: io :: Write ; let mut name_buf = vec ! [0u8 ; 8usize] ; let (cow , _ , _) = encoding_rs :: WINDOWS_1250 . encode (& self . name) ; let len = std :: cmp :: min (cow . len () , 8usize) ; name_buf [.. len] . copy_from_slice (& cow [.. len]) ; writer . write_all (& name_buf) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (self . hp) ? ; writer . write_u16 :: < byteorder :: LittleEndian > (self . level) ? ; writer . write_i8 (self . flag) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (self . weapon . raw () as i16) ? ; writer . write_i32 :: < byteorder :: LittleEndian > (self . auto_item . raw ()) ? ; writer . write_all (& self . raw) ? ; writer . write_all (& self . fixed) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (0) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (0) ? ; writer . write_u8 (0) ? ; writer . write_u8 (0) ? ; writer . write_u8 (0) ? ; Ok (()) } # [doc = r" The fixed byte size of this record."] pub const fn record_size () -> usize { 36usize } }"##;
+    const GOLDEN_TOKENS: &str = r##"const GOLDEN_RECORD_SIZE : usize = 36usize ; impl Golden { # [doc = r" Parse a single record from raw bytes."] pub fn parse (data : & [u8]) -> std :: io :: Result < Self > { use byteorder :: ReadBytesExt ; use std :: io :: Read ; if data . len () != 36usize { return Err (std :: io :: Error :: new (std :: io :: ErrorKind :: InvalidData , concat ! (stringify ! (Golden) , " requires " , stringify ! (36usize) , " bytes") ,)) ; } let mut reader = std :: io :: Cursor :: new (data) ; let mut name_buf = [0u8 ; 8usize] ; reader . read_exact (& mut name_buf) ? ; let name_data_len = name_buf . iter () . position (| & b | b == 0) . unwrap_or (8usize) ; let (name , _ , _) = encoding_rs :: WINDOWS_1250 . decode (& name_buf [.. name_data_len]) ; let name = name . trim () . to_string () ; let hp = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let level = reader . read_u16 :: < byteorder :: LittleEndian > () ? ; let flag = reader . read_i8 () ? ; let weapon = crate :: references :: enums :: InventoryItem :: from (reader . read_i16 :: < byteorder :: LittleEndian > () ? as i32) ; let auto_item = crate :: references :: enums :: InventoryItem :: from (reader . read_i32 :: < byteorder :: LittleEndian > () ?) ; let mut raw = vec ! [0u8 ; 4usize] ; reader . read_exact (& mut raw) ? ; let mut fixed = [0u8 ; 6usize] ; reader . read_exact (& mut fixed) ? ; let _ = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let _ = reader . read_i16 :: < byteorder :: LittleEndian > () ? ; let pad = 7i16 ; let _ = reader . read_u8 () ? ; let _ = reader . read_u8 () ? ; let _ = reader . read_u8 () ? ; let zero = 0u8 ; Ok (Golden { name , hp , level , flag , weapon , auto_item , raw , fixed , pad , zero , }) } # [doc = r" Write this record to a writer."] pub fn write < W : std :: io :: Write > (& self , writer : & mut W) -> std :: io :: Result < () > { use byteorder :: WriteBytesExt ; use std :: io :: Write ; let mut name_buf = vec ! [0u8 ; 8usize] ; let (cow , _ , _) = encoding_rs :: WINDOWS_1250 . encode (& self . name) ; let len = std :: cmp :: min (cow . len () , 8usize) ; name_buf [.. len] . copy_from_slice (& cow [.. len]) ; writer . write_all (& name_buf) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (self . hp) ? ; writer . write_u16 :: < byteorder :: LittleEndian > (self . level) ? ; writer . write_i8 (self . flag) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (self . weapon . raw () as i16) ? ; writer . write_i32 :: < byteorder :: LittleEndian > (self . auto_item . raw ()) ? ; writer . write_all (& self . raw) ? ; writer . write_all (& self . fixed) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (0) ? ; writer . write_i16 :: < byteorder :: LittleEndian > (0) ? ; writer . write_u8 (0) ? ; writer . write_u8 (0) ? ; writer . write_u8 (0) ? ; Ok (()) } # [doc = r" The fixed byte size of this record."] pub const fn record_size () -> usize { 36usize } }"##;
 
     #[test]
     fn test_binary_record_generated_tokens_are_unchanged() {

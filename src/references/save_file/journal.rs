@@ -46,8 +46,10 @@ impl JournalData {
 fn read_entries<R: Read>(reader: &mut R) -> std::io::Result<Vec<JournalEntry>> {
     let mut data = vec![0u8; JOURNAL_SECTION_SIZE];
     reader.read_exact(&mut data)?;
-    data.chunks_exact(JOURNAL_ENTRY_SIZE)
-        .map(JournalEntry::parse)
+    data.as_chunks::<JOURNAL_ENTRY_SIZE>()
+        .0
+        .iter()
+        .map(|chunk| JournalEntry::parse(chunk))
         .collect()
 }
 
