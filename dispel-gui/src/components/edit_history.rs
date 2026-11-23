@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
 const MAX_HISTORY: usize = 100;
+/// Longest value shown in a history entry before it is ellipsized. Tile-grid
+/// snapshots can be hundreds of kilobytes; the panel only needs a preview.
+const DISPLAY_VALUE_MAX_CHARS: usize = 80;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum EditAction {
@@ -26,7 +29,13 @@ impl EditAction {
         match self {
             EditAction::FieldChange {
                 field, new_value, ..
-            } => format!("Changed {} to \"{}\"", field, new_value),
+            } => {
+                let mut shown: String = new_value.chars().take(DISPLAY_VALUE_MAX_CHARS).collect();
+                if new_value.chars().count() > DISPLAY_VALUE_MAX_CHARS {
+                    shown.push('…');
+                }
+                format!("Changed {} to \"{}\"", field, shown)
+            }
             EditAction::RecordAdd { record_idx, .. } => {
                 format!("Added record #{}", record_idx)
             }
@@ -172,5 +181,51 @@ impl EditAction {
                 EditAction::RecordAdd { record_idx, data }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display_text_bounds_large_value_without_mutating_action() {
+        let huge = "9".repeat(700_000);
+        let action = EditAction::FieldChange {
+            record_idx: 3,
+            field: "tile_ids".to_string(),
+            old_value: String::new(),
+            new_value: huge.clone(),
+        };
+
+        let displayed = action.display_text();
+        assert!(
+            displayed.len() < 200,
+            "display text must stay bounded, got {} bytes",
+            displayed.len()
+        );
+        assert!(displayed.contains('…'), "truncated value needs an ellipsis");
+        assert!(
+            displayed.starts_with("Changed tile_ids to \""),
+            "display text must still name the field"
+        );
+
+        match &action {
+            EditAction::FieldChange { new_value, .. } => {
+                assert_eq!(new_value, &huge, "stored value must stay intact");
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn test_display_text_leaves_short_value_unchanged() {
+        let action = EditAction::FieldChange {
+            record_idx: 0,
+            field: "name".to_string(),
+            old_value: String::new(),
+            new_value: "Iron Sword".to_string(),
+        };
+        assert_eq!(action.display_text(), "Changed name to \"Iron Sword\"");
     }
 }
