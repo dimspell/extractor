@@ -418,3 +418,81 @@ fn default_state_is_safe() {
     assert!(v.hovered_cell.is_none());
     assert!(v.needs_fit);
 }
+
+#[test]
+fn test_canvas_edit_is_undoable_and_marks_tab_dirty() {
+    use crate::app::App;
+    use crate::message::Message;
+    use crate::message::ext::MessageExt;
+    use crate::message::system::SystemMessage;
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+
+    let original_words: Vec<u32> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+    let mut workspace = Workspace::new();
+    workspace.tabs.push(WorkspaceTab {
+        id: 1,
+        label: "grid.dat".to_string(),
+        path: None,
+        editor_type: EditorType::TileGridEditor,
+        modified: false,
+        pinned: false,
+    });
+    workspace.active_tab = Some(0);
+    let mut app = App::test_new(workspace);
+
+    let grid = TileGrid {
+        id: 0,
+        payload_length: (original_words.len() as u32) * 4,
+        grid_size: 3,
+        data: original_words.clone(),
+    };
+    app.state.editors.tile_grid_editor.state.catalog = Some(vec![grid]);
+    app.state.editors.tile_grid_editor.state.refresh();
+    app.state.editors.tile_grid_view.selected_cell = Some(5);
+
+    let new_desc = TileDescriptor {
+        object_id: 42,
+        tile_index: 1337,
+        render_flags: 2,
+        reserved: 17,
+    };
+    let _ = app.update(Message::tile_grid_canvas(
+        TileGridCanvasMessage::EditSelected(new_desc),
+    ));
+
+    assert!(
+        app.state.workspace.tabs[0].modified,
+        "canvas edit must mark the active tab modified"
+    );
+    let edited_word = super::update::encode_descriptor(new_desc);
+    assert_eq!(
+        app.state
+            .editors
+            .tile_grid_editor
+            .state
+            .catalog
+            .as_ref()
+            .unwrap()[0]
+            .data[5],
+        edited_word,
+        "canvas edit must write the new descriptor word"
+    );
+
+    let _ = app.update(Message::System(SystemMessage::Undo));
+    assert_ne!(
+        app.state.status_msg, "Nothing to undo",
+        "undo must report a real change, not an empty history"
+    );
+    assert_eq!(
+        app.state
+            .editors
+            .tile_grid_editor
+            .state
+            .catalog
+            .as_ref()
+            .unwrap()[0]
+            .data,
+        original_words,
+        "undo must restore the original data words"
+    );
+}

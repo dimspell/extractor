@@ -111,11 +111,6 @@ fn handle_inner(
             if let Some(idx) = view.selected_cell {
                 let word = encode_descriptor(new_desc);
                 if (idx as usize) < grid.data.len() {
-                    // TODO(bug: no-edit-history): EditSelected mutates grid.data
-                    // directly without recording in EditHistory, so undo/redo
-                    // won't work for canvas edits. Need to push a
-                    // (cell_index, old_word, new_word) entry to the standard
-                    // editor's EditHistory before mutating.
                     grid.data[idx as usize] = word;
                     // Keep synthetic metadata in sync — payload_length and grid_size
                     // are not on-disk fields for `.dat` but are written inside to_writer.

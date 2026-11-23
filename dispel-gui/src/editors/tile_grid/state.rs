@@ -27,14 +27,9 @@ pub struct TileGridViewState {
     /// Cached grid layer. Cleared on pan/zoom/grid-data change.
     pub grid_cache: canvas::Cache,
     /// `true` until the first `FitToWindow` has been applied after a grid load.
-    /// Used by the canvas view to auto-fit on first render.
-    // TODO(bug: no-auto-fit-on-catalog-load): needs_fit is set to `true` in
-    // Default, but the render path can't mutate state (view is `&App`,
-    // immutable). The flag is only cleared by explicit `FitToWindow` or
-    // `Resize` events. Loading a `.dat` file requires the user to click
-    // "Fit" or resize the window before the grid is visible. Fix by
-    // dispatching `FitToWindow` from the standard editor's `CatalogLoaded`
-    // handler — requires adding a post-load hook to `define_standard_editor!`.
+    /// Cleared by `FitToWindow` or by the first `Resize` once real canvas
+    /// dimensions are known; `app.rs` also dispatches `FitToWindow` after a
+    /// grid catalog is loaded.
     pub needs_fit: bool,
     /// Last status message from a canvas operation (e.g. "Edited cell 5").
     /// Shown in the inspector panel.
