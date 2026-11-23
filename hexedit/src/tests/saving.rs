@@ -78,6 +78,43 @@ fn test_vanilla_diff_updated_on_write() {
 }
 
 #[test]
+fn test_stats_invalidated_on_write() {
+    let mut state = make_state(vec![0x00, 0x00, 0x00]);
+    assert!(
+        state.row_entropies.is_some(),
+        "loading a buffer should seed the entropy band"
+    );
+    let bytes = state.provider.as_slice().to_vec();
+    state.file_stats = Some(crate::domain::byte_stats::compute_statistics(&bytes));
+    state.selection_stats = Some(crate::domain::byte_stats::compute_statistics(&bytes));
+    state.vanilla = Some(vec![0x00, 0x00, 0x00]);
+
+    let config = default_config();
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::WriteBytes {
+            addr: 1,
+            bytes: vec![0xFF],
+        },
+    );
+
+    assert!(state.vanilla_diff.contains(&1));
+    assert!(
+        state.file_stats.is_none(),
+        "file statistics must be invalidated after a write"
+    );
+    assert!(
+        state.selection_stats.is_none(),
+        "selection statistics must be invalidated after a write"
+    );
+    assert!(
+        state.row_entropies.is_none(),
+        "the entropy band must be invalidated after a write"
+    );
+}
+
+#[test]
 fn test_vanilla_diff_empty_without_vanilla() {
     let mut state = make_state(vec![0x00, 0x00]);
     state.vanilla = None;

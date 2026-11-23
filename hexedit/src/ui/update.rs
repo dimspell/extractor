@@ -233,7 +233,7 @@ pub fn update(
                 }
                 let addr = state.selection.cursor;
                 state.provider.write(addr, &encoded);
-                state.recompute_vanilla_diff();
+                state.after_write();
                 let next = addr.saturating_add(encoded.len() as u64).min(max_addr);
                 state.selection.select(next, max_addr);
             } else {
@@ -252,7 +252,7 @@ pub fn update(
                 if let Some((addr, byte)) = staged {
                     if let Some(byte) = byte {
                         state.provider.write(addr, &[byte]);
-                        state.recompute_vanilla_diff();
+                        state.after_write();
                     }
                     let next = (addr + 1).min(max_addr);
                     if next == addr {
@@ -280,7 +280,7 @@ pub fn update(
             if let Some(edit) = state.edit_mode.take() {
                 if let Some(byte) = edit.staged_byte() {
                     state.provider.write(edit.addr, &[byte]);
-                    state.recompute_vanilla_diff();
+                    state.after_write();
                 }
                 if advance {
                     let next = (edit.addr + 1).min(max_addr);
@@ -298,7 +298,7 @@ pub fn update(
             if !state.provider.is_empty() && is_text_mode(state.write_mode) {
                 let addr = state.selection.cursor;
                 state.provider.write(addr, &[0x00]);
-                state.recompute_vanilla_diff();
+                state.after_write();
                 let next = (addr + 1).min(max_addr);
                 state.selection.select(next, max_addr);
             }
@@ -307,7 +307,7 @@ pub fn update(
         HexEditorMessage::WriteBytes { addr, bytes } => {
             if !state.provider.is_empty() {
                 state.provider.write(addr, &bytes);
-                state.recompute_vanilla_diff();
+                state.after_write();
             }
         }
 
@@ -388,7 +388,7 @@ pub fn update(
                 Ok(bytes) => {
                     let addr = ie.addr;
                     state.provider.write(addr, &bytes);
-                    state.recompute_vanilla_diff();
+                    state.after_write();
                     state.inspector_edit = None;
                 }
                 Err(msg) => {
@@ -1028,7 +1028,7 @@ pub fn update(
                 return Task::none();
             }
             state.provider.write(addr, &bytes);
-            state.recompute_vanilla_diff();
+            state.after_write();
             state.notify(format!("Pasted {} byte(s)", bytes.len()));
         }
 
@@ -1067,7 +1067,7 @@ pub fn update(
                             state.provider.write(start + offset, chunk);
                             offset += pattern_len;
                         }
-                        state.recompute_vanilla_diff();
+                        state.after_write();
                         let written = range_len;
                         state.notify(format!("Filled {} byte(s) with {:02X?}", written, pattern));
                     } else {
@@ -1143,18 +1143,13 @@ pub fn update(
                     }
 
                     state.provider.insert(addr, &fill);
-                    state.recompute_vanilla_diff();
+                    state.after_write();
                     // The comparison file's diff addresses shift with the
                     // insert — recompute so the diff pane stays accurate.
                     if let Some(cf) = state.comparison_file.as_mut() {
                         cf.diff =
                             crate::vanilla_diff::compute_diff(state.provider.as_slice(), &cf.data);
                     }
-                    // Extend shifts every row boundary after the insert, so the
-                    // per-row entropy band and cached stats are stale until the
-                    // next analysis pass.
-                    state.invalidate_stats();
-
                     // Pattern rebase: a span starting at/after the insert point
                     // shifts forward by `count`. A span straddling the insert
                     // point (start < addr <= end) keeps its start and absorbs

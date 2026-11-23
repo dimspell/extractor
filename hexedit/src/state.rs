@@ -499,6 +499,14 @@ impl HexEditorState {
         };
     }
 
+    /// Refresh the vanilla diff and drop statistics that no longer describe the
+    /// buffer. Call after every in-memory write; load paths seed the entropy
+    /// cache directly and must not use this helper.
+    pub(crate) fn after_write(&mut self) {
+        self.recompute_vanilla_diff();
+        self.invalidate_stats();
+    }
+
     /// Add all addresses in [start, end] range as a new pattern.
     /// Returns the pattern id.
     pub fn add_pattern(&mut self, start: u64, end: u64) -> usize {
