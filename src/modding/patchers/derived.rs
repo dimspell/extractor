@@ -156,6 +156,71 @@ mod tests {
         assert!(err.to_string().contains("unknown field"));
     }
 
+    #[test]
+    fn binary_u8_field_rejects_out_of_range_i64() {
+        let p = EditItemPatcher;
+        let err = p
+            .apply_field(&edit_blob(), 0, "reserved_byte", &Value::I64(300))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("reserved_byte"),
+            "error must name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn binary_i32_field_rejects_out_of_range_i64() {
+        let p = EditItemPatcher;
+        let err = p
+            .apply_field(&edit_blob(), 0, "base_price", &Value::I64(5_000_000_000))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("base_price"),
+            "error must name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn binary_enum_field_rejects_out_of_range_wire_value() {
+        let p = EditItemPatcher;
+        let err = p
+            .apply_field(&edit_blob(), 0, "modifies_item", &Value::I64(300))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("modifies_item"),
+            "error must name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn text_i32_field_rejects_out_of_range_i64() {
+        let p = crate::modding::patchers::ExtraPatcher;
+        let err = p
+            .apply_field(
+                b"1,sprite,0,null\r\n",
+                0,
+                "activation_sprite_frame_mode",
+                &Value::I64(5_000_000_000),
+            )
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("activation_sprite_frame_mode"),
+            "error must name the offending field: {err}"
+        );
+    }
+
+    #[test]
+    fn text_enum_field_rejects_out_of_range_i64() {
+        let p = crate::modding::patchers::MapPatcher;
+        let err = p
+            .apply_field(&allmap_blob(), 0, "lighting", &Value::I64(5_000_000_000))
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("lighting"),
+            "error must name the offending field: {err}"
+        );
+    }
+
     // -------------------------------------------------------------------- ExtraRef (pattern + complex enums)
 
     fn extra_ref_blob() -> Vec<u8> {

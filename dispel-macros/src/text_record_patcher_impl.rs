@@ -114,7 +114,9 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
             TextFieldType::I32 => quote! {
                 #field_name => match new {
                     #value::I64(v) => {
-                        rec.#field_ident = (*v) as i32;
+                        rec.#field_ident = i32::try_from(*v).map_err(|_| #wrong_type(
+                            Self::RECORD_NAME, #field_name, "i32", new,
+                        ))?;
                     }
                     #value::String(s) => match s.trim().parse::<i32>() {
                         Ok(v) => rec.#field_ident = v,
@@ -133,7 +135,7 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                     &wire_value,
                     &enum_ty,
                     "i32",
-                    quote! { (*v) as i32 },
+                    quote! { wire },
                 );
                 let from_string =
                     crate::wire_enum::from_wire_tokens(&wire_value, &enum_ty, "i32", quote! { v });
@@ -141,6 +143,9 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
                 quote! {
                     #field_name => match new {
                         #value::I64(v) => {
+                            let wire = i32::try_from(*v).map_err(|_| #wrong_type(
+                                Self::RECORD_NAME, #field_name, #expected, new,
+                            ))?;
                             rec.#field_ident = #from_i64;
                         }
                         #value::String(s) => match s.trim().parse::<i32>() {

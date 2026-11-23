@@ -232,7 +232,9 @@ fn primitive_arm(
     quote! {
         #field_name => match new {
             #value::I64(v) => {
-                rec.#ident = (*v) as #ty_ident;
+                rec.#ident = #ty_ident::try_from(*v).map_err(|_| #wrong_type(
+                    Self::RECORD_NAME, #field_name, #expected, new,
+                ))?;
             }
             #value::String(s) => match s.trim().parse::<#ty_ident>() {
                 Ok(v) => rec.#ident = v,
@@ -260,12 +262,8 @@ fn enum_arm(
 ) -> TokenStream2 {
     let wire_ident = Ident::new(wire_ty, Span::call_site());
     let wire_value = config.wire_value_trait();
-    let from_i64 = crate::wire_enum::from_wire_tokens(
-        &wire_value,
-        enum_ty,
-        wire_ty,
-        quote! { (*v) as #wire_ident },
-    );
+    let from_i64 =
+        crate::wire_enum::from_wire_tokens(&wire_value, enum_ty, wire_ty, quote! { wire });
     let from_string =
         crate::wire_enum::from_wire_tokens(&wire_value, enum_ty, wire_ty, quote! { v });
     let expected = format!("i64 (discriminant of {})", enum_ty);
@@ -274,6 +272,9 @@ fn enum_arm(
     quote! {
         #field_name => match new {
             #value::I64(v) => {
+                let wire = #wire_ident::try_from(*v).map_err(|_| #wrong_type(
+                    Self::RECORD_NAME, #field_name, #expected, new,
+                ))?;
                 rec.#ident = #from_i64;
             }
             #value::String(s) => match s.trim().parse::<#wire_ident>() {
