@@ -44,7 +44,7 @@ pub struct IfmNpcSpawn {
 pub struct MapInfoMulti {
     /// Zero-based logical index derived from parse order (not on disk).
     pub id: i32,
-    /// Self map name (e.g. `"MAPA"`), NUL-padded to 8 bytes.
+    /// Self map name (e.g. `"AAA"`, `"BBB-1"`), NUL-padded to 8 bytes.
     pub self_name: String,
     /// Anchor tile index.
     pub anchor_tile_index: u32,
@@ -244,7 +244,7 @@ mod tests {
         bytes[8..12].copy_from_slice(&149u32.to_le_bytes());
         bytes[12..16].copy_from_slice(&25u32.to_le_bytes());
         bytes[16..20].copy_from_slice(&248u32.to_le_bytes());
-        bytes[0x24..0x29].copy_from_slice(b"TGTA1");
+        bytes[0x24..0x2a].copy_from_slice(b"TGTB12");
         bytes[0x2c..0x30].copy_from_slice(b"MAPA");
         bytes
     }
@@ -268,7 +268,7 @@ mod tests {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].self_name, "MAPA");
         assert_eq!(records[0].anchor_tile_index, 149);
-        assert_eq!(records[0].transition_target, "TGTA1");
+        assert_eq!(records[0].transition_target, "TGTB12");
         assert_eq!(records[0].npc_spawns.len(), 4);
 
         let mut out = Vec::new();
