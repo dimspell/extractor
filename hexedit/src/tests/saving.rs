@@ -115,6 +115,32 @@ fn test_stats_invalidated_on_write() {
 }
 
 #[test]
+fn test_comparison_diff_updated_on_write() {
+    let mut state = make_state(vec![0x00, 0x00, 0x00]);
+    state.comparison_file = Some(crate::ComparisonFile {
+        name: "other.bin".into(),
+        data: vec![0x00, 0x00, 0x00],
+        diff: Default::default(),
+    });
+    let config = default_config();
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::WriteBytes {
+            addr: 1,
+            bytes: vec![0xFF],
+        },
+    );
+
+    let cf = state.comparison_file.as_ref().expect("comparison file");
+    assert!(
+        cf.diff.contains(&1),
+        "address 1 must enter the comparison diff after a normal write"
+    );
+    assert_eq!(cf.diff.len(), 1);
+}
+
+#[test]
 fn test_vanilla_diff_empty_without_vanilla() {
     let mut state = make_state(vec![0x00, 0x00]);
     state.vanilla = None;

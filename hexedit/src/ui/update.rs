@@ -1144,12 +1144,6 @@ pub fn update(
 
                     state.provider.insert(addr, &fill);
                     state.after_write();
-                    // The comparison file's diff addresses shift with the
-                    // insert — recompute so the diff pane stays accurate.
-                    if let Some(cf) = state.comparison_file.as_mut() {
-                        cf.diff =
-                            crate::vanilla_diff::compute_diff(state.provider.as_slice(), &cf.data);
-                    }
                     // Pattern rebase: a span starting at/after the insert point
                     // shifts forward by `count`. A span straddling the insert
                     // point (start < addr <= end) keeps its start and absorbs

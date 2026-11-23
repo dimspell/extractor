@@ -492,6 +492,12 @@ impl HexEditorState {
     /// cache directly and must not use this helper.
     pub(crate) fn after_write(&mut self) {
         self.recompute_vanilla_diff();
+        // The comparison diff addresses describe byte mismatches against the
+        // provider, so every in-memory write can change them — not just an
+        // extend. Keep the diff pane and DiffNav in sync after any edit.
+        if let Some(cf) = self.comparison_file.as_mut() {
+            cf.diff = compute_diff(self.provider.as_slice(), &cf.data);
+        }
         self.invalidate_stats();
     }
 
