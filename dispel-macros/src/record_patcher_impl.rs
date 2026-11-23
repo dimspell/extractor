@@ -79,7 +79,11 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
             FieldInfo::InventoryItem { ident, .. } => quote! {
                 #field_name => match new {
                     #value::I64(v) => {
-                        rec.#ident = #inventory_item::from(*v as i32);
+                        rec.#ident = i32::try_from(*v)
+                            .map_err(|_| #wrong_type(
+                                Self::RECORD_NAME, #field_name, "i32", new,
+                            ))?
+                            .into();
                     }
                     #value::String(s) => match s.trim().parse::<i32>() {
                         Ok(v) => rec.#ident = #inventory_item::from(v),

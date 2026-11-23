@@ -306,6 +306,24 @@ mod tests {
     }
 
     #[test]
+    fn extra_ref_inventory_item_rejects_out_of_range_i64() {
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let err = p
+            .apply_field(
+                &extra_ref_blob(),
+                0,
+                "required_item",
+                &Value::I64(i32::MAX as i64 + 1),
+            )
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("required_item") && msg.contains("i32"),
+            "an out-of-range inventory id must be rejected, got: {msg}"
+        );
+    }
+
+    #[test]
     fn extra_ref_id_field_rejected() {
         let p = crate::modding::patchers::ExtraRefPatcher;
         let err = p
