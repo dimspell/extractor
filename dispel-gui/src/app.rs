@@ -1,6 +1,7 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
+use crate::editors::audio_viewer::AudioViewerState;
 use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
@@ -266,6 +267,16 @@ impl App {
                         .snf_editors
                         .entry(tab_id)
                         .or_insert_with(|| SnfEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
+            EditorType::AudioViewer => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .audio_viewers
+                        .entry(tab_id)
+                        .or_insert_with(|| AudioViewerState::load_from_path(path));
                 }
                 Task::none()
             }

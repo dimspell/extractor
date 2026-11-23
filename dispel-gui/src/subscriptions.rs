@@ -117,6 +117,21 @@ pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
         subscriptions.push(snf_tick);
     }
 
+    // Poll for audio viewer playback completion so the Play/Pause button stays
+    // in sync.
+    if app
+        .state
+        .editors
+        .audio_viewers
+        .values()
+        .any(|v| v.playback.is_some())
+    {
+        use crate::editors::audio_viewer::AudioViewerMessage;
+        let audio_tick = iced::time::every(std::time::Duration::from_millis(250))
+            .map(|_| Message::audio_viewer(AudioViewerMessage::Tick));
+        subscriptions.push(audio_tick);
+    }
+
     // Poll for event script indexing progress.
     if matches!(
         app.state.editors.event_scr_editor.index_state,

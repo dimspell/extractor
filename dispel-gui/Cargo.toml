@@ -19,7 +19,7 @@ bincode = "1.3.3"
 thiserror = "2.0.18"
 iced_test = { workspace = true, optional = true }
 env_logger = "0.10.0"
-rodio = { version = "0.22", default-features = false, features = ["wav", "playback"] }
+rodio = { version = "0.22", default-features = false, features = ["wav", "vorbis", "playback"] }
 log = "0.4"
 zip = "8"
 lru = "0.12"

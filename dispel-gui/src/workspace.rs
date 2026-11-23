@@ -70,6 +70,7 @@ impl EditorType {
         // GUI-only formats the catalog doesn't describe.
         match ext.as_str() {
             "snf" => EditorType::SnfEditor,
+            "ogg" | "wav" => EditorType::AudioViewer,
             _ => EditorType::HexEditor,
         }
     }

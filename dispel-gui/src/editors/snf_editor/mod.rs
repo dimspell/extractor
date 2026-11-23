@@ -10,3 +10,4 @@ pub use message::*;
 pub use state::*;
 pub use update::*;
 pub use view::view;
+pub use waveform::waveform_canvas;

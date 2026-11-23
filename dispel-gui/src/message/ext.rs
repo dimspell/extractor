@@ -35,6 +35,7 @@ define_message_ext! {
     map_editor:     MapEditor(crate::editors::map_editor::MapEditorMessage),
     tileset_editor: Tileset(crate::editors::tileset::TilesetEditorMessage),
     snf_editor:     Snf(crate::editors::snf_editor::SnfEditorMessage),
+    audio_viewer:   AudioViewer(crate::editors::audio_viewer::AudioViewerMessage),
     mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
     hex_editor:      HexEditor(hexedit::HexEditorMessage),

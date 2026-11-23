@@ -76,6 +76,7 @@ define_update_dispatch! {
     (MapEditor, map_editor),
     (Tileset, tileset),
     (Snf, snf_editor),
+    (AudioViewer, audio_viewer),
     (ModPackager, mod_packager),
     (Localization, localization_manager),
     (HexEditor, hex_wrapper),

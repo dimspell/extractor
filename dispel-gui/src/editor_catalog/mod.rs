@@ -419,6 +419,15 @@ define_editor_catalog! {
         extract: None,
         lifecycle: lc_hash_map!(snf_editors),
     },
+    /// OGG/WAV audio playback (.ogg/.wav), read-only, one per tab.
+    AudioViewer {
+        view: Some(crate::editors::audio_viewer::view as ViewFn),
+        save: None,
+        load: None, // opened by explicit file path
+        sheet: None,
+        extract: None,
+        lifecycle: lc_hash_map!(audio_viewers),
+    },
     /// Tileset browser (.btl/.gtl), one per tab.
     TilesetEditor {
         view: Some(crate::editors::tileset::view as ViewFn),

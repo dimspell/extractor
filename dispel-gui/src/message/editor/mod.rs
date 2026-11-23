@@ -4,6 +4,7 @@
 //! This module only assembles the top-level `EditorMessage` enum.
 
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
+use crate::editors::audio_viewer::AudioViewerMessage;
 use crate::editors::chdata::ChDataEditorMessage;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::editors::dialogue_script::DialogueScriptEditorMessage;
@@ -86,6 +87,7 @@ pub enum EditorMessage {
     MapEditor(MapEditorMessage),
     Tileset(TilesetEditorMessage),
     Snf(SnfEditorMessage),
+    AudioViewer(AudioViewerMessage),
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
     SaveFileViewer(SaveFileViewerMessage),

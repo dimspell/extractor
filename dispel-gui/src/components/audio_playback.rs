@@ -74,7 +74,7 @@ impl std::fmt::Debug for PendingPlayback {
 /// back, so callers must run it off the UI thread (e.g. inside
 /// `tokio::task::spawn_blocking`).
 pub fn start_playback(
-    wav_bytes: Vec<u8>,
+    audio_bytes: Vec<u8>,
     volume: f32,
     is_looping: bool,
 ) -> Result<PendingPlayback, String> {
@@ -106,7 +106,7 @@ pub fn start_playback(
             if stop_flag_thread.load(Ordering::Relaxed) {
                 break;
             }
-            let cursor = Cursor::new(wav_bytes.clone());
+            let cursor = Cursor::new(audio_bytes.clone());
             match rodio::Decoder::new(cursor) {
                 Ok(source) => player.append(source),
                 Err(e) => {

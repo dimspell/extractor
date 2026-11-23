@@ -238,3 +238,168 @@ mod snf_editor_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod audio_viewer_tests {
+    use crate::app::App;
+    use crate::editors::audio_viewer::{self, AudioFormat, AudioViewerMessage, AudioViewerState};
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+    use dispel_core::snf::SnfFile;
+    use std::io::{Cursor, Write};
+    use std::path::Path;
+    use std::time::Instant;
+    use tempfile::Builder;
+
+    fn synthetic_tone() -> SnfFile {
+        SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 1,
+            sample_rate: 8000,
+            byte_rate: 8000,
+            block_align: 1,
+            bits_per_sample: 8,
+            data_size: 800,
+            pcm_data: vec![128; 800],
+        }
+    }
+
+    fn wav_fixture() -> tempfile::NamedTempFile {
+        let mut file = Builder::new()
+            .prefix("invented_tone_")
+            .suffix(".wav")
+            .tempfile()
+            .unwrap();
+        file.write_all(&synthetic_tone().to_wav_bytes()).unwrap();
+        file.flush().unwrap();
+        file
+    }
+
+    fn app_with_audio_viewer(state: AudioViewerState) -> App {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 1;
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "invented_tone.wav".into(),
+            path: None,
+            editor_type: EditorType::AudioViewer,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(0);
+        app.state.editors.audio_viewers.insert(tab_id, state);
+        app
+    }
+
+    #[test]
+    fn test_audio_viewer_loads_wav_waveform_and_decoder() {
+        let file = wav_fixture();
+        let state = AudioViewerState::load_from_path(file.path());
+
+        assert_eq!(state.format, Some(AudioFormat::Wav));
+        assert!(state.error.is_none());
+        assert!(state.snf.is_some());
+        assert!(!state.waveform.is_empty());
+        assert!(state.duration_secs > 0.0);
+        assert!(
+            rodio::Decoder::new(Cursor::new(state.audio_bytes.clone())).is_ok(),
+            "loaded WAV bytes must be decodable"
+        );
+    }
+
+    #[test]
+    fn test_audio_viewer_detects_ogg_magic_bytes() {
+        let mut file = Builder::new()
+            .prefix("invented_track_")
+            .suffix(".ogg")
+            .tempfile()
+            .unwrap();
+        file.write_all(b"OggS synthetic fixture").unwrap();
+        file.flush().unwrap();
+
+        let state = AudioViewerState::load_from_path(file.path());
+
+        assert_eq!(state.format, Some(AudioFormat::Ogg));
+        assert!(state.error.is_none());
+        assert!(state.snf.is_none());
+        assert!(state.audio_bytes.starts_with(b"OggS"));
+    }
+
+    #[test]
+    fn test_audio_viewer_editor_type_from_path() {
+        assert_eq!(
+            EditorType::from_path(Path::new("invented_track.ogg")),
+            EditorType::AudioViewer
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("invented_tone.wav")),
+            EditorType::AudioViewer
+        );
+    }
+
+    #[test]
+    fn test_audio_viewer_render_does_not_panic() {
+        let file = wav_fixture();
+        let state = AudioViewerState::load_from_path(file.path());
+        let app = app_with_audio_viewer(state);
+
+        let _ = audio_viewer::view(&app);
+    }
+
+    #[test]
+    fn test_audio_viewer_playback_state_transitions_without_device() {
+        let file = wav_fixture();
+        let state = AudioViewerState::load_from_path(file.path());
+        let mut app = app_with_audio_viewer(state);
+        let tab_id = 1;
+
+        // Play only queues the device open; nothing is installed synchronously.
+        let started = Instant::now();
+        let task = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        assert!(
+            started.elapsed().as_millis() < 250,
+            "Play must not block the UI thread"
+        );
+        assert_eq!(task.units(), 1);
+        assert!(app.state.editors.audio_viewers[&tab_id].playback.is_none());
+
+        // The deferred failure path leaves state untouched.
+        let task = audio_viewer::handle(
+            AudioViewerMessage::PlaybackReady(tab_id, Err("device unavailable".into())),
+            &mut app,
+        );
+        assert_eq!(task.units(), 0);
+        assert!(app.state.editors.audio_viewers[&tab_id].playback.is_none());
+
+        // Controls work with no audio device open.
+        assert_eq!(
+            audio_viewer::handle(AudioViewerMessage::ToggleLoop, &mut app).units(),
+            0
+        );
+        assert!(app.state.editors.audio_viewers[&tab_id].is_looping);
+
+        assert_eq!(
+            audio_viewer::handle(AudioViewerMessage::SetVolume(2.0), &mut app).units(),
+            0
+        );
+        assert_eq!(app.state.editors.audio_viewers[&tab_id].volume, 1.0);
+
+        for msg in [
+            AudioViewerMessage::Pause,
+            AudioViewerMessage::Stop,
+            AudioViewerMessage::Tick,
+        ] {
+            assert_eq!(audio_viewer::handle(msg, &mut app).units(), 0);
+        }
+        assert!(app.state.editors.audio_viewers[&tab_id].playback.is_none());
+    }
+
+    #[test]
+    fn test_audio_viewer_missing_file_reports_error() {
+        let state = AudioViewerState::load_from_path(Path::new(
+            "/definitely/not/a/real/invented_track.ogg",
+        ));
+        assert!(state.error.is_some());
+        assert!(state.format.is_none());
+        assert!(state.audio_bytes.is_empty());
+    }
+}

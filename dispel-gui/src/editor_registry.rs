@@ -4,6 +4,7 @@ use crate::components::edit_history::EditHistory;
 use crate::components::generic_editor::TabbedEditor;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
+use crate::editors::audio_viewer::AudioViewerState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
@@ -421,6 +422,7 @@ pub struct EditorRegistry {
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
+    pub audio_viewers: HashMap<usize, AudioViewerState>,
     pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
@@ -463,6 +465,13 @@ impl EditorRegistry {
     pub fn stop_snf_playback(&mut self) {
         for editor in self.snf_editors.values_mut() {
             editor.playback = None;
+        }
+    }
+
+    /// Stop audio playback on every open audio viewer.
+    pub fn stop_audio_playback(&mut self) {
+        for viewer in self.audio_viewers.values_mut() {
+            viewer.playback = None;
         }
     }
 
