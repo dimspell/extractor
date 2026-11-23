@@ -26,18 +26,17 @@ it is embeddable inside any Iced application and powers the hex-editing tab in `
 13. [Search & Navigation](#search--navigation)
 14. [Write Modes & Text Encoding](#write-modes--text-encoding)
 15. [Byte Statistics & Entropy Panel](#byte-statistics--entropy-panel)
-16. [Lua Scripting Engine](#lua-scripting-engine)
-17. [Pane Grid Layout](#pane-grid-layout)
-18. [Minimap](#minimap)
-19. [Theme System](#theme-system)
-20. [Test Structure](#test-structure)
-21. [Usage (library)](#usage-library)
-22. [Usage (standalone binaries)](#usage-standalone-binaries)
-23. [Build](#build)
-24. [Feature flags](#feature-flags)
-25. [Keybindings](#keybindings)
-26. [Dependencies](#dependencies)
-27. [LLM Guidance — Conventions & Invariants](#llm-guidance--conventions--invariants)
+16. [Pane Grid Layout](#pane-grid-layout)
+17. [Minimap](#minimap)
+18. [Theme System](#theme-system)
+19. [Test Structure](#test-structure)
+20. [Usage (library)](#usage-library)
+21. [Usage (standalone binaries)](#usage-standalone-binaries)
+22. [Build](#build)
+23. [Feature flags](#feature-flags)
+24. [Keybindings](#keybindings)
+25. [Dependencies](#dependencies)
+26. [LLM Guidance — Conventions & Invariants](#llm-guidance--conventions--invariants)
 
 ---
 
@@ -53,8 +52,8 @@ it is embeddable inside any Iced application and powers the hex-editing tab in `
   `Page Up`/`Page Down`, `Ctrl+Home`/`Ctrl+End` for keyboard navigation.
 - **Copy / Paste** — `Ctrl+C` copies the selected range as hex text (`DE AD BE EF`);
   `Ctrl+V` pastes hex text from the clipboard back into the buffer.
-- **Write bytes** — Programmatic `WriteBytes` message for inspector edits and scripted
-  modifications.
+- **Write bytes** — `WriteBytes` message for programmatic inspector edits and other
+  host-driven changes.
 
 ### Search & navigation
 - **Search** (`Ctrl+F`) — Hex byte-sequence search (`DE AD BE EF` or `DEADBEEF`) and
@@ -69,9 +68,6 @@ it is embeddable inside any Iced application and powers the hex-editing tab in `
   ASCII char, UTF-8 char, RGB565 pixel, null-terminated C string, and raw hex dump.
 - **Editable values** — All numeric decoders support inline editing via a modal: type a
   decimal or `0x`-prefixed hex value and it's written back in the correct endianness.
-- **Lua scripting** (`feature = "lua"`) — Write custom Lua decoder scripts that appear
-  as additional inspector entries. Scripts are sandboxed (`os`, `io`, `loadfile`, `require`,
-  etc. removed) unless `HEXEDIT_LUA_UNSAFE=1` is set.
 
 ### Pattern highlighting
 - **Named byte ranges** — Select a range, right-click → "Create Pattern" (or `Ctrl+E`).
@@ -169,14 +165,9 @@ hexedit/
 │   ├── domain/save.rs   # SaveRequest / SaveOutcome domain-level save event
 │   ├── message.rs       # HexEditorMessage enum (~48 variant categories, ~200+ total)
 │   ├── state.rs         # HexEditorState (aggregate state, ~30 fields)
-│   ├── lua_engine.rs    # Lua 5.4 scripting engine (feature-gated, sandboxed)
 │   ├── main.rs          # Standalone bin: hexedit (file dialog + file path arg)
 │   ├── lib.rs           # Public API re-exports
 │   └── tests/           # iced_test integration tests (12 files)
-├── examples/            # Lua decoder script examples
-│   ├── minimal_decoder.lua
-│   ├── decode_dispel_types.lua
-│   └── decode_item_type.lua
 └── Cargo.toml
 ```
 
@@ -378,7 +369,6 @@ pub struct HexEditorState {
     pub color_scheme: ColorScheme,
     pub dim_nulls: bool,
     pub settings_open: bool,
-    pub lua_engine: LuaScriptEngine,
     pub write_mode: WriteMode,
     pub custom_encodings: Vec<EncodingEntry>,
     pub encoding_settings_open: bool,
@@ -396,7 +386,7 @@ pub struct HexEditorState {
 ```
 
 Key methods:
-- `load_from_path(path)` — constructs state from file (reads bytes, computes initial entropies, initializes Lua engine, sets default pane layout)
+- `load_from_path(path)` — constructs state from file (reads bytes, computes initial entropies, sets default pane layout)
 - `max_addr()` — `provider.len().saturating_sub(1)`
 - `recompute_vanilla_diff()` — linear scan, call after every write
 - `add_pattern(start, end) -> usize` — creates pattern, rebuilds lookups
@@ -406,7 +396,6 @@ Key methods:
 - `recompute_row_annotations()` — rebuilds annotation map + refreshes active patterns
 - `refresh_active_patterns()` — recomputes which patterns contain the cursor
 - `invalidate_stats()` — clears cached byte statistics when content changes
-- `load_lua_scripts(dir)` — loads all `.lua` files from a directory
 
 ---
 
@@ -806,31 +795,6 @@ All analysis runs async via `Task::perform`. Selection-only analysis available. 
 
 ---
 
-## Lua Scripting Engine
-
-Feature-gated behind `lua` (default on). Uses `mlua 0.11` with vendored Lua 5.4.
-
-**`LuaScriptEngine`**: Manages a sandboxed Lua environment. Exposes `register_decoder(name, decode_fn)` that Lua scripts call to add inspector entries.
-
-**Sandboxing:** `os`, `io`, `loadfile`, `require`, `dofilesystem` tables are removed from the global environment. Additionally `ffi` (luajit) and `package` are removed. Environment variable `HEXEDIT_LUA_UNSAFE=1` disables sandboxing.
-
-**Script API:**
-```lua
--- Register a decoder that appears in the inspector panel
-register_decoder("my_type", function(bytes)
-    -- bytes: string of raw bytes (up to the requested length)
-    -- return: string to display in the inspector
-    return string.format("0x%02X", string.byte(bytes, 1))
-end)
-```
-
-**Entry lifecycle:**
-1. `load_script(&path)` — loads and executes script (calls `register_decoder()`)
-2. `entries()` — returns all registered decoders as `Vec<InspectorEntry>`
-3. Decoders are re-evaluated every frame (the script's function is called with the current cursor bytes)
-
----
-
 ## Pane Grid Layout
 
 Hex editor uses the **Halloy pattern** for pane management: `pane_grid::State<HexPanel>` with movable, splittable, resizable panels.
@@ -895,7 +859,6 @@ Located in `src/tests/`, using `iced_test::Simulator` for end-to-end view→upda
 | `settings.rs` | Settings modal (theme, scheme, dim nulls) |
 | `toolbar.rs` | Toolbar buttons visibility |
 | `pane_grid.rs` | Pane split, close, focus |
-| `lua_tests.rs` | (feature-gated) Lua script loading, decoder lifecycle |
 
 ---
 
@@ -941,9 +904,6 @@ cargo run -p hexedit
 
 # Opens a specific file from the command line
 cargo run -p hexedit -- path/to/file.bin
-
-# Load Lua scripts from a directory
-cargo run -p hexedit -- path/to/file.bin --script-dir ./scripts/
 ```
 
 ---
@@ -951,8 +911,7 @@ cargo run -p hexedit -- path/to/file.bin --script-dir ./scripts/
 ## Build
 
 ```bash
-cargo build -p hexedit                          # Default (with Lua)
-cargo build -p hexedit --no-default-features     # Without Lua scripting
+cargo build -p hexedit                           # Build the library and binary
 cargo test -p hexedit                            # Unit + integration tests
 cargo test -p hexedit --test '' -- --ignored     # All tests (including slow ones)
 ```
@@ -961,9 +920,7 @@ cargo test -p hexedit --test '' -- --ignored     # All tests (including slow one
 
 ## Feature flags
 
-| Feature | Default | Description |
-|---------|---------|-------------|
-| `lua`   | on      | Lua scripting engine (vendored Lua 5.4 via `mlua`) |
+`hexedit` declares no crate-specific Cargo features.
 
 ---
 
@@ -992,7 +949,6 @@ cargo test -p hexedit --test '' -- --ignored     # All tests (including slow one
 
 - **Iced 0.15** — UI framework (wgpu, advanced, canvas, lazy features)
 - **gui-widgets** — Reusable Iced widgets (context menu, modal, paragraph cache)
-- **mlua 0.11** (optional) — Lua 5.4 scripting via vendored build
 - **lru 0.12** — LRU cache for inspector / internal use
 - **tokio 1** — Async file I/O
 - **rfd 0.17** — File dialogs (standalone binaries)

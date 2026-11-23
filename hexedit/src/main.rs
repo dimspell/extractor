@@ -90,24 +90,7 @@ enum Msg {
 
 impl App {
     fn new() -> (Self, Task<Msg>) {
-        let mut paths: Vec<PathBuf> = Vec::new();
-        let mut script_dirs: Vec<PathBuf> = Vec::new();
-        let args: Vec<String> = std::env::args().collect();
-        let mut i = 1;
-        while i < args.len() {
-            match args[i].as_str() {
-                "--script-dir" | "-s" => {
-                    i += 1;
-                    if i < args.len() {
-                        script_dirs.push(PathBuf::from(&args[i]));
-                    }
-                }
-                _ => {
-                    paths.push(PathBuf::from(&args[i]));
-                }
-            }
-            i += 1;
-        }
+        let paths: Vec<PathBuf> = std::env::args().skip(1).map(PathBuf::from).collect();
 
         let persisted = load_settings();
 
@@ -127,16 +110,6 @@ impl App {
             for doc in &mut app.documents {
                 doc.state.write_mode = persisted.write_mode;
                 doc.state.custom_encodings = persisted.custom_encodings.clone();
-            }
-
-            // Load Lua scripts into every document.
-            for dir in &script_dirs {
-                for doc in &mut app.documents {
-                    let errors = doc.state.load_lua_scripts(dir);
-                    for e in &errors {
-                        eprintln!("[hexedit] script error: {e}");
-                    }
-                }
             }
         }
 
@@ -198,7 +171,7 @@ impl App {
         standalone_config(
             has_dirty,
             doc.state.custom_encodings.clone(),
-            doc.state.lua_engine.entries(),
+            Vec::new(),
             save_port,
             Some(on_write_mode_changed),
         )

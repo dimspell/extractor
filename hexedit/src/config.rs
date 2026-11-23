@@ -43,7 +43,7 @@ pub struct HexEditorConfig {
     /// Contextual hint shown next to the save button explaining why it's disabled
     /// (e.g. "no recording active", "set a game directory").
     pub save_hint: String,
-    /// Additional inspector entries from scripts or host-specific decoders.
+    /// Additional inspector entries from host-specific decoders.
     pub extra_entries: Vec<InspectorEntry>,
     /// User‑defined custom text encodings (persisted by the host).
     pub custom_encodings: Vec<EncodingEntry>,

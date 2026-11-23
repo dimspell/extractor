@@ -42,7 +42,6 @@ pub fn build_hex_config(
         .with_save_label(save_label)
         .can_save(can_save)
         .save_hint(save_hint)
-        .extra_entries(state.lua_engine.entries())
         .custom_encodings(Vec::new())
 }
 

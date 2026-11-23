@@ -17,14 +17,13 @@
 //
 //  domain/   — Pure data model (no internal Iced-widget dependencies)
 //  ui/       — Iced-specific (widget, view, update, coloring)
-//  Root      — config, message, state aggregate, lua_engine, standalone bin
+//  Root      — config, message, state aggregate, standalone bin
 
 pub mod domain;
 pub mod ui;
 
 mod app;
 mod config;
-pub mod lua_engine;
 mod message;
 mod state;
 
@@ -64,7 +63,6 @@ pub use domain::vanilla_diff::compute_diff;
 pub use domain::write_mode::{EncodingEntry, WriteMode};
 
 // Type-level re-exports from ui.
-pub use lua_engine::LuaScriptEngine;
 pub use ui::coloring::CellColorProvider;
 pub use ui::inspector::{EncodeFn, InspectorEntry};
 

@@ -15,7 +15,7 @@ This workspace is a **6-crate Cargo workspace** (Rust edition 2024) versioned `0
 | `dispel-gui` | bin only | Iced desktop GUI (git fork of iced). No `lib.rs` — pure binary crate. |
 | `dispel-macros` | proc-macro | 7 derive macros used by `dispel-core`. |
 | `gui-widgets` | lib | Reusable custom Iced widgets (ContextMenu, modal, popover, toast, ParagraphCache…). |
-| `hexedit` | lib + bin | Full hex editor with Lua scripting — used by `dispel-gui` as a tab type. Single binary: `hexedit`. |
+| `hexedit` | lib + bin | Full hex editor — used by `dispel-gui` as a tab type. Single binary: `hexedit`. |
 
 **Separation of concerns:**
 - `dispel-core` + `dispel-macros` + `dispel-encodings`: game logic only. Zero GUI/presentation code.
@@ -47,7 +47,7 @@ dispel-extractor/
 ├── gui-widgets/              # Iced widgets library
 │   └── src/components/       # ContextMenu, modal, popover, tab_bar, table_widget, text_area, toast, collapsible_tree, ParagraphCache
 ├── hexedit/                  # Hex editor library + standalone bin
-│   └── src/                  # app/config/state/message/lua_engine + domain/ + ui/ + tests/
+│   └── src/                  # app/config/state/message + domain/ + ui/ + tests/
 ├── dispel-gui/               # Iced desktop GUI
 │   └── src/
 │       ├── app.rs            # App (transient UI state; embeds AppState)
@@ -222,13 +222,13 @@ Also: `sweeten/` (builder-style helpers) and `lucide.rs` (icon set).
 
 ## hexedit — Hex Editor Crate
 
-Standalone library + single binary (`hexedit`, `src/main.rs`). Rust edition 2024. Iced (fork) with optional `lua` feature (default on, Lua 5.4 vendored via `mlua`).
+Standalone library + single binary (`hexedit`, `src/main.rs`). Rust edition 2024. Iced (fork) with no features of its own.
 
 Structure:
-- Top level: `app.rs`, `config.rs`, `state.rs`, `message.rs`, `lua_engine.rs`, `main.rs`
+- Top level: `app.rs`, `config.rs`, `state.rs`, `message.rs`, `main.rs`
 - `domain/` (~16 files): editing, goto, pattern, provider, search, selection, vanilla_diff, …
 - `ui/`: coloring, inspector, update, view/, theme
-- `tests/`: 17 dedicated test files (**25 `.rs` files with `#[cfg(test)]` total**)
+- `tests/`: 16 dedicated test files (**25 `.rs` files with `#[cfg(test)]` total**)
 
 **Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via the domain-level `SavePort` (`SaveRequest` → `SaveOutcome`) in `hex_save.rs`.
 

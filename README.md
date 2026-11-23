@@ -1,6 +1,6 @@
 # Dispel Game File Extractor
 
-A modding toolkit for the **DISPEL** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 38+ editor types, a hex editor with Lua scripting, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
+A modding toolkit for the **DISPEL** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 38+ editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
 
 **Not affiliated with, endorsed by, or sponsored by the trademark owner.**
 
@@ -16,7 +16,7 @@ This is a 5-crate Cargo workspace (Rust 2024, version `0.9.1`):
 | `dispel-gui`              | bin        | Iced 0.15 desktop GUI with 38+ editor types                   |
 | `dispel-macros`           | proc-macro | 5 derive macros (Extractor, Localizable, RecordPatcher, etc.) |
 | `gui-widgets`             | lib        | Reusable Iced widgets (ContextMenu, modal, ParagraphCache)    |
-| `hexedit`                 | lib + bin  | Full hex editor with Lua scripting support                    |
+| `hexedit`                 | lib + bin  | Full hex editor                                               |
 
 ### Key source directories (`src/` in root crate)
 
@@ -204,7 +204,7 @@ The GUI provides:
 - **Mod recording** — tracks every field change for mod changelog generation
 - **Auto-save drafts** — persists in-progress edits to `~/.config/dispel-gui/`
 - **Full-text search** — nucleo-matcher fuzzy search across all loaded files
-- **Hex editor** — built-in hex editor with Lua scripting (from `hexedit` crate)
+- **Hex editor** — built-in hex editor (from `hexedit` crate)
 - **Map viewer** — isometric rendering with viewport + LRU cache
 - **SNF audio playback** — rodio-based sound preview
 - **DbViewer** — SQLite browser for imported databases
@@ -231,7 +231,7 @@ dispel-extractor/
 ├── dispel-gui/               # Iced 0.15 desktop GUI (binary only)
 ├── dispel-macros/            # Proc-macro crate (5 derive macros)
 ├── gui-widgets/              # Reusable Iced widgets library
-├── hexedit/                  # Hex editor library + Lua scripting
+├── hexedit/                  # Hex editor library + standalone binary
 ├── docs/                     # Documentation (overview, format specs, cross-references)
 ├── fixtures/                 # Test game files
 ├── tests/                    # Integration tests

@@ -1,6 +1,6 @@
 # Dispel Extractor Overview
 
-A modding toolkit for **DISPEL®** game files. Written in Rust as a 6-crate Cargo workspace, this project provides a CLI for extraction/patching, a desktop GUI for editing game data, and a hex editor with Lua scripting. All edits are persisted directly to game files — no intermediate database.
+A modding toolkit for **DISPEL®** game files. Written in Rust as a 6-crate Cargo workspace, this project provides a CLI for extraction/patching, a desktop GUI for editing game data, and a hex editor. All edits are persisted directly to game files — no intermediate database.
 
 **Not affiliated with, endorsed by, or sponsored by the trademark owner.**
 
@@ -17,7 +17,7 @@ The workspace consists of six crates:
 | `dispel-gui` | bin | Iced 0.15 desktop GUI |
 | `dispel-macros` | proc-macro | 7 derive macros (Extractor, Localizable, RecordPatcher, etc.) |
 | `gui-widgets` | lib | Reusable Iced widgets (ContextMenu, modal, ParagraphCache) |
-| `hexedit` | lib + bin | Hex editor with Lua scripting |
+| `hexedit` | lib + bin | Hex editor |
 
 ### Key source directories (`src/`)
 

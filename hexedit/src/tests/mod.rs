@@ -173,6 +173,3 @@ pub mod saving;
 pub mod search;
 pub mod settings;
 pub mod toolbar;
-
-#[cfg(feature = "lua")]
-pub mod lua_tests;

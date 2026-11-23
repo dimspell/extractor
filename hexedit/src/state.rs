@@ -21,7 +21,6 @@ use super::domain::search::SearchState;
 use super::domain::selection::Selection;
 use super::domain::vanilla_diff::compute_diff;
 use super::domain::write_mode::{EncodingEntry, WriteMode};
-use super::lua_engine::LuaScriptEngine;
 use super::ui::coloring::ColorScheme;
 use super::ui::theme::{DARK_THEME, HexEditorTheme, ThemeVariant};
 
@@ -149,8 +148,6 @@ pub struct HexEditorState {
     pub dim_nulls: bool,
     /// Whether the settings modal is currently open.
     pub settings_open: bool,
-    /// Lua scripting engine for custom inspector decoders.
-    pub lua_engine: LuaScriptEngine,
 
     // ── Write mode / text encoding ──────────────────────────────────────
     /// Active write mode for keyboard input.
@@ -337,7 +334,6 @@ impl HexEditorState {
         path: PathBuf,
         name: String,
         layout: Option<Box<dyn BinaryLayout>>,
-        lua_engine: LuaScriptEngine,
         buffer: BufferSeed,
     ) -> Self {
         let panes = default_pane_grid();
@@ -393,7 +389,6 @@ impl HexEditorState {
             dim_nulls: true,
             settings_open: false,
             cache: ParagraphCache::default(),
-            lua_engine,
             write_mode: WriteMode::Hex,
             custom_encodings: Vec::new(),
             encoding_settings_open: false,
@@ -422,14 +417,11 @@ impl HexEditorState {
         let name = name.into();
         let path = path.unwrap_or_else(|| PathBuf::from(&name));
         let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
-        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
-        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
 
         let mut state = Self::with_defaults(
             path,
             name,
             layout,
-            lua_engine,
             BufferSeed {
                 provider: BufferProvider::from_bytes(data),
                 vanilla,
@@ -466,14 +458,10 @@ impl HexEditorState {
             Err(e) => (BufferProvider::default(), None, None, Some(e.to_string())),
         };
 
-        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
-        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
-
         let mut state = Self::with_defaults(
             path.to_path_buf(),
             name,
             layout,
-            lua_engine,
             BufferSeed {
                 provider,
                 vanilla,
@@ -614,33 +602,5 @@ impl HexEditorState {
         self.file_stats = None;
         self.selection_stats = None;
         self.row_entropies = None;
-    }
-
-    /// Load all `.lua` scripts from a directory into the Lua engine.
-    /// Errors are collected and returned; successfully loaded decoders are
-    /// available via `lua_engine.entries()`.
-    pub fn load_lua_scripts(&mut self, dir: &Path) -> Vec<String> {
-        let mut errors = Vec::new();
-        if !dir.is_dir() {
-            return errors;
-        }
-        let mut entries: Vec<_> = match std::fs::read_dir(dir) {
-            Ok(rd) => rd
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .filter(|p| p.extension().is_some_and(|ext| ext == "lua"))
-                .collect(),
-            Err(e) => {
-                errors.push(format!("cannot read scripts dir '{}': {e}", dir.display()));
-                return errors;
-            }
-        };
-        entries.sort();
-        for script_path in entries {
-            if let Err(e) = self.lua_engine.load_script(&script_path) {
-                errors.push(e);
-            }
-        }
-        errors
     }
 }

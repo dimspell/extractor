@@ -29,10 +29,9 @@ fn test_gui_hex_config_uses_shared_builder_defaults() {
         config.on_write_mode_changed.is_none(),
         "the GUI host has no write-mode persistence port"
     );
-    assert_eq!(
-        config.extra_entries.len(),
-        state.lua_engine.entries().len(),
-        "lua-provided inspector entries must reach the editor"
+    assert!(
+        config.extra_entries.is_empty(),
+        "the GUI host has no custom inspector entries"
     );
     // The builder's fallback label and prerequisites still work.
     assert_eq!(config.save_label(), "Save into recording");

@@ -33,7 +33,7 @@ lists the features each workspace crate turns on directly (everything uses
 | Crate | `iced` features (direct) | Own features | Forces on `gui-widgets` |
 |---|---|---|---|
 | `gui-widgets` | `advanced`, `thread-pool`, `wgpu` | `default = [accessibility]`, `accessibility = [iced/accessibility]` | — |
-| `hexedit` | `advanced`, `tokio`, `wgpu`, `canvas`, `lazy` | `default = [lua]` (`lua = [dep:mlua]`) | `accessibility` |
+| `hexedit` | `advanced`, `tokio`, `wgpu`, `canvas`, `lazy` | — | `accessibility` |
 | `dispel-gui` | `tokio`, `wgpu`, `image`, `canvas`, `advanced`, `lazy`, `x11`, `wayland`, `accessibility` | `default = []`, `iced_test`, `debug` | `accessibility` |
 | `dispel-extractor` (root) | — (no iced dependency) | — | — |
 

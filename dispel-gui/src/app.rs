@@ -416,27 +416,14 @@ impl App {
     }
 
     /// Set up a hex-editor tab for `path`. Shared by the auto-detected hex open
-    /// and "Reopen as hex" so the script-loading / layout wiring cannot drift.
+    /// and "Reopen as hex" so the binary layout / outline wiring cannot drift.
     fn open_hex_tab(&mut self, path: &Path) -> Task<Message> {
-        let scripts_dir = self
-            .state
-            .workspace
-            .game_path
-            .as_ref()
-            .map(|gp| gp.join("hexedit_scripts"));
         if let Some(tab_id) = self.active_tab_id() {
-            let state = self
-                .state
+            self.state
                 .editors
                 .hex_editors
                 .entry(tab_id)
                 .or_insert_with(|| hex_editor_state_for_path(path));
-            if let Some(ref dir) = scripts_dir {
-                let errors = state.load_lua_scripts(dir);
-                for e in &errors {
-                    log::warn!("hexedit script: {e}");
-                }
-            }
         }
         Task::none()
     }
