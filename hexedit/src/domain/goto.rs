@@ -38,7 +38,7 @@ impl GotoState {
                 return Err("Expected number after '+'".to_string());
             }
             let offset: u64 = parse_u64(rest).map_err(|_| format!("not a valid offset: {rest}"))?;
-            return Ok((cursor + offset).min(max_addr));
+            return Ok(cursor.saturating_add(offset).min(max_addr));
         }
         if let Some(rest) = s.strip_prefix('-') {
             let rest = rest.trim();
@@ -134,6 +134,15 @@ mod tests {
             error: None,
         };
         assert_eq!(gs.parse(100, 1000), Ok(110));
+    }
+
+    #[test]
+    fn goto_relative_forward_clamps_without_overflow() {
+        let gs = GotoState {
+            draft: format!("+{}", u64::MAX),
+            error: None,
+        };
+        assert_eq!(gs.parse(100, 1000), Ok(1000));
     }
 
     #[test]
