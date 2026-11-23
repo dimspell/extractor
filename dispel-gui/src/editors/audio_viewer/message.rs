@@ -11,5 +11,6 @@ pub enum AudioViewerMessage {
     Stop,
     ToggleLoop,
     SetVolume(f32),
-    Tick,
+    /// Poll the playback owned by `tab_id`; the tab may not be the active one.
+    Tick(usize),
 }

@@ -6,7 +6,7 @@ use iced::Task;
 
 pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = match &message {
-        AudioViewerMessage::PlaybackReady(id, _, _) => *id,
+        AudioViewerMessage::PlaybackReady(id, _, _) | AudioViewerMessage::Tick(id) => *id,
         _ => app.state.workspace.active_tab_id().as_usize(),
     };
     let Some(editor) = app.state.editors.audio_viewers.get_mut(&tab_id) else {
@@ -92,7 +92,7 @@ pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message
             }
         }
 
-        AudioViewerMessage::Tick => {
+        AudioViewerMessage::Tick(_) => {
             if editor.playback.as_ref().is_some_and(|pb| pb.player.empty()) {
                 editor.playback = None;
             }

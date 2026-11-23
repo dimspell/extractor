@@ -11,7 +11,8 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
     let tab_id = match &message {
         SnfEditorMessage::Save(id)
         | SnfEditorMessage::SaveDone(id, _)
-        | SnfEditorMessage::PlaybackReady(id, _, _) => *id,
+        | SnfEditorMessage::PlaybackReady(id, _, _)
+        | SnfEditorMessage::Tick(id) => *id,
         _ => app.state.workspace.active_tab_id().as_usize(),
     };
     let Some(editor) = app.state.editors.snf_editors.get_mut(&tab_id) else {
@@ -107,7 +108,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             }
         }
 
-        SnfEditorMessage::Tick => {
+        SnfEditorMessage::Tick(_) => {
             if editor.playback.as_ref().is_some_and(|pb| pb.player.empty()) {
                 editor.playback = None;
             }

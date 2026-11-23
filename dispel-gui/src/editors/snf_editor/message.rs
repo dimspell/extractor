@@ -25,5 +25,6 @@ pub enum SnfEditorMessage {
     SaveDone(usize, Result<String, String>),
     /// Dismiss a toast notification by index (triggered by close button or timeout).
     DismissToast(usize),
-    Tick,
+    /// Poll the playback owned by `tab_id`; the tab may not be the active one.
+    Tick(usize),
 }

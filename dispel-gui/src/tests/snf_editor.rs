@@ -129,6 +129,38 @@ mod snf_editor_tests {
     }
 
     #[test]
+    fn test_snf_editor_tick_clears_finished_playback_on_inactive_tab() {
+        let mut app = app_with_snf_editor_loaded();
+        let tab_id = 1;
+
+        // Make a different editor active so the SNF tab is not the active one.
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: 2,
+            label: "invented_active.db".into(),
+            path: None,
+            editor_type: EditorType::WeaponEditor,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(1);
+
+        let _ = snf_editor::handle(SnfEditorMessage::Play, &mut app);
+        let generation = app.state.editors.snf_editors[&tab_id].playback_generation;
+        let _ = snf_editor::handle(
+            SnfEditorMessage::PlaybackReady(tab_id, generation, Ok(pending_without_device())),
+            &mut app,
+        );
+        assert!(app.state.editors.snf_editors[&tab_id].playback.is_some());
+
+        // The dummy player has no sources, i.e. playback has finished.
+        let _ = snf_editor::handle(SnfEditorMessage::Tick(tab_id), &mut app);
+        assert!(
+            app.state.editors.snf_editors[&tab_id].playback.is_none(),
+            "a finished playback must be cleared even on an inactive tab"
+        );
+    }
+
+    #[test]
     fn test_snf_editor_play_defers_device_init_to_task() {
         let mut app = app_with_snf_editor_loaded();
         let tab_id = 1;
@@ -258,7 +290,7 @@ mod snf_editor_tests {
 
         let original_name = app.state.editors.snf_editors[&tab_id].name.clone();
 
-        let task = snf_editor::handle(SnfEditorMessage::Tick, &mut app);
+        let task = snf_editor::handle(SnfEditorMessage::Tick(tab_id), &mut app);
         assert_eq!(task.units(), 0);
         assert!(app.state.editors.snf_editors[&tab_id].playback.is_none());
         assert_eq!(app.state.editors.snf_editors[&tab_id].name, original_name);
@@ -479,6 +511,38 @@ mod audio_viewer_tests {
     }
 
     #[test]
+    fn test_audio_viewer_tick_clears_finished_playback_on_inactive_tab() {
+        let file = wav_fixture();
+        let mut app = app_with_audio_viewer(AudioViewerState::load_from_path(file.path()));
+        let tab_id = 1;
+
+        // Make a different editor active so this viewer is not the active tab.
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: 2,
+            label: "invented_active.db".into(),
+            path: None,
+            editor_type: EditorType::WeaponEditor,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(1);
+
+        let _ = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        let generation = app.state.editors.audio_viewers[&tab_id].playback_generation;
+        let _ = audio_viewer::handle(
+            AudioViewerMessage::PlaybackReady(tab_id, generation, Ok(pending_without_device())),
+            &mut app,
+        );
+        assert!(app.state.editors.audio_viewers[&tab_id].playback.is_some());
+
+        let _ = audio_viewer::handle(AudioViewerMessage::Tick(tab_id), &mut app);
+        assert!(
+            app.state.editors.audio_viewers[&tab_id].playback.is_none(),
+            "a finished playback must be cleared even on an inactive tab"
+        );
+    }
+
+    #[test]
     fn test_audio_viewer_playback_state_transitions_without_device() {
         let file = wav_fixture();
         let state = AudioViewerState::load_from_path(file.path());
@@ -523,7 +587,7 @@ mod audio_viewer_tests {
         for msg in [
             AudioViewerMessage::Pause,
             AudioViewerMessage::Stop,
-            AudioViewerMessage::Tick,
+            AudioViewerMessage::Tick(tab_id),
         ] {
             assert_eq!(audio_viewer::handle(msg, &mut app).units(), 0);
         }
