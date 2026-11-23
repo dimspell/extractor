@@ -88,7 +88,7 @@ pub fn browse_file(field: &str) -> Task<Message> {
         move |path| {
             Message::System(SystemMessage::FileSelected {
                 field: field.clone(),
-                path: Some(path.unwrap_or_default()),
+                path,
             })
         },
     )
@@ -106,7 +106,7 @@ pub fn browse_folder(field: &str) -> Task<Message> {
         move |path| {
             Message::System(SystemMessage::FileSelected {
                 field: field.clone(),
-                path: Some(path.unwrap_or_default()),
+                path,
             })
         },
     )

@@ -82,8 +82,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         }
         SystemMessage::FileSelected { field, path } => {
             let path = match path {
-                Some(p) => p,
-                None => return Task::none(),
+                Some(p) if !p.as_os_str().is_empty() => p,
+                _ => return Task::none(),
             };
             let s = path.to_string_lossy().to_string();
             match field.as_str() {
@@ -560,5 +560,36 @@ mod tests {
         push_weapon_tab(&mut app);
         let _ = handle(SystemMessage::Undo, &mut app);
         assert_eq!(app.state.status_msg, "Nothing to undo");
+    }
+
+    #[test]
+    fn test_file_selected_cancelled_or_empty_path_is_noop() {
+        let mut app = App::new().0;
+        push_weapon_tab(&mut app);
+
+        let game_path = std::path::PathBuf::from("/test/game");
+        let game_path_str = game_path.to_string_lossy().to_string();
+        app.state.workspace.game_path = Some(game_path.clone());
+        app.state.shared_game_path = game_path_str.clone();
+        app.search_index.game_path = Some(game_path_str.clone());
+        app.state.status_msg = "unchanged".to_string();
+        let tab_count = app.state.workspace.tabs.len();
+
+        for path in [None, Some(std::path::PathBuf::new())] {
+            let _ = handle(
+                SystemMessage::FileSelected {
+                    field: "workspace_game_path".to_string(),
+                    path,
+                },
+                &mut app,
+            );
+
+            assert_eq!(app.state.workspace.game_path, Some(game_path.clone()));
+            assert_eq!(app.state.shared_game_path, game_path_str);
+            assert_eq!(app.search_index.game_path, Some(game_path_str.clone()));
+            assert_eq!(app.state.workspace.tabs.len(), tab_count);
+            assert_eq!(app.state.workspace.active_tab, Some(0));
+            assert_eq!(app.state.status_msg, "unchanged");
+        }
     }
 }
