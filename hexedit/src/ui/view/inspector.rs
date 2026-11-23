@@ -45,9 +45,11 @@ pub fn view<'a>(
             .padding([4, 12])
             .into()
     } else {
-        let cursor = editor.selection.cursor;
-        let avail = src_len.saturating_sub(cursor) as usize;
-        let read_end = (cursor + 64).min(src_len);
+        // A comparison file can be shorter than the main buffer, leaving the
+        // cursor past its end. Clamp before slicing so the range stays valid.
+        let cursor = editor.selection.cursor.min(src_len);
+        let avail = (src_len - cursor) as usize;
+        let read_end = cursor.saturating_add(64).min(src_len);
         let bytes = &src_bytes[cursor as usize..read_end as usize];
 
         let mut col = column![].spacing(1).padding([4, 12]);

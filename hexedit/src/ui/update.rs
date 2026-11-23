@@ -322,9 +322,11 @@ pub fn update(
         }
 
         HexEditorMessage::CopyInspectorValue(idx) => {
-            let cursor = state.selection.cursor;
             let (len, src) = inspector_source_bytes(state);
-            let read_end = (cursor + INSPECTOR_READ_LIMIT).min(len);
+            // The comparison buffer may be shorter than the main file; clamp
+            // the cursor so the slice and the available-byte check stay valid.
+            let cursor = state.selection.cursor.min(len);
+            let read_end = cursor.saturating_add(INSPECTOR_READ_LIMIT).min(len);
             let start = (cursor as usize).min(src.len());
             let end = (read_end as usize).min(src.len()).max(start);
             let bytes = &src[start..end];
