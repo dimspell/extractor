@@ -1,3 +1,4 @@
+pub mod audio_playback;
 pub mod command_palette;
 pub mod composite_item;
 pub mod define_tab_editor;

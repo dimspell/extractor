@@ -3,7 +3,9 @@ mod snf_editor_tests {
     use crate::app::App;
     use crate::editors::snf_editor::{self, ExportStatus, SnfEditorMessage, SnfEditorState};
     use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+    use dispel_core::snf::SnfFile;
     use std::path::PathBuf;
+    use std::time::Instant;
 
     /// Create an App with a single SnfEditor tab with default dummy state.
     /// The editor has no audio file loaded (snf = None, playback = None).
@@ -39,6 +41,58 @@ mod snf_editor_tests {
         );
 
         app
+    }
+
+    /// An app with an SNF editor that has a small synthetic tone loaded.
+    fn app_with_snf_editor_loaded() -> App {
+        let mut app = app_with_snf_editor();
+        let tone = SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 1,
+            sample_rate: 8000,
+            byte_rate: 8000,
+            block_align: 1,
+            bits_per_sample: 8,
+            data_size: 800,
+            pcm_data: vec![128; 800],
+        };
+        let editor = app.state.editors.snf_editors.get_mut(&1).unwrap();
+        editor.snf = Some(tone);
+        editor.waveform = vec![(0.0, 0.5), (1.0, 0.5)];
+        app
+    }
+
+    // ── Play / PlaybackReady ───────────────────────────────────────────────
+
+    #[test]
+    fn test_snf_editor_play_defers_device_init_to_task() {
+        let mut app = app_with_snf_editor_loaded();
+        let tab_id = 1;
+
+        // Play must only queue the async work: no device open on the UI thread,
+        // so the handler returns quickly and playback is not set synchronously.
+        let started = Instant::now();
+        let task = snf_editor::handle(SnfEditorMessage::Play, &mut app);
+        let elapsed = started.elapsed();
+
+        assert!(
+            elapsed.as_millis() < 250,
+            "Play blocked the UI thread for {:?}",
+            elapsed
+        );
+        assert_eq!(task.units(), 1, "Play must queue one async task");
+        assert!(
+            app.state.editors.snf_editors[&tab_id].playback.is_none(),
+            "playback is installed only when PlaybackReady arrives"
+        );
+
+        // The deferred failure path is wired and leaves the editor untouched.
+        let task = snf_editor::handle(
+            SnfEditorMessage::PlaybackReady(tab_id, Err("device unavailable".into())),
+            &mut app,
+        );
+        assert_eq!(task.units(), 0);
+        assert!(app.state.editors.snf_editors[&tab_id].playback.is_none());
     }
 
     // ── ToggleLoop ─────────────────────────────────────────────────────────

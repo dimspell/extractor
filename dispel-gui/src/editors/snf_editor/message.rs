@@ -1,8 +1,12 @@
+use crate::components::audio_playback::PendingPlayback;
 use dispel_core::snf::SnfFile;
 
 #[derive(Debug, Clone)]
 pub enum SnfEditorMessage {
     Play,
+    /// Async result of the deferred audio-device open, tagged with the tab that
+    /// issued the play request.
+    PlaybackReady(usize, Result<PendingPlayback, String>),
     Pause,
     Stop,
     ToggleLoop,

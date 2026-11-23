@@ -1,45 +1,7 @@
 use dispel_core::snf::SnfFile;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
-pub struct PlaybackHandle {
-    pub player: Arc<rodio::Player>,
-    stop_flag: Arc<AtomicBool>,
-    pub loop_flag: Arc<AtomicBool>,
-    _thread: std::thread::JoinHandle<()>,
-}
-
-impl PlaybackHandle {
-    pub fn new(
-        player: Arc<rodio::Player>,
-        stop_flag: Arc<AtomicBool>,
-        loop_flag: Arc<AtomicBool>,
-        thread: std::thread::JoinHandle<()>,
-    ) -> Self {
-        PlaybackHandle {
-            player,
-            stop_flag,
-            loop_flag,
-            _thread: thread,
-        }
-    }
-
-    pub fn stop(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
-        self.player.stop();
-    }
-
-    pub fn set_looping(&self, v: bool) {
-        self.loop_flag.store(v, Ordering::Relaxed);
-    }
-}
-
-impl Drop for PlaybackHandle {
-    fn drop(&mut self) {
-        self.stop();
-    }
-}
+pub use crate::components::audio_playback::PlaybackHandle;
 
 #[derive(Debug, Clone)]
 pub enum ExportStatus {
