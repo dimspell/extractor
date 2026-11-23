@@ -136,8 +136,6 @@ impl App {
 
         let has_dirty = doc.state.provider.dirty_count() > 0;
         let settings_path = settings_path();
-        // Clone the current custom encodings for the callback closure.
-        let current_encodings = doc.state.custom_encodings.clone();
 
         let save_port: hexedit::SavePort = Arc::new(|request: SaveRequest| {
             let SaveRequest { path, bytes } = request;
@@ -152,11 +150,12 @@ impl App {
             )
         });
 
-        let on_write_mode_changed: hexedit::WriteModeCallback = Arc::new(move |mode| {
-            // Persist the write mode + current custom encodings.
+        let on_write_mode_changed: hexedit::WriteModeCallback = Arc::new(move |mode, encodings| {
+            // Persist the write mode + the encodings current at callback time,
+            // so custom-encoding changes are not lost on restart.
             let settings = PersistedSettings {
                 write_mode: mode,
-                custom_encodings: current_encodings.clone(),
+                custom_encodings: encodings.to_vec(),
             };
             match serde_json::to_string_pretty(&settings) {
                 Ok(json) => {

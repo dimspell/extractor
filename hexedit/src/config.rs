@@ -16,13 +16,14 @@ use super::ui::inspector::InspectorEntry;
 /// as the async delivery mechanism, as it is throughout this Iced widget.
 pub type SavePort = Arc<dyn Fn(SaveRequest) -> Task<SaveOutcome> + Send + Sync>;
 
-/// Host-facing port for persisting the selected write mode.
+/// Host-facing port for persisting the write mode and custom encodings.
 ///
-/// Carries only the domain-level [`WriteMode`] value. In particular, it does
-/// **not** leak `HexEditorMessage` (or any other internal message type) into
-/// the host: changing the write mode is a synchronous host side-effect, not an
-/// async editor operation.
-pub type WriteModeCallback = Arc<dyn Fn(WriteMode) + Send + Sync>;
+/// Receives the domain-level [`WriteMode`] and the current custom encoding
+/// list so the host can write a complete settings snapshot. It does **not**
+/// leak `HexEditorMessage` (or any other internal message type) into the host:
+/// persisting settings is a synchronous host side-effect, not an async editor
+/// operation.
+pub type WriteModeCallback = Arc<dyn Fn(WriteMode, &[EncodingEntry]) + Send + Sync>;
 
 /// External configuration injected into the hex editor by the host application.
 ///
@@ -47,8 +48,8 @@ pub struct HexEditorConfig {
     pub extra_entries: Vec<InspectorEntry>,
     /// User‑defined custom text encodings (persisted by the host).
     pub custom_encodings: Vec<EncodingEntry>,
-    /// Optional callback fired when the write mode changes. The host can use
-    /// this to persist the selection; it receives only the domain value.
+    /// Optional callback fired when the write mode or custom encodings change.
+    /// The host can use this to persist a complete settings snapshot.
     pub on_write_mode_changed: Option<WriteModeCallback>,
 }
 

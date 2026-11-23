@@ -29,6 +29,13 @@ const PAGE_ROWS: u64 = 24;
 /// entry (largest is u128 + string at 18 bytes) with plenty of headroom.
 const INSPECTOR_READ_LIMIT: u64 = 64;
 
+/// Ask the host to persist the current write mode and custom encodings.
+fn persist_settings(state: &crate::HexEditorState, config: &HexEditorConfig) {
+    if let Some(cb) = &config.on_write_mode_changed {
+        cb(state.write_mode, &state.custom_encodings);
+    }
+}
+
 /// Returns `(length, bytes)` of the buffer the inspector currently decodes.
 fn inspector_source_bytes(state: &crate::HexEditorState) -> (u64, &[u8]) {
     match state.inspector_source {
@@ -932,9 +939,7 @@ pub fn update(
                 state.write_mode = mode;
                 // Domain-level port: no internal message type crosses the
                 // boundary and no follow-up editor task is produced.
-                if let Some(cb) = &config.on_write_mode_changed {
-                    cb(mode);
-                }
+                persist_settings(state, config);
             }
         }
         HexEditorMessage::OpenEncodingSettings => {
@@ -961,6 +966,7 @@ pub fn update(
                             encoding_name: enc_name.to_string(),
                         });
                     state.notify(format!("Added encoding: {label}"));
+                    persist_settings(state, config);
                 } else {
                     state.notify(format!("Encoding already added: {label}"));
                 }
@@ -971,10 +977,12 @@ pub fn update(
                 let removed = state.custom_encodings.remove(idx);
                 remap_write_mode(&mut state.write_mode, idx);
                 state.notify(format!("Removed encoding: {}", removed.label));
+                persist_settings(state, config);
             }
         }
         HexEditorMessage::SetCustomEncodings(encodings) => {
             state.custom_encodings = encodings;
+            persist_settings(state, config);
         }
 
         // ── Copy / Paste ─────────────────────────────────────────────────

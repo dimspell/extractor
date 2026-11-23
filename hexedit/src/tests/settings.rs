@@ -17,7 +17,7 @@ fn test_config_builder_sets_every_field() {
         .can_save(true)
         .save_hint("hint")
         .custom_encodings(encodings.clone())
-        .on_write_mode_changed(std::sync::Arc::new(|_| {}));
+        .on_write_mode_changed(std::sync::Arc::new(|_, _| {}));
 
     assert_eq!(config.pane_gap, 7);
     assert!(config.has_save());
@@ -39,7 +39,7 @@ fn test_standalone_config_matches_builder_defaults() {
         encoding_name: "euc-kr".into(),
     }];
     let save_port: crate::SavePort = std::sync::Arc::new(|_| iced::Task::none());
-    let mode_port: crate::WriteModeCallback = std::sync::Arc::new(|_| {});
+    let mode_port: crate::WriteModeCallback = std::sync::Arc::new(|_, _| {});
 
     let through_helper = crate::standalone_config(
         true,
@@ -89,11 +89,12 @@ fn test_standalone_config_dirty_controls_save_hint() {
 fn test_write_mode_callback_receives_domain_value_only() {
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let seen_by_host = seen.clone();
-    let config = HexEditorConfig::new().on_write_mode_changed(std::sync::Arc::new(move |mode| {
-        // The callback signature carries only WriteMode — an internal
-        // HexEditorMessage could not be received here.
-        seen_by_host.lock().unwrap().push(mode);
-    }));
+    let config =
+        HexEditorConfig::new().on_write_mode_changed(std::sync::Arc::new(move |mode, _| {
+            // The callback receives only domain values — an internal
+            // HexEditorMessage could not be received here.
+            seen_by_host.lock().unwrap().push(mode);
+        }));
     let mut state = make_state((0..64).collect());
 
     send(
@@ -111,6 +112,49 @@ fn test_write_mode_callback_receives_domain_value_only() {
         HexEditorMessage::SetWriteMode(WriteMode::Ascii),
     );
     assert_eq!(*seen.lock().unwrap(), vec![WriteMode::Ascii]);
+}
+
+#[test]
+fn test_custom_encoding_changes_persist_settings() {
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen_by_host = seen.clone();
+    let config = HexEditorConfig::new().on_write_mode_changed(std::sync::Arc::new(
+        move |mode, encodings| {
+            seen_by_host
+                .lock()
+                .unwrap()
+                .push((mode, encodings.to_vec()));
+        },
+    ));
+    let mut state = make_state((0..64).collect());
+
+    // Adding a custom encoding must fire the settings-save callback with the
+    // updated list so the host can persist it to disk.
+    send(&mut state, &config, HexEditorMessage::AddCustomEncoding(0));
+    {
+        let snapshots = seen.lock().unwrap();
+        assert!(
+            !snapshots.is_empty(),
+            "adding a custom encoding must fire the settings callback"
+        );
+        assert!(
+            !snapshots.last().unwrap().1.is_empty(),
+            "the callback must receive the updated encoding list"
+        );
+    }
+
+    // Removing it must persist the now-empty list.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::RemoveCustomEncoding(0),
+    );
+    let snapshots = seen.lock().unwrap();
+    assert_eq!(snapshots.len(), 2, "both changes must be persisted");
+    assert!(
+        snapshots.last().unwrap().1.is_empty(),
+        "the callback must receive the updated encoding list"
+    );
 }
 
 #[test]
