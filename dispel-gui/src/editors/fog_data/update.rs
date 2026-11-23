@@ -200,7 +200,8 @@ pub fn handle(message: FogDataMessage, app: &mut App) -> Task<Message> {
 fn mod_recording_params(app: &App, save_path: &std::path::Path) -> Option<RecordingParams> {
     let session = app.state.recording.as_ref()?;
     let game_path = PathBuf::from(&app.state.shared_game_path);
-    let relative_path = relative_to(save_path, &game_path).unwrap_or_default();
+    let relative_path = relative_to(save_path, &game_path)
+        .unwrap_or_else(|| save_path.to_string_lossy().into_owned());
     Some(RecordingParams {
         workspace_root: session.workspace_root.clone(),
         game_path,
@@ -302,5 +303,45 @@ impl FogDataMessage {
             | Self::Undo(id)
             | Self::Redo(id) => *id,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::RecordingSession;
+    use std::path::Path;
+
+    fn app_with_recording() -> App {
+        let mut app = App::new().0;
+        app.state.shared_game_path = "/game/root".to_string();
+        app.state.recording = Some(RecordingSession {
+            workspace_root: PathBuf::from("/workspace"),
+            mod_slug: "test-mod".to_string(),
+            ..Default::default()
+        });
+        app
+    }
+
+    #[test]
+    fn test_mod_recording_params_uses_absolute_path_outside_game_root() {
+        let app = app_with_recording();
+        let save_path = Path::new("/elsewhere/fogdata.dat");
+        let params = mod_recording_params(&app, save_path).expect("recording params available");
+
+        assert_eq!(
+            params.relative_path,
+            save_path.to_string_lossy().into_owned(),
+            "out-of-tree saves must be recorded under their absolute path"
+        );
+    }
+
+    #[test]
+    fn test_mod_recording_params_keeps_relative_path_inside_game_root() {
+        let app = app_with_recording();
+        let save_path = Path::new("/game/root/ExtraInGame/fogdata.dat");
+        let params = mod_recording_params(&app, save_path).expect("recording params available");
+
+        assert_eq!(params.relative_path, "ExtraInGame/fogdata.dat");
     }
 }
