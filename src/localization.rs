@@ -43,6 +43,13 @@ impl TextEntry {
         encoded_len(&self.translation, &self.encoding)
     }
 
+    /// Whether every character in `translation` has a representation in the
+    /// target encoding. `encode()` would otherwise replace unmappable
+    /// characters with literal `&#...;` entities.
+    pub fn is_encodable(&self) -> bool {
+        encode_without_replacement(&self.translation, &self.encoding).is_ok()
+    }
+
     /// Whether the translation would exceed `max_bytes` after encoding.
     pub fn would_truncate(&self) -> bool {
         self.encoded_translation_len() > self.max_bytes
@@ -53,6 +60,7 @@ impl TextEntry {
 pub enum TruncationStatus {
     Ok,
     Truncated { original_bytes: usize },
+    Unencodable,
 }
 
 // ─── Localizable trait ───────────────────────────────────────────────────────
@@ -66,16 +74,38 @@ pub trait Localizable {
 
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
+/// Encode `s` with `enc` without substituting unmappable characters with
+/// numeric character references. Returns `Err` when a character cannot be
+/// represented, so callers can reject the translation instead of writing
+/// literal `&#...;` entities into game files.
+fn encode_without_replacement(s: &str, enc: &TextEncoding) -> Result<Vec<u8>, ()> {
+    let mut encoder = enc.encoding_rs().new_encoder();
+    let mut bytes = Vec::with_capacity(s.len());
+    let (result, _) = encoder.encode_from_utf8_to_vec_without_replacement(s, &mut bytes, true);
+    match result {
+        encoding_rs::EncoderResult::InputEmpty => Ok(bytes),
+        encoding_rs::EncoderResult::Unmappable(_) | encoding_rs::EncoderResult::OutputFull => {
+            Err(())
+        }
+    }
+}
+
 fn encoded_len(s: &str, enc: &TextEncoding) -> usize {
-    let (bytes, _, _) = enc.encoding_rs().encode(s);
-    bytes.len()
+    encode_without_replacement(s, enc)
+        .map(|bytes| bytes.len())
+        // No valid encoded length exists for unmappable text; the UTF-8 byte
+        // count is only used for the length indicator in the UI.
+        .unwrap_or_else(|()| s.len())
 }
 
 /// Truncate `s` so it fits within `max_bytes` when re-encoded, working character by character.
 /// Returns `(truncated_string, was_truncated)`.
 pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String, bool) {
-    let encoder = enc.encoding_rs();
-    let (full, _, _) = encoder.encode(s);
+    let Ok(full) = encode_without_replacement(s, enc) else {
+        // Unmappable text cannot be written verbatim; leave it to the caller's
+        // encodability check so the whole translation can be rejected.
+        return (s.to_owned(), true);
+    };
     if full.len() <= max_bytes {
         return (s.to_owned(), false);
     }
@@ -83,7 +113,9 @@ pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String
     let mut result = String::new();
     for ch in s.chars() {
         let ch_str = ch.to_string();
-        let (ch_bytes, _, _) = encoder.encode(&ch_str);
+        let Ok(ch_bytes) = encode_without_replacement(&ch_str, enc) else {
+            break;
+        };
         if byte_count + ch_bytes.len() > max_bytes {
             break;
         }
@@ -559,5 +591,46 @@ mod tests {
         assert!(statuses.is_empty());
         assert_eq!(record.name, "Original Shop");
         assert_eq!(record.note.as_deref(), Some("Original note"));
+    }
+
+    #[test]
+    fn apply_texts_rejects_unencodable_translation() {
+        let mut record = LocalizedStore {
+            id: 11,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let mut entries = record.extract_texts(11, "CharacterInGame/STORE.DB");
+        // `note` is WINDOWS-1250, which cannot represent CJK. `encode()` would
+        // silently write "&#...;" entities into the game file.
+        entries[1].translation = "商店".to_owned();
+
+        let statuses = record.apply_texts(&entries);
+        assert_eq!(record.note.as_deref(), Some("Original note"));
+        assert!(
+            statuses
+                .iter()
+                .any(|s| matches!(s, TruncationStatus::Unencodable))
+        );
+    }
+
+    #[test]
+    fn truncation_status_reports_encoded_byte_length() {
+        let mut record = LocalizedStore {
+            id: 12,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let mut entries = record.extract_texts(12, "CharacterInGame/STORE.DB");
+        // "ééé" is 6 UTF-8 bytes but only 3 WINDOWS-1250 bytes.
+        entries[1].translation = "ééé".to_owned();
+        entries[1].max_bytes = 2;
+
+        let statuses = record.apply_texts(&entries);
+        assert!(
+            statuses
+                .iter()
+                .any(|s| matches!(s, TruncationStatus::Truncated { original_bytes: 3 }))
+        );
     }
 }

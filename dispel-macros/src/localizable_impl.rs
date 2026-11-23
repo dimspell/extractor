@@ -61,17 +61,21 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
             apply_arms.push(quote! {
                 #field_name_str => {
                     if !entry.translation.is_empty() {
-                        let (text, was_truncated) = #truncate_to_fit(
-                            &entry.translation, &entry.encoding, entry.max_bytes,
-                        );
-                        self.#field_ident = Some(text);
-                        statuses.push(if was_truncated {
-                            #truncation_status::Truncated {
-                                original_bytes: entry.translation.len(),
-                            }
+                        if !entry.is_encodable() {
+                            statuses.push(#truncation_status::Unencodable);
                         } else {
-                            #truncation_status::Ok
-                        });
+                            let (text, was_truncated) = #truncate_to_fit(
+                                &entry.translation, &entry.encoding, entry.max_bytes,
+                            );
+                            self.#field_ident = Some(text);
+                            statuses.push(if was_truncated {
+                                #truncation_status::Truncated {
+                                    original_bytes: entry.encoded_translation_len(),
+                                }
+                            } else {
+                                #truncation_status::Ok
+                            });
+                        }
                     }
                 }
             });
@@ -90,17 +94,21 @@ pub(crate) fn codegen(input: &DeriveInput, config: &CodegenConfig) -> TokenStrea
             apply_arms.push(quote! {
                 #field_name_str => {
                     if !entry.translation.is_empty() {
-                        let (text, was_truncated) = #truncate_to_fit(
-                            &entry.translation, &entry.encoding, entry.max_bytes,
-                        );
-                        self.#field_ident = text;
-                        statuses.push(if was_truncated {
-                            #truncation_status::Truncated {
-                                original_bytes: entry.translation.len(),
-                            }
+                        if !entry.is_encodable() {
+                            statuses.push(#truncation_status::Unencodable);
                         } else {
-                            #truncation_status::Ok
-                        });
+                            let (text, was_truncated) = #truncate_to_fit(
+                                &entry.translation, &entry.encoding, entry.max_bytes,
+                            );
+                            self.#field_ident = text;
+                            statuses.push(if was_truncated {
+                                #truncation_status::Truncated {
+                                    original_bytes: entry.encoded_translation_len(),
+                                }
+                            } else {
+                                #truncation_status::Ok
+                            });
+                        }
                     }
                 }
             });
