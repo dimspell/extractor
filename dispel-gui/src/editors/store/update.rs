@@ -19,6 +19,34 @@ type StoreScanResult = Result<
     String,
 >;
 
+/// Read the store catalog plus the four item catalogs it cross-references.
+/// Any read failure is returned as an error naming the file and the reason;
+/// the catalogs are only returned when every file was read successfully.
+async fn scan_store_catalog(
+    weapons_path: PathBuf,
+    heals_path: PathBuf,
+    misc_path: PathBuf,
+    edit_path: PathBuf,
+    store_path: PathBuf,
+) -> StoreScanResult {
+    let weapons = Some(
+        WeaponItem::read_file(&weapons_path)
+            .map_err(|e| format!("{}: {}", weapons_path.display(), e))?,
+    );
+    let heals = Some(
+        HealItem::read_file(&heals_path).map_err(|e| format!("{}: {}", heals_path.display(), e))?,
+    );
+    let misc = Some(
+        MiscItem::read_file(&misc_path).map_err(|e| format!("{}: {}", misc_path.display(), e))?,
+    );
+    let edit = Some(
+        EditItem::read_file(&edit_path).map_err(|e| format!("{}: {}", edit_path.display(), e))?,
+    );
+    let stores =
+        Store::read_file(&store_path).map_err(|e| format!("{}: {}", store_path.display(), e))?;
+    Ok((weapons, heals, misc, edit, stores))
+}
+
 pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
         StoreEditorMessage::LoadCatalog => {
@@ -39,15 +67,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             let store_path = char_path.join("STORE.DB");
 
             Task::perform(
-                async move {
-                    let weapons = WeaponItem::read_file(&weapons_path).ok();
-                    let heals = HealItem::read_file(&heals_path).ok();
-                    let misc = MiscItem::read_file(&misc_path).ok();
-                    let edit = EditItem::read_file(&edit_path).ok();
-                    let stores =
-                        Store::read_file(&store_path).map_err(|e: std::io::Error| e.to_string())?;
-                    Ok((weapons, heals, misc, edit, stores))
-                },
+                scan_store_catalog(weapons_path, heals_path, misc_path, edit_path, store_path),
                 |result: StoreScanResult| {
                     crate::message::Message::store(StoreEditorMessage::Scanned(result))
                 },
@@ -274,5 +294,54 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             editor.show_product_modal = false;
             Task::none()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dispel_core::Store;
+
+    #[test]
+    fn test_store_scan_reports_failed_item_file() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let char_dir = tmp.path().join("CharacterInGame");
+        std::fs::create_dir_all(&char_dir).expect("create CharacterInGame");
+
+        // STORE.DB is valid so the only faulty catalog is the missing item file.
+        Store::save_file(&[Store::default()], &char_dir.join("STORE.DB")).expect("write STORE.DB");
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+        let result = runtime.block_on(scan_store_catalog(
+            char_dir.join("weaponItem.db"),
+            char_dir.join("HealItem.db"),
+            char_dir.join("MiscItem.db"),
+            char_dir.join("EditItem.db"),
+            char_dir.join("STORE.DB"),
+        ));
+
+        let err = match result {
+            Ok(_) => panic!("a missing item catalog must not be silently reported as success"),
+            Err(err) => err,
+        };
+        assert!(
+            err.contains("weaponItem.db"),
+            "error must name the failed file, got: {err}"
+        );
+
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let _ = handle(StoreEditorMessage::Scanned(Err(err.clone())), &mut app);
+        let status = &app.state.editors.store_editor.status_msg;
+        assert!(
+            status.contains("Error loading store catalog") && status.contains("weaponItem.db"),
+            "status must report the failed file, got: {status}"
+        );
+        assert!(
+            !status.starts_with("Loaded:"),
+            "status must not claim success, got: {status}"
+        );
     }
 }
