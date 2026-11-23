@@ -11,14 +11,31 @@ use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
 
+/// Prompt shown when the user requests closing. Modified tabs are reported so
+/// the user is warned before discarding unsaved file edits.
+fn close_dialog_text(app: &App) -> (&'static str, &'static str) {
+    if app.state.workspace.tabs.iter().any(|tab| tab.modified) {
+        (
+            "Unsaved files",
+            "Some open files have unsaved changes. Do you want to save the workspace before closing?",
+        )
+    } else {
+        (
+            "Save workspace?",
+            "Do you want to save your workspace before closing?",
+        )
+    }
+}
+
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
         SystemMessage::CloseRequested => {
             // Handle close requested with the confirmation dialog
             use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
+            let (title, description) = close_dialog_text(app);
             let dialog = MessageDialog::new()
-                .set_title("Save workspace?")
-                .set_description("Do you want to save your workspace before closing?")
+                .set_title(title)
+                .set_description(description)
                 .set_buttons(MessageButtons::YesNoCancel);
             let result = dialog.show();
             match result {
@@ -591,5 +608,32 @@ mod tests {
             assert_eq!(app.state.workspace.active_tab, Some(0));
             assert_eq!(app.state.status_msg, "unchanged");
         }
+    }
+
+    #[test]
+    fn test_modified_tab_triggers_file_save_warning() {
+        let mut app = App::new().0;
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Save workspace?");
+        assert!(!description.contains("unsaved"));
+
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: 1,
+                label: "Test".to_string(),
+                path: None,
+                editor_type: crate::workspace::EditorType::WeaponEditor,
+                modified: true,
+                pinned: false,
+            });
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "close prompt must warn about unsaved files: {description}"
+        );
     }
 }
