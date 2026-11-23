@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 ///
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR", delimiter = ",", comment_char = ";")]
-#[patcher(filename = "*.cst")]
+#[patcher(extension = "cst", stem_prefix = "")]
 pub struct ChestSpawn {
     /// Serial number.
     #[extractor(field = 0)]

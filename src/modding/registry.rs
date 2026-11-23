@@ -116,6 +116,18 @@ impl PatcherRegistry {
             Arc::new(DialogueParagraphPatcher),
         );
 
+        // Multiplayer spawn lists: every stem with a .cst / .mon extension.
+        r.register_pattern(
+            ChestSpawnPatcher::EXTENSION,
+            ChestSpawnPatcher::STEM_PREFIX,
+            Arc::new(ChestSpawnPatcher),
+        );
+        r.register_pattern(
+            MonsterSpawnPatcher::EXTENSION,
+            MonsterSpawnPatcher::STEM_PREFIX,
+            Arc::new(MonsterSpawnPatcher),
+        );
+
         r
     }
 
@@ -242,6 +254,19 @@ mod tests {
         assert_eq!(
             r.lookup("ExtraInGame/Eventcat1.scr").unwrap().name(),
             "EventScript"
+        );
+    }
+
+    #[test]
+    fn spawn_patchers_resolve_by_extension() {
+        let r = PatcherRegistry::with_defaults();
+        assert_eq!(
+            r.lookup("Map/Multi/Chest.cst").unwrap().name(),
+            "ChestSpawn"
+        );
+        assert_eq!(
+            r.lookup("Map/Multi/Foo.mon").unwrap().name(),
+            "MonsterSpawn"
         );
     }
 

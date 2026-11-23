@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 ///
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR", delimiter = ",", comment_char = ";")]
-#[patcher(filename = "*.mon")]
+#[patcher(extension = "mon", stem_prefix = "")]
 pub struct MonsterSpawn {
     /// Serial number.
     #[extractor(field = 0)]
