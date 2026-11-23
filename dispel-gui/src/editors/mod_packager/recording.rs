@@ -135,7 +135,9 @@ pub fn capture_field_recording_context<R: EditableRecord>(
     shared_game_path: &str,
 ) -> Option<FieldEditContext> {
     let editor = editor?;
-    let (orig_idx, record) = editor.editor.filtered.get(index)?;
+    // `index` is a catalog index, so find the filtered entry by its stored
+    // original index rather than treating `index` as a filtered position.
+    let (orig_idx, record) = editor.editor.filtered.iter().find(|(i, _)| *i == index)?;
     let absolute_path = editor.current_file.as_ref()?;
     let relative_path = if shared_game_path.is_empty() {
         absolute_path.to_string_lossy().into_owned()
@@ -210,22 +212,83 @@ mod tests {
             current_file: Some(std::path::PathBuf::from("/game/MonsterInGame/Mondun01.ref")),
             ..Default::default()
         };
-        editor.editor.catalog = Some(vec![TestRecord {
-            name: "test".to_string(),
-        }]);
-        editor.editor.filtered = vec![(
-            0,
+        editor.editor.catalog = Some(vec![
             TestRecord {
                 name: "test".to_string(),
             },
-        )];
+            TestRecord {
+                name: "other".to_string(),
+            },
+        ]);
+        // Non-identity mapping: filtered position 0 is catalog index 1.
+        editor.editor.filtered = vec![
+            (
+                1,
+                TestRecord {
+                    name: "other".to_string(),
+                },
+            ),
+            (
+                0,
+                TestRecord {
+                    name: "test".to_string(),
+                },
+            ),
+        ];
 
         let result = capture_field_recording_context(Some(&editor), 0, "name", "/game");
 
         let ctx = result.expect("context should be captured");
         assert_eq!(ctx.key.file_path, "MonsterInGame/Mondun01.ref");
         assert_eq!(ctx.key.record_id, 0);
+        assert_eq!(ctx.old, "test");
         assert_eq!(ctx.key.field, "name");
+    }
+
+    #[test]
+    fn capture_context_resolves_catalog_index_not_filtered_position() {
+        let mut editor = MultiFileEditorState::<TestRecord> {
+            current_file: Some(std::path::PathBuf::from("/game/MonsterInGame/Mondun01.ref")),
+            ..Default::default()
+        };
+        editor.editor.catalog = Some(vec![
+            TestRecord {
+                name: "alpha".to_string(),
+            },
+            TestRecord {
+                name: "beta".to_string(),
+            },
+            TestRecord {
+                name: "gamma".to_string(),
+            },
+        ]);
+        // Non-identity mapping: filtered position 0 is catalog index 2.
+        editor.editor.filtered = vec![
+            (
+                2,
+                TestRecord {
+                    name: "gamma".to_string(),
+                },
+            ),
+            (
+                0,
+                TestRecord {
+                    name: "alpha".to_string(),
+                },
+            ),
+            (
+                1,
+                TestRecord {
+                    name: "beta".to_string(),
+                },
+            ),
+        ];
+
+        // The edit targets catalog index 2, not filtered position 2.
+        let ctx = capture_field_recording_context(Some(&editor), 2, "name", "/game")
+            .expect("context should be captured");
+        assert_eq!(ctx.key.record_id, 2);
+        assert_eq!(ctx.old, "gamma");
     }
 
     #[test]
