@@ -32,8 +32,6 @@ pub fn build_inspector<'a>(
         }
         SelectedEntity::Npc(i) => {
             let body: Element<'_, Message> = if let Some(record) = state.data.npcs.get(i) {
-                // Collect field elements + button into a single column
-                // (avoids iced's lifetime-invariance issues with push).
                 let mut els: Vec<Element<'_, Message>> = Vec::new();
                 for desc in NPC::field_descriptors() {
                     let value = record.get_field(desc.name);
@@ -41,15 +39,6 @@ pub fn build_inspector<'a>(
                         desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
                     ));
                 }
-                els.push(horizontal_rule(1).into());
-                let preview_btn = button(text("Preview Dialog").size(11))
-                    .on_press(Message::map_editor(MapEditorMessage::ShowDialogPreview(
-                        tab_id, i,
-                    )))
-                    .padding([4, 10])
-                    .style(style::browse_button)
-                    .into();
-                els.push(preview_btn);
                 column(els).spacing(6).into()
             } else {
                 text("NPC not found").size(12).into()

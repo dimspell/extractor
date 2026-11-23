@@ -4,7 +4,6 @@ use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
-use gui_widgets::components::modal::modal;
 use gui_widgets::components::toast;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{
@@ -13,7 +12,6 @@ use iced::widget::{
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
-mod dialog_preview;
 mod fields;
 mod inspector;
 mod sprites;
@@ -580,20 +578,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .accessible_label("Map editor")
                 .into();
 
-            // Wrap in dialog preview modal if open
-            let root: Element<'_, Message> = if let Some(ref preview) = state.view.dialog_preview {
-                modal(
-                    base,
-                    dialog_preview::view_dialog_preview(state, tab_id, preview),
-                    move || Message::map_editor(MapEditorMessage::HideDialogPreview(tab_id)),
-                    0.5,
-                )
-            } else {
-                base
-            };
-
             // Toast notifications overlay (top-right, auto-dismiss).
-            toast::Manager::new(root, &state.data.toasts, move |i| {
+            toast::Manager::new(base, &state.data.toasts, move |i| {
                 Message::map_editor(MapEditorMessage::DismissToast(tab_id, i))
             })
             .timeout(3)

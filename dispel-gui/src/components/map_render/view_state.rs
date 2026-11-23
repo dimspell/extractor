@@ -62,10 +62,6 @@ pub struct MapViewState {
     /// the collision/event geometry.  Clear on pan, zoom, layer toggle, or
     /// selection change — but NOT on `MouseMoved`.
     pub overlay_cache: canvas::Cache,
-    /// NPC dialog preview modal state (None = closed).
-    pub dialog_preview: Option<crate::editors::map_editor::state::DialogPreviewState>,
-    /// Interactive conversation display state (None = not in conversation).
-    pub conversation: Option<crate::editors::map_editor::state::ConversationState>,
 }
 
 impl Default for MapViewState {
@@ -102,8 +98,6 @@ impl Default for MapViewState {
             selected_entity: None,
             tile_layer_cache: canvas::Cache::new(),
             overlay_cache: canvas::Cache::new(),
-            dialog_preview: None,
-            conversation: None,
         }
     }
 }

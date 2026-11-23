@@ -2,21 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dispel_core::references::dialogue_paragraph::DialogueParagraph;
-use dispel_core::references::dialogue_script::DialogueScript;
-
-/// Async result type for conversation data loading.
-pub type ConversationLoadResult = Result<
-    (
-        usize,
-        String,
-        i32,
-        Vec<DialogueScript>,
-        Vec<DialogueParagraph>,
-    ),
-    String,
->;
-
 /// Clonable, debuggable handle for the non-Debug `MapData` type.
 #[derive(Clone)]
 pub struct MapDataHandle(pub Arc<dispel_core::map::MapData>);
@@ -174,34 +159,6 @@ pub enum MapEditorMessage {
     SaveMap(usize),
     /// Async .map save completed. Ok carries a status message; Err the error text.
     MapSaved(usize, Result<String, String>),
-    /// Open dialog preview for an NPC (spawns async load of .dlg/.pgp).
-    ShowDialogPreview(usize, usize),
-    /// Async dialog preview loaded.
-    DialogPreviewLoaded(
-        usize,
-        Result<
-            (
-                usize,
-                Vec<dispel_core::references::dialogue_script::DialogueScript>,
-                Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
-            ),
-            String,
-        >,
-    ),
-    /// Close the dialog preview modal.
-    HideDialogPreview(usize),
-    /// Start an interactive conversation with the selected NPC.
-    StartConversation(usize, usize),
-    /// Advance the conversation (click to continue for normal dialogs).
-    AdvanceConversation(usize),
-    /// Select a choice option in a choice dialog.
-    SelectChoice(usize, usize),
-    /// Reset the conversation to the beginning.
-    ResetConversation(usize),
-    /// Close the conversation display.
-    CloseConversation(usize),
-    /// Async conversation data loaded (when dialog_preview wasn't available).
-    ConversationLoaded(usize, ConversationLoadResult),
     /// Export the map to Tiled TMX format.
     ExportTmx(usize),
     /// Async TMX export completed. Ok carries the output path; Err the error.
