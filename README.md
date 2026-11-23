@@ -1,6 +1,6 @@
 # DISPEL® Game File Extractor
 
-A modding toolkit for the **DISPEL®** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 45 editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
+A modding toolkit for the **DISPEL®** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 46 editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
 
 **Not affiliated with, endorsed by, or sponsored by the trademark owner.**
 
@@ -14,7 +14,7 @@ This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 | ------------------------- | ---------- | --------------------------------------------------------------- |
 | `dispel-extractor` (root) | lib + bin  | Core library (`dispel_core`) + CLI binary                       |
 | `dispel-encodings`        | lib        | Shared text-encoding registry used by macros and core           |
-| `dispel-gui`              | bin        | Iced desktop GUI with 45 editor types                           |
+| `dispel-gui`              | bin        | Iced desktop GUI with 46 editor types                           |
 | `dispel-macros`           | proc-macro | 7 derive macros (Extractor, Localizable, RecordPatcher, etc.)   |
 | `gui-widgets`             | lib        | Reusable Iced widgets (ContextMenu, modal, ParagraphCache)      |
 | `hexedit`                 | lib + bin  | Full hex editor                                                 |
@@ -193,7 +193,7 @@ cargo run -p dispel-gui
 
 The GUI provides:
 
-- **45 editor types** — spreadsheet views for every supported game data format
+- **46 editor types** — spreadsheet views for every supported game data format
 - **3-pane layout** — sidebar (file tree), main content (editors), history panel (undo/redo)
 - **Undo/redo** with full edit history per editor
 - **Mod recording** — tracks every field change for mod changelog generation
@@ -201,6 +201,8 @@ The GUI provides:
 - **Hex editor** — built-in hex editor (from `hexedit` crate)
 - **Map viewer** — isometric rendering with viewport + LRU cache
 - **SNF audio playback** — rodio-based sound preview
+- **Audio viewer** — read-only OGG/WAV playback with timeline and volume
+- **BMP viewer** — read-only image preview with zoom and fit-to-viewport
 - **Mod packager** — package changes into `dispel-mod` archives
 
 ---
