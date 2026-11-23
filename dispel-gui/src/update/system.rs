@@ -11,10 +11,45 @@ use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
 
-/// Prompt shown when the user requests closing. Modified tabs are reported so
-/// the user is warned before discarding unsaved file edits.
+/// Prompt shown when the user requests closing. Both the workspace tab flags
+/// and the dirty state kept by custom editors are reported so the user is
+/// warned before discarding unsaved file edits.
 fn close_dialog_text(app: &App) -> (&'static str, &'static str) {
-    if app.state.workspace.tabs.iter().any(|tab| tab.modified) {
+    let tab_modified = app.state.workspace.tabs.iter().any(|tab| tab.modified);
+    let has_open_tab = |id: &usize| app.state.workspace.tabs.iter().any(|t| t.id == *id);
+    let has_editor = |kind: EditorType| {
+        app.state
+            .workspace
+            .tabs
+            .iter()
+            .any(|t| t.editor_type == kind)
+    };
+    // Some editors own their dirty flag instead of setting `tab.modified`.
+    // Per-tab editors are mapped back through their tab id; single-instance
+    // editors are checked only while a tab of that kind is open.
+    let custom_dirty = app
+        .state
+        .editors
+        .snf_editors
+        .iter()
+        .any(|(id, editor)| editor.modified && has_open_tab(id))
+        || app
+            .state
+            .editors
+            .hex_editors
+            .iter()
+            .any(|(id, editor)| editor.provider.dirty_count() > 0 && has_open_tab(id))
+        || (app.state.editors.event_scr_editor.modified && has_editor(EditorType::EventScrEditor))
+        || (app
+            .state
+            .editors
+            .save_ifo_editor
+            .data
+            .as_ref()
+            .is_some_and(|data| data.dirty)
+            && has_editor(EditorType::SaveIfoEditor));
+
+    if tab_modified || custom_dirty {
         (
             "Unsaved files",
             "Some open files have unsaved changes. Closing will discard those file edits; Yes saves workspace state and closes, No closes without saving it.",
@@ -647,6 +682,50 @@ mod tests {
             !description.contains("save the workspace before closing")
                 && !description.contains("save your files"),
             "close prompt must not promise saving file edits: {description}"
+        );
+    }
+
+    #[test]
+    fn test_dirty_snf_tab_warns_without_tab_modified_flag() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .open("test.snf".into(), Some(PathBuf::from("test.snf")));
+        let tab_id = app.state.workspace.active_tab_id().as_usize();
+        assert!(!app.state.workspace.tabs[0].modified);
+
+        let mut state = crate::editors::snf_editor::SnfEditorState::load_from_path(
+            std::path::Path::new("test.snf"),
+        );
+        state.modified = true;
+        app.state.editors.snf_editors.insert(tab_id, state);
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "dirty SNF editor must trigger the file-edits warning: {description}"
+        );
+    }
+
+    #[test]
+    fn test_dirty_event_script_tab_warns_without_tab_modified_flag() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .open("Event.scr".into(), Some(PathBuf::from("Event.scr")));
+        app.state.workspace.tabs[0].editor_type = crate::workspace::EditorType::EventScrEditor;
+        assert!(!app.state.workspace.tabs[0].modified);
+
+        app.state.editors.event_scr_editor.modified = true;
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "dirty event-script editor must trigger the file-edits warning: {description}"
         );
     }
 }
