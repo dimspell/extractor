@@ -173,8 +173,10 @@ impl CacheValidator {
             return false;
         }
 
-        // Check if cache is too old (30 days)
-        let cache_age = FileIndexCacheManager::current_timestamp() - cache.last_indexed;
+        // Check if cache is too old (30 days). A future/corrupt on-disk
+        // timestamp must saturate to a zero age instead of underflowing.
+        let cache_age =
+            FileIndexCacheManager::current_timestamp().saturating_sub(cache.last_indexed);
         if cache_age > 30 * 24 * 60 * 60 {
             // 30 days in seconds
             return false;
