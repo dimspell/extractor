@@ -72,16 +72,13 @@ impl Extractor for MapInfoMulti {
         // (100 bytes). We read exactly one record per file.
         let expected = len as usize;
         if expected != 100 {
-            // Allow slightly larger reads for compatibility with existing files.
-            if expected > 104 {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!(
-                        ".ifm file size {} does not match expected ~100 bytes",
-                        expected
-                    ),
-                ));
-            }
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    ".ifm file size {} does not match the single 100-byte record",
+                    expected
+                ),
+            ));
         }
 
         let mut items = Vec::with_capacity(1);
@@ -233,5 +230,50 @@ impl std::fmt::Display for MapInfoMulti {
             self.mon_filename,
             self.npc_spawns.len()
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn sample_ifm_bytes() -> Vec<u8> {
+        let mut bytes = vec![0u8; 100];
+        bytes[..4].copy_from_slice(b"MAPA");
+        bytes[8..12].copy_from_slice(&149u32.to_le_bytes());
+        bytes[12..16].copy_from_slice(&25u32.to_le_bytes());
+        bytes[16..20].copy_from_slice(&248u32.to_le_bytes());
+        bytes[0x24..0x29].copy_from_slice(b"TGTA1");
+        bytes[0x2c..0x30].copy_from_slice(b"MAPA");
+        bytes
+    }
+
+    #[test]
+    fn test_parse_rejects_file_with_trailing_bytes() {
+        let mut bytes = sample_ifm_bytes();
+        bytes.extend_from_slice(&[0u8; 2]);
+        assert_eq!(bytes.len(), 102);
+
+        let error = MapInfoMulti::parse(&mut Cursor::new(bytes.as_slice()), bytes.len() as u64)
+            .expect_err("102-byte .ifm must be rejected instead of silently truncated");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_round_trip_exact_100_bytes() {
+        let bytes = sample_ifm_bytes();
+        let records = MapInfoMulti::parse(&mut Cursor::new(bytes.as_slice()), bytes.len() as u64)
+            .expect("100-byte .ifm is the only accepted size");
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].self_name, "MAPA");
+        assert_eq!(records[0].anchor_tile_index, 149);
+        assert_eq!(records[0].transition_target, "TGTA1");
+        assert_eq!(records[0].npc_spawns.len(), 4);
+
+        let mut out = Vec::new();
+        MapInfoMulti::to_writer(&records, &mut out).expect("write .ifm");
+        assert_eq!(out.len(), 100);
+        assert_eq!(out, bytes);
     }
 }
