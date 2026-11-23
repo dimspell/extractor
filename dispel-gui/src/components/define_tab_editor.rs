@@ -159,6 +159,7 @@ macro_rules! define_tab_editor {
                         let task = $crate::update::editor::tab::field_changed(
                             &mut app.state.editors.$field, tab_id, index, field.clone(), value,
                         );
+                        app.state.workspace.mark_modified();
                         let observe = match captured {
                             Some(ctx)
                                 if ctx.old != new_value =>
@@ -172,10 +173,13 @@ macro_rules! define_tab_editor {
                         observe.chain(task)
                     }
                     [<$Name EditorMessage>]::Save => {
-                        $crate::update::editor::tab::save(
+                        let result = $crate::update::editor::tab::save(
                             &mut app.state.editors.$field, tab_id,
                             $save_success_msg, $save_error_msg,
-                        )
+                        );
+                        ::iced::Task::done($crate::message::Message::$name(
+                            [<$Name EditorMessage>]::Saved(result),
+                        ))
                     }
                     [<$Name EditorMessage>]::Spreadsheet(msg) => {
                         $crate::handle_spreadsheet_messages_tab!(
@@ -209,7 +213,10 @@ macro_rules! define_tab_editor {
                             &mut app.state.editors.$field, tab_id, index,
                         )
                     }
-                    [<$Name EditorMessage>]::Saved(_) => {
+                    [<$Name EditorMessage>]::Saved(result) => {
+                        if result.is_ok() {
+                            app.state.workspace.clear_modified();
+                        }
                         ::iced::Task::none()
                     }
                     // LoadCatalog / CatalogLoaded / Extension are handled by

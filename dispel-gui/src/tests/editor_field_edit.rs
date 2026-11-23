@@ -764,3 +764,92 @@ mod custom_editors {
         );
     }
 }
+
+// ============================================================================
+// Unsaved-change tracking
+// ============================================================================
+
+#[cfg(test)]
+mod modified_flag_routing {
+    use super::*;
+    use crate::workspace::EditorType;
+
+    fn app_with_tab(editor_type: EditorType) -> App {
+        let mut app = App::test_new(Workspace::new());
+        app.state.workspace.open("test.db".into(), None);
+        app.state.workspace.tabs[0].editor_type = editor_type;
+        app
+    }
+
+    #[test]
+    fn field_change_marks_and_saved_clears_modified_flag() {
+        use dispel_core::Monster;
+
+        let mut app = app_with_tab(EditorType::MonsterEditor);
+        app.state.editors.monster_editor.catalog = Some(vec![Monster::default()]);
+        app.state.editors.monster_editor.refresh();
+        app.state.editors.monster_editor.select(0);
+
+        assert!(!app.state.workspace.active().unwrap().modified);
+        let _ = crate::editors::monster::handle(
+            crate::editors::monster::MonsterEditorMessage::FieldChanged(
+                0,
+                "name".to_string(),
+                "New".to_string(),
+            ),
+            &mut app,
+        );
+        assert!(
+            app.state.workspace.active().unwrap().modified,
+            "FieldChanged marks the active tab modified"
+        );
+
+        let _ = crate::editors::monster::handle(
+            crate::editors::monster::MonsterEditorMessage::Saved(Ok(())),
+            &mut app,
+        );
+        assert!(
+            !app.state.workspace.active().unwrap().modified,
+            "successful save clears the active tab's modified flag"
+        );
+    }
+
+    #[test]
+    fn tabbed_field_change_marks_and_saved_clears_modified_flag() {
+        let mut app = app_with_tab(EditorType::MonsterRefEditor);
+        let tab_id = app.state.workspace.active().unwrap().id;
+        app.state
+            .editors
+            .monster_ref_editor
+            .editors
+            .insert(tab_id, Default::default());
+        app.state
+            .editors
+            .monster_ref_editor
+            .spreadsheets
+            .insert(tab_id, Default::default());
+
+        assert!(!app.state.workspace.active().unwrap().modified);
+        let _ = crate::editors::monster_ref::handle(
+            crate::editors::monster_ref::MonsterRefEditorMessage::FieldChanged(
+                0,
+                "name".to_string(),
+                "New".to_string(),
+            ),
+            &mut app,
+        );
+        assert!(
+            app.state.workspace.active().unwrap().modified,
+            "tabbed FieldChanged marks the active tab modified"
+        );
+
+        let _ = crate::editors::monster_ref::handle(
+            crate::editors::monster_ref::MonsterRefEditorMessage::Saved(Ok(())),
+            &mut app,
+        );
+        assert!(
+            !app.state.workspace.active().unwrap().modified,
+            "tabbed successful save clears the modified flag"
+        );
+    }
+}

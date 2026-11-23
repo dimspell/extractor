@@ -149,6 +149,7 @@ macro_rules! define_standard_editor {
                             $file,
                             $crate::message::Message::$name,
                         );
+                        app.state.workspace.mark_modified();
                         // Only record if the edit actually changed the value
                         // (avoids no-op observations). The field identity is
                         // one canonical FieldKey, shared with the core
@@ -168,6 +169,21 @@ macro_rules! define_standard_editor {
                             ::iced::Task::none()
                         };
                         observe.chain(task)
+                    }
+                    [<$Name EditorMessage>]::Saved(result) => {
+                        let succeeded = result.is_ok();
+                        let task = $crate::components::standard::update::handle(
+                            [<$Name EditorMessage>]::Saved(result),
+                            &mut app.state.editors.$field,
+                            &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
+                            $file,
+                            $crate::message::Message::$name,
+                        );
+                        if succeeded {
+                            app.state.workspace.clear_modified();
+                        }
+                        task
                     }
                     [<$Name EditorMessage>]::LoadCatalog => {
                         // Ensure item lookups are populated for CompositeItem
@@ -308,6 +324,7 @@ macro_rules! define_standard_editor {
                             $file,
                             [<wrap_ $name _std>],
                         );
+                        app.state.workspace.mark_modified();
                         let context =
                             $crate::editors::mod_packager::recording::FieldEditContext {
                                 old: old_value,
@@ -323,6 +340,21 @@ macro_rules! define_standard_editor {
                             ::iced::Task::none()
                         };
                         observe.chain(task)
+                    }
+                    [<$Name EditorMessage>]::Saved(result) => {
+                        let succeeded = result.is_ok();
+                        let task = $crate::components::standard::update::handle(
+                            $crate::components::standard::message::StandardEditorMessage::Saved(result),
+                            &mut app.state.editors.$field,
+                            &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
+                            $file,
+                            [<wrap_ $name _std>],
+                        );
+                        if succeeded {
+                            app.state.workspace.clear_modified();
+                        }
+                        task
                     }
                     [<$Name EditorMessage>]::LoadCatalog => {
                         $crate::components::item_catalog::ensure_item_lookups(

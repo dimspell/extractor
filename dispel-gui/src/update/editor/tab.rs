@@ -53,17 +53,18 @@ pub fn save<T: EditableRecord + Extractor>(
     tab_id: usize,
     success_msg: &str,
     error_label: &str,
-) -> Task<Message> {
-    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
-        editor.editor.loading_state = LoadingState::Loading;
-        let result = editor.save();
-        editor.editor.loading_state = LoadingState::Loaded(());
-        match result {
-            Ok(_) => editor.editor.status_msg = success_msg.into(),
-            Err(e) => editor.editor.status_msg = format!("{}: {}", error_label, e),
-        }
+) -> Result<(), String> {
+    let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) else {
+        return Ok(());
+    };
+    editor.editor.loading_state = LoadingState::Loading;
+    let result = editor.save();
+    editor.editor.loading_state = LoadingState::Loaded(());
+    match &result {
+        Ok(_) => editor.editor.status_msg = success_msg.into(),
+        Err(e) => editor.editor.status_msg = format!("{}: {}", error_label, e),
     }
-    Task::none()
+    result
 }
 
 pub fn add_entry<T: EditableRecord + Extractor>(
