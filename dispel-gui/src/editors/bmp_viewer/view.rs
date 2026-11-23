@@ -61,8 +61,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .padding([6, 12])
     .align_y(Alignment::Center);
 
-    let zoom_label = container(text(format!("Zoom {:.0}%", viewer.zoom * 100.0)).size(11))
-        .padding([2, 12]);
+    let zoom_label =
+        container(text(format!("Zoom {:.0}%", viewer.zoom * 100.0)).size(11)).padding([2, 12]);
 
     let fit_mode = viewer.fit_mode;
     let zoom = viewer.zoom;
@@ -92,9 +92,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .height(Fill)
     .into();
 
-    column![header, zoom_label, scrollable(canvas).width(Fill).height(Fill)]
-        .spacing(0)
-        .height(Fill)
-        .accessible_label("BMP viewer")
-        .into()
+    column![
+        header,
+        zoom_label,
+        scrollable(canvas).width(Fill).height(Fill)
+    ]
+    .spacing(0)
+    .height(Fill)
+    .accessible_label("BMP viewer")
+    .into()
 }

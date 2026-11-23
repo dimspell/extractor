@@ -54,10 +54,7 @@ impl PendingPlayback {
     }
 
     pub fn take(&self) -> Option<PlaybackHandle> {
-        self.0
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .take()
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).take()
     }
 }
 

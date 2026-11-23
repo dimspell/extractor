@@ -1,7 +1,5 @@
 use crate::app::App;
-use crate::editors::bmp_viewer::{
-    BmpViewerMessage, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP,
-};
+use crate::editors::bmp_viewer::{BmpViewerMessage, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP};
 use iced::Task;
 
 pub fn handle(message: BmpViewerMessage, app: &mut App) -> Task<crate::message::Message> {

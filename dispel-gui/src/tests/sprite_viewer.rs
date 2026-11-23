@@ -407,9 +407,8 @@ mod bmp_viewer_tests {
     fn test_bmp_viewer_per_tab_isolation() {
         let file = bmp_fixture();
         let loaded = BmpViewerState::load_from_path(file.path());
-        let broken = BmpViewerState::load_from_path(Path::new(
-            "/definitely/not/a/real/invented_broken.bmp",
-        ));
+        let broken =
+            BmpViewerState::load_from_path(Path::new("/definitely/not/a/real/invented_broken.bmp"));
 
         let mut app = app_with_bmp_viewer(loaded, 1);
         app.state.workspace.tabs.push(WorkspaceTab {

@@ -44,9 +44,11 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             // it on a blocking worker so the UI thread stays responsive.
             return Task::perform(
                 async move {
-                    tokio::task::spawn_blocking(move || start_playback(wav_bytes, volume, is_looping))
-                        .await
-                        .unwrap_or_else(|e| Err(e.to_string()))
+                    tokio::task::spawn_blocking(move || {
+                        start_playback(wav_bytes, volume, is_looping)
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
                 },
                 move |result| {
                     crate::message::Message::snf_editor(SnfEditorMessage::PlaybackReady(

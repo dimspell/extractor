@@ -150,10 +150,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .width(Length::Fixed(120.0));
 
     let controls = container(
-        row![play_pause_btn, stop_btn, loop_btn, text("Vol:").size(11), volume_slider]
-            .spacing(8)
-            .padding([6, 12])
-            .align_y(Alignment::Center),
+        row![
+            play_pause_btn,
+            stop_btn,
+            loop_btn,
+            text("Vol:").size(11),
+            volume_slider
+        ]
+        .spacing(8)
+        .padding([6, 12])
+        .align_y(Alignment::Center),
     )
     .width(Fill);
 
