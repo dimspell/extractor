@@ -15,6 +15,16 @@ pub fn handle(message: AudioViewerMessage, app: &mut App) -> Task<crate::message
 
     match message {
         AudioViewerMessage::Play => {
+            // The view offers "Play" while paused: resume the existing player
+            // so its position is kept, mirroring the Pause toggle's resume arm.
+            if let Some(pb) = &editor.playback
+                && pb.player.is_paused()
+                && !pb.player.empty()
+            {
+                pb.player.play();
+                return Task::none();
+            }
+
             if editor
                 .playback
                 .as_ref()

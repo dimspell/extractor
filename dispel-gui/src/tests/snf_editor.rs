@@ -542,6 +542,72 @@ mod audio_viewer_tests {
         );
     }
 
+    /// A paused, non-empty playback backed by an in-memory mixer.
+    fn paused_playback() -> (
+        crate::components::audio_playback::PendingPlayback,
+        std::sync::Arc<rodio::Player>,
+    ) {
+        use crate::components::audio_playback::{PendingPlayback, PlaybackHandle};
+        use std::sync::Arc;
+        use std::sync::atomic::AtomicBool;
+
+        let channels = std::num::NonZero::new(1).unwrap();
+        let sample_rate = std::num::NonZero::new(8000).unwrap();
+        let (mixer, _source) = rodio::mixer::mixer(channels, sample_rate);
+        let player = Arc::new(rodio::Player::connect_new(&mixer));
+        player.append(rodio::source::Zero::new(channels, sample_rate));
+        player.pause();
+        assert!(player.is_paused() && !player.empty());
+
+        let handle = PlaybackHandle::new(
+            Arc::clone(&player),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            std::thread::spawn(|| {}),
+        );
+        (PendingPlayback::new(handle), player)
+    }
+
+    #[test]
+    fn test_audio_viewer_play_resumes_paused_playback() {
+        use std::sync::Arc;
+
+        let file = wav_fixture();
+        let mut app = app_with_audio_viewer(AudioViewerState::load_from_path(file.path()));
+        let tab_id = 1;
+
+        let (pending, player) = paused_playback();
+        let _ = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        let generation = app.state.editors.audio_viewers[&tab_id].playback_generation;
+        let _ = audio_viewer::handle(
+            AudioViewerMessage::PlaybackReady(tab_id, generation, Ok(pending)),
+            &mut app,
+        );
+        assert!(
+            app.state.editors.audio_viewers[&tab_id]
+                .playback
+                .as_ref()
+                .unwrap()
+                .player
+                .is_paused()
+        );
+
+        // Play on a paused, non-empty player must resume it in place.
+        let task = audio_viewer::handle(AudioViewerMessage::Play, &mut app);
+        assert_eq!(task.units(), 0, "resuming must not start a new playback");
+        let editor = &app.state.editors.audio_viewers[&tab_id];
+        let current = editor.playback.as_ref().expect("playback must be kept");
+        assert!(
+            Arc::ptr_eq(&current.player, &player),
+            "the same handle must be reused so the position is preserved"
+        );
+        assert!(!current.player.is_paused(), "the player must be playing");
+        assert_eq!(
+            editor.playback_generation, generation,
+            "resuming must not invalidate the current playback"
+        );
+    }
+
     #[test]
     fn test_audio_viewer_playback_state_transitions_without_device() {
         let file = wav_fixture();
