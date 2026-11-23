@@ -41,7 +41,7 @@ MAP_RENDER_TARGETS := map-render map-render-legacy map-render-lit \
         database-import database-dialog-texts database-maps \
         database-databases database-refs database-rest \
         sprite sprite-animation sprite-animation-legacy sprite-sprite sprite-info \
-        sound sound-legacy dialog dialog-basic dialogs \
+        sound sound-legacy \
         mod-pack mod-pack-pretty mod-pack-single cli-smoke
 
 # ============================================================================
@@ -467,25 +467,6 @@ sound:
 # (Legacy convenience)
 sound-legacy:
 	cargo run -- sound to-wav notexist.snf Piach.wav
-
-# ============================================================================
-# dialog — Print dialog flow from DLG/PGP files
-# ============================================================================
-# Usage: dialog <DLG_FILE> [-p <PGP>] [-n <NPC_REF>] [-d <DATABASE>]
-# Variables: DLG, PGP, NPC_REF, DB
-
-dialog:
-	cargo run -- dialog "$(DLG)" -p "$(PGP)" -n "$(NPC_REF)" -d "$(DB)"
-
-dialog-basic:
-	cargo run -- dialog "$(DLG)"
-
-# (Legacy full pipeline)
-dialogs:
-	cargo run -- dialog "$(game_path)/NpcInGame/Dlgcat1.dlg" \
-		-p "$(game_path)/NpcInGame/Pgpcat1.pgp" \
-		-n "$(game_path)/NpcInGame/Npccat1.ref" \
-		--database "$(db_path)"
 
 # ============================================================================
 # mod-pack — Export event scripts to JSON (for Godot etc.)

@@ -67,9 +67,6 @@ cargo run -- map tiles "cat1.gtl" --output out/tiles/
 cargo run -- map atlas "cat1.btl" cat1_atlas.png
 cargo run -- map render --map cat1.map --btl cat1.btl --gtl cat1.gtl --output map.png
 
-# Dialogue parsing
-cargo run -- dialog "DlgMapFiles.dlg"
-
 # SQLite database import
 cargo run -- database import "path/to/Dispel/" db.sqlite
 

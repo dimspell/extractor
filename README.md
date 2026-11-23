@@ -28,7 +28,7 @@ This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 | `src/sprite.rs`       | `.spr` sprite and animation parser (RGB 565)                        |
 | `src/snf.rs`          | `.snf` audio parser (PCM → WAV conversion)                          |
 | `src/modding/`        | Mod authoring pipeline (apply, patch, package, conflict resolution) |
-| `src/commands/`       | CLI command implementations (12 subcommands)                        |
+| `src/commands/`       | CLI command implementations (11 subcommands)                        |
 | `src/queries/`        | 118 SQL files (59 schema DDL + 59 parameterized INSERTs)            |
 | `src/localization.rs` | Text export/import for translations                                 |
 | `src/database.rs`     | SQLite schema bootstrap                                             |
@@ -161,12 +161,6 @@ cargo run -- map atlas fixtures/Dispel/Map/cat1.btl cat1_atlas.png
 
 # Extract sprites used in a map
 cargo run -- map sprites fixtures/Dispel/Map/cat1.map --output out/cat1_sprites/
-```
-
-### Dialogue parsing
-
-```bash
-cargo run -- dialog fixtures/Dispel/Map/DlgMapFiles.dlg
 ```
 
 ### SQLite database import

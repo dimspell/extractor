@@ -448,7 +448,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
   - `light_template` is configurable (`make map-render-lit light_template=/path/to/light_template.png`); the default is `$(game_path)/Map/light_template.png` and assumes no sibling repo.
 - `extract-*` (~24 targets) — extract individual game files to JSON
 - `database-*` — SQLite import (maps, databases, refs, rest, dialog-texts)
-- `template*`, `patch-*`, `list-json`, `sprite-info`, `dialogs`, `mod-pack-*` — misc pipelines
+- `template*`, `patch-*`, `list-json`, `sprite-info`, `mod-pack-*` — misc pipelines
 
 `make help` lists CLI subcommands; the Makefile's `.PHONY` list is kept in sync with real recipes by `scripts/check-project-metadata.sh`.
 
@@ -525,7 +525,7 @@ cargo run -- database import "path/to/Dispel/" db.sqlite
 cargo run -- mod-pack ...
 ```
 
-Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, template, map, database, sprite, sound, dialog, mod-pack.
+Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, template, map, database, sprite, sound, mod-pack.
 
 ---
 

@@ -1,7 +1,6 @@
 // Command module structure
 
 pub mod database;
-pub mod dialog;
 pub mod list;
 pub mod map;
 pub mod pack;

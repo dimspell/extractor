@@ -12,7 +12,6 @@
 //! The behaviour (`Command::execute`) lives in `crate::commands::*`.
 
 use std::error::Error;
-use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -194,31 +193,6 @@ pub enum SoundCommands {
         /// Destination .SNF file
         output: String,
     },
-}
-
-/// `dialog`: print the dialog flow of a DLG/PGP pair.
-#[derive(Args, Clone)]
-pub struct DialogArgs {
-    /// Path to the DLG file (dialog configuration)
-    #[arg(value_name = "DLG_FILE")]
-    pub dlg_path: PathBuf,
-
-    /// Path to the corresponding PGP file (dialog text/paragraphs)
-    #[arg(short, long, value_name = "PGP_FILE")]
-    pub pgp_path: Option<PathBuf>,
-
-    /// Path to the NPC ref file (for linking NPC names to dialogs)
-    #[arg(short = 'n', long = "npc-ref", value_name = "NPC_REF_FILE")]
-    pub npc_ref_path: Option<PathBuf>,
-
-    /// Path to SQLite database for event information
-    #[arg(
-        short = 'd',
-        long = "database",
-        alias = "database-path",
-        value_name = "DATABASE_FILE"
-    )]
-    pub database_path: Option<PathBuf>,
 }
 
 /// `map`: map extraction / rendering / conversion (subcommand selects the operation).
@@ -547,12 +521,6 @@ define_commands! {
         long_about: "Convert SNF to WAV or WAV to SNF.\n\nExamples:\n  dispel-extractor sound to-wav track.snf track.wav\n  dispel-extractor sound from-wav track.wav track.snf",
         args: SoundArgs,
     },
-    Dialog {
-        name: "dialog",
-        about: "Print dialog flow from DLG and PGP files",
-        long_about: "Reads a DLG (dialog configuration) file and optionally a PGP (dialog text) file, then prints the complete dialog flow as a tree.\n\nUsage Examples:\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref --database database.sqlite",
-        args: DialogArgs,
-    },
     ModPack {
         name: "mod-pack",
         about: "Batch export event scripts (.scr) to JSON",
@@ -611,7 +579,7 @@ mod tests {
             names,
             [
                 "extract", "patch", "validate", "list", "schema", "template", "map", "database",
-                "sprite", "sound", "dialog", "mod-pack"
+                "sprite", "sound", "mod-pack"
             ]
         );
     }
@@ -705,11 +673,6 @@ mod tests {
         assert!(
             !MAKEFILE.contains("sound --input"),
             "sound has no --input/--output flags"
-        );
-        // `dialog` advertises `--database` in its own long_about.
-        assert!(
-            MAKEFILE.contains("--database \"$(db_path)\""),
-            "make dialogs must use the documented --database flag"
         );
         assert!(
             !MAKEFILE.contains("--database-path"),
