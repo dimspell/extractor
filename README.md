@@ -1,6 +1,6 @@
-# Dispel Game File Extractor
+# DISPEL® Game File Extractor
 
-A modding toolkit for the **DISPEL** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 38+ editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
+A modding toolkit for the **DISPEL®** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 45 editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
 
 **Not affiliated with, endorsed by, or sponsored by the trademark owner.**
 
@@ -8,15 +8,16 @@ A modding toolkit for the **DISPEL** RPG game. Reads and writes game files in na
 
 ## What's in this repository
 
-This is a 5-crate Cargo workspace (Rust 2024, version `0.9.1`):
+This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 
-| Crate                     | Type       | Role                                                          |
-| ------------------------- | ---------- | ------------------------------------------------------------- |
-| `dispel-extractor` (root) | lib + bin  | Core library (`dispel_core`) + CLI binary                     |
-| `dispel-gui`              | bin        | Iced 0.15 desktop GUI with 38+ editor types                   |
-| `dispel-macros`           | proc-macro | 5 derive macros (Extractor, Localizable, RecordPatcher, etc.) |
-| `gui-widgets`             | lib        | Reusable Iced widgets (ContextMenu, modal, ParagraphCache)    |
-| `hexedit`                 | lib + bin  | Full hex editor                                               |
+| Crate                     | Type       | Role                                                            |
+| ------------------------- | ---------- | --------------------------------------------------------------- |
+| `dispel-extractor` (root) | lib + bin  | Core library (`dispel_core`) + CLI binary                       |
+| `dispel-encodings`        | lib        | Shared text-encoding registry used by macros and core           |
+| `dispel-gui`              | bin        | Iced desktop GUI with 45 editor types                           |
+| `dispel-macros`           | proc-macro | 7 derive macros (Extractor, Localizable, RecordPatcher, etc.)   |
+| `gui-widgets`             | lib        | Reusable Iced widgets (ContextMenu, modal, ParagraphCache)      |
+| `hexedit`                 | lib + bin  | Full hex editor                                                 |
 
 ### Key source directories (`src/` in root crate)
 
@@ -28,7 +29,7 @@ This is a 5-crate Cargo workspace (Rust 2024, version `0.9.1`):
 | `src/snf.rs`          | `.snf` audio parser (PCM → WAV conversion)                          |
 | `src/modding/`        | Mod authoring pipeline (apply, patch, package, conflict resolution) |
 | `src/commands/`       | CLI command implementations (12 subcommands)                        |
-| `src/queries/`        | 70 SQL files (schema DDL + parameterized INSERTs)                   |
+| `src/queries/`        | 118 SQL files (59 schema DDL + 59 parameterized INSERTs)            |
 | `src/localization.rs` | Text export/import for translations                                 |
 | `src/database.rs`     | SQLite schema bootstrap                                             |
 
@@ -84,7 +85,7 @@ This is a 5-crate Cargo workspace (Rust 2024, version `0.9.1`):
 | `.dlg` / `.pgp` | Dialogue scripts and text (EUC-KR / 1250)      |
 | `.scr`          | Event scripts (1250)                           |
 
-Full format specs are in `docs/files/` (32 per-format documents + `CROSS_REFERENCES.md` with 321-row cross-reference table).
+Full format specs are in `docs/files/` (36 per-format documents plus `CROSS_REFERENCES.md`).
 
 ---
 
@@ -198,7 +199,7 @@ cargo run -p dispel-gui
 
 The GUI provides:
 
-- **38+ editor types** — spreadsheet views for every supported game data format
+- **45 editor types** — spreadsheet views for every supported game data format
 - **3-pane layout** — sidebar (file tree), main content (editors), history panel (undo/redo)
 - **Undo/redo** with full edit history per editor
 - **Mod recording** — tracks every field change for mod changelog generation
@@ -221,22 +222,23 @@ dispel-extractor/
 │   ├── map/                  # .map parser + isometric renderer
 │   ├── modding/              # Mod authoring pipeline
 │   ├── commands/             # CLI command implementations
-│   ├── queries/              # 70 SQL files (schema + INSERTs)
+│   ├── queries/              # 118 SQL files (59 DDL + 59 INSERTs)
 │   ├── sprite.rs             # .spr parser
 │   ├── snf.rs                # .snf audio parser
 │   ├── localization.rs       # Text export/import
 │   ├── database.rs           # SQLite schema bootstrap
 │   ├── cli.rs                # clap subcommand definitions
 │   └── main.rs               # CLI entry point
-├── dispel-gui/               # Iced 0.15 desktop GUI (binary only)
-├── dispel-macros/            # Proc-macro crate (5 derive macros)
+├── dispel-encodings/         # Shared text-encoding registry
+├── dispel-gui/               # Iced desktop GUI (binary only)
+├── dispel-macros/            # Proc-macro crate (7 derive macros)
 ├── gui-widgets/              # Reusable Iced widgets library
 ├── hexedit/                  # Hex editor library + standalone binary
 ├── docs/                     # Documentation (overview, format specs, cross-references)
-├── fixtures/                 # Test game files
-├── tests/                    # Integration tests
+├── fixtures/                 # Local-only, git-ignored test game files
 ├── Makefile                  # Dev targets (build, test, extract, render)
 └── scripts/
+    ├── ci-commands.sh        # Canonical build / fmt / clippy / test commands
     └── release.sh            # Automated release script
 ```
 
@@ -244,28 +246,23 @@ dispel-extractor/
 
 ## Development
 
-### Build all crates
+The canonical build, format, lint and test commands live in
+`scripts/ci-commands.sh` (11 commands). CI and the Makefile delegate to that
+script, so use it or the matching `make` target rather than an inline command:
 
 ```bash
-cargo build --workspace
+bash scripts/ci-commands.sh --list   # show all canonical commands
+bash scripts/ci-commands.sh build
+bash scripts/ci-commands.sh test
+bash scripts/ci-commands.sh clippy
+bash scripts/ci-commands.sh fmt
 ```
 
-### Run all tests
-
 ```bash
-cargo test --workspace --all-features --quiet
-```
-
-### Lint
-
-```bash
-cargo clippy --workspace -- -D warnings
-```
-
-### Format
-
-```bash
-cargo fmt --all
+make build        # same as scripts/ci-commands.sh build
+make cargo_test   # same as scripts/ci-commands.sh test (software Iced backend)
+make clippy       # same as scripts/ci-commands.sh clippy
+make fmt          # same as scripts/ci-commands.sh fmt
 ```
 
 ### Run the GUI
@@ -296,7 +293,7 @@ cargo run -p dispel-gui
 
 ## Legal
 
-This project is **not affiliated with, endorsed by, or sponsored by** the Dispel game owner.
+This project is **not affiliated with, endorsed by, or sponsored by** the DISPEL® trademark owner.
 
 This tool is for **independent file-format interoperability research based on observable program behavior** only. It does not redistribute copyrighted game files and does not circumvent technological protection measures.
 
