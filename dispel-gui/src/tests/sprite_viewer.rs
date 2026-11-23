@@ -278,7 +278,7 @@ mod sprite_viewer_tests {
 mod bmp_viewer_tests {
     use crate::app::App;
     use crate::editors::bmp_viewer::{
-        self, BmpViewerMessage, BmpViewerState, MAX_ZOOM, MIN_ZOOM, fit_scale,
+        self, BmpViewerMessage, BmpViewerState, MAX_ZOOM, MIN_ZOOM, fit_scale, rendered_size,
     };
     use crate::workspace::{EditorType, Workspace, WorkspaceTab};
     use iced::Size;
@@ -392,6 +392,30 @@ mod bmp_viewer_tests {
         // Fit uses the real viewport size and preserves the aspect ratio.
         assert_eq!(fit_scale(Size::new(800.0, 600.0), (1600, 800)), 0.5);
         assert_eq!(fit_scale(Size::new(100.0, 400.0), (1000, 1000)), 0.1);
+    }
+
+    #[test]
+    fn test_bmp_viewer_fit_content_size_is_finite_and_exact() {
+        let viewport = Size::new(800.0, 600.0);
+        // An invented tall image: height must drive Fit, not width alone.
+        let image = (1200u32, 3000u32);
+
+        let scale = fit_scale(viewport, image);
+        assert!(scale.is_finite() && scale > 0.0);
+        assert_eq!(scale, 0.2);
+
+        let content = rendered_size(viewport, image, true, 1.0);
+        assert_eq!(content.width, image.0 as f32 * scale);
+        assert_eq!(content.height, image.1 as f32 * scale);
+        assert!(
+            content.height <= viewport.height,
+            "Fit must never produce content taller than a finite viewport"
+        );
+
+        // Zooming in keeps the content size exact so the scrollable can pan.
+        let zoomed = rendered_size(viewport, image, true, 2.0);
+        assert_eq!(zoomed.width, content.width * 2.0);
+        assert_eq!(zoomed.height, content.height * 2.0);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::editors::bmp_viewer::{BmpViewerMessage, fit_scale};
+use crate::editors::bmp_viewer::{BmpViewerMessage, rendered_size};
 use crate::message::{Message, MessageExt};
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{Space, button, column, container, image, responsive, row, scrollable, text};
@@ -66,39 +66,37 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let fit_mode = viewer.fit_mode;
     let zoom = viewer.zoom;
-    let width = viewer.width;
-    let height = viewer.height;
+    let dimensions = (viewer.width, viewer.height);
 
+    // `responsive` sits outside the scrollable: inside it the pinned Iced fork
+    // reports an infinite height, which made Fit scale to width only. Here it
+    // receives the finite area left by the header, so Fit uses both dimensions.
     let canvas: Element<'_, Message> = responsive(move |size: Size| {
-        let fit = if fit_mode {
-            fit_scale(size, (width, height))
-        } else {
-            1.0
-        };
-        let scale = fit * zoom;
-        let draw_w = (width as f32 * scale).max(1.0);
-        let draw_h = (height as f32 * scale).max(1.0);
+        let draw = rendered_size(size, dimensions, fit_mode, zoom);
 
-        let result: Element<'_, Message> =
-            container(image(handle.clone()).width(draw_w).height(draw_h))
-                .width(Fill)
-                .height(Fill)
-                .center_x(Fill)
-                .center_y(Fill)
+        let content: Element<'_, Message> =
+            container(image(handle.clone()).width(draw.width).height(draw.height))
+                .width(draw.width)
+                .height(draw.height)
                 .into();
+
+        let result: Element<'_, Message> = scrollable(content)
+            .direction(scrollable::Direction::Both {
+                vertical: Default::default(),
+                horizontal: Default::default(),
+            })
+            .width(Fill)
+            .height(Fill)
+            .into();
         result
     })
     .width(Fill)
     .height(Fill)
     .into();
 
-    column![
-        header,
-        zoom_label,
-        scrollable(canvas).width(Fill).height(Fill)
-    ]
-    .spacing(0)
-    .height(Fill)
-    .accessible_label("BMP viewer")
-    .into()
+    column![header, zoom_label, canvas]
+        .spacing(0)
+        .height(Fill)
+        .accessible_label("BMP viewer")
+        .into()
 }

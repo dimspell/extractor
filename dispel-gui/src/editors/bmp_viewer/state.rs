@@ -30,6 +30,22 @@ pub fn fit_scale(viewport: Size, image: (u32, u32)) -> f32 {
         .max(0.01)
 }
 
+/// Exact rendered size of the image for the given viewport and zoom settings.
+/// Returning a concrete size (instead of `Fill`) lets the surrounding scrollable
+/// grow beyond the viewport so zoomed images can be panned.
+pub fn rendered_size(viewport: Size, image: (u32, u32), fit_mode: bool, zoom: f32) -> Size {
+    let fit = if fit_mode {
+        fit_scale(viewport, image)
+    } else {
+        1.0
+    };
+    let scale = fit * zoom;
+    Size::new(
+        (image.0 as f32 * scale).max(1.0),
+        (image.1 as f32 * scale).max(1.0),
+    )
+}
+
 impl BmpViewerState {
     pub fn load_from_path(path: &Path) -> Self {
         let name = path
