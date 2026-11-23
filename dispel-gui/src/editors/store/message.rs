@@ -13,6 +13,7 @@ pub enum StoreEditorMessage {
                 Option<Vec<MiscItem>>,
                 Option<Vec<EditItem>>,
                 Vec<Store>,
+                Vec<String>,
             ),
             String,
         >,

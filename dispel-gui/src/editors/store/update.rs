@@ -5,9 +5,10 @@ use crate::editors::store::StoreEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{EditItem, Extractor, HealItem, MiscItem, Store, WeaponItem};
 use iced::Task;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-/// Type alias to simplify the complex return type of store scanning
+/// Type alias to simplify the complex return type of store scanning. The
+/// trailing strings are non-fatal warnings from optional item catalogs.
 type StoreScanResult = Result<
     (
         Option<Vec<WeaponItem>>,
@@ -15,13 +16,26 @@ type StoreScanResult = Result<
         Option<Vec<MiscItem>>,
         Option<Vec<EditItem>>,
         Vec<Store>,
+        Vec<String>,
     ),
     String,
 >;
 
-/// Read the store catalog plus the four item catalogs it cross-references.
-/// Any read failure is returned as an error naming the file and the reason;
-/// the catalogs are only returned when every file was read successfully.
+/// Read a catalog that Store only cross-references. A missing or unreadable
+/// optional catalog is reported as a warning instead of failing the scan.
+fn read_optional_catalog<T: Extractor>(path: &Path, warnings: &mut Vec<String>) -> Option<Vec<T>> {
+    match T::read_file(path) {
+        Ok(records) => Some(records),
+        Err(e) => {
+            warnings.push(format!("{}: {}", path.display(), e));
+            None
+        }
+    }
+}
+
+/// Read STORE.DB plus the four item catalogs it cross-references. Only STORE.DB
+/// is required: a partial install may lack one of the item catalogs, which is
+/// reported as a non-fatal warning so the store editor can still be opened.
 async fn scan_store_catalog(
     weapons_path: PathBuf,
     heals_path: PathBuf,
@@ -29,22 +43,14 @@ async fn scan_store_catalog(
     edit_path: PathBuf,
     store_path: PathBuf,
 ) -> StoreScanResult {
-    let weapons = Some(
-        WeaponItem::read_file(&weapons_path)
-            .map_err(|e| format!("{}: {}", weapons_path.display(), e))?,
-    );
-    let heals = Some(
-        HealItem::read_file(&heals_path).map_err(|e| format!("{}: {}", heals_path.display(), e))?,
-    );
-    let misc = Some(
-        MiscItem::read_file(&misc_path).map_err(|e| format!("{}: {}", misc_path.display(), e))?,
-    );
-    let edit = Some(
-        EditItem::read_file(&edit_path).map_err(|e| format!("{}: {}", edit_path.display(), e))?,
-    );
+    let mut warnings = Vec::new();
+    let weapons = read_optional_catalog(&weapons_path, &mut warnings);
+    let heals = read_optional_catalog(&heals_path, &mut warnings);
+    let misc = read_optional_catalog(&misc_path, &mut warnings);
+    let edit = read_optional_catalog(&edit_path, &mut warnings);
     let stores =
         Store::read_file(&store_path).map_err(|e| format!("{}: {}", store_path.display(), e))?;
-    Ok((weapons, heals, misc, edit, stores))
+    Ok((weapons, heals, misc, edit, stores, warnings))
 }
 
 pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message::Message> {
@@ -75,7 +81,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         }
         StoreEditorMessage::Scanned(result) => {
             match result {
-                Ok((weapons, heals, misc, edit, stores)) => {
+                Ok((weapons, heals, misc, edit, stores, warnings)) => {
                     app.state.editors.weapon_editor.catalog = weapons.clone();
                     app.state.editors.weapon_editor.refresh();
                     app.state.editors.heal_item_editor.catalog = heals.clone();
@@ -91,7 +97,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                     let misc_count = misc.as_ref().map(|m| m.len()).unwrap_or(0);
                     let edit_count = edit.as_ref().map(|e| e.len()).unwrap_or(0);
 
-                    app.state.editors.store_editor.status_msg = format!(
+                    let mut status = format!(
                         "Loaded: {} stores, {} weapons, {} heals, {} misc, {} edit items",
                         stores.len(),
                         weapons_count,
@@ -99,6 +105,11 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                         misc_count,
                         edit_count
                     );
+                    for warning in warnings {
+                        status.push_str(" · Warning: ");
+                        status.push_str(&warning);
+                    }
+                    app.state.editors.store_editor.status_msg = status;
                     app.state.editors.store_editor.refresh_stores();
                 }
                 Err(e) => {
@@ -303,45 +314,54 @@ mod tests {
     use dispel_core::Store;
 
     #[test]
-    fn test_store_scan_reports_failed_item_file() {
+    fn test_store_scan_tolerates_missing_item_file_with_warning() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let char_dir = tmp.path().join("CharacterInGame");
         std::fs::create_dir_all(&char_dir).expect("create CharacterInGame");
 
-        // STORE.DB is valid so the only faulty catalog is the missing item file.
+        // STORE.DB is valid and the other three item catalogs are readable;
+        // only weaponItem.db is missing.
         Store::save_file(&[Store::default()], &char_dir.join("STORE.DB")).expect("write STORE.DB");
+        dispel_core::HealItem::save_file(&[], &char_dir.join("HealItem.db"))
+            .expect("write HealItem.db");
+        dispel_core::MiscItem::save_file(&[], &char_dir.join("MiscItem.db"))
+            .expect("write MiscItem.db");
+        dispel_core::EditItem::save_file(&[], &char_dir.join("EditItem.db"))
+            .expect("write EditItem.db");
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("test runtime");
-        let result = runtime.block_on(scan_store_catalog(
-            char_dir.join("weaponItem.db"),
-            char_dir.join("HealItem.db"),
-            char_dir.join("MiscItem.db"),
-            char_dir.join("EditItem.db"),
-            char_dir.join("STORE.DB"),
-        ));
+        let (weapons, heals, misc, edit, stores, warnings) = runtime
+            .block_on(scan_store_catalog(
+                char_dir.join("weaponItem.db"),
+                char_dir.join("HealItem.db"),
+                char_dir.join("MiscItem.db"),
+                char_dir.join("EditItem.db"),
+                char_dir.join("STORE.DB"),
+            ))
+            .expect("a missing optional item catalog must not be fatal");
 
-        let err = match result {
-            Ok(_) => panic!("a missing item catalog must not be silently reported as success"),
-            Err(err) => err,
-        };
+        assert!(weapons.is_none());
+        assert!(heals.is_some() && misc.is_some() && edit.is_some());
+        assert_eq!(stores.len(), 1);
         assert!(
-            err.contains("weaponItem.db"),
-            "error must name the failed file, got: {err}"
+            warnings
+                .iter()
+                .any(|w| w.contains("weaponItem.db") && !w.trim().is_empty()),
+            "warning must name the missing file and a reason, got: {warnings:?}"
         );
 
         let mut app = App::test_new(crate::workspace::Workspace::new());
-        let _ = handle(StoreEditorMessage::Scanned(Err(err.clone())), &mut app);
+        let _ = handle(
+            StoreEditorMessage::Scanned(Ok((weapons, heals, misc, edit, stores, warnings))),
+            &mut app,
+        );
         let status = &app.state.editors.store_editor.status_msg;
         assert!(
-            status.contains("Error loading store catalog") && status.contains("weaponItem.db"),
-            "status must report the failed file, got: {status}"
-        );
-        assert!(
-            !status.starts_with("Loaded:"),
-            "status must not claim success, got: {status}"
+            status.starts_with("Loaded:") && status.contains("weaponItem.db"),
+            "status must report a successful load with the missing-file warning, got: {status}"
         );
     }
 }
