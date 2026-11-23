@@ -541,4 +541,23 @@ mod tests {
         assert!(note_bytes.len() <= 16);
         assert_eq!(encoding_rs::EUC_KR.decode(&name_bytes).0, "무기 상점");
     }
+
+    #[test]
+    fn apply_texts_preserves_fields_when_translation_is_empty() {
+        let mut record = LocalizedStore {
+            id: 9,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let entries = record.extract_texts(9, "CharacterInGame/STORE.DB");
+        assert_eq!(entries.len(), 2);
+        // A partially filled CSV/PO import leaves translations blank.
+        assert!(entries.iter().all(|e| e.translation.is_empty()));
+
+        let statuses = record.apply_texts(&entries);
+        // Skipped entries report no status, matching the Option<String> arm.
+        assert!(statuses.is_empty());
+        assert_eq!(record.name, "Original Shop");
+        assert_eq!(record.note.as_deref(), Some("Original note"));
+    }
 }
