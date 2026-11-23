@@ -239,6 +239,15 @@ pub fn update(
                     return Task::none();
                 }
                 let addr = state.selection.cursor;
+                // `write` silently truncates at EOF; reject a character whose
+                // encoding would not fit entirely rather than writing a
+                // partial, invalid sequence and advancing by the full length.
+                if addr.saturating_add(encoded.len() as u64) > state.provider.len() {
+                    state.notify(format!(
+                        "Not enough space to write '{c}' before end of file"
+                    ));
+                    return Task::none();
+                }
                 state.provider.write(addr, &encoded);
                 state.after_write();
                 let next = addr.saturating_add(encoded.len() as u64).min(max_addr);

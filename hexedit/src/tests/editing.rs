@@ -314,6 +314,32 @@ fn test_text_mode_unencodable_shows_status() {
     assert_eq!(state.selection.cursor, 0, "cursor should not advance");
 }
 
+#[test]
+fn test_text_mode_multibyte_char_at_eof_does_not_partially_write() {
+    // One byte of space remains, but '€' needs three bytes in UTF-8.
+    let mut state = make_state(vec![0xAA, 0x00]);
+    let config = default_config();
+    state.write_mode = WriteMode::Utf8;
+    state.selection = Selection::single(1);
+    let before = state.provider.as_slice().to_vec();
+
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('€'));
+
+    assert_eq!(
+        state.provider.as_slice(),
+        before.as_slice(),
+        "a character that does not fit must not be partially written"
+    );
+    assert_eq!(
+        state.selection.cursor, 1,
+        "cursor must not advance when the write is rejected"
+    );
+    assert!(
+        !state.status_msg.is_empty(),
+        "the user must be told why the character was not written"
+    );
+}
+
 // ============================================================================
 // Write operations — edge cases
 // ============================================================================
