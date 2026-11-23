@@ -64,7 +64,7 @@ fn generate_map_schema() -> serde_json::Value {
         "title": "DispelMapData",
         "description": "Complete parsed representation of a Dispel game .MAP file",
         "type": "object",
-        "required": ["metadata", "gtl_tiles", "btl_tiles", "collisions", "events", "tiled_objects", "sprites", "internal_sprites"],
+        "required": ["metadata", "gtl_tiles", "btl_tiles", "collisions", "events", "object_ids", "tiled_objects", "sprites", "internal_sprites"],
         "properties": {
             "metadata": {
                 "type": "object",
@@ -127,6 +127,18 @@ fn generate_map_schema() -> serde_json::Value {
                         "x": { "type": "integer", "minimum": 0 },
                         "y": { "type": "integer", "minimum": 0 },
                         "event_id": { "type": "integer" }
+                    }
+                }
+            },
+            "object_ids": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["x", "y", "tile_id"],
+                    "properties": {
+                        "x": { "type": "integer", "minimum": 0 },
+                        "y": { "type": "integer", "minimum": 0 },
+                        "tile_id": { "type": "integer", "description": "Object id stored in the map's object-id grid" }
                     }
                 }
             },
@@ -214,4 +226,59 @@ fn generate_tileset_schema(key: &str) -> serde_json::Value {
             "note": { "type": "string" }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::map::{MapDataJson, MapMetadataJson};
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_map_schema_properties_match_serialized_map_data() {
+        let schema = generate_map_schema();
+        let properties = schema["properties"].as_object().expect("schema properties");
+        let required = schema["required"].as_array().expect("schema required");
+
+        let sample = MapDataJson {
+            metadata: MapMetadataJson {
+                chunk_width: 0,
+                chunk_height: 0,
+                tiled_width: 0,
+                tiled_height: 0,
+                map_width_in_pixels: 0,
+                map_height_in_pixels: 0,
+                non_occluded_start_x: 0,
+                non_occluded_start_y: 0,
+                occluded_width: 0,
+                occluded_height: 0,
+            },
+            gtl_tiles: vec![],
+            btl_tiles: vec![],
+            collisions: vec![],
+            events: vec![],
+            object_ids: vec![],
+            tiled_objects: vec![],
+            sprites: vec![],
+            internal_sprites: vec![],
+        };
+        let serialized = serde_json::to_value(sample).expect("serialize MapDataJson");
+        let json_keys: HashSet<&String> = serialized
+            .as_object()
+            .expect("MapDataJson serializes to an object")
+            .keys()
+            .collect();
+        let schema_keys: HashSet<&String> = properties.keys().collect();
+
+        assert_eq!(
+            schema_keys, json_keys,
+            "schema properties must cover exactly the fields MapDataJson emits"
+        );
+        for key in json_keys {
+            assert!(
+                required.iter().any(|r| r.as_str() == Some(key.as_str())),
+                "schema required list is missing {key}"
+            );
+        }
+    }
 }
