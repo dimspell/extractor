@@ -71,6 +71,7 @@ impl EditorType {
         match ext.as_str() {
             "snf" => EditorType::SnfEditor,
             "ogg" | "wav" => EditorType::AudioViewer,
+            "bmp" => EditorType::BmpViewer,
             _ => EditorType::HexEditor,
         }
     }

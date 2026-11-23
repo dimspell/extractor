@@ -5,6 +5,7 @@ use crate::components::generic_editor::TabbedEditor;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::audio_viewer::AudioViewerState;
+use crate::editors::bmp_viewer::BmpViewerState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
@@ -423,6 +424,7 @@ pub struct EditorRegistry {
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
     pub audio_viewers: HashMap<usize, AudioViewerState>,
+    pub bmp_viewers: HashMap<usize, BmpViewerState>,
     pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,

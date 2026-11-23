@@ -9,6 +9,7 @@
 
 pub mod all_map_ini;
 pub mod audio_viewer;
+pub mod bmp_viewer;
 pub mod chdata;
 pub mod chest_spawn;
 pub mod dialogue_paragraph;

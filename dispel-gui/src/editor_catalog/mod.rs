@@ -428,6 +428,15 @@ define_editor_catalog! {
         extract: None,
         lifecycle: lc_hash_map!(audio_viewers),
     },
+    /// BMP image viewer (.bmp), read-only, one per tab.
+    BmpViewer {
+        view: Some(crate::editors::bmp_viewer::view as ViewFn),
+        save: None,
+        load: None, // opened by explicit file path
+        sheet: None,
+        extract: None,
+        lifecycle: lc_hash_map!(bmp_viewers),
+    },
     /// Tileset browser (.btl/.gtl), one per tab.
     TilesetEditor {
         view: Some(crate::editors::tileset::view as ViewFn),
