@@ -286,9 +286,13 @@ fn view_zoom_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .padding([2, 6])
         .style(style::chip);
 
-    let zoom_label = text(format!("{}%", (viewer.zoom * 100.0).round() as u32))
-        .size(11)
-        .style(style::subtle_text);
+    let zoom_label = text(if viewer.fit_mode {
+        "Fit".to_string()
+    } else {
+        format!("{}%", (viewer.zoom * 100.0).round() as u32)
+    })
+    .size(11)
+    .style(style::subtle_text);
 
     let preserve_black = row![
         checkbox(viewer.preserve_black).on_toggle(|_| sv(SpriteViewerMessage::TogglePreserveBlack)),

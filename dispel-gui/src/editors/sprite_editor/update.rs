@@ -125,6 +125,7 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             // The actual scale is computed from the live viewport in the view,
             // so the frame fits exactly instead of using a fixed multiplier.
             viewer.fit_mode = true;
+            viewer.zoom = 1.0;
         }
         SpriteViewerMessage::TogglePreserveBlack => {
             viewer.preserve_black = !viewer.preserve_black;
