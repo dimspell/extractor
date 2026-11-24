@@ -1,25 +1,15 @@
 use std::error::Error;
 
+use crate::cli::SchemaArgs;
 use crate::commands::Command;
 use crate::commands::registry::{self, FileType};
 
-#[derive(clap::Args, Clone)]
-pub struct SchemaArgs {
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-}
-
-pub struct SchemaCommand {
-    pub args: SchemaArgs,
-}
-
-impl Command for SchemaCommand {
+impl Command for SchemaArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
+        let file_type = registry::get_by_key(&self.r#type).ok_or_else(|| {
             format!(
                 "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
+                self.r#type,
                 registry::format_type_list()
             )
         })?;
@@ -46,22 +36,24 @@ fn generate_json_schema(ft: &FileType) -> serde_json::Value {
         _ => {}
     }
 
-    let fields = registry::get_type_fields(ft.key);
-
     let mut properties = serde_json::Map::new();
-    for field in &fields {
-        properties.insert(field.clone(), infer_json_type(field));
+    for field in &ft.fields {
+        properties.insert(
+            field.name.to_string(),
+            serde_json::json!({ "type": field.ty.as_schema_type() }),
+        );
     }
+    let required: Vec<&str> = ft.field_names().collect();
 
     serde_json::json!({
         "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": format!("{} records", ft.key),
+        "title": format!("{} records", ft.record_type),
         "description": ft.description,
         "type": "array",
         "items": {
             "type": "object",
             "properties": properties,
-            "required": fields,
+            "required": required,
         }
     })
 }
@@ -72,7 +64,7 @@ fn generate_map_schema() -> serde_json::Value {
         "title": "DispelMapData",
         "description": "Complete parsed representation of a Dispel game .MAP file",
         "type": "object",
-        "required": ["metadata", "gtl_tiles", "btl_tiles", "collisions", "events", "tiled_objects", "sprites", "internal_sprites"],
+        "required": ["metadata", "gtl_tiles", "btl_tiles", "collisions", "events", "object_ids", "tiled_objects", "sprites", "internal_sprites"],
         "properties": {
             "metadata": {
                 "type": "object",
@@ -135,6 +127,18 @@ fn generate_map_schema() -> serde_json::Value {
                         "x": { "type": "integer", "minimum": 0 },
                         "y": { "type": "integer", "minimum": 0 },
                         "event_id": { "type": "integer" }
+                    }
+                }
+            },
+            "object_ids": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["x", "y", "tile_id"],
+                    "properties": {
+                        "x": { "type": "integer", "minimum": 0 },
+                        "y": { "type": "integer", "minimum": 0 },
+                        "tile_id": { "type": "integer", "description": "Object id stored in the map's object-id grid" }
                     }
                 }
             },
@@ -224,31 +228,57 @@ fn generate_tileset_schema(key: &str) -> serde_json::Value {
     })
 }
 
-fn infer_json_type(field: &str) -> serde_json::Value {
-    let string_fields = [
-        "name",
-        "description",
-        "filename",
-        "sprite",
-        "script",
-        "map_filename",
-        "map_name",
-        "pgp_filename",
-        "dlg_filename",
-        "sprite_filename",
-        "snf_filename",
-        "title",
-        "text",
-        "comment",
-    ];
-    let boolean_fields = ["flag", "is_oversize", "is_undead", "has_blood", "lighting"];
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::map::{MapDataJson, MapMetadataJson};
+    use std::collections::HashSet;
 
-    if string_fields.contains(&field) {
-        return serde_json::json!({ "type": "string" });
-    }
-    if boolean_fields.contains(&field) || field.starts_with("is_") || field.starts_with("has_") {
-        return serde_json::json!({ "type": "boolean" });
-    }
+    #[test]
+    fn test_map_schema_properties_match_serialized_map_data() {
+        let schema = generate_map_schema();
+        let properties = schema["properties"].as_object().expect("schema properties");
+        let required = schema["required"].as_array().expect("schema required");
 
-    serde_json::json!({ "type": "integer" })
+        let sample = MapDataJson {
+            metadata: MapMetadataJson {
+                chunk_width: 0,
+                chunk_height: 0,
+                tiled_width: 0,
+                tiled_height: 0,
+                map_width_in_pixels: 0,
+                map_height_in_pixels: 0,
+                non_occluded_start_x: 0,
+                non_occluded_start_y: 0,
+                occluded_width: 0,
+                occluded_height: 0,
+            },
+            gtl_tiles: vec![],
+            btl_tiles: vec![],
+            collisions: vec![],
+            events: vec![],
+            object_ids: vec![],
+            tiled_objects: vec![],
+            sprites: vec![],
+            internal_sprites: vec![],
+        };
+        let serialized = serde_json::to_value(sample).expect("serialize MapDataJson");
+        let json_keys: HashSet<&String> = serialized
+            .as_object()
+            .expect("MapDataJson serializes to an object")
+            .keys()
+            .collect();
+        let schema_keys: HashSet<&String> = properties.keys().collect();
+
+        assert_eq!(
+            schema_keys, json_keys,
+            "schema properties must cover exactly the fields MapDataJson emits"
+        );
+        for key in json_keys {
+            assert!(
+                required.iter().any(|r| r.as_str() == Some(key.as_str())),
+                "schema required list is missing {key}"
+            );
+        }
+    }
 }

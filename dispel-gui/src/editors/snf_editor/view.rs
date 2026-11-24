@@ -10,12 +10,7 @@ use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(editor) = app.state.editors.snf_editors.get(&tab_id) else {
         return container(text("SNF not loaded").size(14))
@@ -67,7 +62,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(4),
             )
             .style(crate::style::active_chip)
-            .on_press(Message::snf_editor(SnfEditorMessage::Save))
+            .on_press(Message::snf_editor(SnfEditorMessage::Save(tab_id)))
         } else {
             button(
                 row![

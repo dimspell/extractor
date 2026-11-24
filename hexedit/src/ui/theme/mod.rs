@@ -1,9 +1,7 @@
 //! Centralised colour theme for the hex editor.
 //!
-//! All hardcoded colour literals scattered across the codebase are
-//! consolidated into [`HexEditorTheme`] with two built-in variants:
-//! [`DARK_THEME`] (the original look) and [`LIGHT_THEME`] (parchment
-//! background for accessibility / bright environments).
+//! [`HexEditorTheme`] holds the built-in colour palettes: [`DARK_THEME`] and
+//! [`LIGHT_THEME`] (parchment background).
 
 use std::fmt;
 
@@ -12,7 +10,7 @@ use iced::Color;
 /// Which built-in colour theme is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ThemeVariant {
-    /// Dark leather/amber theme (the original).
+    /// Dark leather/amber theme.
     #[default]
     Dark,
     /// Warm parchment light theme.

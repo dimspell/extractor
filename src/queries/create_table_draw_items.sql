@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS draw_items
 (
-    map_id    INTEGER NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
+    map_id    INTEGER NOT NULL,
     x_coord   INTEGER,
     y_coord   INTEGER,
     item_id   INTEGER,

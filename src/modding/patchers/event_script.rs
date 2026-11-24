@@ -62,6 +62,7 @@
 
 use std::io::Cursor;
 
+use crate::field_identity::{FieldAddressError, FieldPath, PathSegment};
 use crate::modding::error::{ModdingError, Result};
 use crate::modding::patcher::{RecordPatcher, unknown_field, wrong_type};
 use crate::modding::value::Value;
@@ -111,25 +112,45 @@ impl RecordPatcher for EventScriptPatcher {
             )));
         }
 
-        let mut parts = field.split('.');
-        let section = parts
-            .next()
-            .ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
-        let idx = take_index(field, &mut parts)?;
-        let sub = parts.next();
+        // Decode the legacy dotted DSL into a typed nested path once, at the
+        // boundary. Everything below works on typed components; no ad-hoc
+        // `split('.')` / `parse::<usize>()` remains in this patcher.
+        let path = FieldPath::parse_dotted(field)?;
+        let (section, idx, rest) = path.split_section_element().map_err(|e| match e {
+            // A malformed index is a real error, not an unknown field — keep
+            // the original diagnostic ("expected numeric index, got …").
+            FieldAddressError::InvalidIndex(_) => e.into(),
+            _ => unknown_field(Self::RECORD_NAME, field),
+        })?;
+        let sub = rest.first().and_then(PathSegment::as_name);
+        let after_sub = if sub.is_some() { &rest[1..] } else { rest };
 
         match (section, sub) {
             // ---- string-line sections ----
             ("header_comments", None) => {
+                expect_no_more(after_sub)?;
                 string_element_op(field, &mut script.header_comments, idx, new)?
             }
-            ("map_content", None) => string_element_op(field, &mut script.map_content, idx, new)?,
-            ("chr_content", None) => string_element_op(field, &mut script.chr_content, idx, new)?,
-            ("npc_content", None) => string_element_op(field, &mut script.npc_content, idx, new)?,
-            ("wav_content", None) => string_element_op(field, &mut script.wav_content, idx, new)?,
+            ("map_content", None) => {
+                expect_no_more(after_sub)?;
+                string_element_op(field, &mut script.map_content, idx, new)?
+            }
+            ("chr_content", None) => {
+                expect_no_more(after_sub)?;
+                string_element_op(field, &mut script.chr_content, idx, new)?
+            }
+            ("npc_content", None) => {
+                expect_no_more(after_sub)?;
+                string_element_op(field, &mut script.npc_content, idx, new)?
+            }
+            ("wav_content", None) => {
+                expect_no_more(after_sub)?;
+                string_element_op(field, &mut script.wav_content, idx, new)?
+            }
 
             // ---- variables: insert/replace/delete a whole entry ----
             ("variables", None) => {
+                expect_no_more(after_sub)?;
                 if matches!(new, Value::Null) {
                     delete_at(field, "variables", &mut script.variables, idx)?;
                 } else {
@@ -139,7 +160,7 @@ impl RecordPatcher for EventScriptPatcher {
                 }
             }
             ("variables", Some(sub)) => {
-                expect_no_more(field, &mut parts)?;
+                expect_no_more(after_sub)?;
                 let len = script.variables.len();
                 let var = script
                     .variables
@@ -154,6 +175,7 @@ impl RecordPatcher for EventScriptPatcher {
 
             // ---- spr_content ----
             ("spr_content", None) => {
+                expect_no_more(after_sub)?;
                 if matches!(new, Value::Null) {
                     delete_at(field, "spr_content", &mut script.spr_content, idx)?;
                 } else {
@@ -163,7 +185,7 @@ impl RecordPatcher for EventScriptPatcher {
                 }
             }
             ("spr_content", Some(sub)) => {
-                expect_no_more(field, &mut parts)?;
+                expect_no_more(after_sub)?;
                 let len = script.spr_content.len();
                 let spr = script
                     .spr_content
@@ -178,6 +200,7 @@ impl RecordPatcher for EventScriptPatcher {
 
             // ---- actions ----
             ("actions", None) => {
+                expect_no_more(after_sub)?;
                 if matches!(new, Value::Null) {
                     delete_at(field, "actions", &mut script.actions, idx)?;
                 } else {
@@ -194,18 +217,18 @@ impl RecordPatcher for EventScriptPatcher {
                     .ok_or_else(|| index_oob(field, "actions", idx, len))?;
                 match sub {
                     "prefix" => {
-                        expect_no_more(field, &mut parts)?;
+                        expect_no_more(after_sub)?;
                         act.prefix = expect_optional_string(field, new)?;
                     }
                     "function_name" => {
-                        expect_no_more(field, &mut parts)?;
+                        expect_no_more(after_sub)?;
                         act.function_name = expect_string(field, new)?;
                     }
                     "raw_content" => {
-                        expect_no_more(field, &mut parts)?;
+                        expect_no_more(after_sub)?;
                         act.raw_content = expect_optional_string(field, new)?;
                     }
-                    "parameters" => match parts.next() {
+                    "parameters" => match after_sub.first() {
                         // `actions.N.parameters` — replace all (comma-joined).
                         None => {
                             let s = expect_string(field, new)?;
@@ -216,9 +239,13 @@ impl RecordPatcher for EventScriptPatcher {
                             };
                         }
                         // `actions.N.parameters.M` — single-param op.
-                        Some(m) => {
-                            expect_no_more(field, &mut parts)?;
-                            let pidx = parse_index(field, m)?;
+                        Some(segment) => {
+                            expect_no_more(&after_sub[1..])?;
+                            let pidx = segment.as_index().ok_or_else(|| {
+                                crate::field_identity::FieldAddressError::InvalidIndex(
+                                    segment.text(),
+                                )
+                            })?;
                             if matches!(new, Value::Null) {
                                 delete_at(field, "parameters", &mut act.parameters, pidx)?;
                             } else {
@@ -240,6 +267,15 @@ impl RecordPatcher for EventScriptPatcher {
             _ => return Err(unknown_field(Self::RECORD_NAME, field)),
         }
 
+        // An edit to the ACT section mutates the structured `actions` vec, so
+        // the verbatim raw lines no longer describe it and the writer must
+        // reconstruct that section. Edits to *any other* section leave the
+        // raw ACT lines in place, preserving their original formatting
+        // byte-for-byte instead of reformatting them through ActionFunction.
+        if section == "actions" {
+            script.act_raw_lines = None;
+        }
+
         let mut out = Vec::new();
         EventScript::to_writer(&scripts, &mut out)?;
         Ok(out)
@@ -248,26 +284,10 @@ impl RecordPatcher for EventScriptPatcher {
 
 // =================================================================== helpers
 
-fn take_index(field: &str, parts: &mut std::str::Split<'_, char>) -> Result<usize> {
-    let raw = parts
-        .next()
-        .ok_or_else(|| unknown_field(EventScriptPatcher::RECORD_NAME, field))?;
-    parse_index(field, raw)
-}
-
-fn parse_index(field: &str, raw: &str) -> Result<usize> {
-    raw.parse::<usize>().map_err(|_| {
-        ModdingError::Malformed(format!(
-            "{}.{field}: expected numeric index, got `{raw}`",
-            EventScriptPatcher::RECORD_NAME
-        ))
-    })
-}
-
-fn expect_no_more(field: &str, parts: &mut std::str::Split<'_, char>) -> Result<()> {
-    if parts.next().is_some() {
+fn expect_no_more(rest: &[PathSegment]) -> Result<()> {
+    if !rest.is_empty() {
         return Err(ModdingError::Malformed(format!(
-            "{}.{field}: trailing path components are not supported",
+            "{}: trailing path components are not supported",
             EventScriptPatcher::RECORD_NAME
         )));
     }
@@ -811,6 +831,54 @@ mod tests {
             .apply_field(&sample(), 0, "variables.1", &Value::String("kills".into()))
             .unwrap_err();
         assert!(err.to_string().contains("name=value"), "got: {err}");
+    }
+
+    /// ACT lines whose formatting the structured parser cannot reproduce:
+    /// a commented-out call with a space after the comma, and a call with
+    /// trailing whitespace. A non-ACT patch must leave both byte-identical.
+    fn act_formatting_sample() -> Vec<u8> {
+        b"[VAR]\r\nspawn=5\r\n[MAP]\r\n\r\n[CHR]\r\n\r\n[NPC]\r\n\r\n[SPR]\r\n\r\n[WAV]\r\n\r\n[ACT]\r\n;debug(1, 2)\r\nPope~setmappos(10,20)   \r\n".to_vec()
+    }
+
+    #[test]
+    fn non_act_edit_preserves_verbatim_act_lines() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &act_formatting_sample(),
+                0,
+                "variables.0.value",
+                &Value::String("9".into()),
+            )
+            .unwrap();
+        let text = String::from_utf8(out.clone()).unwrap();
+        assert!(
+            text.contains(";debug(1, 2)\r\n"),
+            "commented-out ACT line was reformatted: {text:?}"
+        );
+        assert!(
+            text.contains("Pope~setmappos(10,20)   \r\n"),
+            "trailing ACT whitespace was lost: {text:?}"
+        );
+        // The targeted (non-ACT) edit still landed.
+        assert_eq!(parse(&out).variables[0].value, "9");
+    }
+
+    #[test]
+    fn act_edit_invalidates_raw_lines_and_applies() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &act_formatting_sample(),
+                0,
+                "actions.0.function_name",
+                &Value::String("renamed".into()),
+            )
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.actions.len(), 2);
+        // The comment line is parsed as an ActionFunction, so index 0 is it.
+        assert_eq!(s.actions[0].function_name, "renamed");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Cursor, Read, Seek, Write};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
@@ -278,6 +278,29 @@ impl std::fmt::Display for ActionFunction {
 
 impl Extractor for EventScript {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        // Capture the raw, undecoded bytes before building the decoder. The
+        // `[ACT]` section is kept verbatim so that `to_writer` can reproduce
+        // formatting the structured parser cannot round-trip (commented-out
+        // calls, spacing inside parameter lists, trailing whitespace, …).
+        // This must happen in `parse`, not just `read_file`: the mod patcher
+        // parses from a byte buffer directly and would otherwise drop those
+        // lines whenever it edits an unrelated field.
+        let start = reader.stream_position()?;
+        reader.seek(SeekFrom::Start(0))?;
+        let mut raw = Vec::new();
+        reader.read_to_end(&mut raw)?;
+        reader.seek(SeekFrom::Start(start))?;
+        let trailing_newline = raw.last() == Some(&b'\n');
+        let raw_act_lines = extract_act_section(&raw).map(|lines| {
+            lines
+                .iter()
+                .map(|l| {
+                    let (cow, _, _) = EUC_KR.decode(l);
+                    cow.into_owned()
+                })
+                .collect::<Vec<String>>()
+        });
+
         let decoded = DecodeReaderBytesBuilder::new()
             .encoding(Some(EUC_KR))
             .build(reader.by_ref());
@@ -357,43 +380,26 @@ impl Extractor for EventScript {
         }
 
         scripts.push(current_script);
+        if let Some(script) = scripts.first_mut() {
+            script.trailing_newline = trailing_newline;
+            script.act_raw_lines = raw_act_lines;
+        }
         Ok(scripts)
     }
 
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(path)?;
+        let mut file = File::open(path)?;
         let len = file.metadata()?.len();
-
-        // Read raw bytes first so we can detect trailing newlines
-        // and extract raw ACT lines for lossless round-trip.
-        let mut raw = Vec::with_capacity(len as usize);
-        let mut reader = std::io::BufReader::new(file);
-        reader.read_to_end(&mut raw)?;
-        let has_trailing_newline = raw.last() == Some(&b'\n');
-
-        // Extract raw ACT section lines (before decoding, so formatting
-        // like trailing whitespace is preserved byte-perfectly).
-        let raw_act_lines = extract_act_section(&raw);
-
-        let mut cursor = Cursor::new(&raw);
-        let mut scripts = Self::parse(&mut cursor, len)?;
-        if let Some(script) = scripts.first_mut() {
-            script.trailing_newline = has_trailing_newline;
-            script.act_raw_lines = raw_act_lines.map(|lines| {
-                // Decode each raw line from EUC-KR
-                lines
-                    .iter()
-                    .map(|l| {
-                        let (cow, _, _) = EUC_KR.decode(l);
-                        cow.to_string()
-                    })
-                    .collect()
-            });
-            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                let lower = stem.to_lowercase();
-                if lower.starts_with("event") {
-                    script.id = stem[5..].parse::<i32>().unwrap_or(0);
-                }
+        // `parse` now captures trailing-newline state and verbatim ACT lines
+        // from the raw bytes, so callers that parse a byte buffer get the same
+        // lossless representation as callers that read from a path.
+        let mut scripts = Self::parse(&mut file, len)?;
+        if let Some(script) = scripts.first_mut()
+            && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+        {
+            let lower = stem.to_lowercase();
+            if lower.starts_with("event") {
+                script.id = stem[5..].parse::<i32>().unwrap_or(0);
             }
         }
         Ok(scripts)
@@ -583,10 +589,10 @@ pub fn save_event_scripts(
 ) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt_script = tx.prepare(include_str!("../queries/insert_event_script.sql"))?;
-        let mut stmt_variable = tx.prepare(include_str!("../queries/insert_event_variable.sql"))?;
-        let mut stmt_sprite = tx.prepare(include_str!("../queries/insert_event_sprite.sql"))?;
-        let mut stmt_action = tx.prepare(include_str!("../queries/insert_event_action.sql"))?;
+        let mut stmt_script = tx.prepare(crate::database::insert_sql("event_scripts"))?;
+        let mut stmt_variable = tx.prepare(crate::database::insert_sql("event_variables"))?;
+        let mut stmt_sprite = tx.prepare(crate::database::insert_sql("event_sprites"))?;
+        let mut stmt_action = tx.prepare(crate::database::insert_sql("event_actions"))?;
 
         for script in scripts {
             // Save the main script record
@@ -594,6 +600,18 @@ pub fn save_event_scripts(
             let map_content = script.map_content.join("\n");
             let chr_content = script.chr_content.join("\n");
             let npc_content = script.npc_content.join("\n");
+            let spr_content = script
+                .spr_content
+                .iter()
+                .map(|s| {
+                    if s.sprite_file.is_empty() {
+                        s.sprite_alias.clone()
+                    } else {
+                        format!("{}({})", s.sprite_alias, s.sprite_file)
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
             let wav_content = script.wav_content.join("\n");
 
             // Convert event ID from string to integer
@@ -605,6 +623,7 @@ pub fn save_event_scripts(
                 map_content,
                 chr_content,
                 npc_content,
+                spr_content,
                 wav_content
             ])?;
 

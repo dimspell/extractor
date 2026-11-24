@@ -1,9 +1,9 @@
 use std::io::{BufReader, BufWriter, Read, Result, Seek, Write};
-use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::WINDOWS_1250;
+
+use crate::localization::TextEncoding;
 
 pub trait Extractor: Sized {
     fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>>;
@@ -24,19 +24,29 @@ pub trait Extractor: Sized {
     }
 }
 
-pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
-    // Find the first null byte (or use a fixed length if no null terminator)
-    let (_data, _) = bytes.split_last().ok_or("Empty input")?;
+/// Decode a fixed-size, null-terminated byte field using `encoding`.
+///
+/// Bytes after the first NUL are ignored; a field with no NUL is decoded in
+/// full. Invalid byte sequences for the declared encoding are reported as
+/// errors rather than silently replaced.
+pub fn read_null_terminated(
+    bytes: &[u8],
+    encoding: &TextEncoding,
+) -> core::result::Result<String, String> {
+    // Validate the input is non-empty (the original helper rejected empties).
+    bytes.split_last().ok_or("Empty input")?;
     let data_len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
 
-    // Decode the Windows-1250 portion before the null terminator
-    let (decoded, _, had_errors) = WINDOWS_1250.decode(&bytes[..data_len]);
-
+    let (decoded, _, had_errors) = encoding.encoding_rs().decode(&bytes[..data_len]);
     if had_errors {
-        return Err("Invalid Windows-1250 sequence".to_string());
+        return Err(format!("Invalid {} sequence", encoding.label()));
     }
+    Ok(decoded.into_owned())
+}
 
-    Ok(decoded.to_string())
+/// Backwards-compatible Windows-1250 specialisation of [`read_null_terminated`].
+pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
+    read_null_terminated(bytes, &TextEncoding::Windows1250)
 }
 
 pub fn parse_null(s: &str) -> Option<String> {
@@ -48,46 +58,7 @@ pub fn parse_null(s: &str) -> Option<String> {
 }
 
 pub fn parse_int(s: &str) -> Option<i32> {
-    match s.parse::<i32>() {
-        Ok(value) => Some(value),
-        Err(err) => match err.kind() {
-            IntErrorKind::Empty => None,
-            _ => {
-                println!("{err:?} {s}");
-                None
-            }
-        },
-    }
-}
-
-pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
-    let file = File::open(source_path)?;
-
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
-
-    let mut reader = BufReader::new(file);
-
-    const COUNTER_SIZE: u8 = 4;
-    const PROPERTY_ITEM_SIZE: i32 = 90;
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-
-    let pos = reader.stream_position()?;
-    println!(
-        "{:?} {:?} {:?} {:?}",
-        file_len,
-        elements,
-        pos,
-        PROPERTY_ITEM_SIZE * elements
-    );
-
-    for _i in 0..elements {
-        let mut buffer = [0u8; 90];
-        reader.read_exact(&mut buffer)?;
-        println!("{:?}", buffer);
-    }
-
-    Ok(())
+    s.parse::<i32>().ok()
 }
 
 pub fn read_mapper<R: Read>(
@@ -96,20 +67,58 @@ pub fn read_mapper<R: Read>(
     counter_size: u8,
     property_item_size: i32,
 ) -> Result<i32> {
-    let space_for_elements =
-        (((file_len - counter_size as u64) as f64) / property_item_size as f64).floor();
-    let space_for_elements: i32 = space_for_elements as i32;
+    if property_item_size <= 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("invalid property item size: {property_item_size}"),
+        ));
+    }
 
-    let expected_elements = if counter_size > 0 {
-        reader.read_i32::<LittleEndian>()?
-    } else {
-        space_for_elements
-    };
-    if expected_elements != space_for_elements {
-        println!(
-            "expected_elements: {expected_elements} / space_for_elements: {space_for_elements}"
-        );
+    let usable_len = file_len.saturating_sub(counter_size as u64);
+    let space_for_elements = (usable_len as f64 / property_item_size as f64).floor();
+    if !space_for_elements.is_finite() || space_for_elements > i32::MAX as f64 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "record count exceeds the supported range",
+        ));
+    }
+    let space_for_elements = space_for_elements as i32;
+
+    // Consume the on-disk element counter when present. The authoritative
+    // count is derived from the file size below, so a mismatch is ignored.
+    if counter_size > 0 {
+        let _ = reader.read_i32::<LittleEndian>()?;
     }
 
     Ok(space_for_elements)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_mapper_handles_files_shorter_than_the_counter() {
+        // A truncated file must produce an error, never a wrapped-around count
+        // that a generated parser would turn into a huge allocation.
+        let mut short = std::io::Cursor::new(vec![0u8; 3]);
+        assert!(
+            read_mapper(&mut short, 3, 4, 948).is_err(),
+            "a file shorter than its record counter must be rejected"
+        );
+
+        let mut empty = std::io::Cursor::new(Vec::new());
+        assert!(read_mapper(&mut empty, 0, 4, 948).is_err());
+
+        // With no counter, an empty file legitimately contains zero records.
+        let mut empty = std::io::Cursor::new(Vec::new());
+        assert_eq!(read_mapper(&mut empty, 0, 0, 948).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_read_mapper_rejects_non_positive_item_size() {
+        let mut data = std::io::Cursor::new(vec![0u8; 8]);
+        assert!(read_mapper(&mut data, 8, 0, 0).is_err());
+        assert!(read_mapper(&mut data, 8, 0, -1).is_err());
+    }
 }

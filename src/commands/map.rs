@@ -1,18 +1,22 @@
-use super::Command;
-use crate::cli::MapCommands;
-use dispel_core::map;
-use dispel_core::map::database::RenderConfig;
+use super::{Command, missing_subcommand};
+use crate::cli::{MapArgs, MapCommands};
+use crate::map;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-pub struct MapCommand {
-    pub subcommand: MapCommands,
+impl Command for MapArgs {
+    fn execute(&self) -> Result<(), Box<dyn Error>> {
+        match &self.command {
+            Some(command) => command.execute(),
+            None => Err(missing_subcommand("map")),
+        }
+    }
 }
 
-impl Command for MapCommand {
+impl Command for MapCommands {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        match &self.subcommand {
+        match self {
             MapCommands::Tiles { input, output } => {
                 eprintln!("Extracting all tiles to separate tiles...");
                 eprintln!("Input file: {input:?}");
@@ -20,17 +24,34 @@ impl Command for MapCommand {
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                map::tileset::plot_all_tiles(&tiles, output);
+                map::tileset::plot_all_tiles(&tiles, output)?;
                 Ok(())
             }
-            MapCommands::Atlas { input, output } => {
+            MapCommands::Atlas {
+                input,
+                output,
+                opaque,
+            } => {
                 eprintln!("Rendering map atlas...");
                 eprintln!("Input file: {input:?}");
                 eprintln!("Output file: {output:?}");
 
                 let tiles = map::tileset::extract(Path::new(input))
                     .map_err(|e| format!("ERROR: could not extract tile-set: {e}"))?;
-                map::tileset::plot_tileset_map(&tiles, output);
+                // The ground pass copies the tile rows opaquely; the BTL pass
+                // skips the black pixels of the shadowed refs whose per-ref
+                // blend byte is non-zero.
+                let is_gtl = input.to_ascii_lowercase().ends_with(".gtl");
+                let opaque = opaque.unwrap_or(is_gtl);
+                eprintln!(
+                    "Atlas mode: {}",
+                    if opaque {
+                        "opaque (ground row-copy)"
+                    } else {
+                        "skip-zero (BTL blend)"
+                    }
+                );
+                map::tileset::plot_tileset_map_with(&tiles, output, opaque)?;
                 Ok(())
             }
             MapCommands::Render {
@@ -43,11 +64,14 @@ impl Command for MapCommand {
                 no_ground,
                 no_buildings,
                 no_roofs,
+                no_shadows,
+                light_template,
+                camera,
                 no_internal_sprites,
                 no_monsters,
                 no_npcs,
                 no_objects,
-                full_map,
+                frame,
                 transparent,
                 collisions,
                 events,
@@ -55,6 +79,9 @@ impl Command for MapCommand {
                 npc_waypoints,
             } => {
                 eprintln!("Rendering map...");
+                if let Some(template_path) = light_template.as_deref() {
+                    eprintln!("Applying light template {template_path}...");
+                }
                 map::extract(
                     Path::new(map),
                     Path::new(btl),
@@ -66,41 +93,30 @@ impl Command for MapCommand {
                         show_ground: !no_ground,
                         show_buildings: !no_buildings,
                         show_roofs: !no_roofs,
+                        show_shadows: !no_shadows,
                         show_internal_sprites: !no_internal_sprites,
                         show_monsters: !no_monsters,
                         show_npcs: !no_npcs,
                         show_objects: !no_objects,
-                        full_map: *full_map,
                         transparent: *transparent,
                         show_collisions: *collisions,
                         show_events: *events,
                         show_draw_items: *draw_items,
                         show_npc_waypoints: *npc_waypoints,
+                        sprite_frame: *frame,
                     },
+                    light_template
+                        .as_deref()
+                        .map(Path::new)
+                        .map(|p| {
+                            map::light_template::LightTemplate::load(p).map_err(|e| {
+                                format!("ERROR: could not load light template {p:?}: {e}")
+                            })
+                        })
+                        .transpose()?,
+                    camera.as_deref(),
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;
-                Ok(())
-            }
-            MapCommands::FromDb {
-                database,
-                map_id,
-                gtl_atlas,
-                btl_atlas,
-                atlas_columns,
-                output,
-                game_path,
-            } => {
-                eprintln!("Rendering map from database...");
-                map::render_from_database(RenderConfig {
-                    database_path: Path::new(database),
-                    map_id,
-                    gtl_atlas_path: Path::new(gtl_atlas),
-                    btl_atlas_path: Path::new(btl_atlas),
-                    atlas_columns: *atlas_columns,
-                    output_path: Path::new(output),
-                    game_path: game_path.as_deref().map(Path::new),
-                })
-                .map_err(|e| format!("ERROR: could not render map from database: {e}"))?;
                 Ok(())
             }
             MapCommands::ToDb { database, map } => {
@@ -129,12 +145,12 @@ impl Command for MapCommand {
                 use std::io::BufReader;
                 let file = File::open(map).map_err(|e| format!("Failed to open map file: {e}"))?;
                 let mut reader = BufReader::new(file);
-                let map_data = dispel_core::map::read_map_data(&mut reader)
+                let map_data = crate::map::read_map_data(&mut reader)
                     .map_err(|e| format!("Failed to parse map: {e}"))?;
                 let output_dir = std::path::Path::new(output);
                 std::fs::create_dir_all(output_dir)
                     .map_err(|e| format!("Failed to create output directory: {e}"))?;
-                dispel_core::map::tmx::export_tmx(
+                crate::map::tmx::export_tmx(
                     &map_data,
                     std::path::Path::new(gtl),
                     std::path::Path::new(btl),

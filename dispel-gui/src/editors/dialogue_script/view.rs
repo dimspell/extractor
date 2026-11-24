@@ -7,12 +7,7 @@ use iced::widget::{container, text};
 use iced::{Element, Fill};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let (Some(editor), Some(spreadsheet)) = (
         app.state
@@ -41,7 +36,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
     view_spreadsheet(
         &editor.editor,
         spreadsheet,
-        Message::dialogue_script(DialogueScriptEditorMessage::LoadCatalog),
+        Message::dialogue_script(DialogueScriptEditorMessage::LoadCatalog(
+            editor.current_file.clone().unwrap_or_default(),
+        )),
         Message::dialogue_script(DialogueScriptEditorMessage::Save),
         |idx| Message::dialogue_script(DialogueScriptEditorMessage::Select(idx)),
         |idx, field, value| {

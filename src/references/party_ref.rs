@@ -104,7 +104,7 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
         )
         .unwrap_or(0);
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_party_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("party_refs"))?;
         for party_ref in party_refs {
             stmt.execute(params![
                 party_ref.id,

@@ -9,7 +9,9 @@ use crate::style;
 use gui_widgets::components::context_menu::{ContextMenu, Entry};
 use gui_widgets::components::modal::modal;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use iced::widget::{Space, button, column, container, image, row, scrollable, slider, text};
+use iced::widget::{
+    Space, button, checkbox, column, container, image, row, scrollable, slider, text,
+};
 use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;
 
@@ -19,12 +21,7 @@ fn sv(m: SpriteViewerMessage) -> Message {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let Some(viewer) = app.state.editors.sprite_viewers.get(&tab_id) else {
         return container(text("Sprite not loaded").size(14))
@@ -56,7 +53,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     if let Some(ref dlg) = viewer.export_dialog {
         modal(
             base,
-            view_export_dialog(dlg),
+            view_export_dialog(viewer, dlg),
             || sv(SpriteViewerMessage::CloseExportDialog),
             0.5,
         )
@@ -270,6 +267,13 @@ fn view_zoom_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .size(11)
         .style(style::subtle_text);
 
+    let preserve_black = row![
+        checkbox(viewer.preserve_black).on_toggle(|_| sv(SpriteViewerMessage::TogglePreserveBlack)),
+        text("Keep #000 black").size(11),
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center);
+
     container(
         row![
             zoom_out,
@@ -279,6 +283,8 @@ fn view_zoom_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
             zoom_fit,
             Space::new().width(4),
             zoom_label,
+            Space::new().width(12),
+            preserve_black,
         ]
         .spacing(2)
         .padding([2, 8])
@@ -634,7 +640,10 @@ fn view_playback_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
 // ── Export dialog ─────────────────────────────────────────────────────────────
 
-fn view_export_dialog(dlg: &ExportDialogState) -> Element<'_, Message> {
+fn view_export_dialog<'a>(
+    viewer: &'a SpriteViewerState,
+    dlg: &'a ExportDialogState,
+) -> Element<'a, Message> {
     let title = text("Export Sprite").size(14).style(style::primary_text);
 
     // Format selector
@@ -659,6 +668,13 @@ fn view_export_dialog(dlg: &ExportDialogState) -> Element<'_, Message> {
         } else {
             style::chip
         });
+
+    let preserve_black = row![
+        checkbox(viewer.preserve_black).on_toggle(|_| sv(SpriteViewerMessage::TogglePreserveBlack)),
+        text("Keep #000 black").size(12),
+    ]
+    .spacing(4)
+    .align_y(Alignment::Center);
 
     // Destination folder
     let dir_label = text(
@@ -719,6 +735,7 @@ fn view_export_dialog(dlg: &ExportDialogState) -> Element<'_, Message> {
         horizontal_rule(1),
         text("Format").size(11).style(style::subtle_text),
         row![fmt_png, fmt_sheet].spacing(8),
+        preserve_black,
         text("Destination").size(11).style(style::subtle_text),
         row![dir_label, Space::new().width(Fill), choose_dir]
             .spacing(8)

@@ -1,5 +1,5 @@
 use crate::components::edit_history::EditHistory;
-use crate::message::{Message, system::SystemMessage, workspace::WorkspaceMessage};
+use crate::message::{Message, workspace::WorkspaceMessage};
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill};
 
@@ -13,17 +13,15 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
     ]
     .padding([8, 12]);
 
+    // Entries are informational only. They are numbered for reference, not
+    // clickable, because the panel has no way to jump to an arbitrary step.
     let undo_items: Vec<Element<Message>> = history
         .undo_stack()
         .iter()
         .enumerate()
         .map(|(idx, action)| {
             let label = format!("{}. {}", idx + 1, action.display_text());
-            button(text(label).size(11).font(iced::Font::MONOSPACE))
-                .width(Fill)
-                .on_press(Message::System(SystemMessage::Undo))
-                .style(crate::style::chip)
-                .into()
+            text(label).size(11).font(iced::Font::MONOSPACE).into()
         })
         .collect();
 
@@ -33,11 +31,7 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
         .enumerate()
         .map(|(idx, action)| {
             let label = format!("{}. {}", idx + 1, action.display_text());
-            button(text(label).size(11).font(iced::Font::MONOSPACE))
-                .width(Fill)
-                .on_press(Message::System(SystemMessage::Redo))
-                .style(crate::style::chip)
-                .into()
+            text(label).size(11).font(iced::Font::MONOSPACE).into()
         })
         .collect();
 
@@ -64,4 +58,42 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
         .style(crate::style::sidebar_container)
         .accessible_label("Edit history")
         .into()
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+    use crate::components::edit_history::EditAction;
+    use crate::message::system::SystemMessage;
+    use iced_test::simulator;
+
+    #[test]
+    fn history_entries_do_not_emit_jump_messages() {
+        let mut history = EditHistory::new();
+        history.push(EditAction::FieldChange {
+            record_idx: 0,
+            field: "name".into(),
+            old_value: "old".into(),
+            new_value: "new".into(),
+        });
+        history.push(EditAction::FieldChange {
+            record_idx: 1,
+            field: "hp".into(),
+            old_value: "10".into(),
+            new_value: "20".into(),
+        });
+
+        let entry = "2. Changed name to \"new\"";
+        let mut ui = simulator(view_history_panel(&history));
+        ui.find(entry).expect("numbered entry must remain visible");
+        let _ = ui.click(entry);
+        let messages: Vec<Message> = ui.into_messages().collect();
+        assert!(
+            !messages.iter().any(|m| matches!(
+                m,
+                Message::System(SystemMessage::Undo) | Message::System(SystemMessage::Redo)
+            )),
+            "numbered entries are informational only, not jump buttons: {messages:?}"
+        );
+    }
 }

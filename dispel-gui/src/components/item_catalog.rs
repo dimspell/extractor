@@ -60,7 +60,7 @@ pub fn populate_item_lookups(
     {
         for item in items.iter() {
             entries.push((
-                format!("{}:{}", ItemTypeId::Weapon.value(), item.id),
+                format!("{}:{}", u8::from(ItemTypeId::Weapon), item.id),
                 format!("[Weapon] {}", item.name),
             ));
         }
@@ -72,7 +72,7 @@ pub fn populate_item_lookups(
     {
         for item in items.iter() {
             entries.push((
-                format!("{}:{}", ItemTypeId::Healing.value(), item.id),
+                format!("{}:{}", u8::from(ItemTypeId::Healing), item.id),
                 format!("[Healing] {}", item.name),
             ));
         }
@@ -84,7 +84,7 @@ pub fn populate_item_lookups(
     {
         for item in items.iter() {
             entries.push((
-                format!("{}:{}", ItemTypeId::Edit.value(), item.index),
+                format!("{}:{}", u8::from(ItemTypeId::Edit), item.index),
                 format!("[Edit] {}", item.name),
             ));
         }
@@ -96,7 +96,7 @@ pub fn populate_item_lookups(
     {
         for item in items.iter() {
             entries.push((
-                format!("{}:{}", ItemTypeId::Event.value(), item.id),
+                format!("{}:{}", u8::from(ItemTypeId::Event), item.id),
                 format!("[Event] {}", item.name),
             ));
         }
@@ -108,15 +108,15 @@ pub fn populate_item_lookups(
     {
         for item in items.iter() {
             entries.push((
-                format!("{}:{}", ItemTypeId::Misc.value(), item.id),
+                format!("{}:{}", u8::from(ItemTypeId::Misc), item.id),
                 format!("[Misc] {}", item.name),
             ));
         }
     }
 
-    // "Other" sentinel — 255:15 means "no item"
+    // NoItem sentinel — 255:15 means "no item"
     entries.push((
-        format!("{}:{}", ItemTypeId::Other.value(), 15u8),
+        format!("{}:{}", u8::from(ItemTypeId::NoItem), 15u8),
         "[-]".to_string(),
     ));
 
@@ -144,4 +144,37 @@ pub fn populate_item_lookups(
     });
 
     lookups.insert("items".to_string(), entries);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dispel_core::InventoryItem;
+
+    /// The `"-"` entry must keep the 255 numeric key even though the enum's
+    /// signed value is -1, otherwise the composite picker can't round-trip it.
+    #[test]
+    fn test_no_item_sentinel_key_round_trip() {
+        let key = format!("{}:{}", u8::from(ItemTypeId::NoItem), 15u8);
+        assert_eq!(key, "255:15");
+
+        let parts: Vec<&str> = key.split(':').collect();
+        let type_byte = parts[0].parse::<u8>().unwrap_or(255);
+        let item_id = parts[1].parse::<u8>().unwrap_or(0);
+        let item_type = ItemTypeId::from_u8(type_byte).unwrap_or(ItemTypeId::NoItem);
+        let item = InventoryItem::new(item_type, item_id);
+
+        assert_eq!(item_type, ItemTypeId::NoItem);
+        assert_eq!(item.item_type(), Some(ItemTypeId::NoItem));
+        assert_eq!(item.item_id(), 15);
+        assert_eq!(item.raw(), 0x0000_FF0F);
+        assert_eq!(
+            format!(
+                "{}:{}",
+                u8::from(item.item_type().unwrap_or(ItemTypeId::NoItem)),
+                item.item_id()
+            ),
+            key
+        );
+    }
 }

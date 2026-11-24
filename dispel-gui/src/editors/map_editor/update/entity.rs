@@ -47,9 +47,10 @@ pub fn field_changed(
         SelectedEntity::EventTile(tx, ty) => state
             .map_data()
             .and_then(|h| h.0.events.get(&(tx, ty)))
-            .map(|e| e.event_id.to_string())
+            .map(|e| e.event_id().to_string())
             .unwrap_or_default(),
         SelectedEntity::CollisionTile(_, _) => String::new(),
+        SelectedEntity::ObjectIdTile(_, _) => String::new(),
     };
     // Apply the change; track whether the entity was actually found/mutated
     // so we don't push an undo action for a no-op (out-of-bounds index).
@@ -85,8 +86,11 @@ pub fn field_changed(
         }
         SelectedEntity::EventTile(tx, ty) => {
             if !state.data.can_mutate_map_data() {
-                state.data.status_msg =
-                    Some("Cannot edit events while save/export is in progress".into());
+                state.data.notify(
+                    gui_widgets::components::toast::Status::Warning,
+                    "Event",
+                    "Cannot edit while save/export is in progress",
+                );
                 entity_mutated = false;
             } else if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                 let map_data = Arc::get_mut(&mut handle.0)
@@ -94,15 +98,17 @@ pub fn field_changed(
                 let ev = map_data.events.entry((tx, ty)).or_insert(EventBlock {
                     x: tx,
                     y: ty,
-                    _unknown_value: 0,
-                    event_id: 0,
+                    word: 0,
                 });
-                ev.event_id = value.parse::<i16>().unwrap_or(0);
+                ev.set_event_id(value.parse::<i16>().unwrap_or(0) as u16);
             } else {
                 entity_mutated = false;
             }
         }
         SelectedEntity::CollisionTile(_, _) => {
+            entity_mutated = false;
+        }
+        SelectedEntity::ObjectIdTile(_, _) => {
             entity_mutated = false;
         }
     }
@@ -198,10 +204,23 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                             .or_insert(dispel_core::map::EventBlock {
                                 x: tx,
                                 y: ty,
-                                _unknown_value: 0,
-                                event_id: 0,
+                                word: 0,
                             });
-                    ev.event_id = val;
+                    ev.set_event_id(val as u16);
+                }
+            }
+            SelectedEntity::ObjectIdTile(tx, ty) => {
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.old_value.parse::<i32>().unwrap_or(0);
+                    if val == 0 {
+                        map_data.object_ids.remove(&(tx, ty));
+                    } else {
+                        map_data.object_ids.insert((tx, ty), val);
+                    }
                 }
             }
         }
@@ -276,7 +295,21 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                         .expect("MapData Arc has unexpected shared reference");
                     let val = action.new_value.parse::<i16>().unwrap_or(0);
                     if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
-                        ev.event_id = val;
+                        ev.set_event_id(val as u16);
+                    }
+                }
+            }
+            SelectedEntity::ObjectIdTile(tx, ty) => {
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.new_value.parse::<i32>().unwrap_or(0);
+                    if val == 0 {
+                        map_data.object_ids.remove(&(tx, ty));
+                    } else {
+                        map_data.object_ids.insert((tx, ty), val);
                     }
                 }
             }
@@ -442,5 +475,142 @@ mod tests {
         let state = app.state.editors.map_editors.get(&tab_id).unwrap();
         assert_eq!(state.data.draw_items[0].y_coord, 77);
         assert_eq!(state.data.undo_stack.len(), 1);
+    }
+
+    // ── ObjectIdTile undo/redo ──────────────────────────────────────────────────
+
+    /// Helper: create an App with a map editor tab that has a loaded MapData
+    /// containing one object_id entry at (10, 10) = 42.
+    fn app_with_object_ids() -> (App, usize) {
+        use crate::editors::map_editor::message::MapDataHandle;
+        use dispel_core::map::{MapData, MapModel};
+        use std::collections::HashMap;
+
+        let tab_id = 99;
+        let mut app = App::new().0;
+        let state = app.state.editors.map_editors.entry(tab_id).or_default();
+
+        let model = MapModel {
+            border_count: 2,
+            tiled_map_width: 50,
+            tiled_map_height: 50,
+            map_width_in_pixels: 3200,
+            map_height_in_pixels: 1600,
+            map_non_occluded_start_x: 0,
+            map_non_occluded_start_y: 0,
+            occluded_map_in_pixels_width: 3200,
+            occluded_map_in_pixels_height: 1600,
+        };
+        let mut object_ids = HashMap::new();
+        object_ids.insert((10, 10), 42);
+        let map_data = MapData {
+            overlay_modes: Vec::new(),
+            model,
+            gtl_tiles: HashMap::new(),
+            btl_tiles: HashMap::new(),
+            access_ref_words: HashMap::new(),
+            collisions: HashMap::new(),
+            events: HashMap::new(),
+            object_ids,
+            tiled_infos: vec![],
+            internal_sprites: vec![],
+            sprite_blocks: vec![],
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_bundles: Vec::new(),
+        };
+        state.data.loading_state = LoadingState::Loaded(MapDataHandle(Arc::new(map_data)));
+
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: tab_id,
+                label: "test".into(),
+                path: None,
+                editor_type: crate::workspace::EditorType::MapEditor,
+                modified: false,
+                pinned: false,
+            });
+        app.state.workspace.active_tab = Some(0);
+        (app, tab_id)
+    }
+
+    /// Simulate painting object_id at (10,10) from 42 to 99 via push_undo,
+    /// then undo it.
+    #[test]
+    fn test_object_id_undo_restores_previous_value() {
+        let (mut app, tab_id) = app_with_object_ids();
+
+        // Push an undo action as if we painted from 42→99.
+        {
+            let state = app.state.editors.map_editors.get_mut(&tab_id).unwrap();
+            state.push_undo(MapEditAction {
+                entity: SelectedEntity::ObjectIdTile(10, 10),
+                field: "object_id".into(),
+                old_value: "42".into(),
+                new_value: "99".into(),
+            });
+        }
+
+        let _task = undo(&mut app, tab_id);
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        if let LoadingState::Loaded(ref handle) = state.data.loading_state {
+            assert_eq!(handle.0.object_ids.get(&(10, 10)), Some(&42));
+        } else {
+            panic!("MapData not loaded");
+        }
+    }
+
+    /// Push undo for painting from 0→55 (new tile), then undo should remove it.
+    #[test]
+    fn test_object_id_undo_clears_when_previous_was_zero() {
+        let (mut app, tab_id) = app_with_object_ids();
+
+        {
+            let state = app.state.editors.map_editors.get_mut(&tab_id).unwrap();
+            state.push_undo(MapEditAction {
+                entity: SelectedEntity::ObjectIdTile(20, 20),
+                field: "object_id".into(),
+                old_value: "0".into(),
+                new_value: "55".into(),
+            });
+        }
+
+        let _task = undo(&mut app, tab_id);
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        if let LoadingState::Loaded(ref handle) = state.data.loading_state {
+            assert!(!handle.0.object_ids.contains_key(&(20, 20)));
+        } else {
+            panic!("MapData not loaded");
+        }
+    }
+
+    /// Undo then redo should restore the new value.
+    #[test]
+    fn test_object_id_redo_reapplies_new_value() {
+        let (mut app, tab_id) = app_with_object_ids();
+
+        {
+            let state = app.state.editors.map_editors.get_mut(&tab_id).unwrap();
+            state.push_undo(MapEditAction {
+                entity: SelectedEntity::ObjectIdTile(10, 10),
+                field: "object_id".into(),
+                old_value: "42".into(),
+                new_value: "99".into(),
+            });
+        }
+
+        let _task = undo(&mut app, tab_id);
+        let _task = redo(&mut app, tab_id);
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        if let LoadingState::Loaded(ref handle) = state.data.loading_state {
+            assert_eq!(handle.0.object_ids.get(&(10, 10)), Some(&99));
+        } else {
+            panic!("MapData not loaded");
+        }
     }
 }

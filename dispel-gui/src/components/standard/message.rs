@@ -14,5 +14,8 @@ pub enum StandardEditorMessage<T: Clone + std::fmt::Debug + 'static> {
     PaneResized(pane_grid::ResizeEvent),
     PaneClicked(pane_grid::Pane),
     Save,
-    Saved(Result<(), String>),
+    /// The first field is the id of the tab that issued the save. It is
+    /// captured when the save starts so a completed save can clear the right
+    /// tab's dirty flag even after the user switches tabs.
+    Saved(usize, Result<(), String>),
 }

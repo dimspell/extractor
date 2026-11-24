@@ -1,5 +1,5 @@
 use crate::indexation::file_index_cache::{
-    CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata,
+    CacheValidator, CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata,
 };
 use crate::indexation::indexation_service::IndexationService;
 use lucide_icons::Icon;
@@ -123,6 +123,35 @@ fn test_cache_invalidation_by_time() {
         &cache,
         &PathBuf::from("/test/game")
     ));
+}
+
+#[test]
+fn test_future_timestamp_does_not_underflow_sprite_cache_validation() {
+    // A corrupt or clock-skewed on-disk timestamp can be in the future.
+    let cache = FileIndexCache {
+        game_path: PathBuf::from("/test/game"),
+        last_indexed: FileIndexCacheManager::current_timestamp() + 86_400,
+        files: Vec::new(),
+    };
+
+    assert!(
+        IndexationService::validate_sprite_cache(&cache, &PathBuf::from("/test/game")),
+        "a future timestamp has an age of zero and must not underflow"
+    );
+}
+
+#[test]
+fn test_future_timestamp_does_not_underflow_cache_validator() {
+    let cache = FileIndexCache {
+        game_path: PathBuf::from("/test/game"),
+        last_indexed: u64::MAX,
+        files: Vec::new(),
+    };
+
+    assert!(
+        CacheValidator::validate_cache(&cache, &PathBuf::from("/test/game")),
+        "an extreme future timestamp must saturate to a zero cache age"
+    );
 }
 
 #[test]

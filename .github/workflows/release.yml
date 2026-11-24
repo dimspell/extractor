@@ -31,53 +31,33 @@ jobs:
     outputs:
       version: ${{ env.VERSION }}
 
+  build-matrix:
+    name: build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.render.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+
+      - name: Read canonical build matrix
+        id: render
+        run: echo "matrix=$(jq -c '.' .github/build-matrix.json)" >> "$GITHUB_OUTPUT"
+
   build-release:
     name: build-release
-    needs: ["create-release"]
+    needs: ["create-release", "build-matrix"]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     env:
       CARGO: cargo
-      # When CARGO is set to CROSS, this is set to `--target matrix.target`.
       TARGET_FLAGS: ""
-      # When CARGO is set to CROSS, TARGET_DIR includes matrix.target.
-      TARGET_DIR: ./target
-      # Bump this as appropriate. We pin to a version to make sure CI
-      # continues to work as cross releases in the past have broken things
-      # in subtle ways.
-      CROSS_VERSION: v0.2.5
       # Emit backtraces on panics.
       RUST_BACKTRACE: 1
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - build: cli-windows
-            app: cli
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-          - build: gui-windows
-            app: gui
-            os: windows-latest
-            rust: stable
-            target: x86_64-pc-windows-msvc
-          - build: gui-linux
-            app: gui
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-          - build: cli-linux
-            app: cli
-            os: ubuntu-latest
-            rust: stable
-            target: x86_64-unknown-linux-gnu
-          - build: gui-macos-arm
-            app: gui
-            os: macos-latest
-            rust: stable
-            target: aarch64-apple-darwin
+      matrix: ${{ fromJSON(needs.build-matrix.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -103,14 +83,6 @@ jobs:
         shell: bash
         run: |
           echo "TARGET_FLAGS=--target ${{ matrix.target }}" >> $GITHUB_ENV
-          echo "TARGET_DIR=./target/${{ matrix.target }}" >> $GITHUB_ENV
-
-      - name: Show command used for Cargo
-        shell: bash
-        run: |
-          echo "cargo command is: ${{ env.CARGO }}"
-          echo "target flag is: ${{ env.TARGET_FLAGS }}"
-          echo "target dir is: ${{ env.TARGET_DIR }}"
 
       - name: Build release binary (GUI)
         shell: bash
@@ -151,7 +123,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           7z a "$ARCHIVE.zip" "$ARCHIVE"
-          certutil -hashfile "$ARCHIVE.zip" SHA256 > "$ARCHIVE.zip.sha256"
+          sha256sum "$ARCHIVE.zip" > "$ARCHIVE.zip.sha256"
           echo "ASSET=$ARCHIVE.zip" >> $GITHUB_ENV
           echo "ASSET_SUM=$ARCHIVE.zip.sha256" >> $GITHUB_ENV
 

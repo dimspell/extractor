@@ -10,11 +10,10 @@
 //! per-cell widths as the regular matrix. A configurable `mid_gap`
 //! separates the two sides visually.
 
+pub(crate) use crate::ui::view::draw_helpers::{ROW_HEIGHT, SCROLLBAR_THICKNESS};
+
 /// Height of the column header row (same as row height).
 pub const HEADER_HEIGHT: f32 = 16.0;
-
-/// Single row height for data rows.
-pub const ROW_HEIGHT: f32 = 16.0;
 
 /// Width of one hex nibble cell in the hex column.
 pub const HEX_CELL_WIDTH: f32 = 18.0;
@@ -37,21 +36,11 @@ pub const MID_GAP: f32 = 18.0;
 /// Gap between the comparison ASCII column and the annotation column.
 pub const ANN_COL_GAP: f32 = 8.0;
 
-/// Minimum annotation column width.
-#[allow(dead_code)]
-pub const MIN_ANN_COL_WIDTH: f32 = 40.0;
-
 /// Maximum annotation column width.
 pub const MAX_ANN_COL_WIDTH: f32 = 200.0;
 
-/// Thickness of scrollbars.
-pub const SCROLLBAR_THICKNESS: f32 = 10.0;
-
 /// Number of extra rows rendered off-screen for smooth scrolling.
 pub const OVERSCAN: u32 = 2;
-
-/// Font size for all text in the diff view.
-pub const TEXT_SIZE: f32 = 11.0;
 
 /// Return the number of group gaps for a given `bytes_per_row`.
 /// e.g. 16 → 1 gap (between bytes 7 and 8), 32 → 3 gaps.

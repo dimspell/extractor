@@ -17,23 +17,23 @@
 //
 //  domain/   — Pure data model (no internal Iced-widget dependencies)
 //  ui/       — Iced-specific (widget, view, update, coloring)
-//  Root      — config, message, state aggregate, lua_engine, standalone bin
+//  Root      — config, message, state aggregate, standalone bin
 
 pub mod domain;
 pub mod ui;
 
 mod app;
 mod config;
-pub mod lua_engine;
 mod message;
 mod state;
 
 // ── Re-exports for downstream convenience ────────────────────────────────
 //
-// Keep the same public API surface that existed before the domain/ui split.
+// Types live under the canonical `domain::*` / `ui::*` module paths; these
+// flat re-exports give embedders a shorter path to the same items.
 
 pub use app::{AppMessage, HexEditorApp, HexEditorDocument, app_update, app_view};
-pub use config::{HexEditorConfig, OnSaveFn};
+pub use config::{HexEditorConfig, SavePort, WriteModeCallback, standalone_config};
 pub use message::HexEditorMessage;
 pub use state::{
     ComparisonFile, DEFAULT_BYTES_PER_ROW, HexEditorState, InspectorSource, MAX_BYTES_PER_ROW,
@@ -56,20 +56,20 @@ pub use domain::layout::{
 pub use domain::panel::{HexPanel, HexPanelContent};
 pub use domain::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
 pub use domain::provider::{BufferProvider, HexProvider};
+pub use domain::save::{SaveOutcome, SaveRequest};
 pub use domain::search::{SearchMode, SearchState};
 pub use domain::selection::{NavDir, Selection};
 pub use domain::vanilla_diff::compute_diff;
 pub use domain::write_mode::{EncodingEntry, WriteMode};
 
 // Type-level re-exports from ui.
-pub use lua_engine::LuaScriptEngine;
 pub use ui::coloring::CellColorProvider;
 pub use ui::inspector::{EncodeFn, InspectorEntry};
 
 // Module-level re-exports — allow `hexedit::selection::NavDir` and
 // `crate::selection::*` to keep working inside the crate.
 pub use domain::{
-    byte_stats, editing, goto, layout, pattern, provider, search, selection, vanilla_diff,
+    byte_stats, editing, goto, layout, pattern, provider, save, search, selection, vanilla_diff,
     write_mode,
 };
 pub use ui::{coloring, inspector, update, view};

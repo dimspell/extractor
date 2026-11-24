@@ -68,7 +68,7 @@ impl FileIndexCacheManager {
     /// Get cache directory using dirs crate
     fn get_cache_directory() -> Result<PathBuf, CacheError> {
         let cache_dir = dirs::cache_dir().ok_or(CacheError::DirectoryAccess)?;
-        Ok(cache_dir.join("../.."))
+        Ok(cache_dir.join("dispel-gui"))
     }
 
     /// Get cache file path
@@ -173,13 +173,41 @@ impl CacheValidator {
             return false;
         }
 
-        // Check if cache is too old (30 days)
-        let cache_age = FileIndexCacheManager::current_timestamp() - cache.last_indexed;
+        // Check if cache is too old (30 days). A future/corrupt on-disk
+        // timestamp must saturate to a zero age instead of underflowing.
+        let cache_age =
+            FileIndexCacheManager::current_timestamp().saturating_sub(cache.last_indexed);
         if cache_age > 30 * 24 * 60 * 60 {
             // 30 days in seconds
             return false;
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cache_directory_is_app_subdirectory() {
+        let dir = FileIndexCacheManager::get_cache_directory().expect("cache directory available");
+        assert_eq!(
+            dir.file_name().and_then(|name| name.to_str()),
+            Some("dispel-gui")
+        );
+        assert!(
+            !dir.components()
+                .any(|component| component == std::path::Component::ParentDir),
+            "cache path must not traverse above the platform cache directory"
+        );
+
+        let manager = FileIndexCacheManager::new().expect("cache manager created");
+        assert_eq!(manager.cache_dir, dir);
+        assert!(
+            manager.cache_dir.exists(),
+            "cache directory must exist after creation"
+        );
     }
 }

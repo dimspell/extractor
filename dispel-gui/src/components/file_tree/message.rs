@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gui_widgets::components::TreeNode;
+use gui_widgets::TreeNode;
 
 use super::tree_node::GameFileNode;
 
@@ -18,4 +18,8 @@ pub enum FileTreeMessage {
     ExtractToJson(PathBuf),
     ValidateFile(PathBuf),
     ShowInFileManager(PathBuf),
+    CopyAbsolutePath(PathBuf),
+    CopyRelativePath(PathBuf),
+    /// Acknowledgement for a completed clipboard write (no-op).
+    ClipboardWriteComplete,
 }

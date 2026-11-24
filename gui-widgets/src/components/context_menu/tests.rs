@@ -136,16 +136,47 @@ fn test_entry_debug_clone() {
     );
 }
 
+/// Serializes env-var mutation across the force-custom-menu tests.
+static FORCE_MENU_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn test_platform_force_custom_env_returns_none() {
-    unsafe { std::env::set_var("FORCE_CUSTOM_CONTEXT_MENU", "1") };
+    let _guard = FORCE_MENU_ENV_LOCK.lock().unwrap();
+    unsafe { std::env::set_var(super::platform::FORCE_CUSTOM_CONTEXT_MENU_ENV, "1") };
     let entries: Vec<Entry<String>> = vec![Entry::item("Test", "action".into())];
     let result = super::platform::try_show_native_menu(&entries);
     assert!(
         result.is_none(),
-        "FORCE_CUSTOM_CONTEXT_MENU should skip native menus"
+        "the canonical force-custom env var should skip native menus"
     );
-    unsafe { std::env::remove_var("FORCE_CUSTOM_CONTEXT_MENU") };
+    unsafe { std::env::remove_var(super::platform::FORCE_CUSTOM_CONTEXT_MENU_ENV) };
+}
+
+#[test]
+fn test_platform_legacy_force_custom_env_alias() {
+    let _guard = FORCE_MENU_ENV_LOCK.lock().unwrap();
+    unsafe { std::env::set_var(super::platform::LEGACY_FORCE_CUSTOM_CONTEXT_MENU_ENV, "1") };
+    assert!(
+        super::platform::force_custom_context_menu(),
+        "the deprecated alias must still be honoured"
+    );
+    unsafe { std::env::remove_var(super::platform::LEGACY_FORCE_CUSTOM_CONTEXT_MENU_ENV) };
+    assert!(!super::platform::force_custom_context_menu());
+}
+
+#[test]
+fn test_context_menu_doc_env_var_matches_runtime_constant() {
+    // Guards against the exact drift this module had: the doc once named
+    // DISPEL_FORCE_CUSTOM_CONTEXT_MENU while the code read another variable.
+    let module_doc = include_str!("mod.rs");
+    assert!(
+        module_doc.contains(super::platform::FORCE_CUSTOM_CONTEXT_MENU_ENV),
+        "ContextMenu docs must name the canonical env var used by platform.rs"
+    );
+    assert!(
+        module_doc.contains(super::platform::LEGACY_FORCE_CUSTOM_CONTEXT_MENU_ENV),
+        "ContextMenu docs must document the deprecated alias too"
+    );
 }
 
 #[test]

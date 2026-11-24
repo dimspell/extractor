@@ -2,16 +2,17 @@ use std::collections::HashMap;
 
 use crate::components::edit_history::EditHistory;
 use crate::components::generic_editor::TabbedEditor;
-use crate::components::generic_editor::UndoRedo;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
+use crate::editors::audio_viewer::AudioViewerState;
+use crate::editors::bmp_viewer::BmpViewerState;
 use crate::editors::chdata::ChDataEditorState;
-use crate::editors::db_viewer::DbViewerState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -22,11 +23,13 @@ use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
 use crate::editors::save_file_viewer::SaveFileViewerState;
+use crate::editors::save_ifo::SaveIfoEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
+
 use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
@@ -35,6 +38,349 @@ use dispel_core::{
 };
 use hexedit::HexEditorState;
 
+// ===========================================================================
+// Descriptor-driven editor lifecycle
+// ===========================================================================
+//
+// Every EditorType declares one `LifecycleFns` value in the authoritative
+// editor catalog; each editor field is named exactly once, in its catalog
+// entry. Spreadsheet caches are refreshed inside the undo/redo operation
+// itself (via the shared `refresh_spreadsheet_caches` helper), so no separate
+// refresh pass is needed.
+
+/// Lookup table passed to undo/redo for display-name resolution.
+pub type Lookups = HashMap<String, Vec<(String, String)>>;
+
+/// Direction of a lifecycle undo/redo dispatch.
+#[derive(Clone, Copy, Debug)]
+pub enum UndoRedoOp {
+    Undo,
+    Redo,
+}
+
+/// Homogeneous, field-agnostic lifecycle operations for one editor kind.
+///
+/// Stored once per editor in [`crate::editor_catalog::EditorDescriptor`].  The
+/// closures are non-capturing (they coerce to `fn` pointers) and receive the
+/// registry plus the active tab id, so a single catalog entry is enough to
+/// drive undo/redo (including spreadsheet cache refresh), tab removal/reset,
+/// edit-history lookup and full reset.
+#[derive(Clone, Copy)]
+pub struct LifecycleFns {
+    /// Capabilities, declared once alongside the operations so the catalog's
+    /// `supports_undo_redo` / `has_edit_history` predicates cannot drift from
+    /// the behavior the lifecycle functions actually implement.
+    pub has_undo: bool,
+    pub has_history: bool,
+    pub has_tab_state: bool,
+    pub undo_redo: fn(&mut EditorRegistry, usize, &Lookups, UndoRedoOp) -> Option<String>,
+    pub remove_tab: fn(&mut EditorRegistry, usize),
+    pub clear_tabs: fn(&mut EditorRegistry),
+    pub edit_history: for<'a> fn(&'a EditorRegistry, usize) -> Option<&'a EditHistory>,
+    pub clear: fn(&mut EditorRegistry),
+}
+
+pub(crate) fn noop_undo_redo(
+    _: &mut EditorRegistry,
+    _: usize,
+    _: &Lookups,
+    _: UndoRedoOp,
+) -> Option<String> {
+    None
+}
+pub(crate) fn noop_remove_tab(_: &mut EditorRegistry, _: usize) {}
+pub(crate) fn noop_clear_tabs(_: &mut EditorRegistry) {}
+pub(crate) fn noop_edit_history(_: &EditorRegistry, _: usize) -> Option<&EditHistory> {
+    None
+}
+pub(crate) fn noop_clear(_: &mut EditorRegistry) {}
+
+/// `StandardEditor<T>` stored in a `Box`: undo/redo take lookups and the editor
+/// exposes an `EditHistory`. No per-tab state.
+macro_rules! lc_standard {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: true,
+            has_history: true,
+            has_tab_state: false,
+            undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
+                        _tab: usize,
+                        lookups: &crate::editor_registry::Lookups,
+                        op: crate::editor_registry::UndoRedoOp| {
+                match op {
+                    crate::editor_registry::UndoRedoOp::Undo => r.$field.undo(lookups),
+                    crate::editor_registry::UndoRedoOp::Redo => r.$field.redo(lookups),
+                }
+            },
+            remove_tab: |_: &mut crate::editor_registry::EditorRegistry, _: usize| {},
+            clear_tabs: |_: &mut crate::editor_registry::EditorRegistry| {},
+            edit_history: |r: &crate::editor_registry::EditorRegistry,
+                           _tab: usize|
+             -> Option<&crate::components::edit_history::EditHistory> {
+                Some(r.$field.edit_history())
+            },
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                *r.$field = Default::default();
+            },
+        }
+    };
+}
+pub(crate) use lc_standard;
+
+/// Like [`lc_standard`], but the editor intentionally does not expose its
+/// `EditHistory` to the history panel (e.g. Monster/MonsterIni/NpcIni).
+macro_rules! lc_standard_no_history {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_history: false,
+            edit_history: |_: &crate::editor_registry::EditorRegistry,
+                           _: usize|
+             -> Option<&crate::components::edit_history::EditHistory> {
+                None
+            },
+            ..lc_standard!($field)
+        }
+    };
+}
+pub(crate) use lc_standard_no_history;
+
+/// `StandardEditor<T>` with an additional owned field that must be reset by
+/// `clear_all` (PartyLevelDb's view state, TileGrid's canvas state).
+macro_rules! lc_standard_and {
+    ($field:ident, $extra:ident) => {
+        crate::editor_registry::LifecycleFns {
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                *r.$field = Default::default();
+                r.$extra = Default::default();
+            },
+            ..lc_standard!($field)
+        }
+    };
+}
+pub(crate) use lc_standard_and;
+
+/// Custom boxed editor implementing `UndoRedo` without lookups + `EditHistory`.
+macro_rules! lc_box_undo {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: true,
+            has_history: true,
+            has_tab_state: false,
+            undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
+                        _tab: usize,
+                        _lookups: &crate::editor_registry::Lookups,
+                        op: crate::editor_registry::UndoRedoOp| {
+                use crate::components::generic_editor::UndoRedo;
+                match op {
+                    crate::editor_registry::UndoRedoOp::Undo => r.$field.undo(),
+                    crate::editor_registry::UndoRedoOp::Redo => r.$field.redo(),
+                }
+            },
+            remove_tab: |_: &mut crate::editor_registry::EditorRegistry, _: usize| {},
+            clear_tabs: |_: &mut crate::editor_registry::EditorRegistry| {},
+            edit_history: |r: &crate::editor_registry::EditorRegistry,
+                           _tab: usize|
+             -> Option<&crate::components::edit_history::EditHistory> {
+                use crate::components::generic_editor::UndoRedo;
+                Some(r.$field.edit_history())
+            },
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                *r.$field = Default::default();
+            },
+        }
+    };
+}
+pub(crate) use lc_box_undo;
+
+/// `TabbedEditor<T>`: per-tab undo/redo, edit history and spreadsheet caches.
+///
+/// Undo/redo go through `undo_with_cache` / `redo_with_cache`, which refresh
+/// that tab's spreadsheet caches via the shared `refresh_spreadsheet_caches`
+/// helper in the same operation — no separate refresh pass is needed.
+macro_rules! lc_tabbed {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: true,
+            has_history: true,
+            has_tab_state: true,
+            undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
+                        tab: usize,
+                        lookups: &crate::editor_registry::Lookups,
+                        op: crate::editor_registry::UndoRedoOp| {
+                match op {
+                    crate::editor_registry::UndoRedoOp::Undo => {
+                        r.$field.undo_with_cache(tab, lookups)
+                    }
+                    crate::editor_registry::UndoRedoOp::Redo => {
+                        r.$field.redo_with_cache(tab, lookups)
+                    }
+                }
+            },
+            remove_tab: |r: &mut crate::editor_registry::EditorRegistry, tab: usize| {
+                r.$field.remove(&tab);
+            },
+            clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+            edit_history: |r: &crate::editor_registry::EditorRegistry,
+                           tab: usize|
+             -> Option<&crate::components::edit_history::EditHistory> {
+                r.$field.editors.get(&tab).map(|e| e.edit_history())
+            },
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+        }
+    };
+}
+pub(crate) use lc_tabbed;
+
+/// Plain per-tab `HashMap`: tab lifecycle only, no undo/history.
+macro_rules! lc_hash_map {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: false,
+            has_history: false,
+            has_tab_state: true,
+            undo_redo: crate::editor_registry::noop_undo_redo,
+            remove_tab: |r: &mut crate::editor_registry::EditorRegistry, tab: usize| {
+                r.$field.remove(&tab);
+            },
+            clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+        }
+    };
+}
+pub(crate) use lc_hash_map;
+
+/// Per-tab `HashMap` with snapshot-based undo (SpriteViewer).
+macro_rules! lc_sprite_map {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: true,
+            has_history: false,
+            has_tab_state: true,
+            undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
+                        tab: usize,
+                        _lookups: &crate::editor_registry::Lookups,
+                        op: crate::editor_registry::UndoRedoOp| {
+                r.$field.get_mut(&tab).map(|viewer| {
+                    match op {
+                        crate::editor_registry::UndoRedoOp::Undo => viewer.undo(),
+                        crate::editor_registry::UndoRedoOp::Redo => viewer.redo(),
+                    }
+                    String::new() // no status message needed
+                })
+            },
+            remove_tab: |r: &mut crate::editor_registry::EditorRegistry, tab: usize| {
+                r.$field.remove(&tab);
+            },
+            clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+        }
+    };
+}
+pub(crate) use lc_sprite_map;
+
+/// Per-tab `HashMap` with boolean snapshot undo (FogDataEditor).
+macro_rules! lc_fog_map {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: true,
+            has_history: false,
+            has_tab_state: true,
+            undo_redo: |r: &mut crate::editor_registry::EditorRegistry,
+                        tab: usize,
+                        _lookups: &crate::editor_registry::Lookups,
+                        op: crate::editor_registry::UndoRedoOp| {
+                r.$field.get_mut(&tab).and_then(|editor| {
+                    let changed = match op {
+                        crate::editor_registry::UndoRedoOp::Undo => editor.undo(),
+                        crate::editor_registry::UndoRedoOp::Redo => editor.redo(),
+                    };
+                    if changed { Some(String::new()) } else { None }
+                })
+            },
+            remove_tab: |r: &mut crate::editor_registry::EditorRegistry, tab: usize| {
+                r.$field.remove(&tab);
+            },
+            clear_tabs: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field.clear();
+            },
+        }
+    };
+}
+pub(crate) use lc_fog_map;
+
+/// Single-instance owned state with no undo/history/tab lifecycle.
+macro_rules! lc_owned {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: false,
+            has_history: false,
+            has_tab_state: false,
+            undo_redo: crate::editor_registry::noop_undo_redo,
+            remove_tab: crate::editor_registry::noop_remove_tab,
+            clear_tabs: crate::editor_registry::noop_clear_tabs,
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                r.$field = Default::default();
+            },
+        }
+    };
+}
+pub(crate) use lc_owned;
+
+/// Single-instance `Box` state with no undo/history/tab lifecycle.
+macro_rules! lc_owned_box {
+    ($field:ident) => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: false,
+            has_history: false,
+            has_tab_state: false,
+            undo_redo: crate::editor_registry::noop_undo_redo,
+            remove_tab: crate::editor_registry::noop_remove_tab,
+            clear_tabs: crate::editor_registry::noop_clear_tabs,
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: |r: &mut crate::editor_registry::EditorRegistry| {
+                *r.$field = Default::default();
+            },
+        }
+    };
+}
+pub(crate) use lc_owned_box;
+
+/// Editors with no registry state at all (`Unknown`).
+macro_rules! lc_none {
+    () => {
+        crate::editor_registry::LifecycleFns {
+            has_undo: false,
+            has_history: false,
+            has_tab_state: false,
+            undo_redo: crate::editor_registry::noop_undo_redo,
+            remove_tab: crate::editor_registry::noop_remove_tab,
+            clear_tabs: crate::editor_registry::noop_clear_tabs,
+            edit_history: crate::editor_registry::noop_edit_history,
+            clear: crate::editor_registry::noop_clear,
+        }
+    };
+}
+pub(crate) use lc_none;
+
 /// Aggregates all editor state fields (35+ types).
 ///
 /// Extracted from `AppState` so that editor lifecycle (clear / reset) is
@@ -42,7 +388,6 @@ use hexedit::HexEditorState;
 /// non-editor concerns (workspace, UI, file tree, …).
 #[derive(Default)]
 pub struct EditorRegistry {
-    pub viewer: Box<DbViewerState>,
     pub weapon_editor: Box<StandardEditor<WeaponItem>>,
     pub heal_item_editor: Box<StandardEditor<HealItem>>,
     pub misc_item_editor: Box<StandardEditor<MiscItem>>,
@@ -74,84 +419,22 @@ pub struct EditorRegistry {
     pub event_scr_editor: Box<EventScriptEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
+    pub save_ifo_editor: Box<SaveIfoEditorState>,
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
+    pub audio_viewers: HashMap<usize, AudioViewerState>,
+    pub bmp_viewers: HashMap<usize, BmpViewerState>,
     pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
-}
-
-/// Macro: dispatch `undo` or `redo` to the correct editor field.
-/// Arms are defined once and reused for both operations via `$action`.
-macro_rules! undo_redo_dispatch {
-    ($self:ident, $editor_type:expr, $tab_id:expr, $lookups:expr, $action:ident) => {{
-        use $crate::workspace::EditorType;
-        match $editor_type {
-            // Standard editors (StandardEditor<T> — undo/redo with lookups)
-            EditorType::WeaponEditor => $self.weapon_editor.$action($lookups),
-            EditorType::HealItemEditor => $self.heal_item_editor.$action($lookups),
-            EditorType::MiscItemEditor => $self.misc_item_editor.$action($lookups),
-            EditorType::EditItemEditor => $self.edit_item_editor.$action($lookups),
-            EditorType::EventItemEditor => $self.event_item_editor.$action($lookups),
-            EditorType::MonsterEditor => $self.monster_editor.$action($lookups),
-            EditorType::MonsterIniEditor => $self.monster_ini_editor.$action($lookups),
-            EditorType::NpcIniEditor => $self.npc_ini_editor.$action($lookups),
-            EditorType::MagicEditor => $self.magic_editor.$action($lookups),
-            EditorType::PartyRefEditor => $self.party_ref_editor.$action($lookups),
-            EditorType::PartyIniEditor => $self.party_ini_editor.$action($lookups),
-            EditorType::AllMapIniEditor => $self.all_map_ini_editor.$action($lookups),
-            EditorType::DrawItemEditor => $self.draw_item_editor.$action($lookups),
-            EditorType::EventIniEditor => $self.event_ini_editor.$action($lookups),
-            EditorType::EventNpcRefEditor => $self.event_npc_ref_editor.$action($lookups),
-            EditorType::ExtraIniEditor => $self.extra_ini_editor.$action($lookups),
-            EditorType::MapIniEditor => $self.map_ini_editor.$action($lookups),
-            EditorType::MessageScrEditor => $self.message_scr_editor.$action($lookups),
-            EditorType::QuestScrEditor => $self.quest_scr_editor.$action($lookups),
-            EditorType::WaveIniEditor => $self.wave_ini_editor.$action($lookups),
-            EditorType::ChDataEditor => $self.chdata_editor.$action($lookups),
-            EditorType::PartyLevelDbEditor => $self.party_level_db_level_editor.$action($lookups),
-
-            // Custom-layout editor (undo/redo without lookups)
-            EditorType::StoreEditor => $self.store_editor.$action(),
-
-            // Sprite editor — uses its own snapshot-based undo/redo
-            EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
-                viewer.$action();
-                String::new() // no status message needed
-            }),
-
-            // Tab-based editors (MultiFileEditorState via TabbedEditor)
-            EditorType::MonsterRefEditor => $self
-                .monster_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::NpcRefEditor => $self
-                .npc_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::ExtraRefEditor => $self
-                .extra_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::DialogueScriptEditor => $self
-                .dialogue_script_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::DialogueTextEditor => $self
-                .dialogue_paragraph_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-
-            _ => None,
-        }
-    }};
+    pub fog_editors: HashMap<usize, FogDataEditorState>,
+    pub chest_spawn_editor: Box<StandardEditor<dispel_core::ChestSpawn>>,
+    pub monster_spawn_editor: Box<StandardEditor<dispel_core::MonsterSpawn>>,
+    pub map_info_multi_editor: Box<StandardEditor<dispel_core::MapInfoMulti>>,
+    pub tile_grid_editor: Box<StandardEditor<dispel_core::TileGrid>>,
+    pub tile_grid_view: crate::editors::tile_grid::TileGridViewState,
 }
 
 impl EditorRegistry {
@@ -159,21 +442,12 @@ impl EditorRegistry {
 
     /// Remove editor state for a single closed tab.
     ///
-    /// Covers every HashMap / TabbedEditor that maps `tab_id → editor`.
-    /// (Previously each close handler duplicated this list by hand, and
-    /// `tileset_editors` / `map_editors` / `hex_editors` were forgotten.)
+    /// Driven by the `remove_tab` function in each catalog descriptor, so a
+    /// new HashMap / TabbedEditor only needs one catalog entry.
     pub fn remove_tab(&mut self, tab_id: usize) {
-        self.sprite_viewers.remove(&tab_id);
-        self.extra_ref_editor.remove(&tab_id);
-        self.npc_ref_editor.remove(&tab_id);
-        self.monster_ref_editor.remove(&tab_id);
-        self.dialogue_script_editor.remove(&tab_id);
-        self.dialogue_paragraph_editor.remove(&tab_id);
-        self.snf_editors.remove(&tab_id);
-        self.tileset_editors.remove(&tab_id);
-        self.map_editors.remove(&tab_id);
-        self.hex_editors.remove(&tab_id);
-        self.save_file_viewers.remove(&tab_id);
+        for et in EditorType::iter() {
+            (et.descriptor().lifecycle.remove_tab)(self, tab_id);
+        }
     }
 
     /// Clear editors for every tab.  Use when the workspace is about to lose
@@ -184,23 +458,24 @@ impl EditorRegistry {
     /// monster_editor, …) to their default state — only tab-indexed state is
     /// dropped.
     pub fn close_all_tabs(&mut self) {
-        self.sprite_viewers.clear();
-        self.extra_ref_editor.clear();
-        self.npc_ref_editor.clear();
-        self.monster_ref_editor.clear();
-        self.dialogue_script_editor.clear();
-        self.dialogue_paragraph_editor.clear();
-        self.snf_editors.clear();
-        self.tileset_editors.clear();
-        self.map_editors.clear();
-        self.hex_editors.clear();
-        self.save_file_viewers.clear();
+        for et in EditorType::iter() {
+            (et.descriptor().lifecycle.clear_tabs)(self);
+        }
     }
 
     /// Stop SNF audio playback on every open SNF editor.
     pub fn stop_snf_playback(&mut self) {
         for editor in self.snf_editors.values_mut() {
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
+        }
+    }
+
+    /// Stop audio playback on every open audio viewer.
+    pub fn stop_audio_playback(&mut self) {
+        for viewer in self.audio_viewers.values_mut() {
+            viewer.playback = None;
+            viewer.playback_generation = viewer.playback_generation.wrapping_add(1);
         }
     }
 
@@ -217,7 +492,7 @@ impl EditorRegistry {
         if !editor_type.supports_undo_redo() {
             return None;
         }
-        undo_redo_dispatch!(self, editor_type, tab_id, lookups, undo)
+        (editor_type.descriptor().lifecycle.undo_redo)(self, tab_id, lookups, UndoRedoOp::Undo)
     }
 
     /// Perform redo on the editor identified by `editor_type` / `tab_id`.
@@ -231,63 +506,7 @@ impl EditorRegistry {
         if !editor_type.supports_undo_redo() {
             return None;
         }
-        undo_redo_dispatch!(self, editor_type, tab_id, lookups, redo)
-    }
-
-    /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    ///
-    /// `MultiFileEditorState::undo` / `redo` does not own the
-    /// `SpreadsheetState`, so caches go stale — refresh them here.
-    pub fn refresh_spreadsheet(
-        &mut self,
-        editor_type: EditorType,
-        tab_id: usize,
-        lookups: &HashMap<String, Vec<(String, String)>>,
-    ) {
-        macro_rules! refresh_tab {
-            ($editors:expr, $spreadsheets:expr) => {
-                if let (Some(editor), Some(spreadsheet)) =
-                    ($editors.get(&tab_id), $spreadsheets.get_mut(&tab_id))
-                {
-                    if let Some(ref catalog) = editor.editor.catalog {
-                        spreadsheet.compute_all_caches(catalog, lookups);
-                    }
-                }
-            };
-        }
-        match editor_type {
-            EditorType::MonsterRefEditor => {
-                refresh_tab!(
-                    self.monster_ref_editor.editors,
-                    self.monster_ref_editor.spreadsheets
-                )
-            }
-            EditorType::NpcRefEditor => {
-                refresh_tab!(
-                    self.npc_ref_editor.editors,
-                    self.npc_ref_editor.spreadsheets
-                )
-            }
-            EditorType::ExtraRefEditor => {
-                refresh_tab!(
-                    self.extra_ref_editor.editors,
-                    self.extra_ref_editor.spreadsheets
-                )
-            }
-            EditorType::DialogueScriptEditor => {
-                refresh_tab!(
-                    self.dialogue_script_editor.editors,
-                    self.dialogue_script_editor.spreadsheets
-                )
-            }
-            EditorType::DialogueTextEditor => {
-                refresh_tab!(
-                    self.dialogue_paragraph_editor.editors,
-                    self.dialogue_paragraph_editor.spreadsheets
-                )
-            }
-            _ => {}
-        }
+        (editor_type.descriptor().lifecycle.undo_redo)(self, tab_id, lookups, UndoRedoOp::Redo)
     }
 
     // ─── Edit-history lookup ────────────────────────────────────────────────
@@ -303,116 +522,20 @@ impl EditorRegistry {
         if !editor_type.has_edit_history() {
             return None;
         }
-        use crate::components::generic_editor::UndoRedo;
-
-        match editor_type {
-            // Standard / Box editors — edit_history is always available
-            EditorType::HealItemEditor => Some(self.heal_item_editor.edit_history()),
-            EditorType::MiscItemEditor => Some(self.misc_item_editor.edit_history()),
-            EditorType::EditItemEditor => Some(self.edit_item_editor.edit_history()),
-            EditorType::EventItemEditor => Some(self.event_item_editor.edit_history()),
-            EditorType::MagicEditor => Some(self.magic_editor.edit_history()),
-            EditorType::WeaponEditor => Some(self.weapon_editor.edit_history()),
-            EditorType::DrawItemEditor => Some(self.draw_item_editor.edit_history()),
-            EditorType::EventIniEditor => Some(self.event_ini_editor.edit_history()),
-            EditorType::EventNpcRefEditor => Some(self.event_npc_ref_editor.edit_history()),
-            EditorType::ExtraIniEditor => Some(self.extra_ini_editor.edit_history()),
-            EditorType::MapIniEditor => Some(self.map_ini_editor.edit_history()),
-            EditorType::MessageScrEditor => Some(self.message_scr_editor.edit_history()),
-            EditorType::PartyLevelDbEditor => Some(self.party_level_db_level_editor.edit_history()),
-            EditorType::QuestScrEditor => Some(self.quest_scr_editor.edit_history()),
-            EditorType::WaveIniEditor => Some(self.wave_ini_editor.edit_history()),
-            EditorType::AllMapIniEditor => Some(self.all_map_ini_editor.edit_history()),
-            EditorType::ChDataEditor => Some(self.chdata_editor.edit_history()),
-            EditorType::PartyRefEditor => Some(self.party_ref_editor.edit_history()),
-            EditorType::PartyIniEditor => Some(self.party_ini_editor.edit_history()),
-            EditorType::StoreEditor => Some(self.store_editor.edit_history()),
-
-            // Tab-based editors — need a HashMap lookup
-            EditorType::MonsterRefEditor => self
-                .monster_ref_editor
-                .editors
-                .get(&tab_id)
-                .map(|ed| ed.edit_history()),
-            EditorType::ExtraRefEditor => self
-                .extra_ref_editor
-                .editors
-                .get(&tab_id)
-                .map(|ed| ed.edit_history()),
-            EditorType::NpcRefEditor => self
-                .npc_ref_editor
-                .editors
-                .get(&tab_id)
-                .map(|ed| ed.edit_history()),
-            EditorType::DialogueScriptEditor => self
-                .dialogue_script_editor
-                .editors
-                .get(&tab_id)
-                .map(|ed| ed.edit_history()),
-            EditorType::DialogueTextEditor => self
-                .dialogue_paragraph_editor
-                .editors
-                .get(&tab_id)
-                .map(|ed| ed.edit_history()),
-
-            // Safety net: has_edit_history() returned true but we're missing
-            // an arm. This is a programming error.
-            _ => unreachable!(
-                "get_active_edit_history: {editor_type:?} claims has_edit_history() but has no arm"
-            ),
-        }
+        (editor_type.descriptor().lifecycle.edit_history)(self, tab_id)
     }
 
     // ─── Full reset ─────────────────────────────────────────────────────────
 
     /// Reset **every** editor to its initial state.  Use when the workspace
     /// changes (game path switch, full workspace clear, …).
+    ///
+    /// The `clear` function is declared once per editor in the catalog, so a
+    /// new editor field cannot be forgotten here (the old implementation
+    /// needed a follow-up "boxed editors that were missing from reset" patch).
     pub fn clear_all(&mut self) {
-        // HashMap-based editors
-        self.sprite_viewers.clear();
-        self.tileset_editors.clear();
-        self.dialogue_script_editor.clear();
-        self.dialogue_paragraph_editor.clear();
-        self.monster_ref_editor.clear();
-        self.extra_ref_editor.clear();
-        self.npc_ref_editor.clear();
-        self.map_editors.clear();
-        self.snf_editors.clear();
-        self.hex_editors.clear();
-        self.save_file_viewers.clear();
-
-        // Boxed editors — reset to default
-        *self.weapon_editor = Default::default();
-        *self.heal_item_editor = Default::default();
-        *self.misc_item_editor = Default::default();
-        *self.edit_item_editor = Default::default();
-        *self.event_item_editor = Default::default();
-        *self.monster_editor = Default::default();
-        *self.npc_ini_editor = Default::default();
-        *self.magic_editor = Default::default();
-        *self.store_editor = Default::default();
-        *self.party_ref_editor = Default::default();
-        *self.party_ini_editor = Default::default();
-        *self.all_map_ini_editor = Default::default();
-        *self.draw_item_editor = Default::default();
-        *self.event_ini_editor = Default::default();
-        *self.event_npc_ref_editor = Default::default();
-        *self.extra_ini_editor = Default::default();
-        *self.map_ini_editor = Default::default();
-        *self.message_scr_editor = Default::default();
-        *self.quest_scr_editor = Default::default();
-        *self.wave_ini_editor = Default::default();
-        *self.chdata_editor = Default::default();
-        *self.event_scr_editor = Default::default();
-
-        // Boxed editors that were missing from reset — bugs found by tests
-        *self.monster_ini_editor = Default::default();
-        *self.viewer = Default::default();
-        *self.party_level_db_editor = Default::default();
-        *self.party_level_db_level_editor = Default::default();
-
-        // Other owned editors
-        self.mod_packager_editor = Default::default();
-        self.localization_manager = Default::default();
+        for et in EditorType::iter() {
+            (et.descriptor().lifecycle.clear)(self);
+        }
     }
 }

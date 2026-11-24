@@ -14,7 +14,7 @@ use crate::editors::mod_packager::ModPackagerMessage;
 use crate::editors::mod_packager::message::{
     ApplyOutcome, LibrarySnapshot, RevertOutcome, SelectedMod,
 };
-use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction};
+use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction, prune_warning};
 use crate::message::{Message, MessageExt};
 use crate::state::{PendingEdit, RecordingKey, RecordingSession};
 
@@ -401,9 +401,12 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         }
         ModPackagerMessage::RecordingPersisted(result) => {
             match result {
-                Ok(()) => {
+                Ok(pruned) => {
                     if let Some(session) = app.state.recording.as_mut() {
                         session.recorded_count += 1;
+                    }
+                    if let Some(warning) = prune_warning(pruned) {
+                        app.state.editors.mod_packager_editor.status_msg = warning;
                     }
                 }
                 Err(e) => {
@@ -897,9 +900,9 @@ fn flush_one_pending(
 
     Task::perform(
         async move {
-            tokio::task::spawn_blocking(move || -> Result<(), String> {
+            tokio::task::spawn_blocking(move || -> Result<usize, String> {
                 let ws = Workspace::open(workspace_root).map_err(|e| e.to_string())?;
-                ws.append_action(&mod_slug, action)
+                ws.append_action_reporting(&mod_slug, action)
                     .map_err(|e| e.to_string())
             })
             .await
@@ -945,11 +948,12 @@ fn flush_all_pending(app: &mut App) -> Task<Message> {
 
     Task::perform(
         async move {
-            tokio::task::spawn_blocking(move || -> Result<(), String> {
+            tokio::task::spawn_blocking(move || -> Result<usize, String> {
                 let ws = Workspace::open(workspace_root).map_err(|e| e.to_string())?;
-                ws.append_actions_and_flatten(&mod_slug, actions)
-                    .map(|_| ())
-                    .map_err(|e| e.to_string())
+                let outcome = ws
+                    .append_actions_reporting(&mod_slug, actions)
+                    .map_err(|e| e.to_string())?;
+                Ok(outcome.pruned)
             })
             .await
             .unwrap_or_else(|e| Err(e.to_string()))

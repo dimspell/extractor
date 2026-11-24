@@ -1,7 +1,12 @@
 [workspace]
-members = [".", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
+members = [".", "dispel-encodings", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
 resolver = "2"
 
+# SINGLE PIN SET for the forked iced library. Every iced-family dependency in
+# this workspace (including hexedit's `iced_renderer` dev-dep) must use the
+# exact same `dimspell/iced` rev. Feature matrix, test-backend details and the
+# consistency check are documented in docs/iced-fork-config.md; enforced by
+# scripts/check-iced-config.sh. Do not introduce a second rev.
 [workspace.dependencies]
 iced = { git = "https://github.com/dimspell/iced", default-features = false, rev = "c0ffdd8e7352df9283496f3db334731c00ef6d0d" }
 iced_test = { git = "https://github.com/dimspell/iced", rev = "c0ffdd8e7352df9283496f3db334731c00ef6d0d" }
@@ -9,6 +14,7 @@ iced_test = { git = "https://github.com/dimspell/iced", rev = "c0ffdd8e7352df928
 [workspace.metadata]
 features = ["iced_test"]
 
+# winit is pinned to the iced-rs fork for version alignment with the iced fork.
 [patch.crates-io]
 winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed" }
 
@@ -32,6 +38,7 @@ clap = { version = "4.4.10", features = ["derive"] }
 serde_json = { version = "1.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 dispel-macros = { path = "dispel-macros" }
+dispel-encodings = { path = "dispel-encodings" }
 csv = "1.3"
 qbsdiff = "1.4"
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -47,4 +54,3 @@ overflow-checks = false
 
 [dev-dependencies]
 proptest = "1.4"
-tempfile = "3.8"

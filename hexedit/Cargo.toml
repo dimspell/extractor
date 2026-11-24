@@ -20,21 +20,15 @@ serde_json = "1"
 dirs = "6"
 lucide-icons = "1.23.0"
 
-[features]
-default = ["lua"]
-lua = ["dep:mlua"]
-
-[dependencies.mlua]
-version = "0.11.6"
-optional = true
-default-features = false
-features = ["lua54", "send", "vendored"]
-
 [dev-dependencies]
 iced_test = { workspace = true }
-# `iced_test` selects its renderer through Cargo feature unification. Enable
-# the software renderer so UI simulations run without a GPU or window server.
-iced_renderer = { git = "https://github.com/dimspell/iced", rev = "48fb8feecec54fdf52593744f780186fd7175f65", default-features = false, features = ["tiny-skia"] }
+# `iced_test` picks its renderer at runtime via `ICED_TEST_BACKEND` (see
+# docs/iced-fork-config.md). The `tiny-skia` feature must be compiled in for
+# the `software` backend to be selectable in headless/CI test runs.
+# IMPORTANT: keep this rev identical to the workspace `iced`/`iced_test` pin in
+# the root Cargo.toml — two revs of the same fork create duplicate, incompatible
+# iced crate graphs. `scripts/check-iced-config.sh` enforces this.
+iced_renderer = { git = "https://github.com/dimspell/iced", rev = "c0ffdd8e7352df9283496f3db334731c00ef6d0d", default-features = false, features = ["tiny-skia"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

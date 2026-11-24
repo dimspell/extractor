@@ -48,6 +48,7 @@ mod sprite_viewer_tests {
                 save_path: PathBuf::new(),
                 name: "test.spr".into(),
                 error: None,
+                preserve_black: false,
                 sprite_file: None,
                 dirty: false,
                 undo_stack: Vec::new(),
@@ -90,6 +91,7 @@ mod sprite_viewer_tests {
                 save_path: PathBuf::new(),
                 name: "test.spr".into(),
                 error: None,
+                preserve_black: false,
                 sprite_file: None,
                 dirty: false,
                 undo_stack: Vec::new(),
@@ -266,9 +268,187 @@ mod sprite_viewer_tests {
     fn test_sprite_viewer_no_active_tab_returns_none() {
         let mut app = App::test_new(Workspace::new());
         // No active tab, no sprite viewers inserted
-        // handle() calls active() which returns None → tab_id = usize::MAX
-        // → sprite_viewers.get_mut(usize::MAX) returns None → Task::none()
+        // handle() gets TabId::NONE for the tab id -> no viewer is found -> Task::none()
         let task = crate::editors::sprite_editor::handle(SpriteViewerMessage::Play, &mut app);
         assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+}
+
+#[cfg(test)]
+mod bmp_viewer_tests {
+    use crate::app::App;
+    use crate::editors::bmp_viewer::{
+        self, BmpViewerMessage, BmpViewerState, MAX_ZOOM, MIN_ZOOM, fit_scale, rendered_size,
+    };
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+    use iced::Size;
+    use std::io::Write;
+    use std::path::Path;
+    use tempfile::Builder;
+
+    /// A minimal valid 1x1 24-bit BMP (BGR pixel + row padding).
+    fn synthetic_bmp() -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"BM");
+        bytes.extend_from_slice(&58u32.to_le_bytes()); // total file size
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // reserved
+        bytes.extend_from_slice(&54u32.to_le_bytes()); // pixel data offset
+        bytes.extend_from_slice(&40u32.to_le_bytes()); // DIB header size
+        bytes.extend_from_slice(&1i32.to_le_bytes()); // width
+        bytes.extend_from_slice(&1i32.to_le_bytes()); // height
+        bytes.extend_from_slice(&1u16.to_le_bytes()); // planes
+        bytes.extend_from_slice(&24u16.to_le_bytes()); // bits per pixel
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // compression: BI_RGB
+        bytes.extend_from_slice(&4u32.to_le_bytes()); // image size
+        bytes.extend_from_slice(&2835i32.to_le_bytes()); // x pixels per metre
+        bytes.extend_from_slice(&2835i32.to_le_bytes()); // y pixels per metre
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // colors in palette
+        bytes.extend_from_slice(&0u32.to_le_bytes()); // important colors
+        bytes.extend_from_slice(&[0x11, 0x22, 0x33, 0x00]); // blue, green, red, padding
+        bytes
+    }
+
+    fn bmp_fixture() -> tempfile::NamedTempFile {
+        let mut file = Builder::new()
+            .prefix("invented_pixel_")
+            .suffix(".bmp")
+            .tempfile()
+            .unwrap();
+        file.write_all(&synthetic_bmp()).unwrap();
+        file.flush().unwrap();
+        file
+    }
+
+    fn app_with_bmp_viewer(state: BmpViewerState, tab_id: usize) -> App {
+        let mut app = App::test_new(Workspace::new());
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "invented_pixel.bmp".into(),
+            path: None,
+            editor_type: EditorType::BmpViewer,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(0);
+        app.state.editors.bmp_viewers.insert(tab_id, state);
+        app
+    }
+
+    #[test]
+    fn test_bmp_viewer_loads_dimensions_and_handle() {
+        let file = bmp_fixture();
+        let state = BmpViewerState::load_from_path(file.path());
+
+        assert!(state.error.is_none());
+        assert_eq!(state.width, 1);
+        assert_eq!(state.height, 1);
+        assert!(state.handle.is_some());
+        assert_eq!(
+            EditorType::from_path(Path::new("invented_pixel.bmp")),
+            EditorType::BmpViewer
+        );
+    }
+
+    #[test]
+    fn test_bmp_viewer_bad_bytes_report_error() {
+        let mut file = Builder::new()
+            .prefix("invented_broken_")
+            .suffix(".bmp")
+            .tempfile()
+            .unwrap();
+        file.write_all(b"not a bitmap").unwrap();
+        file.flush().unwrap();
+
+        let state = BmpViewerState::load_from_path(file.path());
+
+        assert!(state.error.is_some());
+        assert!(state.handle.is_none());
+        assert_eq!(state.width, 0);
+    }
+
+    #[test]
+    fn test_bmp_viewer_zoom_clamps_and_fit_computes() {
+        let file = bmp_fixture();
+        let state = BmpViewerState::load_from_path(file.path());
+        let mut app = app_with_bmp_viewer(state, 1);
+
+        for _ in 0..10 {
+            let _ = bmp_viewer::handle(BmpViewerMessage::ZoomIn, &mut app);
+        }
+        assert_eq!(app.state.editors.bmp_viewers[&1].zoom, MAX_ZOOM);
+        assert!(!app.state.editors.bmp_viewers[&1].fit_mode);
+
+        for _ in 0..10 {
+            let _ = bmp_viewer::handle(BmpViewerMessage::ZoomOut, &mut app);
+        }
+        assert_eq!(app.state.editors.bmp_viewers[&1].zoom, MIN_ZOOM);
+
+        let _ = bmp_viewer::handle(BmpViewerMessage::ZoomReset, &mut app);
+        assert_eq!(app.state.editors.bmp_viewers[&1].zoom, 1.0);
+
+        let _ = bmp_viewer::handle(BmpViewerMessage::Fit, &mut app);
+        assert!(app.state.editors.bmp_viewers[&1].fit_mode);
+
+        // Fit uses the real viewport size and preserves the aspect ratio.
+        assert_eq!(fit_scale(Size::new(800.0, 600.0), (1600, 800)), 0.5);
+        assert_eq!(fit_scale(Size::new(100.0, 400.0), (1000, 1000)), 0.1);
+    }
+
+    #[test]
+    fn test_bmp_viewer_fit_content_size_is_finite_and_exact() {
+        let viewport = Size::new(800.0, 600.0);
+        // An invented tall image: height must drive Fit, not width alone.
+        let image = (1200u32, 3000u32);
+
+        let scale = fit_scale(viewport, image);
+        assert!(scale.is_finite() && scale > 0.0);
+        assert_eq!(scale, 0.2);
+
+        let content = rendered_size(viewport, image, true, 1.0);
+        assert_eq!(content.width, image.0 as f32 * scale);
+        assert_eq!(content.height, image.1 as f32 * scale);
+        assert!(
+            content.height <= viewport.height,
+            "Fit must never produce content taller than a finite viewport"
+        );
+
+        // Zooming in keeps the content size exact so the scrollable can pan.
+        let zoomed = rendered_size(viewport, image, true, 2.0);
+        assert_eq!(zoomed.width, content.width * 2.0);
+        assert_eq!(zoomed.height, content.height * 2.0);
+    }
+
+    #[test]
+    fn test_bmp_viewer_render_does_not_panic() {
+        let file = bmp_fixture();
+        let state = BmpViewerState::load_from_path(file.path());
+        let app = app_with_bmp_viewer(state, 1);
+
+        let _ = bmp_viewer::view(&app);
+    }
+
+    #[test]
+    fn test_bmp_viewer_per_tab_isolation() {
+        let file = bmp_fixture();
+        let loaded = BmpViewerState::load_from_path(file.path());
+        let broken =
+            BmpViewerState::load_from_path(Path::new("/definitely/not/a/real/invented_broken.bmp"));
+
+        let mut app = app_with_bmp_viewer(loaded, 1);
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: 2,
+            label: "invented_broken.bmp".into(),
+            path: None,
+            editor_type: EditorType::BmpViewer,
+            modified: false,
+            pinned: false,
+        });
+        app.state.editors.bmp_viewers.insert(2, broken);
+
+        let _ = bmp_viewer::handle(BmpViewerMessage::ZoomIn, &mut app);
+
+        assert_eq!(app.state.editors.bmp_viewers[&1].zoom, 1.25);
+        assert_eq!(app.state.editors.bmp_viewers[&2].zoom, 1.0);
+        assert!(app.state.editors.bmp_viewers[&2].error.is_some());
     }
 }

@@ -24,8 +24,11 @@ const MENU_OFFSET: Point = Point::new(2.0, 2.0);
 /// Menu state is widget-local — no app messages needed for open/close.
 ///
 /// On macOS and Windows a native OS menu is shown. On all other platforms the
-/// Iced-rendered overlay is used (set `DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1` to
-/// force the overlay on macOS/Windows for debugging).
+/// Iced-rendered overlay is used. Set `DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1` to
+/// force the overlay on macOS/Windows for debugging; the old
+/// `FORCE_CUSTOM_CONTEXT_MENU=1` spelling is still accepted as a deprecated
+/// alias. See [`platform::FORCE_CUSTOM_CONTEXT_MENU_ENV`] and
+/// [`platform::force_custom_context_menu`] for the authoritative name/behavior.
 pub struct ContextMenu<'a, Message> {
     base: Element<'a, Message>,
     entries: Vec<Entry<Message>>,

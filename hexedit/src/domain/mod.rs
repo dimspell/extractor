@@ -9,6 +9,7 @@ pub mod panel;
 pub mod pattern;
 pub mod pattern_layout;
 pub mod provider;
+pub mod save;
 pub mod search;
 pub mod selection;
 pub mod vanilla_diff;

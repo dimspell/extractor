@@ -494,6 +494,38 @@ fn test_inspector_displays_cstr_for_printable() {
 // Inspector — comparison-file source (A/B toggle)
 // ============================================================================
 
+#[test]
+fn test_inspector_short_comparison_cursor_past_end_does_not_panic() {
+    let mut state = state_with_comparison(vec![0x00; 8], vec![0x01; 2]);
+    let config = default_config();
+    state.selection = Selection::single(7);
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    // With a 2-byte comparison file and cursor 7, an unclamped slice would be
+    // inverted; rendering must stay safe.
+    let _ui = simulator(view(&state, &config));
+}
+
+#[test]
+fn test_copy_inspector_value_short_comparison_cursor_past_end() {
+    let mut state = state_with_comparison(vec![0x00; 8], vec![0x01; 2]);
+    let config = default_config();
+    state.selection = Selection::single(7);
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    send(&mut state, &config, HexEditorMessage::CopyInspectorValue(0));
+    assert!(
+        !state.status_msg.contains("Copied:"),
+        "no byte is available past the comparison file's end"
+    );
+}
+
 fn state_with_comparison(baseline: Vec<u8>, comparison: Vec<u8>) -> HexEditorState {
     let mut state = make_state(baseline);
     let diff = state

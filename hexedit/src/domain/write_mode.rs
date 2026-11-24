@@ -94,22 +94,16 @@ pub fn remap_write_mode(mode: &mut WriteMode, removed_idx: usize) {
 
 // ── Serde for WriteMode ───────────────────────────────────────────────────
 //
-// Serialized as a string label so that custom encodings survive list-order
-// changes across sessions.  The `Custom` variant stores its label, not its
-// index — the index is resolved at deserialisation time through the custom
-// encoding list.
+// A custom encoding is stored as `Custom#N`, where N is its index in the
+// custom encoding list, so the selected entry survives a save/load cycle.
+// A bare `Custom` from older settings still resolves to the first entry.
 
 impl serde::Serialize for WriteMode {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let label = match self {
-            WriteMode::Hex => "Hex",
-            WriteMode::Ascii => "ASCII",
-            WriteMode::Utf8 => "UTF-8",
-            WriteMode::Windows1250 => "Windows-1250",
-            WriteMode::EucKr => "EUC-KR",
-            WriteMode::Custom(_) => "Custom",
-        };
-        s.serialize_str(label)
+        match self {
+            WriteMode::Custom(idx) => s.serialize_str(&format!("Custom#{idx}")),
+            other => s.serialize_str(other.label()),
+        }
     }
 }
 
@@ -122,10 +116,27 @@ impl<'de> serde::Deserialize<'de> for WriteMode {
             "UTF-8" => Ok(WriteMode::Utf8),
             "Windows-1250" => Ok(WriteMode::Windows1250),
             "EUC-KR" => Ok(WriteMode::EucKr),
-            "Custom" => Ok(WriteMode::Custom(0)), // index resolved at load
+            "Custom" => Ok(WriteMode::Custom(0)),
+            other if other.starts_with("Custom#") => {
+                match other["Custom#".len()..].parse::<usize>() {
+                    Ok(idx) => Ok(WriteMode::Custom(idx)),
+                    Err(_) => Err(serde::de::Error::invalid_value(
+                        serde::de::Unexpected::Str(other),
+                        &"a Custom# followed by a non-negative index",
+                    )),
+                }
+            }
             other => Err(serde::de::Error::unknown_variant(
                 other,
-                &["Hex", "ASCII", "UTF-8", "Windows-1250", "EUC-KR", "Custom"],
+                &[
+                    "Hex",
+                    "ASCII",
+                    "UTF-8",
+                    "Windows-1250",
+                    "EUC-KR",
+                    "Custom",
+                    "Custom#N",
+                ],
             )),
         }
     }
@@ -300,6 +311,56 @@ mod tests {
         let mut mode = WriteMode::Custom(1);
         remap_write_mode(&mut mode, 1);
         assert_eq!(mode, WriteMode::Hex);
+    }
+
+    #[test]
+    fn custom_write_mode_serde_round_trip_preserves_index() {
+        let custom = [
+            EncodingEntry {
+                label: "ISO-8859-2".to_string(),
+                encoding_name: "ISO-8859-2".to_string(),
+            },
+            EncodingEntry {
+                label: "Shift_JIS".to_string(),
+                encoding_name: "Shift_JIS".to_string(),
+            },
+            EncodingEntry {
+                label: "GBK".to_string(),
+                encoding_name: "GBK".to_string(),
+            },
+            EncodingEntry {
+                label: "KOI8-R".to_string(),
+                encoding_name: "KOI8-R".to_string(),
+            },
+        ];
+
+        for idx in 0..custom.len() {
+            let mode = WriteMode::Custom(idx);
+            let json = serde_json::to_string(&mode).unwrap();
+            assert_eq!(json, format!("\"Custom#{idx}\""));
+            let restored: WriteMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(
+                restored, mode,
+                "custom encoding {idx} must survive the round trip"
+            );
+        }
+
+        // Settings written before indexed tokens still select the first entry.
+        let legacy: WriteMode = serde_json::from_str("\"Custom\"").unwrap();
+        assert_eq!(legacy, WriteMode::Custom(0));
+
+        for (mode, label) in [
+            (WriteMode::Hex, "Hex"),
+            (WriteMode::Ascii, "ASCII"),
+            (WriteMode::Utf8, "UTF-8"),
+            (WriteMode::Windows1250, "Windows-1250"),
+            (WriteMode::EucKr, "EUC-KR"),
+        ] {
+            let json = serde_json::to_string(&mode).unwrap();
+            assert_eq!(json, format!("\"{label}\""));
+            let restored: WriteMode = serde_json::from_str(&json).unwrap();
+            assert_eq!(restored, mode);
+        }
     }
 
     #[test]

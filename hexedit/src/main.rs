@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Task, Theme};
 use hexedit::ui::theme::DARK_THEME;
 use hexedit::{
     AppMessage, EncodingEntry, HexEditorApp, HexEditorConfig, HexEditorDocument, HexEditorMessage,
-    HexEditorState, WriteMode, app_update, app_view,
+    HexEditorState, SaveOutcome, SaveRequest, WriteMode, app_update, app_view, standalone_config,
 };
 
 /// Settings persisted to `~/.config/hexedit/settings.json`.
@@ -29,7 +29,9 @@ impl Default for PersistedSettings {
 fn settings_path() -> PathBuf {
     let mut p = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
     p.push("hexedit");
-    let _ = std::fs::create_dir_all(&p);
+    if let Err(e) = std::fs::create_dir_all(&p) {
+        eprintln!("[hexedit] failed to create settings directory: {e}");
+    }
     p.push("settings.json");
     p
 }
@@ -37,8 +39,18 @@ fn settings_path() -> PathBuf {
 fn load_settings() -> PersistedSettings {
     let path = settings_path();
     match std::fs::read_to_string(&path) {
-        Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
-        Err(_) => PersistedSettings::default(),
+        Ok(json) => match serde_json::from_str(&json) {
+            Ok(settings) => settings,
+            Err(e) => {
+                eprintln!("[hexedit] invalid settings file, using defaults: {e}");
+                PersistedSettings::default()
+            }
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => PersistedSettings::default(),
+        Err(e) => {
+            eprintln!("[hexedit] failed to read settings, using defaults: {e}");
+            PersistedSettings::default()
+        }
     }
 }
 
@@ -78,24 +90,7 @@ enum Msg {
 
 impl App {
     fn new() -> (Self, Task<Msg>) {
-        let mut paths: Vec<PathBuf> = Vec::new();
-        let mut script_dirs: Vec<PathBuf> = Vec::new();
-        let args: Vec<String> = std::env::args().collect();
-        let mut i = 1;
-        while i < args.len() {
-            match args[i].as_str() {
-                "--script-dir" | "-s" => {
-                    i += 1;
-                    if i < args.len() {
-                        script_dirs.push(PathBuf::from(&args[i]));
-                    }
-                }
-                _ => {
-                    paths.push(PathBuf::from(&args[i]));
-                }
-            }
-            i += 1;
-        }
+        let paths: Vec<PathBuf> = std::env::args().skip(1).map(PathBuf::from).collect();
 
         let persisted = load_settings();
 
@@ -116,16 +111,6 @@ impl App {
                 doc.state.write_mode = persisted.write_mode;
                 doc.state.custom_encodings = persisted.custom_encodings.clone();
             }
-
-            // Load Lua scripts into every document.
-            for dir in &script_dirs {
-                for doc in &mut app.documents {
-                    let errors = doc.state.load_lua_scripts(dir);
-                    for e in &errors {
-                        eprintln!("[hexedit] script error: {e}");
-                    }
-                }
-            }
         }
 
         (
@@ -138,8 +123,9 @@ impl App {
     }
 
     /// Build the editor config from the active document. Saving flows through
-    /// `config.on_save` inside `hexedit::update`, which clears the dirty flag
-    /// and sets `state.status_msg` once `SavedIntoRecording` comes back.
+    /// the `config.on_save` `SavePort` inside `hexedit::update`, which maps
+    /// the returned `SaveOutcome` onto its internal `SavedIntoRecording`
+    /// message, clears the dirty flag and sets `state.status_msg`.
     fn editor_config(&self) -> HexEditorConfig {
         let Some(active) = self.app.active_tab else {
             return HexEditorConfig::default();
@@ -150,44 +136,44 @@ impl App {
 
         let has_dirty = doc.state.provider.dirty_count() > 0;
         let settings_path = settings_path();
-        // Clone the current custom encodings for the callback closure.
-        let current_encodings = doc.state.custom_encodings.clone();
-        HexEditorConfig {
-            pane_gap: 4,
-            can_save: true,
-            save_label: "Save".to_string(),
-            save_hint: if has_dirty {
-                String::new()
-            } else {
-                "  ·  no edits".to_string()
-            },
-            extra_entries: doc.state.lua_engine.entries(),
-            custom_encodings: current_encodings.clone(),
-            on_save: Some(Arc::new(|state: &HexEditorState| {
-                let path = state.path.clone();
-                let bytes = state.provider.as_slice().to_vec();
-                Task::perform(
-                    async move {
-                        tokio::fs::write(&path, bytes)
-                            .await
-                            .map_err(|e| e.to_string())
-                            .map(|_| "Saved".to_string())
-                    },
-                    HexEditorMessage::SavedIntoRecording,
-                )
-            })),
-            on_write_mode_changed: Some(Arc::new(move |mode| {
-                // Persist the write mode + current custom encodings.
-                let settings = PersistedSettings {
-                    write_mode: mode,
-                    custom_encodings: current_encodings.clone(),
-                };
-                if let Ok(json) = serde_json::to_string_pretty(&settings) {
-                    let _ = std::fs::write(&settings_path, json);
+
+        let save_port: hexedit::SavePort = Arc::new(|request: SaveRequest| {
+            let SaveRequest { path, bytes } = request;
+            Task::perform(
+                async move {
+                    tokio::fs::write(&path, bytes)
+                        .await
+                        .map_err(|e| e.to_string())
+                        .map(|_| "Saved".to_string())
+                },
+                SaveOutcome::from_result,
+            )
+        });
+
+        let on_write_mode_changed: hexedit::WriteModeCallback = Arc::new(move |mode, encodings| {
+            // Persist the write mode + the encodings current at callback time,
+            // so custom-encoding changes are not lost on restart.
+            let settings = PersistedSettings {
+                write_mode: mode,
+                custom_encodings: encodings.to_vec(),
+            };
+            match serde_json::to_string_pretty(&settings) {
+                Ok(json) => {
+                    if let Err(e) = std::fs::write(&settings_path, json) {
+                        eprintln!("[hexedit] failed to persist settings: {e}");
+                    }
                 }
-                Task::none()
-            })),
-        }
+                Err(e) => eprintln!("[hexedit] failed to serialize settings: {e}"),
+            }
+        });
+
+        standalone_config(
+            has_dirty,
+            doc.state.custom_encodings.clone(),
+            Vec::new(),
+            save_port,
+            Some(on_write_mode_changed),
+        )
     }
 
     fn update(&mut self, msg: Msg) -> Task<Msg> {

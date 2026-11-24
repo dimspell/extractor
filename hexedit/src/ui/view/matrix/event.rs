@@ -15,13 +15,13 @@ use iced::{Event, Point, Rectangle};
 
 use crate::domain::write_mode::WriteMode;
 use crate::selection::NavDir;
+use crate::ui::view::draw_helpers::{
+    hscrollbar_thumb, hthumb_len, scrollbar_thumb, scrollbar_track, thumb_height,
+};
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::HexMatrix;
-use super::draw::{
-    first_hex_char, first_printable_char, hscrollbar_thumb, hscrollbar_track, hthumb_len,
-    scrollbar_thumb, scrollbar_track, thumb_height,
-};
+use super::draw::{first_hex_char, first_printable_char, hscrollbar_track};
 use super::layout::{
     HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS, addr_at, clamp_scroll, clamp_scroll_x,
 };
@@ -309,7 +309,7 @@ pub fn handle_event<'a, Message>(
                 let htrack = hscrollbar_track(bounds);
                 let content_w = widget.total_content_width();
                 let avail_w = bounds.width - SCROLLBAR_THICKNESS;
-                let thumb_w = hthumb_len(htrack, content_w, avail_w);
+                let thumb_w = hthumb_len(htrack, content_w);
                 let travel = (htrack.width - thumb_w).max(1.0);
                 let max_off = (content_w - avail_w).max(1.0);
                 let dx = p.x - state.drag_start_cursor_x;

@@ -6,58 +6,43 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
 
-/// Editor type identifier for workspace tabs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EditorType {
-    WeaponEditor,
-    MonsterEditor,
-    MonsterIniEditor,
-    HealItemEditor,
-    MiscItemEditor,
-    EditItemEditor,
-    EventItemEditor,
-    MagicEditor,
-    StoreEditor,
-    ChDataEditor,
-    PartyLevelDbEditor,
-    DialogueScriptEditor,
-    DialogueTextEditor,
-    DrawItemEditor,
-    EventIniEditor,
-    EventNpcRefEditor,
-    ExtraIniEditor,
-    ExtraRefEditor,
-    MapIniEditor,
-    MessageScrEditor,
-    MonsterRefEditor,
-    NpcIniEditor,
-    NpcRefEditor,
-    PartyRefEditor,
-    PartyIniEditor,
-    QuestScrEditor,
-    EventScrEditor,
-    WaveIniEditor,
-    AllMapIniEditor,
-    SpriteViewer,
-    SnfEditor,
-    DbViewer,
-    /// Tileset browser (file-based, opens .btl/.gtl files)
-    TilesetEditor,
-    /// Visual map editor (file-based, opens .map files)
-    MapEditor,
-    ModPackager,
-    LocalizationManager,
-    /// Read-only viewer for Dispel .sav save files.
-    SaveFileViewer,
-    /// Universal fallback editor for any binary file no dedicated editor
-    /// claims. Also reachable via "Open as Hex" from the file tree.
-    HexEditor,
-    #[serde(other)]
-    Unknown,
+/// Editor type identifier for workspace tabs.
+///
+/// The enum itself is generated from the authoritative editor catalog; all
+/// capability predicates and descriptor-driven dispatch live in
+/// `crate::editor_catalog`. It is re-exported here to preserve the historical
+/// `crate::workspace::EditorType` path used throughout the crate.
+pub use crate::editor_catalog::EditorType;
+
+/// A typed workspace-tab identifier.
+///
+/// The old code used the raw `usize::MAX` sentinel for "no active tab" in
+/// fifteen-plus places. `TabId` contains that sentinel in one place (see
+/// [`TabId::NONE`]) and gives callers an explicit opt-in via [`TabId::NONE`] or
+/// [`Workspace::active_tab_id`]. Handlers that only use the id as a `HashMap`
+/// key can convert with [`TabId::as_usize`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TabId(pub usize);
+
+impl TabId {
+    /// Sentinel for "no active tab". Previously spelled `usize::MAX`.
+    pub const NONE: TabId = TabId(usize::MAX);
+
+    pub fn as_usize(self) -> usize {
+        self.0
+    }
+
+    pub fn is_none(self) -> bool {
+        self == TabId::NONE
+    }
 }
 
 impl EditorType {
-    /// Infer editor type from file extension and stem
+    /// Infer editor type from a path.
+    ///
+    /// The shared file-type catalog in `dispel-core` is the single source of
+    /// truth for filename/extension detection. Only GUI-specific names that
+    /// have no catalog entry are handled locally.
     pub fn from_path(path: &std::path::Path) -> Self {
         let ext = path
             .extension()
@@ -69,132 +54,50 @@ impl EditorType {
             .map(|s| s.to_string_lossy().to_lowercase())
             .unwrap_or_default();
 
-        // Try direct (ext, stem) lookup first
-        if let Some(&et) = Self::editor_map().get(&(ext.as_str(), stem.as_str())) {
+        // GUI-only names (no corresponding catalog key).
+        if let Some(&et) = Self::gui_only_map().get(&(ext.as_str(), stem.as_str())) {
             return et;
         }
 
-        // Fallback: prefix-based patterns (cannot be exact-matched)
-        match ext.as_str() {
-            "ref" if stem.starts_with("npc") => return EditorType::NpcRefEditor,
-            "ref" if stem.starts_with("mon") => return EditorType::MonsterRefEditor,
-            "ref" if stem.starts_with("ext") => return EditorType::ExtraRefEditor,
-            "scr" if stem.starts_with("event") => return EditorType::EventScrEditor,
-            _ => {}
+        // Shared catalog detection.
+        if let dispel_core::commands::registry::DetectResult::Single(ft) =
+            dispel_core::commands::registry::detect(path)
+            && let Some(et) = Self::from_catalog_editor(ft.editor)
+        {
+            return et;
         }
 
-        // Extension-only fallthroughs
+        // GUI-only formats the catalog doesn't describe.
         match ext.as_str() {
-            "btl" | "gtl" => EditorType::TilesetEditor,
-            "dlg" => EditorType::DialogueScriptEditor,
-            "pgp" => EditorType::DialogueTextEditor,
-            "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
-            "map" => EditorType::MapEditor,
-            "sav" => EditorType::SaveFileViewer,
+            "ogg" | "wav" => EditorType::AudioViewer,
+            "bmp" => EditorType::BmpViewer,
             _ => EditorType::HexEditor,
         }
     }
 
-    /// Static map of (extension, stem) -> EditorType for exact-match lookups.
-    fn editor_map() -> &'static HashMap<(&'static str, &'static str), EditorType> {
+    /// Map a catalog `editor` id to its GUI variant.
+    ///
+    /// The string→variant table used to be hand-copied here and validated only
+    /// against itself; it is now derived from the authoritative editor catalog.
+    pub(crate) fn from_catalog_editor(id: &str) -> Option<Self> {
+        crate::editor_catalog::from_catalog_editor(id)
+    }
+
+    /// Exact (extension, stem) pairs that have no catalog entry.
+    fn gui_only_map() -> &'static HashMap<(&'static str, &'static str), EditorType> {
         static MAP: OnceLock<HashMap<(&'static str, &'static str), EditorType>> = OnceLock::new();
         MAP.get_or_init(|| {
             let mut m = HashMap::new();
-            // .db files
-            m.insert(("db", "weaponitem"), EditorType::WeaponEditor);
-            m.insert(("db", "monster"), EditorType::MonsterEditor);
-            m.insert(("db", "healitem"), EditorType::HealItemEditor);
-            m.insert(("db", "miscitem"), EditorType::MiscItemEditor);
-            m.insert(("db", "edititem"), EditorType::EditItemEditor);
-            m.insert(("db", "eventitem"), EditorType::EventItemEditor);
-            m.insert(("db", "store"), EditorType::StoreEditor);
-            m.insert(("db", "magic"), EditorType::MagicEditor);
-            m.insert(("db", "chdata"), EditorType::ChDataEditor);
-            m.insert(("db", "prtlevel"), EditorType::PartyLevelDbEditor);
-            m.insert(("db", "prtini"), EditorType::PartyIniEditor);
-            // .ini files
-            m.insert(("ini", "allmap"), EditorType::AllMapIniEditor);
-            m.insert(("ini", "map"), EditorType::MapIniEditor);
-            m.insert(("ini", "extra"), EditorType::ExtraIniEditor);
-            m.insert(("ini", "event"), EditorType::EventIniEditor);
-            m.insert(("ini", "monster"), EditorType::MonsterIniEditor);
-            m.insert(("ini", "npc"), EditorType::NpcIniEditor);
             m.insert(("ini", "npcini"), EditorType::NpcIniEditor);
-            m.insert(("ini", "wave"), EditorType::WaveIniEditor);
-            // .ref files (exact stems only; prefix-based handled separately)
-            m.insert(("ref", "partyref"), EditorType::PartyRefEditor);
-            m.insert(("ref", "drawitem"), EditorType::DrawItemEditor);
-            m.insert(("ref", "eventnpc"), EditorType::EventNpcRefEditor);
-            // .scr files (exact stems only; "event*" prefix handled separately)
-            m.insert(("scr", "quest"), EditorType::QuestScrEditor);
-            m.insert(("scr", "message"), EditorType::MessageScrEditor);
+            m.insert(("dat", "fogdata"), EditorType::FogDataEditor);
             m
         })
     }
 
-    /// Returns `true` if this editor type supports Ctrl+S saving.
-    ///
-    /// This is the **single source of truth** for save capability.  Both
-    /// `save_task_for_editor()` and the test iterate this method.  When adding
-    /// a new saving editor, add its variant here *and* add a dispatch arm in
-    /// `save_task_for_editor()` (which will panic at runtime if you forget).
-    pub fn supports_save(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
-
-    /// Returns `true` if this editor type supports undo/redo.
-    ///
-    /// Single source of truth for `undo_redo_dispatch!` — every type that
-    /// returns `true` must also have a match arm in the macro.
-    pub fn supports_undo_redo(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::EventScrEditor
-                | EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::MapEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
-
-    /// Returns `true` if this editor type exposes an edit history panel.
-    ///
-    /// Single source of truth for `get_active_edit_history()`.
-    pub fn has_edit_history(&self) -> bool {
-        !matches!(
-            self,
-            EditorType::EventScrEditor
-                | EditorType::MonsterEditor
-                | EditorType::MonsterIniEditor
-                | EditorType::NpcIniEditor
-                | EditorType::SpriteViewer
-                | EditorType::SnfEditor
-                | EditorType::DbViewer
-                | EditorType::TilesetEditor
-                | EditorType::MapEditor
-                | EditorType::ModPackager
-                | EditorType::LocalizationManager
-                | EditorType::SaveFileViewer
-                | EditorType::HexEditor
-                | EditorType::Unknown
-        )
-    }
+    // Capability predicates (supports_save / supports_undo_redo /
+    // has_edit_history / auto_load_catalog) are generated from the authoritative
+    // editor catalog in `crate::editor_catalog`.
 }
 
 /// A workspace tab that can hold any editor or view.
@@ -447,6 +350,12 @@ impl Workspace {
         self.active_tab
     }
 
+    /// Typed id of the active tab, or [`TabId::NONE`] when no tab is active.
+    /// This is the single, typed replacement for the old `usize::MAX` sentinel.
+    pub fn active_tab_id(&self) -> TabId {
+        self.active().map(|t| TabId(t.id)).unwrap_or(TabId::NONE)
+    }
+
     pub fn mark_modified(&mut self) {
         if let Some(idx) = self.active_tab
             && let Some(tab) = self.tabs.get_mut(idx)
@@ -459,6 +368,16 @@ impl Workspace {
         if let Some(idx) = self.active_tab
             && let Some(tab) = self.tabs.get_mut(idx)
         {
+            tab.modified = false;
+        }
+    }
+
+    /// Clear the dirty flag of the tab identified by `tab_id`, regardless of
+    /// which tab is active now. Async save results arrive after the user may
+    /// have switched tabs, so clearing the active tab would mark the wrong one
+    /// clean.
+    pub fn clear_modified_for(&mut self, tab_id: usize) {
+        if let Some(tab) = self.tabs.iter_mut().find(|t| t.id == tab_id) {
             tab.modified = false;
         }
     }

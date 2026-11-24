@@ -3,24 +3,12 @@
 
 use std::collections::HashMap;
 
+// `TextEncoding` (accepted spellings, labels and `encoding_rs` mapping) lives
+// in the shared `dispel-encodings` registry so the derive macros and the
+// runtime helpers cannot drift apart.
+pub use dispel_encodings::TextEncoding;
+
 // ─── Core types ─────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum TextEncoding {
-    Windows1250,
-    EucKr,
-    Utf8,
-}
-
-impl TextEncoding {
-    pub fn label(&self) -> &'static str {
-        match self {
-            TextEncoding::Windows1250 => "WINDOWS-1250",
-            TextEncoding::EucKr => "EUC-KR",
-            TextEncoding::Utf8 => "UTF-8",
-        }
-    }
-}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TextEntry {
@@ -34,6 +22,17 @@ pub struct TextEntry {
 }
 
 impl TextEntry {
+    /// The canonical typed address of this translatable cell. Lets a
+    /// localization entry and the equivalent modding `FieldDelta` be compared
+    /// as one identity instead of two parallel `(file, record, field)` tuples.
+    pub fn field_address(&self) -> crate::field_identity::FieldAddress {
+        crate::field_identity::FieldAddress::flat(
+            self.file_path.clone(),
+            self.record_id as u32,
+            self.field_name,
+        )
+    }
+
     /// True when a non-empty, changed translation exists.
     pub fn is_translated(&self) -> bool {
         !self.translation.is_empty() && self.translation != self.original
@@ -42,6 +41,13 @@ impl TextEntry {
     /// Byte length of `translation` when encoded with the target encoding.
     pub fn encoded_translation_len(&self) -> usize {
         encoded_len(&self.translation, &self.encoding)
+    }
+
+    /// Whether every character in `translation` has a representation in the
+    /// target encoding. `encode()` would otherwise replace unmappable
+    /// characters with literal `&#...;` entities.
+    pub fn is_encodable(&self) -> bool {
+        encode_without_replacement(&self.translation, &self.encoding).is_ok()
     }
 
     /// Whether the translation would exceed `max_bytes` after encoding.
@@ -54,6 +60,7 @@ impl TextEntry {
 pub enum TruncationStatus {
     Ok,
     Truncated { original_bytes: usize },
+    Unencodable,
 }
 
 // ─── Localizable trait ───────────────────────────────────────────────────────
@@ -67,24 +74,38 @@ pub trait Localizable {
 
 // ─── Encoding helpers ────────────────────────────────────────────────────────
 
-fn encoding_rs_for(enc: &TextEncoding) -> &'static encoding_rs::Encoding {
-    match enc {
-        TextEncoding::Windows1250 => encoding_rs::WINDOWS_1250,
-        TextEncoding::EucKr => encoding_rs::EUC_KR,
-        TextEncoding::Utf8 => encoding_rs::UTF_8,
+/// Encode `s` with `enc` without substituting unmappable characters with
+/// numeric character references. Returns `Err` when a character cannot be
+/// represented, so callers can reject the translation instead of writing
+/// literal `&#...;` entities into game files.
+fn encode_without_replacement(s: &str, enc: &TextEncoding) -> Result<Vec<u8>, ()> {
+    let mut encoder = enc.encoding_rs().new_encoder();
+    let mut bytes = Vec::with_capacity(s.len());
+    let (result, _) = encoder.encode_from_utf8_to_vec_without_replacement(s, &mut bytes, true);
+    match result {
+        encoding_rs::EncoderResult::InputEmpty => Ok(bytes),
+        encoding_rs::EncoderResult::Unmappable(_) | encoding_rs::EncoderResult::OutputFull => {
+            Err(())
+        }
     }
 }
 
 fn encoded_len(s: &str, enc: &TextEncoding) -> usize {
-    let (bytes, _, _) = encoding_rs_for(enc).encode(s);
-    bytes.len()
+    encode_without_replacement(s, enc)
+        .map(|bytes| bytes.len())
+        // No valid encoded length exists for unmappable text; the UTF-8 byte
+        // count is only used for the length indicator in the UI.
+        .unwrap_or_else(|()| s.len())
 }
 
 /// Truncate `s` so it fits within `max_bytes` when re-encoded, working character by character.
 /// Returns `(truncated_string, was_truncated)`.
 pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String, bool) {
-    let encoder = encoding_rs_for(enc);
-    let (full, _, _) = encoder.encode(s);
+    let Ok(full) = encode_without_replacement(s, enc) else {
+        // Unmappable text cannot be written verbatim; leave it to the caller's
+        // encodability check so the whole translation can be rejected.
+        return (s.to_owned(), true);
+    };
     if full.len() <= max_bytes {
         return (s.to_owned(), false);
     }
@@ -92,7 +113,9 @@ pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String
     let mut result = String::new();
     for ch in s.chars() {
         let ch_str = ch.to_string();
-        let (ch_bytes, _, _) = encoder.encode(&ch_str);
+        let Ok(ch_bytes) = encode_without_replacement(&ch_str, enc) else {
+            break;
+        };
         if byte_count + ch_bytes.len() > max_bytes {
             break;
         }
@@ -135,9 +158,21 @@ pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
+/// Outcome of importing translations from CSV.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CsvApplyResult {
+    /// Data rows whose translation was applied to a matching entry.
+    pub updated: usize,
+    /// Data rows that were not applied: the key was invalid (missing file,
+    /// field or record id) or matched no known entry.
+    pub skipped: usize,
+}
+
 /// Import translations from CSV; matches rows by (file_path, record_id, field_name).
-/// Only updates the `translation` field of matching entries; returns error count.
-pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<usize, csv::Error> {
+/// Only updates the `translation` field of matching entries. Rows with an
+/// unparseable record id or a missing file/field are skipped rather than being
+/// coerced onto record 0; both applied and skipped counts are reported.
+pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<CsvApplyResult, csv::Error> {
     let mut rdr = csv::Reader::from_reader(csv.as_bytes());
     // Build a lookup: (file_path, record_id, field_name) → index in entries
     let mut index: HashMap<(String, usize, String), usize> = HashMap::new();
@@ -148,18 +183,30 @@ pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<usize, csv::Er
         );
     }
     let mut updated = 0;
+    let mut skipped = 0;
     for record in rdr.records() {
         let record = record?;
-        let file_path = record.get(0).unwrap_or("").to_owned();
-        let record_id: usize = record.get(1).unwrap_or("0").parse().unwrap_or(0);
-        let field_name = record.get(2).unwrap_or("").to_owned();
+        let Some(file_path) = record.get(0).filter(|s| !s.is_empty()) else {
+            skipped += 1;
+            continue;
+        };
+        let Some(field_name) = record.get(2).filter(|s| !s.is_empty()) else {
+            skipped += 1;
+            continue;
+        };
+        let Ok(record_id) = record.get(1).unwrap_or("").parse::<usize>() else {
+            skipped += 1;
+            continue;
+        };
         let translation = record.get(4).unwrap_or("").to_owned();
-        if let Some(&idx) = index.get(&(file_path, record_id, field_name)) {
+        if let Some(&idx) = index.get(&(file_path.to_owned(), record_id, field_name.to_owned())) {
             entries[idx].translation = translation;
             updated += 1;
+        } else {
+            skipped += 1;
         }
     }
-    Ok(updated)
+    Ok(CsvApplyResult { updated, skipped })
 }
 
 // ─── PO export / import ──────────────────────────────────────────────────────
@@ -202,6 +249,25 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         by_original.entry(e.original.clone()).or_default().push(i);
     }
 
+    // Apply a completed msgid/msgstr pair to every entry sharing the original.
+    // Called when a new msgid begins, a blank line ends the entry, and at EOF.
+    let flush_entry =
+        |id: &Option<String>, msgstr: &str, entries: &mut [TextEntry], updated: &mut usize| {
+            let Some(id) = id else {
+                return;
+            };
+            if msgstr.is_empty() {
+                return;
+            }
+            let Some(idxs) = by_original.get(id) else {
+                return;
+            };
+            for &i in idxs {
+                entries[i].translation = msgstr.to_owned();
+                *updated += 1;
+            }
+        };
+
     let mut updated = 0;
     let mut current_msgid: Option<String> = None;
     let mut in_msgstr = false;
@@ -211,16 +277,7 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         let line = line.trim();
         if let Some(stripped) = line.strip_prefix("msgid ") {
             if in_msgstr {
-                // flush previous pair
-                if let Some(ref id) = current_msgid
-                    && !msgstr_buf.is_empty()
-                    && let Some(idxs) = by_original.get(id)
-                {
-                    for &i in idxs {
-                        entries[i].translation = msgstr_buf.clone();
-                        updated += 1;
-                    }
-                }
+                flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
             }
             in_msgstr = false;
             msgstr_buf.clear();
@@ -233,31 +290,14 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
             msgstr_buf.push_str(&po_unquote(line));
         } else if line.is_empty() && in_msgstr {
             // end of entry
-            if let Some(ref id) = current_msgid
-                && !msgstr_buf.is_empty()
-                && let Some(idxs) = by_original.get(id)
-            {
-                for &i in idxs {
-                    entries[i].translation = msgstr_buf.clone();
-                    updated += 1;
-                }
-            }
+            flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
             in_msgstr = false;
             current_msgid = None;
             msgstr_buf.clear();
         }
     }
     // flush last entry
-    if in_msgstr
-        && let Some(ref id) = current_msgid
-        && !msgstr_buf.is_empty()
-        && let Some(idxs) = by_original.get(id)
-    {
-        for &i in idxs {
-            entries[i].translation = msgstr_buf.clone();
-            updated += 1;
-        }
-    }
+    flush_entry(&current_msgid, &msgstr_buf, entries, &mut updated);
     updated
 }
 
@@ -275,16 +315,32 @@ fn po_quote(s: &str) -> String {
 
 fn po_unquote(s: &str) -> String {
     let s = s.trim();
-    if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
-        let inner = &s[1..s.len() - 1];
-        inner
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\")
-    } else {
-        s.to_owned()
+    if !(s.starts_with('"') && s.ends_with('"') && s.len() >= 2) {
+        return s.to_owned();
     }
+    // Consume escapes left-to-right so a literal backslash before n/r/quote
+    // is not mistaken for the start of an escape. Unknown escapes are kept.
+    let inner = &s[1..s.len() - 1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('"') => out.push('"'),
+            Some('\\') => out.push('\\'),
+            Some(other) => {
+                out.push('\\');
+                out.push(other);
+            }
+            None => out.push('\\'),
+        }
+    }
+    out
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -316,14 +372,52 @@ mod tests {
         ]
     }
 
+    fn text_entry(original: &str) -> TextEntry {
+        TextEntry {
+            file_path: "test.db".to_owned(),
+            record_id: 1,
+            field_name: "name",
+            original: original.to_owned(),
+            translation: String::new(),
+            encoding: TextEncoding::Windows1250,
+            max_bytes: 64,
+        }
+    }
+
     #[test]
     fn csv_round_trip() {
         let entries = sample_entries();
         let csv = export_csv(&entries).unwrap();
         let mut entries2 = sample_entries();
-        let updated = import_csv(&csv, &mut entries2).unwrap();
-        assert_eq!(updated, 2);
+        let result = import_csv(&csv, &mut entries2).unwrap();
+        assert_eq!(
+            result,
+            CsvApplyResult {
+                updated: 2,
+                skipped: 0
+            }
+        );
         assert_eq!(entries2[1].translation, "Witaj, wędrowcze.");
+    }
+
+    #[test]
+    fn csv_import_skips_invalid_keys_without_touching_entry_zero() {
+        let mut entries = sample_entries();
+        entries[0].translation = "sentinel".to_owned();
+        let csv = "file_path,record_id,field_name,original,translation,encoding,max_bytes\n\
+                   CharacterInGame/STORE.DB,,store_name,Weapon Shop,CORRUPT,WINDOWS-1250,32\n\
+                   CharacterInGame/STORE.DB,garbage,invitation,Welcome,BAD,WINDOWS-1250,512\n\
+                   CharacterInGame/STORE.DB,0,,Weapon Shop,NOFIELD,WINDOWS-1250,32\n";
+        let result = import_csv(csv, &mut entries).unwrap();
+        assert_eq!(
+            result,
+            CsvApplyResult {
+                updated: 0,
+                skipped: 3
+            }
+        );
+        assert_eq!(entries[0].translation, "sentinel");
+        assert_eq!(entries[1].translation, "Witaj, wędrowcze.");
     }
 
     #[test]
@@ -336,6 +430,56 @@ mod tests {
         assert_eq!(updated, 2);
         assert_eq!(entries2[0].translation, "Sklep z bronią");
         assert_eq!(entries2[1].translation, "Witaj, wędrowcze.");
+    }
+
+    #[test]
+    fn po_unquote_decodes_escapes_left_to_right() {
+        assert_eq!(po_unquote("\"C:\\\\new\""), "C:\\new");
+        assert_eq!(po_unquote("\"a\\\\\\\"b\""), "a\\\"b");
+        assert_eq!(po_unquote("\"x\\\\\\\\y\""), "x\\\\y");
+        assert_eq!(po_unquote("\"a\\\\nb\""), "a\\nb");
+        assert_eq!(po_unquote("\"\\\""), "\\");
+        assert_eq!(po_unquote("\"a\\nb\""), "a\nb");
+        assert_eq!(po_unquote("\"a\\rb\""), "a\rb");
+        assert_eq!(po_unquote("\"a\\qb\""), "a\\qb");
+    }
+
+    #[test]
+    fn po_quote_output_round_trips_through_unquote() {
+        for original in [
+            "C:\\new",
+            "a\"b",
+            "x\\y",
+            "line1\nline2",
+            "a\r\nb",
+            "\\",
+            "\\n",
+        ] {
+            assert_eq!(
+                po_unquote(&po_quote(original)),
+                original,
+                "failed for {original:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn po_import_flushes_at_msgid_blank_line_and_eof() {
+        let po = concat!(
+            "msgid \"one\"\n",
+            "msgstr \"Uno\"\n",
+            "msgid \"two\"\n",
+            "msgstr \"Dos\"\n",
+            "\n",
+            "msgid \"three\"\n",
+            "msgstr \"Tres\"\n",
+        );
+        let mut entries = vec![text_entry("one"), text_entry("two"), text_entry("three")];
+        let updated = import_po(po, &mut entries);
+        assert_eq!(updated, 3);
+        assert_eq!(entries[0].translation, "Uno");
+        assert_eq!(entries[1].translation, "Dos");
+        assert_eq!(entries[2].translation, "Tres");
     }
 
     #[test]
@@ -360,5 +504,133 @@ mod tests {
         assert!(e.is_translated());
         e.translation = e.original.clone();
         assert!(!e.is_translated());
+    }
+
+    #[test]
+    fn every_accepted_encoding_spelling_resolves_identically() {
+        // The derive macros use the very same `dispel-encodings` registry, so
+        // checking every spelling here guarantees attribute strings and the
+        // runtime `TextEncoding` cannot disagree.
+        for encoding in TextEncoding::ALL {
+            for spelling in encoding.spellings() {
+                assert_eq!(
+                    TextEncoding::from_spelling(spelling),
+                    Some(encoding),
+                    "spelling {spelling:?} must resolve to {encoding:?}"
+                );
+                assert_eq!(
+                    TextEncoding::from_spelling(spelling)
+                        .unwrap()
+                        .encoding_rs()
+                        .name(),
+                    encoding.encoding_rs().name(),
+                );
+            }
+        }
+    }
+
+    /// A real derive-based record, exercising both a required `String` field
+    /// and an `Option<String>` field with non-UTF-8 encodings.
+    #[derive(Default, dispel_macros::Localizable)]
+    struct LocalizedStore {
+        id: u32,
+        #[translatable(encoding = "EUC-KR", max_bytes = 32)]
+        name: String,
+        #[translatable(encoding = "WINDOWS-1250", max_bytes = 16)]
+        note: Option<String>,
+    }
+
+    #[test]
+    fn localizable_struct_round_trips_non_utf8_encoding() {
+        let mut record = LocalizedStore {
+            id: 7,
+            name: "상점".to_owned(),
+            note: Some("Witaj".to_owned()),
+        };
+        assert_eq!(record.id, 7);
+        let mut entries = record.extract_texts(7, "CharacterInGame/STORE.DB");
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].field_name, "name");
+        assert_eq!(entries[0].encoding, TextEncoding::EucKr);
+        assert_eq!(entries[1].field_name, "note");
+        assert_eq!(entries[1].encoding, TextEncoding::Windows1250);
+
+        entries[0].translation = "무기 상점".to_owned();
+        entries[1].translation = "Sklep z bronią".to_owned();
+        let statuses = record.apply_texts(&entries);
+        assert!(statuses.iter().all(|s| matches!(s, TruncationStatus::Ok)));
+        assert_eq!(record.name, "무기 상점");
+        assert_eq!(record.note.as_deref(), Some("Sklep z bronią"));
+
+        // Verify the stored text really round-trips through the declared
+        // non-UTF-8 codecs and stays within the declared byte budgets.
+        let (name_bytes, _, name_errors) = encoding_rs::EUC_KR.encode(&record.name);
+        assert!(!name_errors);
+        assert!(name_bytes.len() <= 32);
+        let (note_bytes, _, note_errors) =
+            encoding_rs::WINDOWS_1250.encode(record.note.as_deref().unwrap());
+        assert!(!note_errors);
+        assert!(note_bytes.len() <= 16);
+        assert_eq!(encoding_rs::EUC_KR.decode(&name_bytes).0, "무기 상점");
+    }
+
+    #[test]
+    fn apply_texts_preserves_fields_when_translation_is_empty() {
+        let mut record = LocalizedStore {
+            id: 9,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let entries = record.extract_texts(9, "CharacterInGame/STORE.DB");
+        assert_eq!(entries.len(), 2);
+        // A partially filled CSV/PO import leaves translations blank.
+        assert!(entries.iter().all(|e| e.translation.is_empty()));
+
+        let statuses = record.apply_texts(&entries);
+        // Skipped entries report no status, matching the Option<String> arm.
+        assert!(statuses.is_empty());
+        assert_eq!(record.name, "Original Shop");
+        assert_eq!(record.note.as_deref(), Some("Original note"));
+    }
+
+    #[test]
+    fn apply_texts_rejects_unencodable_translation() {
+        let mut record = LocalizedStore {
+            id: 11,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let mut entries = record.extract_texts(11, "CharacterInGame/STORE.DB");
+        // `note` is WINDOWS-1250, which cannot represent CJK. `encode()` would
+        // silently write "&#...;" entities into the game file.
+        entries[1].translation = "商店".to_owned();
+
+        let statuses = record.apply_texts(&entries);
+        assert_eq!(record.note.as_deref(), Some("Original note"));
+        assert!(
+            statuses
+                .iter()
+                .any(|s| matches!(s, TruncationStatus::Unencodable))
+        );
+    }
+
+    #[test]
+    fn truncation_status_reports_encoded_byte_length() {
+        let mut record = LocalizedStore {
+            id: 12,
+            name: "Original Shop".to_owned(),
+            note: Some("Original note".to_owned()),
+        };
+        let mut entries = record.extract_texts(12, "CharacterInGame/STORE.DB");
+        // "ééé" is 6 UTF-8 bytes but only 3 WINDOWS-1250 bytes.
+        entries[1].translation = "ééé".to_owned();
+        entries[1].max_bytes = 2;
+
+        let statuses = record.apply_texts(&entries);
+        assert!(
+            statuses
+                .iter()
+                .any(|s| matches!(s, TruncationStatus::Truncated { original_bytes: 3 }))
+        );
     }
 }

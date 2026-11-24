@@ -10,10 +10,11 @@ concurrency:
 
 env:
   RUST_TOOLCHAIN: stable
+  RUST_BACKTRACE: 1
 
 jobs:
   compile:
-    timeout-minutes: 5
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,12 +24,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install Linux GUI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxkbcommon-dev pkg-config
+
       - name: Install Rust
-        uses: dimspell/dispel-extractor/.github/actions/setup-rust@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: clippy, rustfmt
-          target: aarch64-unknown-linux-musl, x86_64-pc-windows-msvc
 
       - name: Cache Cargo dependencies
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
@@ -44,5 +49,23 @@ jobs:
           restore-keys: |
             test-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}-compile
 
+      - name: Check formatting
+        run: bash scripts/ci-commands.sh fmt-check
+
+      - name: Verify forked-iced pin/back-end consistency
+        run: bash scripts/ci-commands.sh check-iced-config
+
+      - name: Verify project metadata consistency
+        run: bash scripts/ci-commands.sh check-metadata
+
+      - name: Test the metadata validator
+        run: bash scripts/ci-commands.sh check-metadata-test
+
+      - name: Run Clippy
+        run: bash scripts/ci-commands.sh clippy
+
+      - name: Run full test suite
+        run: bash scripts/ci-commands.sh test
+
       - name: Build project
-        run: cargo build
+        run: bash scripts/ci-commands.sh build

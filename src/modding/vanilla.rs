@@ -9,20 +9,43 @@
 //! `FileAdd`) are *not* snapshotted; their absence is represented implicitly
 //! by [`VanillaStore::read`] returning `Ok(None)`.
 
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, FsHandle, OsFs};
 
 /// On-disk vanilla mirror rooted at a single workspace directory.
-#[derive(Debug, Clone)]
+///
+/// Storage goes through an [`Fs`] port so the facade can be exercised with an
+/// in-memory stand-in; the default is the real filesystem.
+#[derive(Clone)]
 pub struct VanillaStore {
     root: PathBuf,
+    fs: FsHandle,
+}
+
+impl std::fmt::Debug for VanillaStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VanillaStore")
+            .field("root", &self.root)
+            .finish_non_exhaustive()
+    }
 }
 
 impl VanillaStore {
     pub fn new(root: PathBuf) -> Self {
-        Self { root }
+        Self::with_fs(root, Arc::new(OsFs))
+    }
+
+    /// Build a store backed by a custom filesystem port.
+    pub fn with_fs(root: PathBuf, fs: FsHandle) -> Self {
+        Self { root, fs }
+    }
+
+    /// The filesystem port this store uses.
+    pub fn fs(&self) -> &dyn Fs {
+        self.fs.as_ref()
     }
 
     pub fn root(&self) -> &Path {
@@ -36,7 +59,7 @@ impl VanillaStore {
 
     /// True iff a snapshot exists for `relative`.
     pub fn has(&self, relative: &str) -> bool {
-        self.vanilla_path(relative).is_file()
+        self.fs.is_file(&self.vanilla_path(relative))
     }
 
     /// Read a previously captured snapshot.
@@ -45,10 +68,10 @@ impl VanillaStore {
     /// exist in pristine game state (or was never touched by a mod).
     pub fn read(&self, relative: &str) -> Result<Option<Vec<u8>>> {
         let path = self.vanilla_path(relative);
-        if !path.exists() {
+        if !self.fs.exists(&path) {
             return Ok(None);
         }
-        Ok(Some(fs::read(&path)?))
+        Ok(Some(self.fs.read(&path)?))
     }
 
     /// Snapshot `relative` from `game_dir` if not already captured.
@@ -64,16 +87,16 @@ impl VanillaStore {
         }
 
         let src = game_dir.join(normalise(relative));
-        if !src.exists() {
+        if !self.fs.exists(&src) {
             return Ok(None);
         }
 
-        let bytes = fs::read(&src)?;
+        let bytes = self.fs.read(&src)?;
         let dst = self.vanilla_path(relative);
         if let Some(parent) = dst.parent() {
-            fs::create_dir_all(parent)?;
+            self.fs.create_dir_all(parent)?;
         }
-        fs::write(&dst, &bytes)?;
+        self.fs.write(&dst, &bytes)?;
         Ok(Some(bytes))
     }
 }
@@ -114,37 +137,44 @@ pub fn validate_relative(path: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
+    use crate::modding::fs::MemFs;
+    use std::sync::Arc;
+
+    fn store() -> (Arc<MemFs>, VanillaStore) {
+        let fs = Arc::new(MemFs::new());
+        let root = PathBuf::from("/vault");
+        fs.create_dir_all(&root).unwrap();
+        let store = VanillaStore::with_fs(root, fs.clone());
+        (fs, store)
+    }
 
     #[test]
     fn snapshot_then_read() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let (fs, store) = store();
+        let game = Path::new("/game");
+        fs.create_dir_all(game).unwrap();
 
         let rel = "CharacterInGame/MiscItem.db";
-        let abs = game.path().join(rel);
-        fs::create_dir_all(abs.parent().unwrap()).unwrap();
-        fs::write(&abs, b"original").unwrap();
+        let abs = game.join(rel);
+        fs.write(&abs, b"original").unwrap();
 
-        let snap = store.ensure_snapshot(game.path(), rel).unwrap();
+        let snap = store.ensure_snapshot(game, rel).unwrap();
         assert_eq!(snap.as_deref(), Some(&b"original"[..]));
         assert!(store.has(rel));
 
         // Mutate the source; snapshot must still return original bytes.
-        fs::write(&abs, b"mutated").unwrap();
-        let again = store.ensure_snapshot(game.path(), rel).unwrap();
+        fs.write(&abs, b"mutated").unwrap();
+        let again = store.ensure_snapshot(game, rel).unwrap();
         assert_eq!(again.as_deref(), Some(&b"original"[..]));
     }
 
     #[test]
     fn missing_source_returns_none() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
-
+        let (fs, store) = store();
+        let game = Path::new("/game");
+        fs.create_dir_all(game).unwrap();
         let rel = "Map/never_existed.map";
-        let snap = store.ensure_snapshot(game.path(), rel).unwrap();
+        let snap = store.ensure_snapshot(game, rel).unwrap();
         assert!(snap.is_none());
         assert!(!store.has(rel));
     }
@@ -163,5 +193,14 @@ mod tests {
         assert_eq!(normalise("./foo/bar"), PathBuf::from("foo/bar"));
         // ParentDir components are stripped (defence-in-depth).
         assert_eq!(normalise("foo/../bar"), PathBuf::from("foo/bar"));
+    }
+
+    #[test]
+    fn store_uses_the_port_for_reads() {
+        let (fs, store) = store();
+        let mirror = store.root().join("Map/seeded.map");
+        fs.create_dir_all(mirror.parent().unwrap()).unwrap();
+        fs.write(&mirror, b"seeded").unwrap();
+        assert_eq!(store.read("Map/seeded.map").unwrap().unwrap(), b"seeded");
     }
 }

@@ -11,3 +11,8 @@ skills-lock.json
 /plans
 /plan
 .slim/deepwork/
+# Local-only working artifacts (user-supplied files, dumps).
+# Kept out of version control.
+*.exe
+*.dll
+session-ses_*.md

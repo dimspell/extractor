@@ -134,7 +134,7 @@ pub fn read_quests(path: &Path) -> std::io::Result<Vec<Quest>> {
 pub fn save_quests(conn: &mut Connection, quests: &[Quest]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_quest.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("quests"))?;
         for quest in quests {
             stmt.execute(params![
                 quest.id,

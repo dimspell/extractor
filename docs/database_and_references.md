@@ -18,7 +18,6 @@ Tables are created on the fly using SQL files found in `src/queries/`.
 #### Events & Dialogs
 - **Events**: ID, Previous ID, Type, Filename, Counter.
 - **Dialogs**: ID, Prev Event ID, Next Dialog, Type, Owner, DLG ID, Event ID.
-- **Party PGPs**: ID, Dialog Text.
 
 #### Items
 Separate tables for different item categories:
@@ -50,3 +49,9 @@ Each `save_*` function:
 1.  Executes a `create_table_*.sql`.
 2.  Iterates over the parsed data vector.
 3.  Executes an `insert_*.sql` for each record.
+
+**Exception:** the inserts for `chest_spawns`, `monster_spawns`, `map_info_multi` and
+`tile_grids` live inline in `src/references/chest_spawn.rs`, `monster_spawn.rs`,
+`map_info_multi.rs` and `tile_grid.rs` respectively (they use `conn.execute`
+directly rather than a prepared `include_str!` statement). There are deliberately
+no `insert_*.sql` files for those four tables — do not re-add them.

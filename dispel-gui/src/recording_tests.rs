@@ -6,11 +6,11 @@
 //! - Custom editors: `wave_ini`, `store`
 //! - Tab-based editors (5) — tested via `npc_ref` representative
 //!
-//! The test strategy relies on behavioral assertions (catalog values, pending
-//! entry counts, session state) rather than `Task::units()` because both
-//! `Task::none()` and `Task::done(...)` have units == 0 (only `Task::perform`
-//! has units > 0). The `units == 0` assertions on no-session / no-change cases
-//! are kept because they happen to match `Task::none()` returning 0.
+//! `FieldChanged` handlers emit the recording effect as a `Task::done` message
+//! instead of mutating session state directly, so the recording assertions
+//! drain that task's messages and dispatch the resulting `RecordingObserved`
+//! event before checking the pending map. Catalog assertions stay in place.
+//! The `units == 0` checks on no-session / no-change cases are kept as-is.
 
 use crate::app::App;
 
@@ -25,10 +25,87 @@ use crate::editors::weapon::{self, WeaponEditorMessage};
 use crate::state::RecordingKey;
 use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
-use crate::workspace::Workspace;
+use crate::workspace::{TabId, Workspace};
 use dispel_core::modding::Value;
 use dispel_core::{NPC, Store, WaveIni, WeaponItem};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+/// Pull the `RecordingObserved` events out of a handler task.
+///
+/// A field edit under an active session is delivered as
+/// `Task::done(Message::mod_packager(RecordingObserved(..)))`, so the effect is
+/// carried by the task itself — it does not appear in `App` state until that
+/// message is dispatched. Polling the stream directly keeps these tests from
+/// needing a full iced runtime; every future behind `Task::done` is ready
+/// immediately, so a no-op waker is enough to drain it.
+#[cfg(feature = "iced_test")]
+fn recording_events(task: iced::Task<crate::message::Message>) -> Vec<ObservedAction> {
+    use iced::futures::task::noop_waker;
+    use std::task::{Context, Poll};
+
+    let Some(mut stream) = iced_test::runtime::task::into_stream(task) else {
+        return Vec::new();
+    };
+    let waker = noop_waker();
+    let mut context = Context::from_waker(&waker);
+    let mut events = Vec::new();
+
+    loop {
+        match stream.as_mut().poll_next(&mut context) {
+            Poll::Ready(Some(iced_test::runtime::Action::Output(msg))) => {
+                if let crate::message::Message::Editor(
+                    crate::message::EditorMessage::ModPackager(
+                        ModPackagerMessage::RecordingObserved(event),
+                    ),
+                ) = msg
+                {
+                    events.push(event);
+                }
+            }
+            Poll::Ready(Some(_)) => {}
+            Poll::Ready(None) | Poll::Pending => break,
+        }
+    }
+    events
+}
+
+/// Assert that a handler's task recorded exactly one edit and that the edit
+/// landed in the active session's pending map with the expected address/values.
+#[cfg(feature = "iced_test")]
+fn assert_recorded_edit(
+    app: &mut App,
+    task: iced::Task<crate::message::Message>,
+    file: &str,
+    record_id: u32,
+    field: &str,
+    old: &str,
+    new: &str,
+) {
+    let events = recording_events(task);
+    assert_eq!(
+        events.len(),
+        1,
+        "handler must emit exactly one recording observation"
+    );
+    for event in events {
+        let _ = mod_packager::handle(ModPackagerMessage::RecordingObserved(event), app);
+    }
+
+    let session = app
+        .state
+        .recording
+        .as_ref()
+        .expect("recording session active");
+    assert_eq!(session.next_generation, 1, "one edit observed");
+    let key = make_key(file, record_id, field);
+    let pending = session
+        .pending
+        .get(&key)
+        .unwrap_or_else(|| panic!("pending edit for {file}:{record_id}:{field}"));
+    assert_eq!(pending.original_old, Value::String(old.into()));
+    assert_eq!(pending.latest_new, Value::String(new.into()));
+    assert_eq!(pending.generation, 1);
+}
 
 // ============================================================================
 // observe_field_change  (core recording primitive)
@@ -43,8 +120,12 @@ fn observe_field_change_returns_none_when_no_session() {
 
 #[test]
 fn observe_field_change_returns_task_when_session_active() {
-    let app = app_with_recording();
-    let _task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
+    let mut app = app_with_recording();
+    let task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(&mut app, task, "test.db", 0, "name", "old", "new");
+    #[cfg(not(feature = "iced_test"))]
+    let _ = task;
 }
 
 // ============================================================================
@@ -69,6 +150,16 @@ fn weapon_editor_records_when_session_active() {
     assert_eq!(
         app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].name,
         "NewName"
+    );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "CharacterInGame/weaponItem.db",
+        0,
+        "name",
+        "OldName",
+        "NewName",
     );
 }
 
@@ -139,6 +230,16 @@ fn wave_ini_editor_records_when_session_active() {
         Some("new.wav"),
         "field value updated"
     );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "Wave.ini",
+        0,
+        "snf_filename",
+        "old.wav",
+        "new.wav",
+    );
 }
 
 #[test]
@@ -192,6 +293,16 @@ fn store_editor_records_when_session_active() {
         app.state.editors.store_editor.catalog.as_ref().unwrap()[0].store_name,
         "NewShop"
     );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "CharacterInGame/STORE.DB",
+        0,
+        "store_name",
+        "OldShop",
+        "NewShop",
+    );
 }
 
 #[test]
@@ -232,7 +343,7 @@ fn store_editor_does_not_record_without_session() {
 #[test]
 fn npc_ref_editor_records_when_session_active() {
     let mut app = app_with_recording();
-    let tab_id = usize::MAX; // Workspace has no active tab → get_tab_id returns MAX
+    let tab_id = TabId::NONE.as_usize(); // Workspace has no active tab -> sentinel
 
     app.state.editors.npc_ref_editor.editors.insert(
         tab_id,
@@ -282,12 +393,22 @@ fn npc_ref_editor_records_when_session_active() {
         "NewNPC",
         "field value updated"
     );
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
+        &mut app,
+        _task,
+        "NpcInGame/Npccat1.ref",
+        0,
+        "name",
+        "OldNPC",
+        "NewNPC",
+    );
 }
 
 #[test]
 fn npc_ref_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
-    let tab_id = usize::MAX;
+    let tab_id = TabId::NONE.as_usize();
 
     app.state.editors.npc_ref_editor.editors.insert(
         tab_id,
@@ -863,13 +984,48 @@ fn recording_persisted_ok_increments_count() {
     let mut app = app_with_recording();
     assert_eq!(app.state.recording.as_ref().unwrap().recorded_count, 0);
 
-    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(())), &mut app);
+    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(0)), &mut app);
 
     assert_eq!(task.units(), 0, "RecordingPersisted returns no task");
     assert_eq!(
         app.state.recording.as_ref().unwrap().recorded_count,
         1,
         "recorded_count incremented"
+    );
+}
+
+#[test]
+fn recording_persisted_pruned_sets_status_warning() {
+    let mut app = app_with_recording();
+
+    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(3)), &mut app);
+
+    assert_eq!(task.units(), 0);
+    let status = &app.state.editors.mod_packager_editor.status_msg;
+    assert!(
+        status.contains('3'),
+        "warning names the dropped count: {status}"
+    );
+    assert!(
+        status.contains("dropped"),
+        "warning says edits were dropped: {status}"
+    );
+    assert_eq!(
+        app.state.recording.as_ref().unwrap().recorded_count,
+        1,
+        "a pruned persist still counts as recorded"
+    );
+}
+
+#[test]
+fn recording_persisted_without_prune_leaves_status_untouched() {
+    let mut app = app_with_recording();
+
+    let _task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(0)), &mut app);
+
+    assert!(
+        app.state.editors.mod_packager_editor.status_msg.is_empty(),
+        "no warning when nothing was pruned"
     );
 }
 
@@ -921,28 +1077,16 @@ fn chdata_editor_records_when_session_active() {
         15,
         "field value updated"
     );
-}
-
-#[test]
-fn chdata_editor_does_not_record_without_session() {
-    let mut app = app_without_recording();
-    app.state.editors.chdata_editor.catalog = Some(vec![dispel_core::ChData {
-        warrior_strength: 10,
-        ..Default::default()
-    }]);
-    let record = app.state.editors.chdata_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.editors.chdata_editor.filtered = vec![(0, record)];
-
-    let task = crate::editors::chdata::handle(
-        crate::editors::chdata::ChDataEditorMessage::FieldChanged(
-            0,
-            "warrior_strength".into(),
-            "15".into(),
-        ),
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
         &mut app,
+        _task,
+        "CharacterInGame/ChData.db",
+        0,
+        "warrior_strength",
+        "10",
+        "15",
     );
-
-    assert_eq!(task.units(), 0, "chdata should NOT record without session");
 }
 
 // ============================================================================
@@ -1000,50 +1144,15 @@ fn party_level_db_editor_records_when_session_active() {
         20,
         "field value updated"
     );
-}
-
-#[test]
-fn party_level_db_editor_does_not_record_without_session() {
-    let mut app = app_without_recording();
-    app.state.editors.party_level_db_editor.catalog = Some(vec![dispel_core::PartyLevelNpc {
-        npc_index: 0,
-        records: vec![dispel_core::PartyLevelRecord {
-            level: 1,
-            strength: 10,
-            ..Default::default()
-        }],
-    }]);
-    app.state.editors.party_level_db_editor.selected_npc_idx = Some(0);
-
-    app.state.editors.party_level_db_level_editor.catalog =
-        Some(vec![dispel_core::PartyLevelRecord {
-            level: 1,
-            strength: 10,
-            ..Default::default()
-        }]);
-    let record = app
-        .state
-        .editors
-        .party_level_db_level_editor
-        .catalog
-        .as_ref()
-        .unwrap()[0]
-        .clone();
-    app.state.editors.party_level_db_level_editor.state.filtered = vec![(0, record)];
-
-    let task = crate::editors::party_level_db::handle(
-        crate::editors::party_level_db::PartyLevelDbEditorMessage::FieldChanged(
-            0,
-            "strength".into(),
-            "20".into(),
-        ),
+    #[cfg(feature = "iced_test")]
+    assert_recorded_edit(
         &mut app,
-    );
-
-    assert_eq!(
-        task.units(),
+        _task,
+        "NpcInGame/PrtLevel.db",
         0,
-        "party_level_db should NOT record without session"
+        "strength",
+        "10",
+        "20",
     );
 }
 
@@ -1126,5 +1235,190 @@ fn party_level_db_no_recording_when_no_npc_selected() {
         task.units(),
         0,
         "party_level_db should NOT record when no NPC selected"
+    );
+}
+
+// ============================================================================
+// Whole-file recording reports cap pruning
+// ============================================================================
+
+#[test]
+fn record_file_replace_reports_pruned_count() {
+    use crate::editors::mod_packager::recording::{prune_warning, record_file_replace};
+    use dispel_core::modding::{ChangeAction, ChangeOp, HISTORY_CAP, ModManifest, Modding};
+
+    let base = tempfile::tempdir().expect("temp dir created");
+    let ws_root = base.path().join("ws");
+    let game_dir = base.path().join("game");
+    let relative = "Map/test.map";
+    let file_path = game_dir.join(relative);
+    std::fs::create_dir_all(file_path.parent().unwrap()).expect("game dir created");
+    let vanilla = vec![7u8; 128];
+    std::fs::write(&file_path, &vanilla).expect("original file written");
+
+    let pipeline = Modding::open(&ws_root, &game_dir).expect("modding facade opened");
+    let slug = pipeline
+        .create_mod(ModManifest::new("full changelog"))
+        .expect("mod created");
+
+    let mut current = vanilla.clone();
+    current[0] = 42;
+    assert_eq!(
+        record_file_replace(&ws_root, &game_dir, &slug, relative, &current).unwrap(),
+        0,
+        "no edits are pruned while the changelog has room"
+    );
+    assert!(prune_warning(0).is_none());
+
+    // Bring the changelog right up to the cap before the next whole-file save.
+    while pipeline.changelog(&slug).unwrap().len() < HISTORY_CAP {
+        let idx = pipeline.changelog(&slug).unwrap().len();
+        pipeline
+            .append(
+                &slug,
+                ChangeAction::new(
+                    format!("Map/filler{idx}.map"),
+                    ChangeOp::FileReplace {
+                        content: vec![idx as u8],
+                    },
+                ),
+            )
+            .expect("filler action appended");
+    }
+
+    current[1] = 43;
+    let pruned =
+        record_file_replace(&ws_root, &game_dir, &slug, relative, &current).expect("record ok");
+    assert_eq!(pruned, 1, "the oldest edit was dropped at the cap");
+    assert!(
+        prune_warning(pruned).unwrap().contains(&pruned.to_string()),
+        "callers can surface the count in the shared warning"
+    );
+
+    let log = pipeline.changelog(&slug).unwrap();
+    assert_eq!(log.len(), HISTORY_CAP, "the cap is still enforced");
+    assert!(
+        log.actions().iter().any(|a| a.file_path == relative),
+        "the new whole-file action was recorded"
+    );
+    assert!(
+        !log.actions()
+            .iter()
+            .any(|a| a.file_path == "Map/filler0.map"),
+        "the oldest filler action was the one dropped"
+    );
+}
+
+// ============================================================================
+// fog_data — whole-file recorder (save-time `record_file_replace`)
+// ============================================================================
+
+/// Create a self-contained fogdata.dat stand-in. The table is a fixed-size
+/// byte array, so a zero-filled file is a valid input and the tests no longer
+/// skip silently when user-supplied fixtures are absent.
+fn write_fogdata(game_dir: &Path) -> PathBuf {
+    use dispel_core::map::fogdata::EXPECTED_LEN;
+    let dir = game_dir.join("ExtraInGame");
+    std::fs::create_dir_all(&dir).expect("game dir created");
+    let path = dir.join("fogdata.dat");
+    std::fs::write(&path, vec![0u8; EXPECTED_LEN]).expect("fogdata written");
+    path
+}
+
+#[test]
+fn fog_data_editor_records_file_replace_on_save_when_session_active() {
+    use crate::editors::fog_data::{self, FogDataEditorState};
+    use dispel_core::map::fogdata::MAX_FACTOR;
+    use dispel_core::modding::{ModManifest, Workspace as ModWorkspace};
+
+    // Temp mod workspace + temp "game dir" holding a generated table.
+    let base = tempfile::tempdir().expect("temp dir created");
+    let ws_root = base.path().join("ws");
+    let game_dir = base.path().join("game");
+    let fog_path = write_fogdata(&game_dir);
+
+    let ws = ModWorkspace::open(ws_root.clone()).expect("workspace opened");
+    let slug = ws
+        .create_mod(ModManifest::new("fog recording test"))
+        .expect("mod created");
+
+    // Load the copy and dirty it with one edit.
+    let mut state = FogDataEditorState::load_from_path(&fog_path);
+    assert!(state.error.is_none(), "fixture must parse cleanly");
+    assert!(state.paint_factor(0, MAX_FACTOR), "edit applied");
+
+    // Save through the real async path with recording params wired up,
+    // mirroring what `FogDataMessage::Save` dispatches.
+    let params = fog_data::RecordingParams {
+        workspace_root: ws_root.clone(),
+        game_path: game_dir.clone(),
+        mod_slug: slug.clone(),
+        relative_path: "ExtraInGame/fogdata.dat".into(),
+    };
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let outcome = rt.block_on(fog_data::save_fog_data(
+        fog_path.clone(),
+        state.fog.clone(),
+        Some(params),
+    ));
+
+    let (status, recording_error) = outcome.expect("save succeeded");
+    assert!(
+        status.contains("Saved"),
+        "status reports the save: {status}"
+    );
+    assert!(
+        recording_error.is_none(),
+        "recording must succeed: {recording_error:?}"
+    );
+
+    // The changelog must now contain a recorded change for fogdata.dat.
+    let pkg = ws.read_mod(&slug).expect("mod readable");
+    assert!(
+        !pkg.changes.is_empty(),
+        "save recorded a change into the mod changelog"
+    );
+    assert!(
+        pkg.changes
+            .actions()
+            .iter()
+            .any(|a| a.file_path == "ExtraInGame/fogdata.dat"),
+        "recorded action targets fogdata.dat"
+    );
+}
+
+#[test]
+fn fog_data_editor_save_without_session_writes_file_only() {
+    use crate::editors::fog_data::{self, FogDataEditorState};
+    use dispel_core::map::fogdata::MAX_FACTOR;
+
+    let base = tempfile::tempdir().expect("temp dir created");
+    let game_dir = base.path().join("game");
+    let fog_path = write_fogdata(&game_dir);
+
+    let mut state = FogDataEditorState::load_from_path(&fog_path);
+    assert!(state.paint_factor(1, MAX_FACTOR), "edit applied");
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let outcome = rt.block_on(fog_data::save_fog_data(
+        fog_path.clone(),
+        state.fog.clone(),
+        None, // no recording session active
+    ));
+    let (status, recording_error) = outcome.expect("save succeeded");
+    assert!(status.contains("Saved"));
+    assert!(recording_error.is_none());
+    // No session → no recording side effects; only the file write happened.
+    let round_trip = base.path().join("roundtrip.dat");
+    state
+        .fog
+        .as_ref()
+        .unwrap()
+        .save_file(&round_trip)
+        .expect("re-encode ok");
+    assert_eq!(
+        std::fs::read(&fog_path).unwrap(),
+        std::fs::read(&round_trip).unwrap(),
+        "edited table persisted to disk"
     );
 }

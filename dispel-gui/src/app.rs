@@ -1,6 +1,9 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
+use crate::editors::audio_viewer::AudioViewerState;
+use crate::editors::bmp_viewer::BmpViewerState;
+use crate::editors::fog_data::FogDataEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -9,7 +12,6 @@ use crate::message::MessageExt;
 use crate::message::SystemMessage;
 use crate::state::AppState;
 use crate::workspace::EditorType;
-use dispel_core::Extractor;
 use hexedit::HexEditorState;
 use iced::Task;
 use std::path::Path;
@@ -215,64 +217,19 @@ impl App {
         self.save_workspace();
 
         match EditorType::from_path(path) {
-            EditorType::DialogueScriptEditor => {
-                let Some(tab_id) = self.active_tab_id() else {
-                    return Task::none();
-                };
-                let path_buf = path.to_path_buf();
-                self.state.editors.dialogue_script_editor.editors.insert(
-                    tab_id,
-                    crate::components::generic_editor::MultiFileEditorState {
-                        current_file: Some(path_buf.clone()),
-                        ..Default::default()
-                    },
-                );
-                self.state
-                    .editors
-                    .dialogue_script_editor
-                    .spreadsheets
-                    .insert(tab_id, Default::default());
-                Task::perform(
-                    async move {
-                        dispel_core::DialogueScript::read_file(&path_buf)
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    move |result| {
-                        crate::message::Message::dialogue_script(
-                            crate::editors::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
-                        )
-                    },
-                )
-            }
-            EditorType::DialogueTextEditor => {
-                let Some(tab_id) = self.active_tab_id() else {
-                    return Task::none();
-                };
-                let path_buf = path.to_path_buf();
-                self.state.editors.dialogue_paragraph_editor.editors.insert(
-                    tab_id,
-                    crate::components::generic_editor::MultiFileEditorState {
-                        current_file: Some(path_buf.clone()),
-                        ..Default::default()
-                    },
-                );
-                self.state
-                    .editors
-                    .dialogue_paragraph_editor
-                    .spreadsheets
-                    .insert(tab_id, Default::default());
-                Task::perform(
-                    async move {
-                        dispel_core::DialogueParagraph::read_file(&path_buf)
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    move |result| {
-                        crate::message::Message::dialogue_paragraph(
-                            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
-                        )
-                    },
-                )
-            }
+            // Catalog loading for every tabbed editor goes through the shared
+            // `LoadCatalog` path: one async read, tab id captured at spawn time,
+            // and identical cache-refresh behaviour.
+            EditorType::DialogueScriptEditor => Task::done(Message::dialogue_script(
+                crate::editors::dialogue_script::DialogueScriptEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
+            EditorType::DialogueTextEditor => Task::done(Message::dialogue_paragraph(
+                crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
             EditorType::NpcRefEditor => Task::done(Message::npc_ref(
                 crate::editors::npc_ref::NpcRefEditorMessage::LoadCatalog(path.to_path_buf()),
             )),
@@ -314,29 +271,37 @@ impl App {
                 }
                 Task::none()
             }
-            EditorType::HexEditor => {
-                let scripts_dir = self
-                    .state
-                    .workspace
-                    .game_path
-                    .as_ref()
-                    .map(|gp| gp.join("hexedit_scripts"));
+            EditorType::AudioViewer => {
                 if let Some(tab_id) = self.active_tab_id() {
-                    let state = self
-                        .state
+                    self.state
                         .editors
-                        .hex_editors
+                        .audio_viewers
                         .entry(tab_id)
-                        .or_insert_with(|| hex_editor_state_for_path(path));
-                    if let Some(ref dir) = scripts_dir {
-                        let errors = state.load_lua_scripts(dir);
-                        for e in &errors {
-                            log::warn!("hexedit script: {e}");
-                        }
-                    }
+                        .or_insert_with(|| AudioViewerState::load_from_path(path));
                 }
                 Task::none()
             }
+            EditorType::BmpViewer => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .bmp_viewers
+                        .entry(tab_id)
+                        .or_insert_with(|| BmpViewerState::load_from_path(path));
+                }
+                Task::none()
+            }
+            EditorType::FogDataEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .editors
+                        .fog_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| FogDataEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
+            EditorType::HexEditor => self.open_hex_tab(path),
             EditorType::MapEditor => {
                 let Some(tab_id) = self.active_tab_id() else {
                     return Task::none();
@@ -355,6 +320,38 @@ impl App {
                         ),
                     ),
                 ))
+            }
+            EditorType::ChestSpawnEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::ChestSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::chest_spawn,
+                )
+            }
+            EditorType::MonsterSpawnEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MonsterSpawn, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::monster_spawn,
+                )
+            }
+            EditorType::MapInfoMultiEditor => {
+                crate::editor_catalog::load_catalog_from_path::<dispel_core::MapInfoMulti, _>(
+                    path.to_path_buf(),
+                    crate::message::Message::map_info_multi,
+                )
+            }
+            EditorType::TileGridEditor => {
+                // Chain: (1) load the file, (2) after the catalog is ready,
+                // dispatch FitToWindow so the grid auto-fits the canvas pane
+                // without requiring the user to click "Fit" or resize.
+                let load_task =
+                    crate::editor_catalog::load_catalog_from_path::<dispel_core::TileGrid, _>(
+                        path.to_path_buf(),
+                        crate::message::Message::tile_grid,
+                    );
+                let fit_task = Task::done(crate::message::Message::tile_grid_canvas(
+                    crate::editors::tile_grid::TileGridCanvasMessage::FitToWindow,
+                ));
+                load_task.chain(fit_task)
             }
             EditorType::SaveFileViewer => {
                 let Some(tab_id) = self.active_tab_id() else {
@@ -437,25 +434,18 @@ impl App {
         self.track_recent_file(path);
         self.save_workspace();
 
-        let scripts_dir = self
-            .state
-            .workspace
-            .game_path
-            .as_ref()
-            .map(|gp| gp.join("hexedit_scripts"));
+        self.open_hex_tab(path)
+    }
+
+    /// Set up a hex-editor tab for `path`. Shared by the auto-detected hex open
+    /// and "Reopen as hex" so the binary layout / outline wiring cannot drift.
+    fn open_hex_tab(&mut self, path: &Path) -> Task<Message> {
         if let Some(tab_id) = self.active_tab_id() {
-            let state = self
-                .state
+            self.state
                 .editors
                 .hex_editors
                 .entry(tab_id)
                 .or_insert_with(|| hex_editor_state_for_path(path));
-            if let Some(ref dir) = scripts_dir {
-                let errors = state.load_lua_scripts(dir);
-                for e in &errors {
-                    log::warn!("hexedit script: {e}");
-                }
-            }
         }
         Task::none()
     }

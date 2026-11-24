@@ -1,5 +1,6 @@
 use iced::widget::pane_grid;
 
+use super::domain::save::SaveOutcome;
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::selection::NavDir;
 use crate::state::InspectorSource;
@@ -84,8 +85,8 @@ pub enum HexEditorMessage {
     /// User pressed "Save into recording" — fire-and-forget; the async
     /// follow-up message is [`SavedIntoRecording`].
     SaveIntoRecording,
-    /// Async result from the save flow.
-    SavedIntoRecording(Result<String, String>),
+    /// Async result from the save flow, expressed as a domain-level event.
+    SavedIntoRecording(SaveOutcome),
     /// Dismiss all transient notifications.
     ClearStatus,
     /// Dismiss one toast notification by its display index.

@@ -4,8 +4,8 @@
 //! Hand-written because [`Quest`] uses pipe (`|`) as its delimiter and a
 //! literal `"null"` sentinel for absent strings; the `TextRecordPatcher`
 //! derive currently bakes the comma delimiter into the parser it generates.
-//! Could be folded into the derive once the delimiter becomes a struct attr,
-//! but for now it's three small handlers.
+//! Could be folded into the derive once the delimiter becomes a struct attr.
+//! The patcher consists of three small handlers.
 
 use std::io::Cursor;
 

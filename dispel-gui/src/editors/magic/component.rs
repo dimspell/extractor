@@ -20,7 +20,7 @@ editable_record_fields!(MagicSpell, {
     { effect_type = Integer / "Effect Type:" },
     { effect_modifier = Integer / "Effect Modifier:" },
     { reserved_0x3c = Integer / "Reserved (0x3C):" },
-    { magic_type = Enum(MagicType, ["Magic", "LightMagic", "BlackMagic"]) / "Magic Type:" },
+    { magic_type = Enum(MagicType, ["Magic", "HolyMagic", "DarkMagic", "Fire", "Water", "Earth", "Air"]) / "Magic Type:" },
     { target_animation_blends_with_background = Boolean / "Target Animation Blends:" },
     { animation_set_id = Integer / "Animation Set ID:" },
     { effect_visual_id = Integer / "Effect Visual ID:" },

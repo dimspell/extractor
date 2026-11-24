@@ -7,11 +7,11 @@
 use iced::{Point, Rectangle};
 use std::ops::Range;
 
+pub(crate) use crate::ui::view::draw_helpers::{ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE};
+
 // ── Cell metrics ──────────────────────────────────────────────────────
 
 /// Default cell metrics. Tuned for 11px monospace.
-pub const TEXT_SIZE: f32 = 11.0;
-pub const ROW_HEIGHT: f32 = 16.0;
 pub const HEX_CELL_WIDTH: f32 = 20.0;
 pub const ASCII_CELL_WIDTH: f32 = 9.0;
 pub const GROUP_GAP: f32 = 8.0;
@@ -25,7 +25,6 @@ pub const HEADER_HEIGHT: f32 = 16.0;
 pub const MAX_ANN_COL_WIDTH: f32 = 400.0;
 /// Minimum annotation column width when no annotations exist.
 pub const MIN_ANN_COL_WIDTH: f32 = 200.0;
-pub const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
 /// don't reveal blank bands during rapid scroll.

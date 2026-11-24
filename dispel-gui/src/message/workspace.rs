@@ -20,7 +20,6 @@ pub enum WorkspaceMessage {
     GlobalSearchConfirm,
     GlobalSearchArrowUp,
     GlobalSearchArrowDown,
-    GlobalSearchAsync(String),
     OpenToolTab(crate::workspace::EditorType),
     ReopenActiveTabAsHex,
     PaneClicked(pane_grid::Pane),

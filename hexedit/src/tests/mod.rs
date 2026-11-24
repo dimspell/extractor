@@ -7,24 +7,19 @@
 //!
 //! Shared helpers are defined here and re-used by all sub-modules.
 
-use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 
 use iced_test::simulator;
 
-use crate::ui::theme::{DARK_THEME, ThemeVariant};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
-use crate::LuaScriptEngine;
 use crate::config::HexEditorConfig;
+use crate::domain::save::SaveOutcome;
 use crate::domain::write_mode::WriteMode;
 use crate::message::HexEditorMessage;
-use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
-use crate::search::SearchState;
 use crate::selection::{NavDir, Selection};
-use crate::state::{HexEditorState, InspectorSource};
+use crate::state::HexEditorState;
 use crate::ui::coloring::ColorScheme;
 use crate::update::update;
 use crate::view::view;
@@ -34,69 +29,7 @@ use crate::view::view;
 // ============================================================================
 
 pub fn make_state(data: Vec<u8>) -> HexEditorState {
-    let panes = crate::domain::panel::default_pane_grid();
-    let pane_focus = *panes.iter().next().map(|(id, _)| id).unwrap();
-    HexEditorState {
-        path: PathBuf::from("test.bin"),
-        name: "test.bin".to_string(),
-        layout: None,
-        outline: gui_widgets::sweeten::list::Content::new(),
-        outline_all: Vec::new(),
-        collapsed_outline: BTreeSet::new(),
-        panes,
-        pane_focus,
-        provider: BufferProvider::from_bytes(data),
-        bytes_per_row: 16,
-        bpr_input: "16".to_string(),
-        selection: Selection::single(0),
-        edit_mode: None,
-        inspector_edit: None,
-        inspector_source: InspectorSource::Baseline,
-        vanilla: None,
-        vanilla_diff: BTreeSet::new(),
-        comparison_file: None,
-        diff_review: false,
-        patterns: Vec::new(),
-        pattern_by_addr: BTreeMap::new(),
-        show_pattern_list: false,
-        next_pattern_id: 0,
-        groups: Vec::new(),
-        next_group_id: 0,
-        collapsed_groups: BTreeSet::new(),
-        context_menu_addr: None,
-        goto: None,
-        search: SearchState::new(),
-        show_decimal: false,
-        notifications: Vec::new(),
-        status_msg: String::new(),
-        error: None,
-        cache: ParagraphCache::default(),
-        lua_engine: LuaScriptEngine::default(),
-        export_config: None,
-        fill_dialog: None,
-        extend_dialog: None,
-        repeat_pattern: None,
-        row_annotations: BTreeMap::new(),
-        active_patterns: BTreeSet::new(),
-        renaming_group: None,
-        renaming_group_draft: String::new(),
-        color_scheme: ColorScheme::Monochrome,
-        dim_nulls: true,
-        settings_open: false,
-        write_mode: WriteMode::Hex,
-        custom_encodings: Vec::new(),
-        encoding_settings_open: false,
-        encoding_settings_selection: None,
-        show_stats: false,
-        file_stats: None,
-        selection_stats: None,
-        row_entropies: None,
-        show_entropy_band: true,
-        show_minimap: true,
-        theme: &DARK_THEME,
-        theme_variant: ThemeVariant::Dark,
-        pending_center_on: Cell::new(None),
-    }
+    HexEditorState::from_bytes("test.bin", data, None, None)
 }
 
 pub fn default_config() -> HexEditorConfig {
@@ -240,6 +173,3 @@ pub mod saving;
 pub mod search;
 pub mod settings;
 pub mod toolbar;
-
-#[cfg(feature = "lua")]
-pub mod lua_tests;

@@ -46,10 +46,12 @@ impl PatcherRegistry {
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
         r.register(MonsterPatcher::FILENAME, Arc::new(MonsterPatcher));
         r.register(WeaponItemPatcher::FILENAME, Arc::new(WeaponItemPatcher));
-        r.register(MagicSpellPatcher::FILENAME, Arc::new(MagicSpellPatcher));
-        // Magic.db has a sibling MulMagic.db with the same record format —
-        // route both filenames to the same patcher.
-        r.register("MulMagic.db", Arc::new(MagicSpellPatcher));
+        // Magic.db's sibling filenames (e.g. MulMagic.db) share the record
+        // format and come from the same `#[patcher]` attribute the catalog
+        // uses for detection — keep this list single-sourced.
+        for name in MagicSpellPatcher::FILENAMES {
+            r.register(name, Arc::new(MagicSpellPatcher));
+        }
         r.register(PartyIniNpcPatcher::FILENAME, Arc::new(PartyIniNpcPatcher));
 
         // Binary catalogs (.db) — hand-written.
@@ -90,6 +92,9 @@ impl PatcherRegistry {
         r.register(DrawItemPatcher::FILENAME, Arc::new(DrawItemPatcher));
         r.register(QuestPatcher::FILENAME, Arc::new(QuestPatcher));
 
+        // Save-slot metadata index (single fixed-size record, tail fields).
+        r.register(SaveIfoPatcher::FILENAME, Arc::new(SaveIfoPatcher));
+
         // Per-file event scripts: every Event*.scr matches. Exact-filename
         // matches for Quest.scr and Message.scr win over this via the
         // by_filename map, so they aren't shadowed.
@@ -109,6 +114,18 @@ impl PatcherRegistry {
             DialogueParagraphPatcher::EXTENSION,
             DialogueParagraphPatcher::STEM_PREFIX,
             Arc::new(DialogueParagraphPatcher),
+        );
+
+        // Multiplayer spawn lists: every stem with a .cst / .mon extension.
+        r.register_pattern(
+            ChestSpawnPatcher::EXTENSION,
+            ChestSpawnPatcher::STEM_PREFIX,
+            Arc::new(ChestSpawnPatcher),
+        );
+        r.register_pattern(
+            MonsterSpawnPatcher::EXTENSION,
+            MonsterSpawnPatcher::STEM_PREFIX,
+            Arc::new(MonsterSpawnPatcher),
         );
 
         r
@@ -237,6 +254,19 @@ mod tests {
         assert_eq!(
             r.lookup("ExtraInGame/Eventcat1.scr").unwrap().name(),
             "EventScript"
+        );
+    }
+
+    #[test]
+    fn spawn_patchers_resolve_by_extension() {
+        let r = PatcherRegistry::with_defaults();
+        assert_eq!(
+            r.lookup("Map/Multi/Chest.cst").unwrap().name(),
+            "ChestSpawn"
+        );
+        assert_eq!(
+            r.lookup("Map/Multi/Foo.mon").unwrap().name(),
+            "MonsterSpawn"
         );
     }
 

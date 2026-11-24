@@ -94,6 +94,8 @@ fn column_width_by_key(state: &SaveFileViewerState, key: TableKey, col: usize) -
 }
 
 /// Compute and apply an auto-size width for a column identified by `key`.
+/// Falls back to the column's declared default width when a display cache is
+/// not available yet, so the width is still reset to a usable value.
 fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: usize) {
     let header = column_label_by_key(key, col);
 
@@ -104,44 +106,54 @@ fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: 
             col,
             &header,
         ),
-        TableKey::Inventory(cat) => {
-            let Some(rows) = state.inventory_display_caches.get(&cat) else {
-                return;
-            };
-            let Some(indices) = state.inventory_filtered_indices.get(&cat) else {
-                return;
-            };
-            auto_size_column(rows, indices, col, &header)
-        }
-        TableKey::Character(kind) => {
-            let Some(rows) = state.character_display_caches.get(&kind) else {
-                return;
-            };
-            let Some(indices) = state.character_filtered_indices.get(&kind) else {
-                return;
-            };
-            auto_size_column(rows, indices, col, &header)
-        }
-        TableKey::Journal(section) => {
-            let Some(rows) = state.journal_display_caches.get(&section) else {
-                return;
-            };
-            let Some(indices) = state.journal_filtered_indices.get(&section) else {
-                return;
-            };
-            auto_size_column(rows, indices, col, &header)
-        }
-        TableKey::Map(map, kind) => {
-            let Some(cache) = state.maps_display_caches.get(map) else {
-                return;
-            };
-            let rows = maps_table_rows(cache, kind);
-            let indices = maps_table_indices(cache, kind);
-            auto_size_column(rows, indices, col, &header)
-        }
+        TableKey::Inventory(cat) => match (
+            state.inventory_display_caches.get(&cat),
+            state.inventory_filtered_indices.get(&cat),
+        ) {
+            (Some(rows), Some(indices)) => auto_size_column(rows, indices, col, &header),
+            _ => default_column_width_by_key(key, col),
+        },
+        TableKey::Character(kind) => match (
+            state.character_display_caches.get(&kind),
+            state.character_filtered_indices.get(&kind),
+        ) {
+            (Some(rows), Some(indices)) => auto_size_column(rows, indices, col, &header),
+            _ => default_column_width_by_key(key, col),
+        },
+        TableKey::Journal(section) => match (
+            state.journal_display_caches.get(&section),
+            state.journal_filtered_indices.get(&section),
+        ) {
+            (Some(rows), Some(indices)) => auto_size_column(rows, indices, col, &header),
+            _ => default_column_width_by_key(key, col),
+        },
+        TableKey::Map(map, kind) => match state.maps_display_caches.get(map) {
+            Some(cache) => {
+                let rows = maps_table_rows(cache, kind);
+                let indices = maps_table_indices(cache, kind);
+                auto_size_column(rows, indices, col, &header)
+            }
+            None => default_column_width_by_key(key, col),
+        },
     };
 
     apply_column_width(state, key, col, width);
+}
+
+/// Declared pixel width of a column, used when its display cache is missing.
+fn default_column_width_by_key(key: TableKey, col: usize) -> f32 {
+    let columns = match key {
+        TableKey::Events => crate::editors::save_file_viewer::state::events_default_columns(),
+        TableKey::Map(_, kind) => kind.default_columns(),
+        TableKey::Inventory(cat) => cat.default_columns(),
+        TableKey::Character(kind) => kind.default_columns(),
+        TableKey::Journal(section) => section.default_columns(),
+    };
+    columns
+        .into_iter()
+        .nth(col)
+        .map(|c| c.width_px)
+        .unwrap_or(80.0)
 }
 
 /// Get the column header label for a table key.
@@ -769,38 +781,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::MapsTableResetColumnWidth { map, kind, col } => {
-            let header = kind
-                .default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default();
-            let width = if let Some(cache) = state.maps_display_caches.get(map) {
-                let rows = maps_table_rows(cache, kind);
-                let indices = maps_table_indices(cache, kind);
-                auto_size_column(rows, indices, col, &header)
-            } else {
-                kind.default_columns()
-                    .into_iter()
-                    .nth(col)
-                    .map(|c| c.width_px)
-                    .unwrap_or(80.0)
-            };
-            if let Some(ts) = state
-                .maps_table_states
-                .get_mut(map)
-                .and_then(|m| m.get_mut(&kind))
-                && let Some(w) = ts.column_widths.get_mut(col)
-            {
-                *w = width;
-            }
+            auto_size_column_by_key(state, TableKey::Map(map, kind), col);
             Task::none()
         }
-        SaveFileViewerMessage::MapsTableResizeCursor(x) => {
+        SaveFileViewerMessage::TableResizeCursor(x) => {
             apply_resize_cursor(state, x);
             Task::none()
         }
-        SaveFileViewerMessage::MapsTableEndResize => {
+        SaveFileViewerMessage::TableEndResize => {
             state.resizing = None;
             Task::none()
         }
@@ -850,37 +838,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableResetColumnWidth { cat, col } => {
-            let header = cat
-                .default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default();
-            let width = if let (Some(cache), Some(indices)) = (
-                state.inventory_display_caches.get(&cat),
-                state.inventory_filtered_indices.get(&cat),
-            ) {
-                auto_size_column(cache, indices, col, &header)
-            } else {
-                cat.default_columns()
-                    .into_iter()
-                    .nth(col)
-                    .map(|c| c.width_px)
-                    .unwrap_or(80.0)
-            };
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat)
-                && let Some(w) = ts.column_widths.get_mut(col)
-            {
-                *w = width;
-            }
-            Task::none()
-        }
-        SaveFileViewerMessage::InventoryTableResizeCursor(x) => {
-            apply_resize_cursor(state, x);
-            Task::none()
-        }
-        SaveFileViewerMessage::InventoryTableEndResize => {
-            state.resizing = None;
+            auto_size_column_by_key(state, TableKey::Inventory(cat), col);
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableScroll { cat, x, y, .. } => {
@@ -923,29 +881,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::CharacterTableResetColumnWidth { kind, col } => {
-            let header = kind
-                .default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default();
-            let width = if let (Some(cache), Some(indices)) = (
-                state.character_display_caches.get(&kind),
-                state.character_filtered_indices.get(&kind),
-            ) {
-                auto_size_column(cache, indices, col, &header)
-            } else {
-                kind.default_columns()
-                    .into_iter()
-                    .nth(col)
-                    .map(|c| c.width_px)
-                    .unwrap_or(80.0)
-            };
-            if let Some(ts) = state.character_table_states.get_mut(&kind)
-                && let Some(w) = ts.column_widths.get_mut(col)
-            {
-                *w = width;
-            }
+            auto_size_column_by_key(state, TableKey::Character(kind), col);
             Task::none()
         }
         SaveFileViewerMessage::CharacterTableScroll { kind, x, y, .. } => {
@@ -981,28 +917,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::EventsTableResetColumnWidth { col } => {
-            let header = crate::editors::save_file_viewer::state::events_default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default();
-            let width = auto_size_column(
-                &state.events_display_cache,
-                &state.events_filtered_indices,
-                col,
-                &header,
-            );
-            if let Some(w) = state.events_table_state.column_widths.get_mut(col) {
-                *w = width;
-            }
-            Task::none()
-        }
-        SaveFileViewerMessage::EventsTableResizeCursor(x) => {
-            apply_resize_cursor(state, x);
-            Task::none()
-        }
-        SaveFileViewerMessage::EventsTableEndResize => {
-            state.resizing = None;
+            auto_size_column_by_key(state, TableKey::Events, col);
             Task::none()
         }
         SaveFileViewerMessage::EventsTableScroll { x, y, .. } => {
@@ -1047,38 +962,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::JournalTableResetColumnWidth { section, col } => {
-            let header = section
-                .default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default();
-            let width = if let (Some(cache), Some(indices)) = (
-                state.journal_display_caches.get(&section),
-                state.journal_filtered_indices.get(&section),
-            ) {
-                auto_size_column(cache, indices, col, &header)
-            } else {
-                section
-                    .default_columns()
-                    .into_iter()
-                    .nth(col)
-                    .map(|c| c.width_px)
-                    .unwrap_or(80.0)
-            };
-            if let Some(ts) = state.journal_table_states.get_mut(&section)
-                && let Some(w) = ts.column_widths.get_mut(col)
-            {
-                *w = width;
-            }
-            Task::none()
-        }
-        SaveFileViewerMessage::JournalTableResizeCursor(x) => {
-            apply_resize_cursor(state, x);
-            Task::none()
-        }
-        SaveFileViewerMessage::JournalTableEndResize => {
-            state.resizing = None;
+            auto_size_column_by_key(state, TableKey::Journal(section), col);
             Task::none()
         }
         SaveFileViewerMessage::JournalTableScroll { section, x, y, .. } => {
@@ -1292,7 +1176,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.name.clone(),
                                     item.description.clone(),
                                     item.base_price.to_string(),
-                                    hex_bytes(&item.reserved_definition_bytes),
+                                    hex_bytes(&item.reserved_mark_tail_bytes),
                                     item.misc_item_id.to_string(),
                                     item.item_category.to_string(),
                                     item.inventory_record_index.to_string(),
@@ -1685,7 +1569,13 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.additional_loot_1.to_string(),
                                             e.additional_loot_1_count.to_string(),
                                             e.additional_loot_2.to_string(),
-                                            hex_bytes(&e.additional_loot_2_count_and_config),
+                                            e.additional_loot_2_count.to_string(),
+                                            e.loot_delivery_mode.to_string(),
+                                            e.is_trapped.to_string(),
+                                            e.trap_spell_id.to_string(),
+                                            e.interaction_config_reserved_1.to_string(),
+                                            e.interaction_config_reserved_2.to_string(),
+                                            e.use_counter.to_string(),
                                             e.interaction_event_id.to_string(),
                                             e.interaction_message_id.to_string(),
                                             e.footprint_width.to_string(),
@@ -1698,9 +1588,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.post_activation_footprint_mode.to_string(),
                                             e.preserve_final_sprite_frame.to_string(),
                                             e.alternate_render_mode.to_string(),
-                                            e.activation_effect_id.to_string(),
-                                            e.activation_effect_reserved.to_string(),
-                                            e.activation_effect_padding.to_string(),
+                                            e.open_sfx_id.to_string(),
+                                            e.open_sfx_reserved.to_string(),
+                                            e.open_sfx_padding.to_string(),
                                             e.active_overlay_enabled.to_string(),
                                             e.map_object_active.to_string(),
                                             e.interaction_pending.to_string(),
@@ -1924,5 +1814,80 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::App;
+    use crate::editors::save_file_viewer::state::{
+        CharacterTableKind, InventoryCategory, TableInteractionState,
+    };
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+
+    fn viewer_app(state: SaveFileViewerState) -> App {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 0;
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "test.sav".into(),
+            path: None,
+            editor_type: EditorType::SaveFileViewer,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(tab_id);
+        app.state.editors.save_file_viewers.insert(tab_id, state);
+        app
+    }
+
+    fn table(width: f32) -> TableInteractionState {
+        TableInteractionState {
+            column_widths: vec![width],
+            ..Default::default()
+        }
+    }
+
+    /// A drag recorded on the character table must follow the shared resize
+    /// messages and change only that table's width, even though the messages
+    /// no longer name a table.
+    #[test]
+    fn test_shared_resize_messages_follow_resizing_key() {
+        let kind = CharacterTableKind::Equipment;
+        let cat = InventoryCategory::Weapon;
+        let state = SaveFileViewerState {
+            resizing: Some(ResizeDrag {
+                key: TableKey::Character(kind),
+                col: 0,
+                anchor_width: 100.0,
+                anchor_cursor_x: None,
+            }),
+            character_table_states: [(kind, table(100.0))].into_iter().collect(),
+            inventory_table_states: [(cat, table(100.0))].into_iter().collect(),
+            ..Default::default()
+        };
+        let mut app = viewer_app(state);
+
+        let _ = handle(SaveFileViewerMessage::TableResizeCursor(200.0), &mut app);
+        assert_eq!(
+            app.state.editors.save_file_viewers[&0].character_table_states[&kind].column_widths[0],
+            100.0,
+            "first cursor event only sets the anchor"
+        );
+
+        let _ = handle(SaveFileViewerMessage::TableResizeCursor(225.0), &mut app);
+        let viewer = &app.state.editors.save_file_viewers[&0];
+        assert_eq!(
+            viewer.character_table_states[&kind].column_widths[0], 125.0,
+            "character column follows the shared resize message"
+        );
+        assert_eq!(
+            viewer.inventory_table_states[&cat].column_widths[0], 100.0,
+            "inventory column must be untouched"
+        );
+
+        let _ = handle(SaveFileViewerMessage::TableEndResize, &mut app);
+        assert!(app.state.editors.save_file_viewers[&0].resizing.is_none());
     }
 }

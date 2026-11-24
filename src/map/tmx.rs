@@ -111,7 +111,7 @@ fn write_tileset_atlas(tiles: &[Tile], path: &Path) -> std::io::Result<()> {
 /// * BTL firstgid = `gtl_tile_count + 1`
 /// * Empty / no tile → GID 0
 ///
-/// Tile index 0 in the game format means "no tile" (empty).
+/// Tile index 0 in the map format means "no tile" (empty).
 pub fn export_tmx(
     map_data: &MapData,
     gtl_path: &Path,
@@ -208,7 +208,7 @@ pub fn export_tmx(
 
     for y in 0..map_h {
         for x in 0..map_w {
-            // tile_id == 0 in the game format means "no tile" → GID 0.
+            // tile_id == 0 in the map format means "no tile" → GID 0.
             let gid = match map_data.gtl_tiles.get(&(x, y)) {
                 Some(&id) if id > 0 => gtl_firstgid as i32 + id,
                 _ => 0,
@@ -275,7 +275,7 @@ pub fn export_tmx(
         for y in 0..map_h {
             for x in 0..map_w {
                 if let Some(event) = map_data.events.get(&(x, y))
-                    && event.event_id != 0
+                    && event.event_id() != 0
                 {
                     let px = (x - y) * (TILE_WIDTH as i32 / 2);
                     let py = (x + y) * (TILE_HEIGHT as i32 / 2);
@@ -287,7 +287,12 @@ pub fn export_tmx(
       </properties>
     </object>
 "#,
-                        obj_id, px, py, TILE_WIDTH, TILE_HEIGHT, event.event_id
+                        obj_id,
+                        px,
+                        py,
+                        TILE_WIDTH,
+                        TILE_HEIGHT,
+                        event.event_id()
                     )?;
                     obj_id += 1;
                 }
@@ -371,6 +376,7 @@ mod tests {
 
     /// End-to-end test: export a real map fixture and validate the TMX output.
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_export_tmx_creates_files() {
         let fixture_map = Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -385,10 +391,10 @@ mod tests {
             "/fixtures/Dispel/Map/cat1.btl"
         ));
 
-        if !fixture_map.exists() {
-            eprintln!("Skipping TMX test: fixtures not found");
-            return;
-        }
+        assert!(
+            fixture_map.exists(),
+            "local game fixtures are required for this test"
+        );
 
         // Parse map
         use super::super::read_map_data;
@@ -473,6 +479,7 @@ mod tests {
     /// Validate CSV tile data content by counting expected number of commas
     /// per row and total rows in a layer.
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_export_tmx_csv_tile_count() {
         let fixture_map = Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -487,10 +494,10 @@ mod tests {
             "/fixtures/Dispel/Map/cat1.btl"
         ));
 
-        if !fixture_map.exists() {
-            eprintln!("Skipping CSV count test: fixtures not found");
-            return;
-        }
+        assert!(
+            fixture_map.exists(),
+            "local game fixtures are required for this test"
+        );
 
         use super::super::read_map_data;
         use std::fs::File;
@@ -554,6 +561,7 @@ mod tests {
     /// Verify that the tileset image dimensions in the TMX match the actual
     /// atlas image files.
     #[test]
+    #[ignore = "requires local game fixtures"]
     fn test_export_tmx_tileset_image_dimensions() {
         let fixture_map = Path::new(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -568,10 +576,10 @@ mod tests {
             "/fixtures/Dispel/Map/cat1.btl"
         ));
 
-        if !fixture_map.exists() {
-            eprintln!("Skipping dimension test: fixtures not found");
-            return;
-        }
+        assert!(
+            fixture_map.exists(),
+            "local game fixtures are required for this test"
+        );
 
         use super::super::read_map_data;
         use std::fs::File;

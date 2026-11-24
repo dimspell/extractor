@@ -7,6 +7,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
         TabBarMessage::SelectTab(tab_index) => {
             // Normal tab selection — drag state is handled by the widget internally.
             app.state.editors.stop_snf_playback();
+            app.state.editors.stop_audio_playback();
             if app.state.workspace.tabs.len() > tab_index {
                 app.state.workspace.active_tab = Some(tab_index);
             }

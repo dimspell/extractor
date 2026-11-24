@@ -1,19 +1,20 @@
 use crate::app::App;
-use crate::editors::snf_editor::{ExportStatus, PlaybackHandle, SnfEditorMessage};
+use crate::components::audio_playback::start_playback;
+use crate::editors::snf_editor::{ExportStatus, SnfEditorMessage};
 use crate::message::MessageExt;
 use gui_widgets::components::toast;
 use iced::Task;
-use std::io::Cursor;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, mpsc};
 
 pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    // Save messages carry their tab id so a save that resolves after a tab
+    // switch still reaches the editor the user actually saved.
+    let tab_id = match &message {
+        SnfEditorMessage::Save(id)
+        | SnfEditorMessage::SaveDone(id, _)
+        | SnfEditorMessage::PlaybackReady(id, _, _)
+        | SnfEditorMessage::Tick(id) => *id,
+        _ => app.state.workspace.active_tab_id().as_usize(),
+    };
     let Some(editor) = app.state.editors.snf_editors.get_mut(&tab_id) else {
         return Task::none();
     };
@@ -29,8 +30,11 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                 return Task::none();
             }
 
-            // Stop any previous playback cleanly before starting a new one.
+            // Stop any previous playback cleanly before starting a new one,
+            // and invalidate results from any request still opening a device.
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
+            let generation = editor.playback_generation;
 
             let Some(ref snf) = editor.snf else {
                 return Task::none();
@@ -40,61 +44,39 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             let is_looping = editor.is_looping;
             let volume = editor.volume;
 
-            let (player_tx, player_rx) = mpsc::sync_channel::<Arc<rodio::Player>>(1);
-            let stop_flag = Arc::new(AtomicBool::new(false));
-            let loop_flag = Arc::new(AtomicBool::new(is_looping));
-            let stop_flag_thread = Arc::clone(&stop_flag);
-            let loop_flag_thread = Arc::clone(&loop_flag);
+            // Device initialization can block for hundreds of milliseconds. Run
+            // it on a blocking worker so the UI thread stays responsive.
+            return Task::perform(
+                async move {
+                    tokio::task::spawn_blocking(move || {
+                        start_playback(wav_bytes, volume, is_looping)
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
+                },
+                move |result| {
+                    crate::message::Message::snf_editor(SnfEditorMessage::PlaybackReady(
+                        tab_id, generation, result,
+                    ))
+                },
+            );
+        }
 
-            let thread = std::thread::spawn(move || {
-                let mut device_sink = match rodio::stream::DeviceSinkBuilder::open_default_sink() {
-                    Ok(s) => s,
-                    Err(e) => {
-                        eprintln!("SNF: failed to open audio output: {e}");
-                        return;
-                    }
-                };
-                device_sink.log_on_drop(false);
-
-                let player = Arc::new(rodio::Player::connect_new(device_sink.mixer()));
-                player.set_volume(volume);
-
-                if player_tx.send(Arc::clone(&player)).is_err() {
-                    // Receiver dropped (timed out) — abort before playing anything.
-                    return;
-                }
-
-                loop {
-                    if stop_flag_thread.load(Ordering::Relaxed) {
-                        break;
-                    }
-                    let cursor = Cursor::new(wav_bytes.clone());
-                    match rodio::Decoder::new(cursor) {
-                        Ok(source) => player.append(source),
-                        Err(e) => {
-                            eprintln!("SNF: decoder error: {e}");
-                            break;
+        SnfEditorMessage::PlaybackReady(_, generation, result) => {
+            if let Some(target) = app.state.editors.snf_editors.get_mut(&tab_id)
+                && target.playback_generation == generation
+            {
+                match result {
+                    Ok(pending) => {
+                        if let Some(handle) = pending.take() {
+                            target.playback = Some(handle);
                         }
                     }
-                    player.sleep_until_end();
-                    if !loop_flag_thread.load(Ordering::Relaxed)
-                        || stop_flag_thread.load(Ordering::Relaxed)
-                    {
-                        break;
-                    }
-                }
-                // device_sink kept alive for the entire loop; dropped here → audio stops.
-            });
-
-            match player_rx.recv_timeout(std::time::Duration::from_millis(500)) {
-                Ok(player) => {
-                    editor.playback =
-                        Some(PlaybackHandle::new(player, stop_flag, loop_flag, thread));
-                }
-                Err(_) => {
-                    eprintln!("SNF: timed out waiting for audio thread to start");
+                    Err(e) => eprintln!("SNF: {e}"),
                 }
             }
+            // A stale generation means Stop or a tab switch happened while the
+            // device was opening; dropping the pending handle stops playback.
         }
 
         SnfEditorMessage::Pause => {
@@ -109,6 +91,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
 
         SnfEditorMessage::Stop => {
             editor.playback = None;
+            editor.playback_generation = editor.playback_generation.wrapping_add(1);
         }
 
         SnfEditorMessage::ToggleLoop => {
@@ -125,7 +108,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             }
         }
 
-        SnfEditorMessage::Tick => {
+        SnfEditorMessage::Tick(_) => {
             if editor.playback.as_ref().is_some_and(|pb| pb.player.empty()) {
                 editor.playback = None;
             }
@@ -212,7 +195,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             }
         },
 
-        SnfEditorMessage::Save => {
+        SnfEditorMessage::Save(_) => {
             let path = editor.path.clone();
             let snf = editor.snf.clone();
             return Task::perform(
@@ -224,11 +207,11 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                         None => Err("No audio data loaded".into()),
                     }
                 },
-                |r| crate::message::Message::snf_editor(SnfEditorMessage::SaveDone(r)),
+                move |r| crate::message::Message::snf_editor(SnfEditorMessage::SaveDone(tab_id, r)),
             );
         }
 
-        SnfEditorMessage::SaveDone(result) => match result {
+        SnfEditorMessage::SaveDone(_, result) => match result {
             Ok(p) => {
                 editor.modified = false;
                 editor.export_status = ExportStatus::Done(format!("Saved: {}", p));

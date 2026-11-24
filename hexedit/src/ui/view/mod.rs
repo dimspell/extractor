@@ -18,6 +18,7 @@ pub mod statistics;
 pub mod toolbar;
 
 pub(crate) mod diff;
+pub(crate) mod draw_helpers;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use gui_widgets::components::modal::modal;

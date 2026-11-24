@@ -5,12 +5,14 @@
 //  types.rs        – Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
 //                    coordinate constants and helpers
 //  model.rs        – MapModel struct and geometry parser (read_map_model)
-//  reader.rs       – Binary block readers for the native .map file format
+//  reader.rs       – Binary block readers for the .map file format
 //  render.rs       – Isometric rendering pipeline (ground / objects / roofs,
-//                    sprite on bitmap, atlas tile blitter)
+//                    sprite on bitmap)
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
-//  database.rs     – render_from_database + entity overlay helpers
 //  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
+//
+// Map-table persistence is owned by `src/database/map_persistence.rs` and
+// re-exported here. This module owns parsing and extraction.
 
 // ===========================================================================
 // DISPEL GAME MAP FILE FORMAT (.MAP)
@@ -28,13 +30,18 @@
 // | FIRST BLOCK (variable)      |
 // | - Count (i32)               |
 // | - Data: (count-1)*8 bytes   |
-// |  (count-1 records of 2×i32, |
-// |   purpose unknown, skipped) |
+// |  (count-1 records of 2×i32; |
+// |   word0 ≡ 0 and word1 ≡ 1   |
+// |   across all shipped maps — |
+// |   semantics unknown)        |
 // +------------------------------+
 // | SECOND BLOCK (variable)      |
 // | - Size (i32)                 |
-// | - Data: size*2               |
-// |  (unknown purpose, skipped)  |
+// | - Data: size*2 (u16 table)   |
+// |  (lookup table for the end-  |
+// |   grid BTL overlay refs:     |
+// |  hi byte = draw-enable flag, |
+// |  lo byte = transparency mode)|
 // +------------------------------+
 // | SPRITE BLOCK                 |
 // | - Sprite count (i32)         |
@@ -48,33 +55,46 @@
 // | - Placement count (i32)      |
 // | For each placement:         |
 // |   - Sprite ID (i32)         |
-// |   - Position data           |
-// |   - Frame count             |
+// |   - Frame-0 bbox in map px  |
+// |     {left, top, right,      |
+// |      bottom} + dup {x, y}   |
+// |   - (frame_count-1)*24 bytes|
 // +------------------------------+
 // | TILED OBJECTS BLOCK         |
 // | - Bundle count (i32)        |
-// | For each bundle:            |
-// |   - 264 bytes metadata      |
-// |   - Coordinates (x,y)      |
-// |   - Tile stack IDs         |
-// |   - Building definition    |
+// | For each bundle (a tree):   |
+// |   - records {field_04 i32,  |
+// |     body 260 B, items}      |
+// |   - items {type_flag,       |
+// |     entry_count, entries}   |
+// |   - entries {16 B payload,  |
+// |     bbox + 7 i32 fields,    |
+// |     u16 tile stack,         |
+// |     optional extra bytes}   |
+// |   - n flag pairs            |
+// |     (n = grid_height of the |
+// |      first entry)           |
 // +------------------------------+
 // | ... (file continues) ...    |
 // +------------------------------+
-// | EVENT BLOCK (near end)      |
-// | For each tile (width×height):|
-// |   - Event ID (i16)          |
-// |   - Unknown (i16)           |
+// | EVENT GRID (near end)       |
+// | For each tile: packed u32   |
+// |   bits 0-13  event id       |
+// |   bit  22    tile marked    |
+// |   remainder  unmapped       |
 // +------------------------------+
-// | TILE & ACCESS BLOCK         |
-// | For each tile (width×height):|
-// |   - GTL tile ID (i32)      |
-// |   - Collision flag         |
+// | TILE & ACCESS GRID          |
+// | For each tile: packed u32   |
+// |   bit 0     collision       |
+// |   bits 1-9  object slot id  |
+// |   bits 10-24 GTL tile index |
 // +------------------------------+
-// | ROOF TILE BLOCK (optional)   |
-// | For each tile (width×height):|
-// |   - BTL tile ID (i16)      |
-// |   - Flags (i16)            |
+// | ACCESS-REF GRID ("roof")    |
+// | For each tile: packed u32   |
+// |   bits 0-14  overlay id →   |
+// |              second block   |
+// |   bits 15-29 shadow level   |
+// |   bits 30-31 light flags    |
 // +------------------------------+
 //
 // COORDINATE SYSTEM:
@@ -84,9 +104,10 @@
 // - Offsets: TILE_HORIZONTAL_OFFSET_HALF=32, TILE_HEIGHT_HALF=16
 //
 // FILE SIZE CALCULATION:
-// Total size = header + blocks + (width×height×(2+4+2)) + optional roof data
+// Total size = header + blocks + width×height×12 (three packed-u32 grids)
 //
-pub mod database;
+pub mod fogdata;
+pub mod light_template;
 pub mod model;
 pub mod reader;
 pub mod render;
@@ -97,34 +118,40 @@ pub mod types;
 pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
-pub use database::render_from_database;
+pub use self::fogdata::{FogData, save_to_db as save_fog_to_db};
 pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
-    Coords, EventBlock, SpriteInfoBlock, TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF,
-    TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledObjectInfo, convert_map_coords_to_image_coords,
+    BundleEntry, BundleItem, BundleRecord, Coords, DepthSortKey, DrawOrder, EventBlock,
+    SpriteInfoBlock, StackLevelFlags, TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF,
+    TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledBundle, TiledObjectInfo, TiledObjectRef,
+    btl_overlay_draws_in_dark_map, compare_depth, convert_map_coords_to_image_coords,
+    entity_sort_key, internal_sprite_sort_key, no_spell_cast_zone_blocks_at_anchor,
+    tiled_object_sort_key,
+};
+
+// Map persistence is owned by the database layer, re-exported for API stability.
+#[doc(inline)]
+pub use crate::database::map_persistence::{
+    SaveMapTilesParams, import_to_database, save_map_bundles, save_map_metadata,
+    save_map_object_refs, save_map_objects, save_map_overlay_modes, save_map_sprite_frames,
+    save_map_sprite_sequences, save_map_sprites, save_map_tiles, save_to_db,
 };
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Cursor, Seek, SeekFrom};
+use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 
-use byteorder::{LittleEndian, ReadBytesExt};
-use image::RgbaImage;
-use image::codecs::png::PngEncoder;
-use image::{ColorType, ImageEncoder, Rgba};
-
-use crate::sprite::{SequenceInfo, rgb16_565_produce_color};
-use rusqlite::{Connection, Result as DbResult, params};
+use crate::sprite::SequenceInfo;
 use serde::{Deserialize, Serialize};
 
 /// IO Result type for file operations
 type IoResult<T> = std::io::Result<T>;
 
 use reader::{
-    first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
-    sprite_block, sprite_info_block, tiled_objects_block,
+    read_events_block, read_overlay_id_table, read_roof_tiles, read_tiled_object_refs,
+    read_tiles_and_access_block, sprite_block, sprite_info_block, tiled_objects_block,
 };
 use render::{MapRenderConfig, render_map};
 
@@ -136,11 +163,28 @@ pub struct MapData {
     pub model: MapModel,
     pub gtl_tiles: HashMap<Coords, i32>,
     pub btl_tiles: HashMap<Coords, i32>,
+    /// Per-overlay-id `{lo: transparency mode, hi: draw-enable}` table from
+    /// the map file; drives roof rendering (see `render::plot_roofs`).
+    pub overlay_modes: Vec<u16>,
+    /// Raw packed u32 words of the access-ref grid ("roof" block), preserved
+    /// so saving keeps shadow levels and light flags intact. Overlay refs are
+    /// patched from `btl_tiles` on write.
+    pub access_ref_words: HashMap<Coords, u32>,
     pub collisions: HashMap<Coords, bool>,
     pub events: HashMap<Coords, EventBlock>,
+    pub object_ids: HashMap<Coords, i32>,
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
+    /// Image stamp per embedded sprite (6 or 9), parallel to
+    /// `internal_sprites` — same length, same order.
+    pub internal_sprite_stamps: Vec<i32>,
+    /// First-block tiled-object ref records in file order (both words are
+    /// constant across all shipped maps).
+    pub tiled_object_refs: Vec<TiledObjectRef>,
+    /// Fully typed tiled-bundle trees, parallel to `tiled_infos` — same
+    /// length, same order.
+    pub tiled_bundles: Vec<TiledBundle>,
 }
 
 /// JSON-serializable representation of map data.
@@ -152,6 +196,7 @@ pub struct MapDataJson {
     pub btl_tiles: Vec<TileEntryJson>,
     pub collisions: Vec<CollisionEntryJson>,
     pub events: Vec<EventEntryJson>,
+    pub object_ids: Vec<TileEntryJson>,
     pub tiled_objects: Vec<TiledObjectJson>,
     pub sprites: Vec<SpritePlacementJson>,
     pub internal_sprites: Vec<InternalSpriteJson>,
@@ -225,6 +270,22 @@ pub struct SpriteFrameJson {
 }
 
 impl MapData {
+    /// Iterate tiles carrying a light level, yielding `(coords, level)` with
+    /// levels in `1..=199`.
+    ///
+    /// The level lives in bits 15–29 of the tile's access-ref word and
+    /// selects a brightness pattern from `ExtraInGame/fogdata.dat` (higher
+    /// levels are generally brighter, not darker). Level 0 tiles are skipped
+    /// here — on maps flagged Dark in AllMap.ini they render fully black;
+    /// see [`render::plot_shadows`]. Levels ≥ 200 fall outside the lighting
+    /// pass and are skipped as well.
+    pub fn shadow_levels(&self) -> impl Iterator<Item = (Coords, u8)> + '_ {
+        self.access_ref_words.iter().filter_map(|(&coords, &word)| {
+            let level = (word >> 15) & 0x7FFF;
+            (level != 0 && level < 200).then_some((coords, level as u8))
+        })
+    }
+
     /// Convert MapData to JSON-serializable format.
     pub fn to_json(&self) -> MapDataJson {
         MapDataJson {
@@ -261,8 +322,13 @@ impl MapData {
                 .map(|(&(x, y), event)| EventEntryJson {
                     x,
                     y,
-                    event_id: event.event_id,
+                    event_id: event.event_id() as i16,
                 })
+                .collect(),
+            object_ids: self
+                .object_ids
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
                 .collect(),
             tiled_objects: self
                 .tiled_infos
@@ -329,13 +395,14 @@ impl MapData {
 /// # Parsing Process
 /// The function reads these blocks in order:
 /// 1. Map model header to determine dimensions
-/// 2. Unknown blocks (skipped)
+/// 2. Object-ref records + overlay-id table (skipped; see
+///    `reader::skip_tiled_object_refs` / `reader::skip_overlay_id_table`)
 /// 3. Sprite block with embedded animation sequences
-/// 4. Sprite placement information
+/// 4. Sprite placement information (frame bounding boxes in map pixels)
 /// 5. Tiled objects (building definitions)
-/// 6. Event triggers (read from end of file)
-/// 7. Ground tiles and collision data
-/// 8. Optional roof/building tiles
+/// 6. Event grid (packed u32 per tile, read from end of file)
+/// 7. Tile & access grid (GTL index + access bits per tile)
+/// 8. Access-ref grid (BTL overlay ref + shadow level per tile)
 ///
 /// The parser handles the isometric coordinate system and converts tile coordinates
 /// to the internal (x,y) format used throughout the codebase.
@@ -352,12 +419,14 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_map_width = map_model.tiled_map_width;
     let tiled_map_height = map_model.tiled_map_height;
 
-    first_block(reader)?;
-    second_block(reader)?;
+    // First-block refs are now read (previously skipped) — see
+    // `reader::read_tiled_object_refs`.
+    let tiled_object_refs = read_tiled_object_refs(reader)?;
+    let overlay_modes = read_overlay_id_table(reader)?;
 
-    let internal_sprites = sprite_block(reader)?;
+    let (internal_sprites, internal_sprite_stamps) = sprite_block(reader)?;
     let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
-    let tiled_infos = tiled_objects_block(reader)?;
+    let (tiled_infos, tiled_bundles) = tiled_objects_block(reader)?;
 
     // Event and tile blocks live at the end of the file
     // Calculate expected size for the three end blocks
@@ -378,22 +447,26 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     reader.seek(SeekFrom::End(skip))?;
 
     let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
-    let (gtl_tiles, collisions) =
+    let (gtl_tiles, collisions, object_ids) =
         read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
+    let mut access_ref_words = HashMap::new();
     let current_pos = reader.stream_position()?;
     let remaining_bytes = file_len - current_pos;
     let expected_roof_size = (tiled_map_width * tiled_map_height * 4) as u64;
 
-    // Only read roof tiles if we have exactly the expected amount of data remaining
+    // Only read the access-ref grid if we have exactly the expected amount of
+    // data remaining
     if remaining_bytes >= expected_roof_size {
-        btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        let (refs, words) = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+        btl_tiles = refs;
+        access_ref_words = words;
     } else if remaining_bytes > 0 {
-        // If there are remaining bytes but not enough for a full roof block,
+        // If there are remaining bytes but not enough for a full grid,
         // this might indicate a different file structure or corruption
         eprintln!(
-            "Warning: Found {} bytes after tile blocks, expected {} for roof tiles. Skipping.",
+            "Warning: Found {} bytes after tile blocks, expected {} for the access-ref grid. Skipping.",
             remaining_bytes, expected_roof_size
         );
     }
@@ -402,11 +475,17 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
         model: map_model,
         gtl_tiles,
         btl_tiles,
+        overlay_modes,
+        access_ref_words,
         collisions,
         events,
+        object_ids,
         tiled_infos,
         internal_sprites,
         sprite_blocks,
+        internal_sprite_stamps,
+        tiled_object_refs,
+        tiled_bundles,
     })
 }
 
@@ -440,16 +519,34 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 /// # Map File Structure
 /// The .MAP file format consists of these main blocks:
 /// 1. Header: Map dimensions in chunks (25-tile units)
-/// 2. Unknown blocks: Skipped during processing
+/// 2. Object-ref records + overlay-id table: skipped during processing
 /// 3. Sprite block: Embedded sprite sequences and metadata
-/// 4. Sprite info: Position data for placed sprites
+/// 4. Sprite info: Frame bounding boxes for placed sprites
 /// 5. Tiled objects: Building definitions using stacked tiles
-/// 6. Event block: Per-tile event trigger IDs
-/// 7. Tile & access: Ground tiles with collision flags
-/// 8. Roof tiles: Optional building/roof tile layer
+/// 6. Event grid: Packed u32 per tile (event id + flags)
+/// 7. Tile & access: Packed u32 per tile (GTL index + access bits)
+/// 8. Access-ref grid: BTL overlay refs and shadow levels per tile
 ///
 /// Coordinates use an isometric system where each tile is 32×32 pixels,
 /// with special offsets for proper isometric rendering.
+/// Parses a "x,y" camera-tile specification.
+fn parse_camera(spec: &str) -> IoResult<types::Coords> {
+    let (x, y) = spec.split_once(',').ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("camera must be \"x,y\", got {spec:?}"),
+        )
+    })?;
+    let x = x.trim().parse::<i32>().map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("camera x: {e}"))
+    })?;
+    let y = y.trim().parse::<i32>().map_err(|e| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("camera y: {e}"))
+    })?;
+    Ok((x, y))
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn extract(
     input_map_file: &Path,
     input_btl_file: &Path,
@@ -458,18 +555,40 @@ pub fn extract(
     save_map_sprites: bool,
     game_path: Option<&Path>,
     toggles: LayerToggles,
+    light_template: Option<light_template::LightTemplate>,
+    camera: Option<&str>,
 ) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
-    let map_data = read_map_data(&mut reader)?;
+    let mut map_data = read_map_data(&mut reader)?;
     let map_id = input_map_file
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("map");
 
+    // The map file's own light bits are not used for rendering; the viewport
+    // template supplies the levels. Apply it so dark maps render correctly.
+    if let Some(template) = light_template.as_ref() {
+        let camera = match camera {
+            Some(spec) => parse_camera(spec)?,
+            None => (
+                map_data.model.tiled_map_width / 2,
+                map_data.model.tiled_map_height / 2,
+            ),
+        };
+        eprintln!("Light template anchored at tile {camera:?}");
+        template.apply(&mut map_data.access_ref_words, camera);
+    }
+
     if save_map_sprites {
         for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
-            crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, map_id)?;
+            crate::sprite::save_sequence_with_options(
+                &mut reader,
+                &sprite.frame_infos,
+                i as i32,
+                map_id,
+                crate::sprite::SpriteRenderOptions::default(),
+            )?;
         }
     }
 
@@ -480,12 +599,12 @@ pub fn extract(
         reader: &mut reader,
         output_path,
         data: &map_data,
-        occlusion: !toggles.full_map,
         gtl_tileset: &gtl_tileset,
         btl_tileset: &btl_tileset,
         map_id,
         game_path,
         toggles,
+        lights: &[],
     })
 }
 
@@ -514,7 +633,7 @@ pub fn extract(
 /// - Pixel data for each animation frame
 ///
 /// Sprites are extracted with their original animation sequences preserved,
-/// allowing for proper reconstruction of in-game animations.
+/// allowing for proper reconstruction of the observed animations.
 pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
@@ -529,297 +648,55 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
 
     for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
         let prefix = format!("{}/{}", output_dir_str, map_id);
-        crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, &prefix)?;
+        crate::sprite::save_sequence_with_options(
+            &mut reader,
+            &sprite.frame_infos,
+            i as i32,
+            &prefix,
+            crate::sprite::SpriteRenderOptions::default(),
+        )?;
     }
     Ok(())
 }
 
-/// Imports a `.map` file into the SQLite database.
-///
-/// This function parses the complete .MAP file structure and saves all
-/// components to a structured database format for later retrieval and rendering.
-///
-/// The database import preserves the hierarchical structure of the map:
-/// - Map metadata (dimensions, computed pixel sizes)
-/// - Tile layers (ground GTL tiles and building BTL tiles)
-/// - Collision data for pathfinding and game logic
-/// - Event triggers for interactive elements
-/// - Object placements (buildings made from tile stacks)
-/// - Sprite information for dynamic elements
-///
-/// # Arguments
-/// * `database_path` - Path to the SQLite database file
-/// * `map_path` - Path to the .MAP file to import
-///
-/// # Returns
-/// Result containing any I/O, parsing, or database errors
-///
-/// # Database Schema
-/// The function creates or updates these database tables:
-/// - map_metadata: Map dimensions and computed sizes
-/// - map_tiles: Ground and building tiles with coordinates
-/// - map_collisions: Tile collision flags
-/// - map_events: Event trigger information
-/// - map_objects: Tiled object definitions
-/// - map_sprites: Sprite placement and sequence data
-///
-/// This allows for efficient querying and rendering of map components
-/// without needing to re-parse the binary format each time.
-pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()> {
-    use rusqlite::Connection;
-    let mut conn =
-        Connection::open(database_path).map_err(|e| std::io::Error::other(e.to_string()))?;
+#[cfg(test)]
+mod shadow_tests {
+    use super::*;
 
-    let file = File::open(map_path)?;
-    let mut reader = BufReader::new(file);
-    let map_data = read_map_data(&mut reader)?;
-    let map_id = map_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("map");
+    #[test]
+    fn test_shadow_levels_decodes_bits_15_to_29() {
+        let mut data = MapData {
+            model: MapModel::default(),
+            gtl_tiles: HashMap::new(),
+            btl_tiles: HashMap::new(),
+            overlay_modes: Vec::new(),
+            access_ref_words: HashMap::new(),
+            collisions: HashMap::new(),
+            events: HashMap::new(),
+            object_ids: HashMap::new(),
+            tiled_infos: Vec::new(),
+            internal_sprites: Vec::new(),
+            sprite_blocks: Vec::new(),
+            internal_sprite_stamps: Vec::new(),
+            tiled_object_refs: Vec::new(),
+            tiled_bundles: Vec::new(),
+        };
 
-    save_to_db(&mut conn, map_id, &map_data, &mut reader)
-        .map_err(|e| std::io::Error::other(e.to_string()))
-}
+        // No shadows yet
+        assert_eq!(data.shadow_levels().count(), 0);
 
-/// Writes map data to the SQLite database.
-///
-/// This low-level function takes parsed MapData and persists it to the database.
-/// It handles the conversion from in-memory structures to the relational format.
-///
-/// # Arguments
-/// * `conn` - Active SQLite database connection
-/// * `map_id` - Identifier for the map (e.g., "cat1", "dun01")
-/// * `data` - Parsed MapData structure containing all map components
-///
-/// # Returns
-/// Result containing any database operation errors
-///
-/// # Data Conversion Process
-/// The function converts these in-memory structures to database records:
-/// - MapModel → map_metadata table
-/// - GTL/BTL tiles → map_tiles table with layer distinction
-/// - Collisions → map_collisions table with boolean flags
-/// - Events → map_events table with trigger IDs
-/// - TiledObjectInfo → map_objects table with tile stacks
-/// - SpriteInfoBlock → map_sprites table with positions
-///
-/// This creates a complete, queryable representation of the original
-/// binary map file in a relational database format.
-pub fn save_to_db(
-    conn: &mut rusqlite::Connection,
-    map_id: &str,
-    data: &MapData,
-    reader: &mut BufReader<File>,
-) -> DbResult<()> {
-    println!("Saving map tiles for {}...", map_id);
-    save_map_tiles(SaveMapTilesParams {
-        conn,
-        map_id,
-        gtl_tiles: &data.gtl_tiles,
-        btl_tiles: &data.btl_tiles,
-        collisions: &data.collisions,
-        events: &data.events,
-        width: data.model.tiled_map_width,
-        height: data.model.tiled_map_height,
-    })?;
+        // Overlay ref 5 with shadow level 100, plus light-flag bits set high
+        data.access_ref_words
+            .insert((1, 0), (100 << 15) | 5 | 0xC000_0000);
+        // Level 0 → not yielded
+        data.access_ref_words.insert((2, 0), 7);
+        // Level 200 → not a darkness level, skipped
+        data.access_ref_words.insert((3, 0), 200 << 15);
+        // Level 199 → maximum valid darkness
+        data.access_ref_words.insert((4, 0), 199 << 15);
 
-    save_map_objects(conn, map_id, &data.tiled_infos)?;
-
-    save_map_sprites(conn, map_id, &data.sprite_blocks)?;
-
-    save_map_sprite_frames(conn, map_id, &data.internal_sprites, reader)?;
-
-    save_map_metadata(conn, map_id, &data.model)?;
-
-    Ok(())
-}
-
-pub struct SaveMapTilesParams<'a> {
-    pub conn: &'a mut Connection,
-    pub map_id: &'a str,
-    pub gtl_tiles: &'a HashMap<Coords, i32>,
-    pub btl_tiles: &'a HashMap<Coords, i32>,
-    pub collisions: &'a HashMap<Coords, bool>,
-    pub events: &'a HashMap<Coords, EventBlock>,
-    pub width: i32,
-    pub height: i32,
-}
-
-pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
-    let conn = params.conn;
-    let map_id = params.map_id;
-    let gtl_tiles = params.gtl_tiles;
-    let btl_tiles = params.btl_tiles;
-    let collisions = params.collisions;
-    let events = params.events;
-    let width = params.width;
-    let height = params.height;
-
-    let tx = conn.transaction()?;
-
-    let offset_x = width / 2;
-    let offset_y = height / 2;
-
-    println!(
-        "Inserting map tiles for map {}, width {}, height {}",
-        map_id, width, height
-    );
-
-    {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_tile.sql"))?;
-
-        for y in 0..height {
-            for x in 0..width {
-                let coords = (x, y);
-                let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
-                let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
-                let collision = collisions.get(&coords).cloned().unwrap_or(false);
-                let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
-
-                if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
-                    continue;
-                }
-
-                stmt.execute(params![
-                    map_id,
-                    x - offset_x,
-                    y - offset_y,
-                    gtl_id,
-                    btl_id,
-                    collision,
-                    event_id as i32,
-                ])?;
-            }
-        }
+        let mut levels: Vec<(Coords, u8)> = data.shadow_levels().collect();
+        levels.sort();
+        assert_eq!(levels, vec![((1, 0), 100), ((4, 0), 199)]);
     }
-
-    tx.commit()?;
-    Ok(())
-}
-
-pub fn save_map_objects(
-    conn: &mut Connection,
-    map_id: &str,
-    tiled_infos: &[TiledObjectInfo],
-) -> DbResult<()> {
-    let tx = conn.transaction()?;
-    {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object.sql"))?;
-        for (obj_idx, info) in tiled_infos.iter().enumerate() {
-            for (stack_order, btl_id) in info.ids.iter().enumerate() {
-                stmt.execute(params![
-                    map_id,
-                    obj_idx as i32,
-                    info.x,
-                    info.y,
-                    *btl_id as i32,
-                    stack_order as i32,
-                ])?;
-            }
-        }
-    }
-    tx.commit()?;
-    Ok(())
-}
-
-pub fn save_map_sprites(
-    conn: &mut Connection,
-    map_id: &str,
-    sprite_blocks: &[SpriteInfoBlock],
-) -> DbResult<()> {
-    let tx = conn.transaction()?;
-    {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite.sql"))?;
-        for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
-            stmt.execute(params![
-                map_id,
-                sprite_idx as i32,
-                block.sprite_x,
-                block.sprite_y,
-                block.sprite_id as i32,
-            ])?;
-        }
-    }
-    tx.commit()?;
-    Ok(())
-}
-
-pub fn save_map_sprite_frames(
-    conn: &mut Connection,
-    map_id: &str,
-    internal_sprites: &[SequenceInfo],
-    reader: &mut BufReader<File>,
-) -> DbResult<()> {
-    let tx = conn.transaction()?;
-    {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_frame.sql"))?;
-        for (seq_idx, seq) in internal_sprites.iter().enumerate() {
-            for (frame_idx, frame) in seq.frame_infos.iter().enumerate() {
-                // Seek to this frame's RGB565 pixel data in the .map file
-                reader
-                    .seek(SeekFrom::Start(frame.image_start_position))
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-
-                // Decode RGB565 → RGBA image
-                let mut rgba = RgbaImage::new(frame.width as u32, frame.height as u32);
-                for y in 0..frame.height {
-                    for x in 0..frame.width {
-                        let pixel = reader
-                            .read_u16::<LittleEndian>()
-                            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-                        if pixel == 0 {
-                            continue; // transparent
-                        }
-                        let color = rgb16_565_produce_color(pixel);
-                        rgba.put_pixel(x as u32, y as u32, Rgba([color.r, color.g, color.b, 255]));
-                    }
-                }
-
-                // Encode frame as PNG blob
-                let mut png_buf = Vec::new();
-                let encoder = PngEncoder::new(Cursor::new(&mut png_buf));
-                encoder
-                    .write_image(
-                        rgba.as_raw(),
-                        frame.width as u32,
-                        frame.height as u32,
-                        ColorType::Rgba8,
-                    )
-                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-
-                stmt.execute(params![
-                    map_id,
-                    seq_idx as i32,
-                    frame_idx as i32,
-                    png_buf,
-                    frame.width,
-                    frame.height,
-                    frame.origin_x,
-                    frame.origin_y,
-                ])?;
-            }
-        }
-    }
-    tx.commit()?;
-    Ok(())
-}
-
-pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) -> DbResult<()> {
-    conn.execute(
-        include_str!("../queries/insert_map_metadata.sql"),
-        params![
-            map_id,
-            model.tiled_map_width,
-            model.tiled_map_height,
-            model.map_width_in_pixels,
-            model.map_height_in_pixels,
-            model.map_non_occluded_start_x,
-            model.map_non_occluded_start_y,
-            model.occluded_map_in_pixels_width,
-            model.occluded_map_in_pixels_height,
-        ],
-    )?;
-
-    Ok(())
 }

@@ -3,9 +3,9 @@
 # release.sh — Bump version, commit, tag, and push for dispel-extractor
 #
 # Usage: ./scripts/release.sh <new_version>
-# Example: ./scripts/release.sh 0.6.4
+# Example: ./scripts/release.sh 0.9.3
 #
-# Must be run on the master branch with a clean working tree.
+# Validates semver, formatting and the full test suite before bumping versions.
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <new_version>"
-  echo "Example: $0 0.6.4"
+  echo "Example: $0 0.9.3"
   exit 1
 fi
 
@@ -21,36 +21,25 @@ NEW_VERSION="$1"
 
 # Validate semver format (major.minor.patch)
 if [[ ! "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: Version must be in semver format (e.g., 0.6.4)"
+  echo "Error: Version must be in semver format (e.g., 0.9.3)"
   exit 1
 fi
-
-# Check we're on master
-# BRANCH=$(git branch --show-current)
-# if [[ "$BRANCH" != "master" ]]; then
-#   echo "Error: Must be on master branch (currently on '$BRANCH')"
-#   exit 1
-# fi
-
-# Check working tree is clean
-# if [[ -n $(git status --porcelain) ]]; then
-#   echo "Error: Working tree is not clean. Commit or stash changes first."
-#   exit 1
-# fi
 
 # --- Pre-release checks ---
 
 echo "Checking code formatting..."
-if ! cargo fmt --all --check; then
+if ! bash scripts/ci-commands.sh fmt-check; then
     echo "Code is not formatted. Run 'cargo fmt --all' to fix."
     exit 1
 fi
 
-# echo "Running tests..."
-# if ! cargo test --workspace --all-features; then
-#     echo "Tests failed. Fix before releasing."
-#     exit 1
-# fi
+# Running the full suite is mandatory before a release; PR CI already does
+# this, but a release can be cut from a local master that skipped it.
+echo "Running tests..."
+if ! bash scripts/ci-commands.sh test; then
+    echo "Tests failed. Fix before releasing."
+    exit 1
+fi
 
 # --- Bump versions ---
 
@@ -74,7 +63,7 @@ done <<< "$MANIFESTS"
 
 # Regenerate Cargo.lock
 echo "Regenerating Cargo.lock..."
-cargo check --workspace --quiet
+bash scripts/ci-commands.sh check
 
 # --- Commit ---
 

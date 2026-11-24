@@ -7,12 +7,7 @@ use iced::widget::{container, text};
 use iced::{Element, Fill};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
 
     let (Some(editor), Some(spreadsheet)) = (
         app.state
@@ -38,7 +33,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into();
     };
 
-    let scan_msg = Message::dialogue_paragraph(DialogueParagraphEditorMessage::ScanCatalog);
+    let scan_msg = Message::dialogue_paragraph(DialogueParagraphEditorMessage::LoadCatalog(
+        editor.current_file.clone().unwrap_or_default(),
+    ));
 
     view_spreadsheet(
         &editor.editor,

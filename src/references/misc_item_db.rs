@@ -4,7 +4,7 @@ use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 
 /// MiscItem.db - Miscellaneous Items
 ///
@@ -44,7 +44,16 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// +--------------------------------------+
 /// ```
 #[derive(
-    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    Default,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 256)]
 #[patcher(filename = "MiscItem.db")]
@@ -82,7 +91,7 @@ pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
 pub fn save_misc_items(conn: &mut Connection, misc_items: &[MiscItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_misc_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("misc_items"))?;
         for item in misc_items {
             stmt.execute(params![
                 item.id,

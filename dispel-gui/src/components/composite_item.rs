@@ -24,7 +24,7 @@ pub fn composite_item_picker(
         .next()
         .and_then(|s| s.parse().ok())
         .unwrap_or(255);
-    let current_type = ItemTypeId::from_u8(current_type_byte).unwrap_or(ItemTypeId::Other);
+    let current_type = ItemTypeId::from_u8(current_type_byte).unwrap_or(ItemTypeId::NoItem);
     let current_id = value.split(':').nth(1).unwrap_or("0").to_string();
 
     let on_change: Rc<dyn Fn(String) -> Message> = Rc::new(on_change);

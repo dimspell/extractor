@@ -4,6 +4,8 @@
 //! This module only assembles the top-level `EditorMessage` enum.
 
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
+use crate::editors::audio_viewer::AudioViewerMessage;
+use crate::editors::bmp_viewer::BmpViewerMessage;
 use crate::editors::chdata::ChDataEditorMessage;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::editors::dialogue_script::DialogueScriptEditorMessage;
@@ -15,6 +17,7 @@ use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
 use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
+use crate::editors::fog_data::FogDataMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::editors::magic::MagicEditorMessage;
@@ -33,11 +36,19 @@ use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::editors::party_ref::PartyRefEditorMessage;
 use crate::editors::quest_scr::QuestScrEditorMessage;
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::editors::save_ifo::SaveIfoEditorMessage;
 use crate::editors::snf_editor::SnfEditorMessage;
 use crate::editors::sprite_editor::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::tileset::TilesetEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
+
+use crate::editors::chest_spawn::ChestSpawnEditorMessage;
+use crate::editors::map_info_multi::MapInfoMultiEditorMessage;
+use crate::editors::monster_spawn::MonsterSpawnEditorMessage;
+use crate::editors::tile_grid::TileGridCanvasMessage;
+use crate::editors::tile_grid::TileGridEditorMessage;
+
 use crate::editors::weapon::WeaponEditorMessage;
 use hexedit::HexEditorMessage;
 
@@ -77,8 +88,20 @@ pub enum EditorMessage {
     MapEditor(MapEditorMessage),
     Tileset(TilesetEditorMessage),
     Snf(SnfEditorMessage),
+    AudioViewer(AudioViewerMessage),
+    BmpViewer(BmpViewerMessage),
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
     SaveFileViewer(SaveFileViewerMessage),
+    SaveIfo(SaveIfoEditorMessage),
+    FogData(FogDataMessage),
     HexEditor(HexEditorMessage),
+    /// Save the hex editor for a specific tab. The tab id comes from the
+    /// editor descriptor so a delayed save cannot target the active tab.
+    HexEditorSave(usize),
+    ChestSpawn(ChestSpawnEditorMessage),
+    MonsterSpawn(MonsterSpawnEditorMessage),
+    MapInfoMulti(MapInfoMultiEditorMessage),
+    TileGrid(TileGridEditorMessage),
+    TileGridCanvas(TileGridCanvasMessage),
 }

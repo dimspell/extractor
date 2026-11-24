@@ -1,5 +1,25 @@
 use super::entry::Entry;
 
+/// Canonical environment variable that forces the Iced-rendered context menu
+/// even on platforms with a native menu implementation.
+///
+/// Kept here (rather than duplicated as a string literal) so the documentation
+/// in [`super::mod`] and the tests cannot silently drift from the runtime check.
+pub const FORCE_CUSTOM_CONTEXT_MENU_ENV: &str = "DISPEL_FORCE_CUSTOM_CONTEXT_MENU";
+
+/// Deprecated alias for [`FORCE_CUSTOM_CONTEXT_MENU_ENV`], still honoured so
+/// existing scripts and the old `make` target keep working.
+pub const LEGACY_FORCE_CUSTOM_CONTEXT_MENU_ENV: &str = "FORCE_CUSTOM_CONTEXT_MENU";
+
+/// True when either the canonical or the deprecated env var is present.
+///
+/// The value is irrelevant — presence is enough. Use the canonical name when
+/// setting it; the legacy spelling exists only for backwards compatibility.
+pub fn force_custom_context_menu() -> bool {
+    std::env::var_os(FORCE_CUSTOM_CONTEXT_MENU_ENV).is_some()
+        || std::env::var_os(LEGACY_FORCE_CUSTOM_CONTEXT_MENU_ENV).is_some()
+}
+
 /// Description of a menu item for native rendering — strips the generic `Message`
 /// so platform code doesn't need to know about Iced's message type.
 #[cfg(any(target_os = "macos", target_os = "windows"))]
@@ -28,9 +48,10 @@ pub enum NativeResult {
 /// - `None` — native menus are not available on this platform. Caller should
 ///   fall back to the custom-rendered overlay.
 pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Option<NativeResult> {
-    // Set FORCE_CUSTOM_CONTEXT_MENU=1 to skip native menus and use
-    // the Iced-rendered overlay instead (useful for debugging layout/style).
-    if std::env::var("FORCE_CUSTOM_CONTEXT_MENU").is_ok() {
+    // Set DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1 (or the deprecated
+    // FORCE_CUSTOM_CONTEXT_MENU=1) to skip native menus and use the
+    // Iced-rendered overlay instead (useful for debugging layout/style).
+    if force_custom_context_menu() {
         return None;
     }
 

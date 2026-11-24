@@ -8,18 +8,26 @@ mod tests {
     use crate::modding::patchers::MiscItemPatcher;
     use crate::modding::value::Value;
     use crate::references::extractor::Extractor;
+    use crate::references::layout::RecordLayout;
     use crate::references::misc_item_db::MiscItem;
     use std::io::Cursor;
 
     fn one_item_blob(name: &str, base_price: i32) -> Vec<u8> {
-        let mut data = 1i32.to_le_bytes().to_vec();
-        let mut name_buf = [0u8; 30];
-        let n = name.len().min(29);
-        name_buf[..n].copy_from_slice(&name.as_bytes()[..n]);
-        data.extend_from_slice(&name_buf);
-        data.extend(vec![0u8; 202]);
-        data.extend_from_slice(&base_price.to_le_bytes());
-        data.extend(vec![0u8; 20]);
+        // Build the fixture from the generated layout instead of duplicating
+        // the 30/202/16/4 byte sizes here.
+        let layout = MiscItem::LAYOUT;
+        let mut data = vec![0u8; layout.footprint() as usize];
+        data[..layout.header_size as usize].copy_from_slice(&1i32.to_le_bytes());
+
+        let name_def = layout.field("name").unwrap();
+        let n = name.len().min(name_def.size as usize - 1);
+        let name_start = layout.header_size as usize + name_def.offset as usize;
+        data[name_start..name_start + n].copy_from_slice(&name.as_bytes()[..n]);
+
+        let price_def = layout.field("base_price").unwrap();
+        let price_start = layout.header_size as usize + price_def.offset as usize;
+        data[price_start..price_start + price_def.size as usize]
+            .copy_from_slice(&base_price.to_le_bytes());
         data
     }
 

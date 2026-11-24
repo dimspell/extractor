@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length, Padding};
 
-use gui_widgets::components::{CollapsibleTree, TreeNode};
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use gui_widgets::{CollapsibleTree, TreeNode};
 use lucide_icons::Icon;
 
 use crate::components::file_tree::tree_node::{GameFileNode, file_icon};
@@ -390,7 +390,7 @@ fn set_node_children(
 /// only produces the visual content.  Base left-padding is added here
 /// (6 px for dirs, 18 px for files) to match the old layout at depth 0.
 fn render_node<'a>(
-    ctx: gui_widgets::components::RenderContext<'a, GameFileNode>,
+    ctx: gui_widgets::RenderContext<'a, GameFileNode>,
     tree_filter: &'a FileTreeFilter,
 ) -> Element<'a, FileTreeMessage> {
     let node = ctx.data;
@@ -402,7 +402,7 @@ fn render_node<'a>(
             icon_char(Icon::ChevronRight)
         };
 
-        button(
+        let dir_btn = button(
             row![
                 text(caret_char)
                     .font(LUCIDE_FONT)
@@ -421,8 +421,25 @@ fn render_node<'a>(
             right: 4.0,
             bottom: 3.0,
             left: 6.0,
-        })
-        .into()
+        });
+
+        let entries = vec![
+            Entry::item(
+                "Show in File Manager",
+                FileTreeMessage::ShowInFileManager(node.path.clone()),
+            ),
+            Entry::separator(),
+            Entry::item(
+                "Copy Absolute Path",
+                FileTreeMessage::CopyAbsolutePath(node.path.clone()),
+            ),
+            Entry::item(
+                "Copy Relative Path",
+                FileTreeMessage::CopyRelativePath(node.path.clone()),
+            ),
+        ];
+
+        ContextMenu::new(dir_btn, entries).into()
     } else {
         let name_element = create_highlighted_text(&node.name, tree_filter.search_query());
 
@@ -455,6 +472,15 @@ fn render_node<'a>(
             Entry::item(
                 "Show in File Manager",
                 FileTreeMessage::ShowInFileManager(node.path.clone()),
+            ),
+            Entry::separator(),
+            Entry::item(
+                "Copy Absolute Path",
+                FileTreeMessage::CopyAbsolutePath(node.path.clone()),
+            ),
+            Entry::item(
+                "Copy Relative Path",
+                FileTreeMessage::CopyRelativePath(node.path.clone()),
             ),
         ];
 

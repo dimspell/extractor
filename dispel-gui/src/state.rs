@@ -51,12 +51,9 @@ pub struct RecordingSession {
     pub next_generation: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RecordingKey {
-    pub file_path: String,
-    pub record_id: u32,
-    pub field: String,
-}
+/// Field identity is owned by `dispel-core`. Recording, conflict detection,
+/// resolution pins and apply all use the very same key type now.
+pub type RecordingKey = dispel_core::modding::FieldKey;
 
 #[derive(Debug, Clone)]
 pub struct PendingEdit {
@@ -142,21 +139,36 @@ impl AppState {
         }
     }
 
-    /// Validate file
-    pub fn validate_file(&self, path: &Path) {
-        // TODO: Implement actual validation logic
-        println!("Validating file: {}", path.display());
+    /// Validate a file by parsing it with the extractor declared in the editor
+    /// catalog. A successful parse/serialize means the file is structurally
+    /// readable; a failure reports the parser's error in the status bar.
+    pub fn validate_file(&mut self, path: &Path) {
+        let editor_type = crate::workspace::EditorType::from_path(path);
+        if editor_type.descriptor().extract.is_none() {
+            self.status_msg = format!(
+                "Validation not available for this file type: {}",
+                path.display()
+            );
+            return;
+        }
+
+        match extract_file(path, editor_type) {
+            Ok(_) => {
+                self.status_msg = format!(
+                    "Validated {}: file is structurally readable",
+                    path.display()
+                );
+            }
+            Err(e) => {
+                self.status_msg = format!("Validation failed for {}: {}", path.display(), e);
+            }
+        }
     }
 
     /// Start background file indexation if needed
     pub fn start_file_indexation_if_needed(&self) -> Option<Task<Message>> {
         let game_path = self.workspace.game_path.as_ref()?.clone();
         let cache_manager = self.file_index_cache_manager.as_ref()?.clone();
-
-        eprintln!(
-            "DEBUG: start_file_indexation_if_needed called with game_path: {:?}",
-            game_path
-        );
 
         // Check if cache exists and is valid
         if let Ok(Some(cache)) = cache_manager.load_cache()
@@ -165,7 +177,6 @@ impl AppState {
             )
         {
             // Cache is valid, no need to reindex
-            eprintln!("DEBUG: Cache is valid, skipping reindex");
             return None;
         }
 
@@ -175,7 +186,6 @@ impl AppState {
 
         Some(Task::perform(
             async move {
-                eprintln!("DEBUG: Starting indexation for: {:?}", game_path_clone);
                 let indexation_service =
                     crate::indexation::indexation_service::IndexationService::new(
                         cache_manager_clone.clone(),
@@ -201,8 +211,6 @@ impl AppState {
                     eprintln!(
                         "Warning: File indexation returned no files - possible error during scan"
                     );
-                } else {
-                    eprintln!("DEBUG: Indexation returned {} files", cache.files.len());
                 }
 
                 cache
@@ -237,12 +245,6 @@ impl AppState {
     pub fn redo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
         self.editors.redo_active(editor_type, tab_id, &self.lookups)
     }
-
-    /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    pub fn refresh_spreadsheet_after_undo_redo(&mut self, editor_type: EditorType, tab_id: usize) {
-        self.editors
-            .refresh_spreadsheet(editor_type, tab_id, &self.lookups);
-    }
 }
 
 impl Default for AppState {
@@ -265,60 +267,66 @@ impl Default for AppState {
 // JSON extraction helpers for "Extract to JSON" in the file tree
 // ===========================================================================
 
-/// Dispatch file extraction to the correct parser based on [`EditorType`].
+/// Dispatch file extraction to the parser declared in the editor catalog.
 fn extract_file(path: &Path, editor_type: crate::workspace::EditorType) -> Result<String, String> {
-    use crate::workspace::EditorType;
-
-    let value = match editor_type {
-        EditorType::WeaponEditor => extract_std::<dispel_core::WeaponItem>(path, "weapons")?,
-        EditorType::MonsterEditor => extract_std::<dispel_core::Monster>(path, "monsters")?,
-        EditorType::MonsterIniEditor => {
-            extract_std::<dispel_core::MonsterIni>(path, "monster_ini")?
-        }
-        EditorType::HealItemEditor => extract_std::<dispel_core::HealItem>(path, "heal_item")?,
-        EditorType::MiscItemEditor => extract_std::<dispel_core::MiscItem>(path, "misc_item")?,
-        EditorType::EditItemEditor => extract_std::<dispel_core::EditItem>(path, "edit_item")?,
-        EditorType::EventItemEditor => extract_std::<dispel_core::EventItem>(path, "event_item")?,
-        EditorType::MagicEditor => extract_std::<dispel_core::MagicSpell>(path, "magic")?,
-        EditorType::StoreEditor => extract_std::<dispel_core::Store>(path, "store")?,
-        EditorType::ChDataEditor => extract_std::<dispel_core::ChData>(path, "chdata")?,
-        EditorType::PartyLevelDbEditor => {
-            extract_std::<dispel_core::PartyLevelNpc>(path, "party_level")?
-        }
-        EditorType::DialogueScriptEditor => {
-            extract_std::<dispel_core::DialogueScript>(path, "dialog")?
-        }
-        EditorType::DialogueTextEditor => {
-            extract_std::<dispel_core::DialogueParagraph>(path, "dialog_text")?
-        }
-        EditorType::DrawItemEditor => extract_std::<dispel_core::DrawItem>(path, "draw_item")?,
-        EditorType::EventIniEditor => extract_std::<dispel_core::Event>(path, "event_ini")?,
-        EditorType::EventNpcRefEditor => {
-            extract_std::<dispel_core::EventNpcRef>(path, "event_npc_ref")?
-        }
-        EditorType::ExtraIniEditor => extract_std::<dispel_core::Extra>(path, "extra_ini")?,
-        EditorType::ExtraRefEditor => extract_std::<dispel_core::ExtraRef>(path, "extra_ref")?,
-        EditorType::MapIniEditor => extract_std::<dispel_core::MapIni>(path, "map_ini")?,
-        EditorType::MessageScrEditor => extract_std::<dispel_core::Message>(path, "message")?,
-        EditorType::MonsterRefEditor => {
-            extract_std::<dispel_core::MonsterRef>(path, "monster_ref")?
-        }
-        EditorType::NpcIniEditor => extract_std::<dispel_core::NpcIni>(path, "npc_ini")?,
-        EditorType::NpcRefEditor => extract_std::<dispel_core::NPC>(path, "npc_ref")?,
-        EditorType::PartyRefEditor => extract_std::<dispel_core::PartyRef>(path, "party_ref")?,
-        EditorType::PartyIniEditor => extract_std::<dispel_core::PartyIniNpc>(path, "party_ini")?,
-        EditorType::QuestScrEditor => extract_std::<dispel_core::Quest>(path, "quest")?,
-        EditorType::EventScrEditor => extract_std::<dispel_core::EventScript>(path, "event_scr")?,
-        EditorType::WaveIniEditor => extract_std::<dispel_core::WaveIni>(path, "wave_ini")?,
-        EditorType::AllMapIniEditor => extract_std::<dispel_core::Map>(path, "all_maps")?,
-        EditorType::MapEditor => extract_map_file_json(path)?,
-        EditorType::TilesetEditor => extract_tileset_file_json(path)?,
-        EditorType::SpriteViewer => extract_sprite_file_json(path)?,
-        _ => return Err("JSON export not supported for this file type".to_string()),
-    };
-
+    let extract = editor_type
+        .descriptor()
+        .extract
+        .ok_or_else(|| "JSON export not supported for this file type".to_string())?;
+    let value = extract(path)?;
     serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
 }
+
+/// Generate a named catalog extraction wrapper for a standard `Extractor` type.
+macro_rules! extract_std_fn {
+    ($name:ident, $ty:ty, $key:literal) => {
+        pub(crate) fn $name(path: &Path) -> Result<serde_json::Value, String> {
+            extract_std::<$ty>(path, $key)
+        }
+    };
+}
+
+extract_std_fn!(extract_weapon, dispel_core::WeaponItem, "weapons");
+extract_std_fn!(extract_monster, dispel_core::Monster, "monsters");
+extract_std_fn!(extract_monster_ini, dispel_core::MonsterIni, "monster_ini");
+extract_std_fn!(extract_heal_item, dispel_core::HealItem, "heal_item");
+extract_std_fn!(extract_misc_item, dispel_core::MiscItem, "misc_item");
+extract_std_fn!(extract_edit_item, dispel_core::EditItem, "edit_item");
+extract_std_fn!(extract_event_item, dispel_core::EventItem, "event_item");
+extract_std_fn!(extract_magic, dispel_core::MagicSpell, "magic");
+extract_std_fn!(extract_store, dispel_core::Store, "store");
+extract_std_fn!(extract_chdata, dispel_core::ChData, "chdata");
+extract_std_fn!(
+    extract_party_level,
+    dispel_core::PartyLevelNpc,
+    "party_level"
+);
+extract_std_fn!(extract_dialog, dispel_core::DialogueScript, "dialog");
+extract_std_fn!(
+    extract_dialog_text,
+    dispel_core::DialogueParagraph,
+    "dialog_text"
+);
+extract_std_fn!(extract_draw_item, dispel_core::DrawItem, "draw_item");
+extract_std_fn!(extract_event_ini, dispel_core::Event, "event_ini");
+extract_std_fn!(
+    extract_event_npc_ref,
+    dispel_core::EventNpcRef,
+    "event_npc_ref"
+);
+extract_std_fn!(extract_extra_ini, dispel_core::Extra, "extra_ini");
+extract_std_fn!(extract_extra_ref, dispel_core::ExtraRef, "extra_ref");
+extract_std_fn!(extract_map_ini, dispel_core::MapIni, "map_ini");
+extract_std_fn!(extract_message, dispel_core::Message, "message");
+extract_std_fn!(extract_monster_ref, dispel_core::MonsterRef, "monster_ref");
+extract_std_fn!(extract_npc_ini, dispel_core::NpcIni, "npc_ini");
+extract_std_fn!(extract_npc_ref, dispel_core::NPC, "npc_ref");
+extract_std_fn!(extract_party_ref, dispel_core::PartyRef, "party_ref");
+extract_std_fn!(extract_party_ini, dispel_core::PartyIniNpc, "party_ini");
+extract_std_fn!(extract_quest, dispel_core::Quest, "quest");
+extract_std_fn!(extract_event_scr, dispel_core::EventScript, "event_scr");
+extract_std_fn!(extract_wave_ini, dispel_core::WaveIni, "wave_ini");
+extract_std_fn!(extract_all_maps, dispel_core::Map, "all_maps");
 
 /// Generic extraction for types that implement [`Extractor`] + [`Serialize`].
 fn extract_std<T: Extractor + Serialize>(
@@ -335,7 +343,7 @@ fn extract_std<T: Extractor + Serialize>(
 }
 
 /// Extract a `.map` file to JSON.
-fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
     use std::fs::File;
     use std::io::BufReader;
 
@@ -352,7 +360,7 @@ fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Extract a `.gtl`/`.btl` tileset file to JSON (metadata only, no pixel data).
-fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
     let tiles = dispel_core::map::tileset::extract(path)
         .map_err(|e| format!("Failed to read tileset: {}", e))?;
     let tile_entries: Vec<serde_json::Value> = tiles
@@ -374,7 +382,7 @@ fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
 }
 
 /// Extract a `.spr` sprite file info to JSON.
-fn extract_sprite_file_json(path: &Path) -> Result<serde_json::Value, String> {
+pub(crate) fn extract_sprite_file_json(path: &Path) -> Result<serde_json::Value, String> {
     let info = dispel_core::sprite::get_sprite_info(path)
         .map_err(|e| format!("Failed to read sprite info: {}", e))?;
     let data = serde_json::to_value(&info).map_err(|e| format!("Serialization failed: {}", e))?;
@@ -420,5 +428,63 @@ impl Default for PaneState {
             maximized: None,
             sidebar_split,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_unsupported_type_reports_not_available() {
+        let mut state = AppState::default();
+        state.validate_file(Path::new("effects.snf"));
+        assert!(
+            state
+                .status_msg
+                .contains("not available for this file type"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+    }
+
+    #[test]
+    fn test_validate_missing_file_reports_parse_error() {
+        let mut state = AppState::default();
+        state.validate_file(Path::new("/nonexistent/WeaponItem.db"));
+        assert!(
+            state.status_msg.contains("Validation failed"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+        assert!(
+            state.status_msg.contains("Failed to read weapons"),
+            "parse error missing from status: {}",
+            state.status_msg
+        );
+        assert!(
+            !state
+                .status_msg
+                .contains("not available for this file type")
+        );
+    }
+
+    #[test]
+    fn test_validate_parseable_file_reports_success() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("WeaponItem.db");
+        // One count word followed by a single zeroed 284-byte WeaponItem record.
+        let mut bytes = 1i32.to_le_bytes().to_vec();
+        bytes.extend(std::iter::repeat_n(0u8, 284));
+        std::fs::write(&path, bytes).expect("write synthetic weapon database");
+
+        let mut state = AppState::default();
+        state.validate_file(&path);
+        assert!(
+            state.status_msg.contains("structurally readable"),
+            "unexpected status: {}",
+            state.status_msg
+        );
+        assert!(state.status_msg.contains("WeaponItem.db"));
     }
 }

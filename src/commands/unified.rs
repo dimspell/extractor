@@ -2,76 +2,19 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::cli::{ExtractArgs, PatchArgs};
 use crate::commands::Command;
 use crate::commands::registry::{self, DetectResult, FileType};
 
-#[derive(clap::Args, Clone)]
-pub struct ExtractArgs {
-    /// Path to game file
-    #[arg(short, long)]
-    pub input: String,
-
-    /// Output file path (default: stdout)
-    #[arg(short, long)]
-    pub output: Option<String>,
-
-    /// File type override
-    #[arg(short, long)]
-    pub r#type: Option<String>,
-
-    /// Pretty-print JSON
-    #[arg(short, long)]
-    pub pretty: bool,
-}
-
-#[derive(clap::Args, Clone)]
-pub struct PatchArgs {
-    /// Path to JSON file
-    #[arg(short, long)]
-    pub input: String,
-
-    /// Path to game file to patch
-    #[arg(short, long)]
-    pub target: String,
-
-    /// Output path (if different from target)
-    #[arg(short, long)]
-    pub output: Option<String>,
-
-    /// File type override
-    #[arg(long)]
-    pub r#type: Option<String>,
-
-    /// Validate without writing
-    #[arg(short, long)]
-    pub dry_run: bool,
-
-    /// Patch target directly, create .bak backup
-    #[arg(long)]
-    pub in_place: bool,
-
-    /// Skip backup creation (with --in-place)
-    #[arg(long)]
-    pub no_backup: bool,
-}
-
-pub struct ExtractCommand {
-    pub args: ExtractArgs,
-}
-
-pub struct PatchCommand {
-    pub args: PatchArgs,
-}
-
-impl Command for ExtractCommand {
+impl Command for ExtractArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let input_path = Path::new(&self.args.input);
+        let input_path = Path::new(&self.input);
 
         if !input_path.exists() {
             return Err(format!("File not found: {}", input_path.display()).into());
         }
 
-        let file_type = resolve_type(&self.args.r#type, input_path, None)?;
+        let file_type = resolve_type(&self.r#type, input_path, None)?;
 
         let data = (file_type.extract_fn)(input_path)
             .map_err(|e| format!("Failed to extract {}: {}", input_path.display(), e))?;
@@ -88,7 +31,7 @@ impl Command for ExtractCommand {
             "data": data,
         });
 
-        let json_str = if self.args.pretty {
+        let json_str = if self.pretty {
             serde_json::to_string_pretty(&output)
                 .map_err(|e| format!("Failed to serialize JSON: {}", e))?
         } else {
@@ -96,7 +39,7 @@ impl Command for ExtractCommand {
                 .map_err(|e| format!("Failed to serialize JSON: {}", e))?
         };
 
-        if let Some(output_path) = &self.args.output {
+        if let Some(output_path) = &self.output {
             fs::write(output_path, &json_str)
                 .map_err(|e| format!("Failed to write to {}: {}", output_path, e))?;
             eprintln!("Extracted {} records to {}", record_count, output_path);
@@ -108,10 +51,10 @@ impl Command for ExtractCommand {
     }
 }
 
-impl Command for PatchCommand {
+impl Command for PatchArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let input_path = Path::new(&self.args.input);
-        let target_path = Path::new(&self.args.target);
+        let input_path = Path::new(&self.input);
+        let target_path = Path::new(&self.target);
 
         if !input_path.exists() {
             return Err(format!("JSON file not found: {}", input_path.display()).into());
@@ -134,9 +77,9 @@ impl Command for PatchCommand {
             .get("_meta")
             .and_then(|m| m.get("file_type"))
             .and_then(|v| v.as_str());
-        let file_type = resolve_type(&self.args.r#type, target_path, meta_hint)?;
+        let file_type = resolve_type(&self.r#type, target_path, meta_hint)?;
 
-        if self.args.dry_run {
+        if self.dry_run {
             if let Some(validate_fn) = file_type.validate_fn {
                 match validate_fn(&patch_data) {
                     Ok(()) => {
@@ -170,10 +113,19 @@ impl Command for PatchCommand {
             }
         }
 
-        let output_path = if let Some(ref output) = self.args.output {
+        if self.output.is_none() && !self.in_place {
+            return Err(
+                "A write target is required: pass --output <path> or --in-place \
+                        (patching is read-only by default)"
+                    .into(),
+            );
+        }
+
+        let output_path = if let Some(ref output) = self.output {
             PathBuf::from(output)
-        } else if self.args.in_place {
-            if !self.args.no_backup {
+        } else {
+            // The check above guarantees `--in-place` was passed here.
+            if !self.no_backup {
                 let backup_path = target_path.with_extension(
                     target_path
                         .extension()
@@ -191,8 +143,6 @@ impl Command for PatchCommand {
                 })?;
                 eprintln!("Backup created: {}", backup_path.display());
             }
-            target_path.to_path_buf()
-        } else {
             target_path.to_path_buf()
         };
 
@@ -300,5 +250,36 @@ fn extract_fields(data: &serde_json::Value) -> Vec<String> {
     match first_record {
         Some(serde_json::Value::Object(obj)) => obj.keys().cloned().collect(),
         _ => vec![],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_patch_requires_output_or_in_place() {
+        let dir = std::env::temp_dir().join(format!("dispel-patch-target-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        let input = dir.join("patch.json");
+        fs::write(&input, "[]").expect("write input JSON");
+        let target = dir.join("WeaponItem.db");
+
+        let args = PatchArgs {
+            input: input.to_string_lossy().into_owned(),
+            target: target.to_string_lossy().into_owned(),
+            output: None,
+            r#type: Some("weapons".to_owned()),
+            dry_run: false,
+            in_place: false,
+            no_backup: false,
+        };
+        let err = args.execute().unwrap_err().to_string();
+        assert!(err.contains("--output"), "{err}");
+        assert!(err.contains("--in-place"), "{err}");
+        // Default behavior is read-only: the target must not be created.
+        assert!(!target.exists());
+
+        fs::remove_dir_all(&dir).expect("remove temp dir");
     }
 }

@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    ActivationEffectId, BooleanFlag, ExtraObjectType, InventoryItem, ItemTypeId, SmallRange0to3,
+    BooleanFlag, ExtraObjectType, InventoryItem, ItemTypeId, SmallRange0to3,
 };
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable, RecordPatcher};
+use dispel_macros::{Extractor, Localizable, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,16 @@ use serde::{Deserialize, Serialize};
 ///
 /// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
 #[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor, Localizable, RecordPatcher,
+    Debug,
+    Clone,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Default,
+    Extractor,
+    Localizable,
+    RecordPatcher,
+    RecordLayout,
 )]
 #[extractor(property_item_size = 184)]
 #[patcher(extension = "ref", stem_prefix = "ext")]
@@ -104,12 +113,36 @@ pub struct ExtraRef {
     /// Third loot item identifier. `9999` marks an unused slot.
     #[extractor(primitive(type = "i32"))]
     pub additional_loot_2: i32,
-    /// The third loot quantity followed by object-specific interaction configuration.
+    /// Quantity of [`Self::additional_loot_2`].
+    #[extractor(primitive(type = "i32"))]
+    pub additional_loot_2_count: i32,
+    /// Loot delivery mode: `0` = deterministic (gold, then each loot pair),
+    /// `1` = roll-gated.
+    #[extractor(primitive(type = "i32"))]
+    pub loot_delivery_mode: i32,
+    /// Trap arming flag.
     ///
-    /// The first `i32` is read as the quantity for `additional_loot_2`; the
-    /// remaining 24 bytes are not yet assigned a stable meaning.
-    #[extractor(vec_u8(size = 28))]
-    pub additional_loot_2_count_and_config: Vec<u8>,
+    /// Locked containers do not check this flag. It is cleared in every
+    /// shipped placement.
+    #[extractor(primitive(type = "i32"))]
+    pub is_trapped: i32,
+    /// `Magic.db` spell index used when a trap triggers.
+    ///
+    /// Zero in all shipped placements. This is distinct from the open-sound
+    /// index in [`Self::open_sfx_id`].
+    #[extractor(primitive(type = "i32"))]
+    pub trap_spell_id: i32,
+    /// Unassigned configuration word at record `+0x78`. Preserve verbatim.
+    #[extractor(primitive(type = "i32"))]
+    pub interaction_config_reserved_1: i32,
+    /// Unassigned configuration word at record `+0x7C`. Preserve verbatim.
+    #[extractor(primitive(type = "i32"))]
+    pub interaction_config_reserved_2: i32,
+    /// Remaining interaction uses for levers and buttons.
+    ///
+    /// Defaults to `999` when the placement data is loaded.
+    #[extractor(primitive(type = "i32"))]
+    pub use_counter: i32,
     /// `Event.ini` logic ID executed after interaction.
     #[extractor(primitive(type = "i32"))]
     pub interaction_event_id: i32,
@@ -146,15 +179,21 @@ pub struct ExtraRef {
     /// Selects the alternate renderer used for this object.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub alternate_render_mode: BooleanFlag,
-    /// Activation-effect index passed to the engine's effect dispatcher.
-    #[extractor(enum_from_i32_from_u8(type = "ActivationEffectId"))]
-    pub activation_effect_id: ActivationEffectId,
-    /// Reserved flag adjacent to [`Self::activation_effect_id`]. Preserve it verbatim.
-    #[extractor(enum_from_i32_from_u8(type = "BooleanFlag"))]
-    pub activation_effect_reserved_flag: BooleanFlag,
-    /// Padding following the activation-effect fields.
+    /// Wave.ini sound index played when an object is activated successfully.
+    /// `0` means no sound.
+    ///
+    /// This is a sound index, not a trap or spell id. It was previously
+    /// exported as `activation_effect_id` and parsed through an enum that
+    /// rewrote every index other than `0` and `10` to `255` on save. The trap
+    /// fields are [`Self::is_trapped`] and [`Self::trap_spell_id`].
+    #[extractor(primitive(type = "u8"))]
+    pub open_sfx_id: u8,
+    /// Reserved byte after [`Self::open_sfx_id`]. Preserve it verbatim.
+    #[extractor(primitive(type = "u8"))]
+    pub open_sfx_reserved: u8,
+    /// Padding following [`Self::open_sfx_reserved`] (normally 0).
     #[extractor(primitive(type = "i16"))]
-    pub activation_effect_padding: i16,
+    pub open_sfx_padding: i16,
     /// Enables the active-object overlay render path.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub active_overlay_enabled: BooleanFlag,
@@ -170,7 +209,7 @@ pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
 pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_extra_ref.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("extra_refs"))?;
         for extra_ref in extra_refs {
             stmt.execute(params![
                 file_id,                 // 1
@@ -180,72 +219,82 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                     Some(extra_ref.extra_definition_id)
                 } else {
                     None
-                }, // 5
-                extra_ref.object_name,   // 6
-                u8::from(extra_ref.object_type), // 7
-                extra_ref.map_x,         // 8
-                extra_ref.map_y,         // 9
-                extra_ref.direction,     // 10
-                extra_ref.direction_padding, // 11
-                extra_ref.interaction_state, // 12
-                i32::from(extra_ref.requires_key), // 13
-                extra_ref.required_item.item_id() as i32, // 14
+                }, // 4
+                extra_ref.object_name,   // 5
+                u8::from(extra_ref.object_type), // 6
+                extra_ref.map_x,         // 7
+                extra_ref.map_y,         // 8
+                extra_ref.direction,     // 9
+                extra_ref.direction_padding, // 10
+                extra_ref.interaction_state, // 11
+                i32::from(extra_ref.requires_key), // 12
+                extra_ref.required_item.item_id() as i32, // 13
                 u8::from(
                     extra_ref
                         .required_item
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
-                ) as i32, // 15
-                extra_ref.required_item.raw(), // 16 — raw
-                extra_ref.requirement_range_1_padding, // 17
-                extra_ref.required_item2.item_id() as i32, // 18
+                        .unwrap_or(ItemTypeId::NoItem)
+                ) as i32, // 14
+                extra_ref.required_item.raw(), // 15 — raw
+                extra_ref.requirement_range_1_padding, // 16
+                extra_ref.required_item2.item_id() as i32, // 17
                 u8::from(
                     extra_ref
                         .required_item2
                         .item_type()
-                        .unwrap_or(ItemTypeId::Other)
-                ) as i32, // 19
-                extra_ref.required_item2.raw(), // 20 — raw
-                // extra_ref.unknown5,       // 21
-                extra_ref.requirement_range_2_start,  // 22
-                extra_ref.requirement_range_2_end,    // 23
-                extra_ref.requirement_range_3_start,  // 24
-                extra_ref.requirement_range_3_end,    // 25
-                extra_ref.gold_amount,                // 26
-                extra_ref.loot_item.item_id() as i32, // 27
-                u8::from(extra_ref.loot_item.item_type().unwrap_or(ItemTypeId::Other)) as i32, // 28
-                extra_ref.loot_item.raw(),            // 29 — raw
-                extra_ref.loot_item_padding,          // 30
-                extra_ref.loot_item_count,            // 31
-                extra_ref.additional_loot_1,          // 32
-                extra_ref.additional_loot_1_count,    // 33
-                extra_ref.additional_loot_2,          // 34
-                extra_ref.additional_loot_2_count_and_config, // 35
+                        .unwrap_or(ItemTypeId::NoItem)
+                ) as i32, // 18
+                extra_ref.required_item2.raw(), // 19 — raw
+                extra_ref.requirement_range_2_start, // 20
+                extra_ref.requirement_range_2_end, // 21
+                extra_ref.requirement_range_3_start, // 22
+                extra_ref.requirement_range_3_end, // 23
+                extra_ref.gold_amount,   // 24
+                extra_ref.loot_item.item_id() as i32, // 25
+                u8::from(
+                    extra_ref
+                        .loot_item
+                        .item_type()
+                        .unwrap_or(ItemTypeId::NoItem)
+                ) as i32, // 26
+                extra_ref.loot_item.raw(), // 27 — raw
+                extra_ref.loot_item_padding, // 28
+                extra_ref.loot_item_count, // 29
+                extra_ref.additional_loot_1, // 30
+                extra_ref.additional_loot_1_count, // 31
+                extra_ref.additional_loot_2, // 32
+                extra_ref.additional_loot_2_count, // 33
+                extra_ref.loot_delivery_mode, // 34
+                extra_ref.is_trapped,    // 35
+                extra_ref.trap_spell_id, // 36
+                extra_ref.interaction_config_reserved_1, // 37
+                extra_ref.interaction_config_reserved_2, // 38
+                extra_ref.use_counter,   // 39
                 if extra_ref.interaction_event_id > 0 {
                     Some(extra_ref.interaction_event_id)
                 } else {
                     None
-                }, // 36
+                }, // 40
                 if extra_ref.interaction_message_id > 0 {
                     Some(extra_ref.interaction_message_id)
                 } else {
                     None
-                }, // 37
-                i32::from(extra_ref.footprint_width), // 38
-                i32::from(extra_ref.footprint_height), // 39
-                extra_ref.footprint_orientation,      // 40
-                u8::from(extra_ref.interaction_range), // 41
-                extra_ref.interaction_range_padding,  // 42
-                i32::from(extra_ref.is_quest_element), // 43
-                i32::from(extra_ref.post_activation_tile_flag), // 44
-                i32::from(extra_ref.post_activation_footprint_mode), // 45
-                extra_ref.preserve_final_sprite_frame, // 46
-                i32::from(extra_ref.alternate_render_mode), // 47
-                u8::from(extra_ref.activation_effect_id), // 48
-                i32::from(extra_ref.activation_effect_reserved_flag), // 49
-                extra_ref.activation_effect_padding,  // 50
-                i32::from(extra_ref.active_overlay_enabled), // 51
-                i32::from(extra_ref.map_object_active), // 52
+                }, // 41
+                i32::from(extra_ref.footprint_width), // 42
+                i32::from(extra_ref.footprint_height), // 43
+                extra_ref.footprint_orientation, // 44
+                u8::from(extra_ref.interaction_range), // 45
+                extra_ref.interaction_range_padding, // 46
+                i32::from(extra_ref.is_quest_element), // 47
+                i32::from(extra_ref.post_activation_tile_flag), // 48
+                i32::from(extra_ref.post_activation_footprint_mode), // 49
+                extra_ref.preserve_final_sprite_frame, // 50
+                i32::from(extra_ref.alternate_render_mode), // 51
+                extra_ref.open_sfx_id,   // 52
+                extra_ref.open_sfx_reserved, // 53
+                extra_ref.open_sfx_padding, // 54
+                i32::from(extra_ref.active_overlay_enabled), // 55
+                i32::from(extra_ref.map_object_active)  // 56
             ])?;
         }
     }
@@ -275,6 +324,34 @@ mod tests {
         // gold_amount at offset 80
         rec[80..84].copy_from_slice(&gold.to_le_bytes());
         rec
+    }
+
+    /// The open-SFX byte is a Wave.ini index (0..N), not an effect enum.
+    /// A byte of 251 used to be rewritten to 255 by the old enum parser.
+    #[test]
+    fn test_open_sfx_byte_round_trip_preserved() {
+        let mut rec = ref_bytes("Chest1", 10, 20, 50);
+        rec[0x70..0x74].copy_from_slice(&1i32.to_le_bytes()); // is_trapped
+        rec[0x74..0x78].copy_from_slice(&27i32.to_le_bytes()); // trap_spell_id
+        rec[0x80..0x84].copy_from_slice(&999i32.to_le_bytes()); // use_counter
+        rec[0xac] = 251; // open_sfx_id
+
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(rec);
+
+        let mut c = Cursor::new(&data[..]);
+        let records = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(records[0].is_trapped, 1);
+        assert_eq!(records[0].trap_spell_id, 27);
+        assert_eq!(records[0].use_counter, 999);
+        assert_eq!(records[0].open_sfx_id, 251);
+
+        let mut out = Vec::new();
+        ExtraRef::to_writer(&records, &mut out).unwrap();
+        assert_eq!(
+            out, data,
+            "trap fields and open-SFX byte must round-trip verbatim"
+        );
     }
 
     #[test]
@@ -309,5 +386,30 @@ mod tests {
         assert_eq!(records[0].map_x, records2[0].map_x);
         assert_eq!(records[0].map_y, records2[0].map_y);
         assert_eq!(records[0].gold_amount, records2[0].gold_amount);
+    }
+
+    #[test]
+    fn test_no_item_typed_required_item2_round_trips_bytes() {
+        let item = InventoryItem::new(ItemTypeId::NoItem, 5);
+        assert_eq!(item.raw(), 0x0000_FF05);
+
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes("Chest1", 10, 20, 50));
+        // required_item2 is the i32 at record offset 60.
+        data[4 + 60..4 + 64].copy_from_slice(&item.raw().to_le_bytes());
+
+        let mut c = Cursor::new(&data[..]);
+        let records = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(
+            records[0].required_item2.item_type(),
+            Some(ItemTypeId::NoItem)
+        );
+        assert_eq!(records[0].required_item2.item_id(), 5);
+        assert_eq!(records[0].required_item2.raw(), item.raw());
+
+        let mut out = Vec::new();
+        ExtraRef::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
+        assert_eq!(&out[64..68], &[0x05, 0xFF, 0x00, 0x00]);
     }
 }

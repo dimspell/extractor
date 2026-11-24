@@ -14,6 +14,9 @@ pub enum ModdingError {
     #[error("malformed mod package: {0}")]
     Malformed(String),
 
+    #[error("invalid field address: {0}")]
+    FieldAddress(#[from] crate::field_identity::FieldAddressError),
+
     #[error("missing required entry in package: {0}")]
     MissingEntry(String),
 

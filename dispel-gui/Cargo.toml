@@ -19,7 +19,7 @@ bincode = "1.3.3"
 thiserror = "2.0.18"
 iced_test = { workspace = true, optional = true }
 env_logger = "0.10.0"
-rodio = { version = "0.22", default-features = false, features = ["wav", "playback"] }
+rodio = { version = "0.22", default-features = false, features = ["wav", "vorbis", "playback"] }
 log = "0.4"
 zip = "8"
 lru = "0.12"
@@ -45,12 +45,13 @@ objc2-foundation = { version = "0.3", features = ["std", "NSString", "NSGeometry
 
 [features]
 default = []
+# UI simulation tests: runtime backend is chosen by `ICED_TEST_BACKEND=software`
+# (see docs/iced-fork-config.md). `iced/tiny-skia` compiles the software
+# renderer in so headless CI runs need no GPU/window server.
 iced_test = ["dep:iced_test", "iced/tiny-skia"]
+# Hot reload (very experimental in the iced fork); enabled together with
+# iced_test by `cargo test --workspace --all-features`.
 debug = ["iced/hot"]
-
-[dependencies.rusqlite]
-version = "0.39.0"
-features = ["bundled"]
 
 [dev-dependencies]
 proptest = "1.4"

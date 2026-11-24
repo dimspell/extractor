@@ -1,3 +1,4 @@
+use super::codec::{CountWidth, read_counted_records, write_counted_records};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
@@ -44,7 +45,9 @@ impl InventorySlots {
         let mut equipment_raw = vec![0u8; 12 * 9];
         reader.read_exact(&mut equipment_raw)?;
         let equipped_equipment: Vec<EquipmentSlot> = equipment_raw
-            .chunks_exact(9)
+            .as_chunks::<9>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 EquipmentSlot {
@@ -59,7 +62,9 @@ impl InventorySlots {
         let mut belt_raw = vec![0u8; 6 * 16];
         reader.read_exact(&mut belt_raw)?;
         let belt_potions: Vec<BeltPotionSlot> = belt_raw
-            .chunks_exact(16)
+            .as_chunks::<16>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 BeltPotionSlot {
@@ -75,7 +80,9 @@ impl InventorySlots {
         let mut inventory_raw = vec![0u8; 189 * 20];
         reader.read_exact(&mut inventory_raw)?;
         let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
-            .chunks_exact(20)
+            .as_chunks::<20>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 InventoryPlacementEntry {
@@ -194,28 +201,33 @@ pub struct InventoryData {
 impl InventoryData {
     pub(super) fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         Ok(Self {
-            event_items: read_item_section(
+            event_items: read_counted_records(
                 reader,
+                CountWidth::U16,
                 INVENTORY_EVENT_ITEM_SIZE,
                 InventoryEventItem::parse,
             )?,
-            misc_items: read_item_section(
+            misc_items: read_counted_records(
                 reader,
+                CountWidth::U16,
                 INVENTORY_MISC_ITEM_SIZE,
                 InventoryMiscItem::parse,
             )?,
-            edit_items: read_item_section(
+            edit_items: read_counted_records(
                 reader,
+                CountWidth::U16,
                 INVENTORY_EDIT_ITEM_SIZE,
                 InventoryEditItem::parse,
             )?,
-            weapon_items: read_item_section(
+            weapon_items: read_counted_records(
                 reader,
+                CountWidth::U16,
                 INVENTORY_WEAPON_ITEM_SIZE,
                 InventoryWeaponItem::parse,
             )?,
-            heal_items: read_item_section(
+            heal_items: read_counted_records(
                 reader,
+                CountWidth::U16,
                 INVENTORY_HEAL_ITEM_SIZE,
                 InventoryHealItem::parse,
             )?,
@@ -223,37 +235,47 @@ impl InventoryData {
     }
 
     pub(super) fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        write_item_section(writer, &self.event_items, |item, writer| item.write(writer))?;
-        write_item_section(writer, &self.misc_items, |item, writer| item.write(writer))?;
-        write_item_section(writer, &self.edit_items, |item, writer| item.write(writer))?;
-        write_item_section(writer, &self.weapon_items, |item, writer| {
-            item.write(writer)
-        })?;
-        write_item_section(writer, &self.heal_items, |item, writer| item.write(writer))
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &self.event_items,
+            "inventory",
+            "event-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &self.misc_items,
+            "inventory",
+            "misc-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &self.edit_items,
+            "inventory",
+            "edit-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &self.weapon_items,
+            "inventory",
+            "weapon-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &self.heal_items,
+            "inventory",
+            "heal-item count",
+            |item, writer| item.write(writer),
+        )
     }
-}
-
-fn read_item_section<R: Read, T>(
-    reader: &mut R,
-    record_size: usize,
-    parse: fn(&[u8]) -> std::io::Result<T>,
-) -> std::io::Result<Vec<T>> {
-    let count = reader.read_u16::<LittleEndian>()? as usize;
-    let mut data = vec![0u8; count * record_size];
-    reader.read_exact(&mut data)?;
-    data.chunks_exact(record_size).map(parse).collect()
-}
-
-fn write_item_section<W: Write, T>(
-    writer: &mut W,
-    records: &[T],
-    mut write: impl FnMut(&T, &mut W) -> std::io::Result<()>,
-) -> std::io::Result<()> {
-    writer.write_u16::<LittleEndian>(records.len() as u16)?;
-    for record in records {
-        write(record, writer)?;
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -263,9 +285,15 @@ pub struct InventoryMiscItem {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
-    /// Reserved bytes copied from the item definition; no runtime use is known.
-    #[binary_record(size = 16)]
-    pub reserved_definition_bytes: Vec<u8>,
+    /// X coordinate of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_x: i32,
+    /// Y coordinate of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_y: i32,
+    /// Map ID of a Rune Stone mark. Zero when no mark is stored.
+    pub rune_mark_map_id: u32,
+    /// Reserved bytes after the mark data. They are zero in known saves.
+    #[binary_record(size = 4)]
+    pub reserved_mark_tail_bytes: Vec<u8>,
     /// Zero-based index of the corresponding miscellaneous-item definition.
     pub misc_item_id: u32,
     /// Zero-based inventory category: `0`=weapon, `1`=heal, `2`=edit, `3`=misc, `4`=event.

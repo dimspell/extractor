@@ -1,21 +1,15 @@
 use crate::app::App;
-use crate::components::loading_state::LoadingState;
-use crate::editors::map_editor::canvas::find_hovered_element;
-use crate::editors::map_editor::{MapEditAction, MapEditorMessage, MapLayer, SelectedEntity};
+use crate::editors::map_editor::canvas::{find_hovered_element, find_tile_at};
+use crate::editors::map_editor::{MapEditorMessage, MapTool, SelectedEntity};
 use crate::message::{Message, MessageExt};
+use gui_widgets::components::toast;
 use iced::Task;
-use std::sync::Arc;
 
-mod conversation;
-mod dialog;
 mod entity;
 mod map;
 pub use map::resolve_map_filename;
 mod persistence;
 mod sprite_export;
-
-/// Duration before a status message is automatically cleared.
-const STATUS_DISMISS_SECS: u64 = 3;
 
 pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
     match message {
@@ -54,7 +48,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 Some(p) => p.clone(),
                 None => {
                     if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
-                        editor.data.status_msg = Some("Map file path unknown".into());
+                        editor
+                            .data
+                            .notify(toast::Status::Danger, "Error", "Map file path unknown");
                     }
                     return Task::none();
                 }
@@ -62,7 +58,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
             let Some(map_data) = map_data_opt else {
                 if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
-                    editor.data.status_msg = Some("Map not loaded".into());
+                    editor
+                        .data
+                        .notify(toast::Status::Danger, "Error", "Map not loaded");
                 }
                 return Task::none();
             };
@@ -105,35 +103,16 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
                 match result {
                     Ok(path) => {
-                        editor.data.status_msg = Some(format!("TMX exported to: {}", path));
+                        editor.data.notify(toast::Status::Success, "Export", path);
                     }
                     Err(e) => {
-                        editor.data.status_msg = Some(format!("TMX export error: {}", e));
+                        editor.data.notify(toast::Status::Danger, "Error", e);
                     }
                 }
             }
             Task::none()
         }
 
-        MapEditorMessage::ShowDialogPreview(tab_id, npc_idx) => {
-            dialog::show_preview(app, tab_id, npc_idx)
-        }
-        MapEditorMessage::DialogPreviewLoaded(tab_id, result) => {
-            dialog::preview_loaded(app, tab_id, result)
-        }
-        MapEditorMessage::HideDialogPreview(tab_id) => dialog::hide_preview(app, tab_id),
-        MapEditorMessage::StartConversation(tab_id, npc_idx) => {
-            conversation::start(app, tab_id, npc_idx)
-        }
-        MapEditorMessage::ConversationLoaded(tab_id, result) => {
-            conversation::loaded(app, tab_id, result)
-        }
-        MapEditorMessage::AdvanceConversation(tab_id) => conversation::advance(app, tab_id),
-        MapEditorMessage::SelectChoice(tab_id, idx) => {
-            conversation::select_choice(app, tab_id, idx)
-        }
-        MapEditorMessage::ResetConversation(tab_id) => conversation::reset(app, tab_id),
-        MapEditorMessage::CloseConversation(tab_id) => conversation::close(app, tab_id),
         MapEditorMessage::ShowSpriteExportDialog(tab_id) => sprite_export::show_dialog(app, tab_id),
         MapEditorMessage::CloseSpriteExportDialog(tab_id) => {
             sprite_export::close_dialog(app, tab_id)
@@ -178,24 +157,15 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::LayerToggled(tab_id, layer) => {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-                match layer {
-                    MapLayer::Ground => state.view.show_ground = !state.view.show_ground,
-                    MapLayer::Buildings => state.view.show_buildings = !state.view.show_buildings,
-                    MapLayer::Roofs => state.view.show_roofs = !state.view.show_roofs,
-                    MapLayer::InternalSprites => {
-                        state.view.show_internal_sprites = !state.view.show_internal_sprites
-                    }
-                    MapLayer::Collisions => {
-                        state.view.show_collisions = !state.view.show_collisions
-                    }
-                    MapLayer::Events => state.view.show_events = !state.view.show_events,
-                    MapLayer::Monsters => state.view.show_monsters = !state.view.show_monsters,
-                    MapLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
-                    MapLayer::NpcWaypoints => {
-                        state.view.show_npc_waypoints = !state.view.show_npc_waypoints
-                    }
-                    MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
-                    MapLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
+                let visible = !map::layer_visible(&state.view, layer);
+                map::set_layer_visible(&mut state.view, layer, visible);
+                // Hiding the layer that owns the active editing tool makes that
+                // tool meaningless — reset to Pan.
+                if let Some(owner) = state.view.active_tool.owning_layer()
+                    && owner == layer
+                    && !map::layer_visible(&state.view, layer)
+                {
+                    state.view.active_tool = MapTool::Pan;
                 }
                 // Tile canvas renders entities and tile layers; overlay renders
                 // collisions and events — clear both caches.
@@ -232,62 +202,74 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::CanvasClicked(tab_id, cx, cy) => {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-                // Use find_hovered_element which also detects collision and event
-                // tiles.
-                let clicked = find_hovered_element(state, cx, cy);
-                state.data.status_msg = Some(match clicked {
-                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
-                        format!("Collision tile ({},{}) detected!", tx, ty)
-                    }
-                    Some(SelectedEntity::EventTile(tx, ty)) => {
-                        format!("Event tile ({},{}) detected!", tx, ty)
-                    }
-                    Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
-                    Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
-                    Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
-                    Some(SelectedEntity::DrawItem(i)) => {
-                        format!("Draw item {} detected", i)
-                    }
-                    None => {
-                        format!("Clicked at ({:.0},{:.0}) — no tile detected", cx, cy)
-                    }
-                });
-                match clicked {
-                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
-                        if !state.data.can_mutate_map_data() {
-                            state.data.status_msg = Some(
-                                "Cannot edit collision while save/export is in progress".into(),
+                // Tool routing comes FIRST: the active tool decides what a
+                // click means. Layer visibility no longer gates editing.
+                match state.view.active_tool {
+                    MapTool::Pan => {
+                        // Selection only — never mutates.
+                        let clicked = find_hovered_element(state, cx, cy);
+                        if let Some(sel) = &clicked {
+                            let (title, body) = match sel {
+                                SelectedEntity::CollisionTile(tx, ty) => {
+                                    ("Collision", format!("Tile ({},{}) detected", tx, ty))
+                                }
+                                SelectedEntity::EventTile(tx, ty) => {
+                                    ("Event", format!("Tile ({},{}) detected", tx, ty))
+                                }
+                                SelectedEntity::ObjectIdTile(tx, ty) => {
+                                    ("Object ID", format!("Tile ({},{}) detected", tx, ty))
+                                }
+                                SelectedEntity::Monster(i) => {
+                                    ("Monster", format!("#{} detected", i))
+                                }
+                                SelectedEntity::Npc(i) => ("NPC", format!("#{} detected", i)),
+                                SelectedEntity::Extra(i) => ("Extra", format!("#{} detected", i)),
+                                SelectedEntity::DrawItem(i) => {
+                                    ("Draw Item", format!("#{} detected", i))
+                                }
+                            };
+                            // Replace-in-place keeps the stack clean while
+                            // clicking across entities.
+                            state.data.notify_replace(
+                                title,
+                                gui_widgets::components::toast::Status::Primary,
+                                title,
+                                body,
                             );
-                        } else if let LoadingState::Loaded(ref mut handle) =
-                            state.data.loading_state
+                        }
+                        state.view.selected_entity = clicked;
+                        state.view.overlay_cache.clear();
+                    }
+                    MapTool::Collision => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy)
+                            && map::toggle_collision_at(state, tx, ty)
                         {
-                            let map_data = Arc::get_mut(&mut handle.0)
-                                .expect("MapData Arc has unexpected shared reference");
-                            let old = map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
-                            map_data.collisions.insert((tx, ty), !old);
-                            state.push_undo(MapEditAction {
-                                entity: SelectedEntity::CollisionTile(tx, ty),
-                                field: "collision".into(),
-                                old_value: old.to_string(),
-                                new_value: (!old).to_string(),
-                            });
-                            state.view.selected_entity = None;
-                            state.view.overlay_cache.clear();
                             set_tab_modified(app, tab_id, true);
                         }
                     }
-                    _ => {
-                        state.view.selected_entity = clicked;
-                        state.view.overlay_cache.clear();
+                    MapTool::ObjectId => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy)
+                            && map::apply_object_id_edit(state, tx, ty)
+                        {
+                            set_tab_modified(app, tab_id, true);
+                        }
+                    }
+                    MapTool::EventInspect => {
+                        if let Some((tx, ty)) = find_tile_at(state, cx, cy) {
+                            state.view.selected_entity = Some(SelectedEntity::EventTile(tx, ty));
+                            state.view.overlay_cache.clear();
+                        }
                     }
                 }
             }
             Task::none()
         }
 
-        MapEditorMessage::ClearStatus(tab_id) => {
-            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-                state.data.status_msg = None;
+        MapEditorMessage::DismissToast(tab_id, index) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id)
+                && index < state.data.toasts.len()
+            {
+                state.data.toasts.remove(index);
             }
             Task::none()
         }
@@ -343,6 +325,36 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+
+        MapEditorMessage::SelectTool(tab_id, tool) => map::select_tool(app, tab_id, tool),
+
+        MapEditorMessage::ToggleLayersPopover(tab_id) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.layers_popover_open = !state.view.layers_popover_open;
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::CloseLayersPopover(tab_id) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.layers_popover_open = false;
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::SetObjectBrushMode(tab_id, mode) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.view.object_brush_mode = mode;
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::SetObjectBrush(tab_id, value) => {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
+                state.data.object_brush = value.clamp(1, 511);
+            }
+            Task::none()
+        }
     }
 }
 
@@ -351,14 +363,4 @@ fn set_tab_modified(app: &mut App, tab_id: usize, modified: bool) {
     if let Some(tab) = app.state.workspace.tabs.iter_mut().find(|t| t.id == tab_id) {
         tab.modified = modified;
     }
-}
-
-/// Emit a delayed `ClearStatus` message to auto-dismiss the toolbar status text.
-fn dismiss_status_after(tab_id: usize) -> Task<Message> {
-    Task::perform(
-        async move {
-            tokio::time::sleep(std::time::Duration::from_secs(STATUS_DISMISS_SECS)).await;
-        },
-        move |()| Message::map_editor(MapEditorMessage::ClearStatus(tab_id)),
-    )
 }

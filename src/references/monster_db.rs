@@ -79,7 +79,9 @@ use serde::{Deserialize, Serialize};
 /// - **Properties**: `is_undead` (holy weakness), `has_blood` (gore), `ai_type`, `is_oversize`
 /// - **Rewards**: EXP (`exp_gain`) and gold drop ranges
 /// - **Behavior**: `detection_sight_size` (aggro), `distance_range_size` (attack range), `attack_speed`
-/// - **Special**: `special_attack` with `chance` and `duration`
+/// - **Special**: `special_attack` with `chance` and `duration` — one
+///   attack rider (see the field docs and `docs/files/MonsterInGame/
+///   Monster.db.md` §Special-attack rider)
 ///
 /// # Special Values
 ///
@@ -90,6 +92,11 @@ use serde::{Deserialize, Serialize};
 /// - `magic_level`: usually = 1
 /// - `boldness`: usually = 10 (courage/retreat threshold)
 /// - `is_oversize`: 1 for large monsters (dragons, etc.)
+/// - `special_attack` / `special_attack_chance` / `special_attack_duration`:
+///   the columns are one attack rider, not an independent skill list.
+///   `special_attack` is the inflicted status type (1 = poison, 2 =
+///   paralysis), `special_attack_chance` the percent trigger roll and
+///   `special_attack_duration` the tick-based countdown (55 ms per tick).
 ///
 /// # File Purpose
 ///
@@ -192,13 +199,17 @@ pub struct Monster {
     /// Potency tracking for enemy spellcasting.
     #[extractor(primitive(type = "i32"))]
     pub magic_level: i32,
-    /// Identifier for unique monster skills.
+    /// Attack-rider status type inflicted on the victim: 1 = poison,
+    /// 2 = paralysis (same enum as the player status slot; 0 = rider off).
     #[extractor(primitive(type = "i32"))]
     pub special_attack: i32,
-    /// Percentage likelihood to cast special.
+    /// Attack-rider trigger chance in percent: the victim is afflicted when
+    /// `rand() % 100 <= special_attack_chance` while the attack resolves
+    /// (the blow need not land).
     #[extractor(primitive(type = "i32"))]
     pub special_attack_chance: i32,
-    /// Length special effect lingers.
+    /// Status duration in fixed scheduler ticks (1 tick = 55 ms), counting
+    /// down on the victim while the status is active.
     #[extractor(primitive(type = "i32"))]
     pub special_attack_duration: i32,
     /// Courage metric defining a retreat threshold.
@@ -209,28 +220,6 @@ pub struct Monster {
     pub attack_speed: i32,
 }
 
-#[cfg(test)]
-mod layout_tests {
-    use super::Monster;
-    use crate::references::layout::RecordLayout;
-
-    #[test]
-    fn test_monster_record_layout_matches_documented_offsets() {
-        let layout = Monster::LAYOUT;
-        assert_eq!(layout.header_size, 0);
-        assert_eq!(layout.record_size, 160);
-        assert_eq!(layout.fields[0].name, "name");
-        assert_eq!(layout.fields[0].offset, 0);
-        assert_eq!(layout.fields[0].size, 24);
-        assert_eq!(layout.fields[1].name, "health_points_max");
-        assert_eq!(layout.fields[1].offset, 24);
-        assert_eq!(
-            layout.fields.last().unwrap().offset + layout.fields.last().unwrap().size,
-            160
-        );
-    }
-}
-
 pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
     Monster::read_file(source_path)
 }
@@ -238,7 +227,7 @@ pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
 pub fn save_monsters(conn: &mut Connection, monsters: &[Monster]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_monster.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("monsters"))?;
         for monster in monsters {
             stmt.execute(params![
                 monster.id,

@@ -2,7 +2,7 @@
 
 ## Legal Notice
 
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, proprietary algorithms, or protected intellectual property. All information is provided for **educational and research purposes** to document file organization and data structures for interoperability research.
+This documentation describes the file formats parsed by the extractor, based on observable data behavior, for interoperability and re-implementation.
 
 **DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
 
@@ -121,7 +121,7 @@ Simple contiguous array of raw pixels.
 - Loop until EOF: Read 32*32*2 bytes.
 
 ### Isometry Mask
-The code procedurally generates a diamond-shape mask (`create_mask`) to render the 32x32 square tile into a 62x32 isometric projection.
+The code procedurally generates a diamond-shape mask (`decode::tile_mask()` in `src/decode.rs`) to render the 32x32 square tile into a 62x32 isometric projection.
 
 ---
 
@@ -148,6 +148,6 @@ This documentation:
 - Describes **file format specifications only**
 - Does **not** distribute any proprietary algorithms or game content
 - Focuses on **technical organization and data structures**
-- Provides information for **interoperability research** only
-- Maintains **nominal fair use** for trademark references
+- Provides information for **independent interoperability research based on observable behavior** only, without circumvention of technological protection measures
+- Maintains **nominative use** for trademark references
 - **No copyrighted content** is reproduced or distributed

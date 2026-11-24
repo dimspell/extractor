@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 
-use gui_widgets::components::TreeNode;
+use gui_widgets::TreeNode;
 
 use super::tree_node::GameFileNode;
 

@@ -36,7 +36,7 @@ use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 /// # File Purpose
 ///
 /// Master index of all game maps, linking map IDs to filenames and metadata.
-/// Used by the game engine to load the correct map files and associated assets.
+/// Used to resolve the correct map files and associated assets.
 #[derive(
     Debug, Clone, Serialize, Deserialize, Default, TextExtractor, Localizable, TextRecordPatcher,
 )]
@@ -71,7 +71,7 @@ pub fn read_all_map_ini(source_path: &Path) -> std::io::Result<Vec<Map>> {
 pub fn save_maps(conn: &mut Connection, maps: &[Map]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_map.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("maps"))?;
         for map in maps {
             stmt.execute(params![
                 map.id,

@@ -36,12 +36,14 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                     style::browse_button
                 });
 
-            let save_error: Element<EventScrEditorMessage> = if let Some(ref err) = state.save_error
-            {
-                text(err).size(14).style(style::primary_text).into()
-            } else {
-                text("").into()
-            };
+            let save_status: Element<EventScrEditorMessage> =
+                if let Some(ref err) = state.save_error {
+                    text(err).size(14).style(style::primary_text).into()
+                } else if let Some(ref warning) = state.save_warning {
+                    text(warning).size(14).style(style::primary_text).into()
+                } else {
+                    text("").into()
+                };
 
             let index_info: Element<EventScrEditorMessage> = match &state.index_state {
                 FunctionIndexState::Loaded(index) => {
@@ -237,7 +239,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 ]
                 .align_y(Alignment::Center),
                 scrollable(column(page_content).spacing(10)).height(Length::Fill),
-                save_error,
+                save_status,
                 hr(1),
                 view_status_bar(state),
             ]
@@ -403,12 +405,8 @@ fn body_line(
     script: &dispel_core::references::event_scr::EventScript,
     section: SectionTab,
 ) -> Vec<Element<'static, EventScrEditorMessage>> {
-    let lines: &Vec<String> = match section {
-        SectionTab::Map => &script.map_content,
-        SectionTab::Chr => &script.chr_content,
-        SectionTab::Npc => &script.npc_content,
-        SectionTab::Wav => &script.wav_content,
-        _ => return vec![text("Invalid section").into()],
+    let Some(lines) = section.body_content(script) else {
+        return Vec::new();
     };
 
     lines

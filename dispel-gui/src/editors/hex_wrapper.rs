@@ -34,25 +34,30 @@ pub fn build_hex_config(
     } else {
         String::new()
     };
-    HexEditorConfig {
-        pane_gap: 4,
-        on_save: crate::editors::mod_packager::hex_save::build_save_callback(recording, game_path),
-        save_label,
-        can_save,
-        save_hint,
-        extra_entries: state.lua_engine.entries(),
-        custom_encodings: Vec::new(),
-        on_write_mode_changed: None,
-    }
+    HexEditorConfig::new()
+        .pane_gap(4)
+        .on_save_optional(crate::editors::mod_packager::hex_save::build_save_callback(
+            recording, game_path,
+        ))
+        .with_save_label(save_label)
+        .can_save(can_save)
+        .save_hint(save_hint)
+        .custom_encodings(Vec::new())
 }
 
 pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
+    handle_for_tab(tab_id, msg, app)
+}
+
+/// Route a hex message to an explicit tab. Save messages carry their tab id
+/// from the editor descriptor so a save completing after a tab switch still
+/// reaches the tab the user saved.
+pub fn handle_for_tab(
+    tab_id: usize,
+    msg: hexedit::HexEditorMessage,
+    app: &mut App,
+) -> Task<Message> {
     let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
         return Task::none();
     };
@@ -61,12 +66,7 @@ pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = app.state.workspace.active_tab_id().as_usize();
     match app.state.editors.hex_editors.get(&tab_id) {
         Some(state) => {
             let config =

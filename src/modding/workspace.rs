@@ -18,13 +18,17 @@
 //! replaced with `-`, suffix `-2`, `-3`... appended on collision).
 
 use std::collections::HashSet;
-use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use super::apply::{ApplyReport, ModEntry, RevertReport, apply_all, revert_to_vanilla};
+use super::apply::{
+    ApplyReport, ModEntry, RevertReport, apply_all_with_fs, revert_to_vanilla_with_fs,
+};
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, FsHandle, OsFs};
 use super::manifest::ModManifest;
 use super::package::{self, ModPackage};
 use super::registry::PatcherRegistry;
@@ -45,6 +49,15 @@ pub struct InstalledMod {
     pub enabled: bool,
 }
 
+/// What a recording append did to the changelog it wrote.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct AppendOutcome {
+    /// Actions removed by field-delta flattening.
+    pub collapsed: usize,
+    /// Oldest actions dropped at [`super::HISTORY_CAP`].
+    pub pruned: usize,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct EnabledFile {
     /// Slugs in load order (first = applied first).
@@ -52,23 +65,45 @@ struct EnabledFile {
 }
 
 /// Open or create a mod workspace at `root`.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Workspace {
     root: PathBuf,
     vanilla: VanillaStore,
+    fs: FsHandle,
+}
+
+impl std::fmt::Debug for Workspace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Workspace")
+            .field("root", &self.root)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Workspace {
     /// Open (and create-on-first-use) a workspace rooted at `root`.
     pub fn open(root: PathBuf) -> Result<Self> {
-        fs::create_dir_all(&root)?;
-        fs::create_dir_all(root.join(MODS_DIR))?;
+        Self::with_fs(root, Arc::new(OsFs))
+    }
+
+    /// Open a workspace whose *entire* storage — layout directories, state
+    /// files, mod packages, vanilla mirror — goes through `fs`. Production
+    /// passes [`OsFs`]; tests pass an in-memory stand-in.
+    pub fn with_fs(root: PathBuf, fs: FsHandle) -> Result<Self> {
+        fs.create_dir_all(&root)?;
+        fs.create_dir_all(&root.join(MODS_DIR))?;
         let vanilla_root = root.join(VANILLA_DIR);
-        fs::create_dir_all(&vanilla_root)?;
+        fs.create_dir_all(&vanilla_root)?;
         Ok(Self {
-            vanilla: VanillaStore::new(vanilla_root),
+            vanilla: VanillaStore::with_fs(vanilla_root, fs.clone()),
             root,
+            fs,
         })
+    }
+
+    /// The filesystem port used for game/vanilla I/O.
+    pub fn fs(&self) -> &dyn Fs {
+        self.fs.as_ref()
     }
 
     pub fn root(&self) -> &Path {
@@ -95,14 +130,16 @@ impl Workspace {
     /// if the file is missing.
     pub fn resolutions(&self) -> Result<ResolutionMap> {
         let path = self.resolutions_path();
-        if !path.is_file() {
+        if !self.fs.is_file(&path) {
             return Ok(ResolutionMap::new());
         }
-        Ok(serde_json::from_slice(&fs::read(&path)?)?)
+        let raw = self.fs.read(&path)?;
+        Ok(serde_json::from_slice(&raw)?)
     }
 
     fn write_resolutions(&self, map: &ResolutionMap) -> Result<()> {
-        fs::write(self.resolutions_path(), serde_json::to_vec_pretty(map)?)?;
+        self.fs
+            .write(&self.resolutions_path(), &serde_json::to_vec_pretty(map)?)?;
         Ok(())
     }
 
@@ -131,10 +168,11 @@ impl Workspace {
     /// dropped silently.
     pub fn enabled_order(&self) -> Result<Vec<String>> {
         let path = self.enabled_path();
-        if !path.is_file() {
+        if !self.fs.is_file(&path) {
             return Ok(Vec::new());
         }
-        let raw: EnabledFile = serde_json::from_slice(&fs::read(&path)?)?;
+        let bytes = self.fs.read(&path)?;
+        let raw: EnabledFile = serde_json::from_slice(&bytes)?;
         let installed: HashSet<String> = self.list_slugs()?.into_iter().collect();
         Ok(raw
             .enabled
@@ -152,7 +190,8 @@ impl Workspace {
             }
         }
         let raw = EnabledFile { enabled: order };
-        fs::write(self.enabled_path(), serde_json::to_vec_pretty(&raw)?)?;
+        self.fs
+            .write(&self.enabled_path(), &serde_json::to_vec_pretty(&raw)?)?;
         Ok(())
     }
 
@@ -233,10 +272,10 @@ impl Workspace {
 
     fn summary(&self, slug: &str) -> Result<Option<InstalledMod>> {
         let dir = self.mod_dir(slug)?;
-        if !dir.is_dir() {
+        if !self.fs.is_dir(&dir) {
             return Ok(None);
         }
-        let pkg = package::read_dir(&dir)?;
+        let pkg = package::read_dir_with_fs(&*self.fs, &dir)?;
         Ok(Some(InstalledMod {
             slug: slug.to_owned(),
             change_count: pkg.changes.len(),
@@ -247,16 +286,15 @@ impl Workspace {
 
     fn list_slugs(&self) -> Result<Vec<String>> {
         let mods = self.mods_root();
-        if !mods.is_dir() {
+        if !self.fs.is_dir(&mods) {
             return Ok(Vec::new());
         }
         let mut out = Vec::new();
-        for entry in fs::read_dir(&mods)? {
-            let entry = entry?;
-            if !entry.file_type()?.is_dir() {
+        for entry in self.fs.read_dir(&mods)? {
+            if !self.fs.is_dir(&entry) {
                 continue;
             }
-            if let Some(name) = entry.file_name().to_str() {
+            if let Some(name) = entry.file_name().and_then(|n| n.to_str()) {
                 out.push(name.to_owned());
             }
         }
@@ -265,13 +303,13 @@ impl Workspace {
 
     /// Read a mod package (manifest + full ChangeLog with blobs) by slug.
     pub fn read_mod(&self, slug: &str) -> Result<ModPackage> {
-        package::read_dir(&self.mod_dir(slug)?)
+        package::read_dir_with_fs(&*self.fs, &self.mod_dir(slug)?)
     }
 
     /// Persist a mod package to its directory. The slug is taken as-is; use
     /// [`Self::create_mod`] if you need slug derivation.
     pub fn write_mod(&self, slug: &str, package: &ModPackage) -> Result<()> {
-        package::write_dir(&self.mod_dir(slug)?, package)
+        package::write_dir_with_fs(&*self.fs, &self.mod_dir(slug)?, package)
     }
 
     /// Create a brand-new mod with the given manifest. Returns the assigned
@@ -299,33 +337,58 @@ impl Workspace {
 
     /// Append one [`ChangeAction`](super::change::ChangeAction) to the named
     /// mod, in load-mutate-save fashion. Used by recording mode.
+    ///
+    /// This is the single-action form of [`Self::append_actions_and_flatten`]:
+    /// it applies exactly the same normalization, so no append path can leave
+    /// an unnormalized changelog behind.
     pub fn append_action(&self, slug: &str, action: super::change::ChangeAction) -> Result<()> {
-        let mut pkg = self.read_mod(slug)?;
-        pkg.changes.push(action);
-        self.write_mod(slug, &pkg)
+        self.append_action_reporting(slug, action)?;
+        Ok(())
     }
 
-    /// Append many actions in one read-mutate-write cycle, then collapse
-    /// repeated FieldDelta entries on the same `(file, record_id, field)`.
-    /// Returns the number of actions removed by the flatten pass.
+    /// Single-action form of [`Self::append_actions_reporting`], returning the
+    /// number of oldest actions dropped at the cap.
+    pub fn append_action_reporting(
+        &self,
+        slug: &str,
+        action: super::change::ChangeAction,
+    ) -> Result<usize> {
+        Ok(self.append_actions_reporting(slug, vec![action])?.pruned)
+    }
+
+    /// Append actions in one read-mutate-write cycle, normalize the result by
+    /// collapsing repeated `FieldDelta` entries on the same
+    /// `(file, record_id, field)` (earliest `old`, latest `new`; no-ops drop),
+    /// and report both the collapsed and cap-pruned counts. Every append path
+    /// funnels through here; the flattened action set is what gets persisted.
+    pub fn append_actions_reporting(
+        &self,
+        slug: &str,
+        actions: Vec<super::change::ChangeAction>,
+    ) -> Result<AppendOutcome> {
+        let mut pkg = self.read_mod(slug)?;
+        let mut pruned = 0;
+        for a in actions {
+            pruned += pkg.changes.push(a);
+        }
+        let collapsed = pkg.changes.flatten_field_deltas();
+        self.write_mod(slug, &pkg)?;
+        Ok(AppendOutcome { collapsed, pruned })
+    }
+
+    /// Append actions and return only the number removed by flattening.
     pub fn append_actions_and_flatten(
         &self,
         slug: &str,
         actions: Vec<super::change::ChangeAction>,
     ) -> Result<usize> {
-        let mut pkg = self.read_mod(slug)?;
-        for a in actions {
-            pkg.changes.push(a);
-        }
-        let removed = pkg.changes.flatten_field_deltas();
-        self.write_mod(slug, &pkg)?;
-        Ok(removed)
+        Ok(self.append_actions_reporting(slug, actions)?.collapsed)
     }
 
     pub fn delete_mod(&self, slug: &str) -> Result<()> {
         let dir = self.mod_dir(slug)?;
-        if dir.is_dir() {
-            fs::remove_dir_all(&dir)?;
+        if self.fs.is_dir(&dir) {
+            self.fs.remove_dir_all(&dir)?;
         }
         // Also drop from load order.
         let order: Vec<String> = self
@@ -339,8 +402,14 @@ impl Workspace {
 
     /// Import a `.zip` package. The zip is extracted into `mods/<slug>/`.
     pub fn import_zip(&self, zip_path: &Path) -> Result<String> {
-        let file = fs::File::open(zip_path)?;
-        let pkg = package::read_zip(file)?;
+        let meta = self.fs.metadata(zip_path)?;
+        if !meta.is_file {
+            return Err(ModdingError::Malformed(format!(
+                "not a zip file: {}",
+                zip_path.display()
+            )));
+        }
+        let pkg = package::read_zip(Cursor::new(self.fs.read(zip_path)?))?;
         let slug = self.allocate_slug(&pkg.manifest.name)?;
         self.write_mod(&slug, &pkg)?;
         Ok(slug)
@@ -349,14 +418,18 @@ impl Workspace {
     /// Export an installed mod to `dst` (a `.zip` file path).
     pub fn export_zip(&self, slug: &str, dst: &Path) -> Result<()> {
         let pkg = self.read_mod(slug)?;
-        let file = fs::File::create(dst)?;
-        package::write_zip(file, &pkg)
+        let mut sink = Cursor::new(Vec::new());
+        package::write_zip(&mut sink, &pkg)?;
+        self.fs.write(dst, &sink.into_inner())
     }
 
-    /// Apply all enabled mods to `game_dir`. Honors any persisted pins —
-    /// stale pins (pointing at disabled mods) are auto-pruned and persisted
-    /// before the apply runs.
-    pub fn apply(&self, game_dir: &Path, registry: &PatcherRegistry) -> Result<ApplyReport> {
+    /// Load the enabled mods in load order together with their resolution map.
+    ///
+    /// Shared by [`Self::apply`] and [`Self::detect_conflicts`]: both stages of
+    /// the detect → pin → apply state machine must see the *same* packages and
+    /// the *same* (pruned) pins, otherwise the conflict UI can disagree with
+    /// what actually gets written.
+    fn enabled_state(&self) -> Result<(Vec<String>, Vec<ModPackage>, ResolutionMap)> {
         let order = self.enabled_order()?;
         let mut resolutions = self.resolutions()?;
         if resolutions.prune_to(&order) > 0 {
@@ -366,38 +439,56 @@ impl Workspace {
             .iter()
             .map(|slug| self.read_mod(slug))
             .collect::<Result<Vec<_>>>()?;
-        let mods: Vec<ModEntry<'_>> = order
+        Ok((order, packages, resolutions))
+    }
+
+    /// Borrow the loaded packages as apply-engine entries, in load order.
+    fn entries<'a>(order: &'a [String], packages: &'a [ModPackage]) -> Vec<ModEntry<'a>> {
+        order
             .iter()
             .zip(packages.iter())
             .map(|(slug, pkg)| ModEntry {
                 mod_id: slug.as_str(),
                 changes: &pkg.changes,
             })
-            .collect();
-        apply_all(&mods, game_dir, &self.vanilla, registry, &resolutions)
+            .collect()
+    }
+
+    /// Apply all enabled mods to `game_dir`. Honors any persisted pins —
+    /// stale pins (pointing at disabled mods) are auto-pruned and persisted
+    /// before the apply runs.
+    pub fn apply(&self, game_dir: &Path, registry: &PatcherRegistry) -> Result<ApplyReport> {
+        self.apply_with_fs(&*self.fs, game_dir, registry)
+    }
+
+    /// Apply through an explicit filesystem port (used by the facade).
+    pub fn apply_with_fs(
+        &self,
+        fs: &dyn Fs,
+        game_dir: &Path,
+        registry: &PatcherRegistry,
+    ) -> Result<ApplyReport> {
+        let (order, packages, resolutions) = self.enabled_state()?;
+        let mods = Self::entries(&order, &packages);
+        apply_all_with_fs(fs, &mods, game_dir, &self.vanilla, registry, &resolutions)
     }
 
     /// Restore every snapshotted file back to vanilla state.
     pub fn revert(&self, game_dir: &Path) -> Result<RevertReport> {
-        revert_to_vanilla(game_dir, &self.vanilla)
+        self.revert_with_fs(&*self.fs, game_dir)
     }
 
-    /// Detect conflicts across the enabled mods, in load order.
+    /// Revert through an explicit filesystem port (used by the facade).
+    pub fn revert_with_fs(&self, fs: &dyn Fs, game_dir: &Path) -> Result<RevertReport> {
+        revert_to_vanilla_with_fs(fs, game_dir, &self.vanilla)
+    }
+
+    /// Detect conflicts across the enabled mods, in load order. Uses the same
+    /// pruned pin map as [`Self::apply`] so the reported winner is the value
+    /// that will actually be written.
     pub fn detect_conflicts(&self) -> Result<Vec<super::conflicts::Conflict>> {
-        let order = self.enabled_order()?;
-        let packages: Vec<ModPackage> = order
-            .iter()
-            .map(|slug| self.read_mod(slug))
-            .collect::<Result<Vec<_>>>()?;
-        let mods: Vec<ModEntry<'_>> = order
-            .iter()
-            .zip(packages.iter())
-            .map(|(slug, pkg)| ModEntry {
-                mod_id: slug.as_str(),
-                changes: &pkg.changes,
-            })
-            .collect();
-        let resolutions = self.resolutions()?;
+        let (order, packages, resolutions) = self.enabled_state()?;
+        let mods = Self::entries(&order, &packages);
         Ok(super::conflicts::detect_conflicts_with(&mods, &resolutions))
     }
 
@@ -452,27 +543,49 @@ fn validate_slug(slug: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::modding::change::{ChangeAction, ChangeOp};
+    use crate::modding::fs::MemFs;
+    use crate::modding::test_helpers::misc_bytes;
     use crate::modding::value::Value;
-    use tempfile::tempdir;
+    use crate::references::extractor::Extractor;
+    use crate::references::misc_item_db::MiscItem;
+    use std::io::Cursor;
 
-    fn ws() -> (tempfile::TempDir, Workspace) {
-        let dir = tempdir().unwrap();
-        let ws = Workspace::open(dir.path().to_path_buf()).unwrap();
-        (dir, ws)
+    const GAME: &str = "/virtual/game";
+
+    fn ws_at(fs: &Arc<MemFs>, root: &str) -> Workspace {
+        Workspace::with_fs(PathBuf::from(root), fs.clone()).unwrap()
+    }
+
+    fn setup(root: &str) -> (Arc<MemFs>, Workspace) {
+        let fs = Arc::new(MemFs::new());
+        let ws = ws_at(&fs, root);
+        (fs, ws)
+    }
+
+    fn field_action(rel: &str, rec: u32, field: &str, new: Value) -> ChangeAction {
+        ChangeAction::new(
+            rel,
+            ChangeOp::FieldDelta {
+                record_id: rec,
+                field: field.into(),
+                old: Value::Null,
+                new,
+            },
+        )
     }
 
     #[test]
-    fn open_creates_subdirs() {
-        let (root, ws) = ws();
-        assert!(root.path().join("mods").is_dir());
-        assert!(root.path().join("vanilla").is_dir());
+    fn open_creates_subdirs_in_the_port() {
+        let (fs, ws) = setup("/ws-open");
+        assert!(fs.is_dir(Path::new("/ws-open/mods")));
+        assert!(fs.is_dir(Path::new("/ws-open/vanilla")));
         assert_eq!(ws.list_mods().unwrap(), vec![]);
         assert_eq!(ws.enabled_order().unwrap(), Vec::<String>::new());
     }
 
     #[test]
     fn create_read_round_trip() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-create");
         let slug = ws.create_mod(ModManifest::new("Spelling Fixes")).unwrap();
         assert_eq!(slug, "spelling-fixes");
 
@@ -487,7 +600,7 @@ mod tests {
 
     #[test]
     fn slug_collision_suffixes() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-slugs");
         let s1 = ws.create_mod(ModManifest::new("typos")).unwrap();
         let s2 = ws.create_mod(ModManifest::new("typos")).unwrap();
         let s3 = ws.create_mod(ModManifest::new("Typos!")).unwrap();
@@ -498,7 +611,7 @@ mod tests {
 
     #[test]
     fn enable_order_persists() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-order");
         let a = ws.create_mod(ModManifest::new("a")).unwrap();
         let b = ws.create_mod(ModManifest::new("b")).unwrap();
         ws.set_enabled(&a, true).unwrap();
@@ -512,7 +625,7 @@ mod tests {
 
     #[test]
     fn enable_order_filters_deleted_mods() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-deleted");
         let a = ws.create_mod(ModManifest::new("a")).unwrap();
         let b = ws.create_mod(ModManifest::new("b")).unwrap();
         ws.set_enabled(&a, true).unwrap();
@@ -523,25 +636,22 @@ mod tests {
 
     #[test]
     fn import_export_zip_round_trip() {
-        let (root, ws) = ws();
+        let (fs, ws) = setup("/ws-zip");
         let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
         let mut pkg = ws.read_mod(&slug).unwrap();
-        pkg.changes.push(ChangeAction::new(
+        pkg.changes.push(field_action(
             "CharacterInGame/MiscItem.db",
-            ChangeOp::FieldDelta {
-                record_id: 42,
-                field: "name".into(),
-                old: Value::Null,
-                new: Value::String("Helmet".into()),
-            },
+            42,
+            "name",
+            Value::String("Helmet".into()),
         ));
         ws.write_mod(&slug, &pkg).unwrap();
 
-        let zip_path = root.path().join("typos.zip");
-        ws.export_zip(&slug, &zip_path).unwrap();
-        assert!(zip_path.is_file());
+        let zip_path = Path::new("/exports/typos.zip");
+        ws.export_zip(&slug, zip_path).unwrap();
+        assert!(fs.is_file(zip_path));
 
-        let new_slug = ws.import_zip(&zip_path).unwrap();
+        let new_slug = ws.import_zip(zip_path).unwrap();
         assert_ne!(new_slug, slug); // collision suffix applied
         let imported = ws.read_mod(&new_slug).unwrap();
         assert_eq!(imported.manifest.name, "typos");
@@ -549,99 +659,164 @@ mod tests {
     }
 
     #[test]
+    fn create_delete_mod_removes_all_files_and_pins() {
+        let (fs, ws) = setup("/ws-delete-mod");
+        let slug = ws.create_mod(ModManifest::new("delete-me")).unwrap();
+        let dir = PathBuf::from("/ws-delete-mod/mods").join(&slug);
+        assert!(fs.is_dir(&dir));
+        assert_eq!(fs.read_dir(&dir).unwrap().len(), 2); // manifest + changes
+
+        ws.set_enabled(&slug, true).unwrap();
+        ws.delete_mod(&slug).unwrap();
+        assert!(!fs.exists(&dir));
+        assert!(ws.enabled_order().unwrap().is_empty());
+        assert!(ws.read_mod(&slug).is_err());
+    }
+
+    #[test]
     fn recording_then_apply_round_trip() {
-        // Mirrors the GUI flow: create a mod, "record" several field deltas
-        // via append_action, then apply to a fake game dir.
-        use crate::modding::PatcherRegistry;
-        use crate::references::extractor::Extractor;
-        use crate::references::misc_item_db::MiscItem;
-        use std::io::Cursor;
-
-        let (root, ws) = ws();
-        let game = tempdir().unwrap();
-
-        // Seed the game dir with a small MiscItem.db.
+        // Mirrors the GUI flow, with every byte — game files included — in the
+        // in-memory filesystem.
+        let (fs, ws) = setup("/ws-record");
         let rel = "CharacterInGame/MiscItem.db";
-        let mut data = 1i32.to_le_bytes().to_vec();
-        let mut name_buf = [0u8; 30];
-        name_buf[..4].copy_from_slice(b"Helt");
-        data.extend_from_slice(&name_buf);
-        data.extend(vec![0u8; 202]);
-        data.extend_from_slice(&15i32.to_le_bytes());
-        data.extend(vec![0u8; 20]);
-        let game_file = game.path().join(rel);
-        fs::create_dir_all(game_file.parent().unwrap()).unwrap();
-        fs::write(&game_file, &data).unwrap();
+        let game = Path::new(GAME);
+        fs.create_dir_all(game).unwrap();
+        fs.write(&game.join(rel), &misc_bytes("Helt", 15)).unwrap();
 
-        // "Record" two stringly-typed deltas (as the GUI would).
         let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
         ws.append_action(
             &slug,
-            ChangeAction::new(
-                rel,
-                ChangeOp::FieldDelta {
-                    record_id: 0,
-                    field: "name".into(),
-                    old: Value::String("Helt".into()),
-                    new: Value::String("Helmet".into()),
-                },
-            ),
+            field_action(rel, 0, "name", Value::String("Helmet".into())),
         )
         .unwrap();
-        ws.append_action(
-            &slug,
-            ChangeAction::new(
-                rel,
-                ChangeOp::FieldDelta {
-                    record_id: 0,
-                    field: "base_price".into(),
-                    old: Value::String("15".into()),
-                    new: Value::String("25".into()),
-                },
-            ),
-        )
-        .unwrap();
+        ws.append_action(&slug, field_action(rel, 0, "base_price", Value::I64(25)))
+            .unwrap();
 
         ws.set_enabled(&slug, true).unwrap();
-        let report = ws
-            .apply(game.path(), &PatcherRegistry::with_defaults())
-            .unwrap();
+        let report = ws.apply(game, &PatcherRegistry::with_defaults()).unwrap();
         assert_eq!(report.actions_applied, 2);
 
-        let mut c = Cursor::new(fs::read(&game_file).unwrap());
-        let recs = MiscItem::parse(&mut c, fs::metadata(&game_file).unwrap().len()).unwrap();
+        let bytes = fs.read(&game.join(rel)).unwrap();
+        let len = bytes.len() as u64;
+        let recs = MiscItem::parse(&mut Cursor::new(bytes), len).unwrap();
         assert_eq!(recs[0].name, "Helmet");
         assert_eq!(recs[0].base_price, 25);
-
-        let _ = root; // hold tempdir
     }
 
     #[test]
     fn append_action_grows_changelog() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-append");
         let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
         for i in 0..3 {
             ws.append_action(
                 &slug,
-                ChangeAction::new(
+                field_action(
                     "CharacterInGame/MiscItem.db",
-                    ChangeOp::FieldDelta {
-                        record_id: i,
-                        field: "name".into(),
-                        old: Value::Null,
-                        new: Value::String(format!("v{i}")),
-                    },
+                    i,
+                    "name",
+                    Value::String(format!("v{i}")),
                 ),
             )
             .unwrap();
         }
-        let pkg = ws.read_mod(&slug).unwrap();
-        assert_eq!(pkg.changes.len(), 3);
+        assert_eq!(ws.read_mod(&slug).unwrap().changes.len(), 3);
+    }
+
+    #[test]
+    fn appending_same_field_twice_flattens_through_one_contract() {
+        let (_fs, ws) = setup("/ws-flatten");
+        let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
+        let action = |old: &str, new: &str| {
+            field_action("MiscItem.db", 0, "name", Value::String(new.into()))
+                .with_description(format!("{old} -> {new}"))
+        };
+        // Single appends and bulk appends now share the same normalization.
+        ws.append_action(&slug, action("a", "b")).unwrap();
+        ws.append_action(&slug, action("b", "c")).unwrap();
+        ws.append_actions_and_flatten(&slug, vec![action("c", "d")])
+            .unwrap();
+        let log = ws.read_mod(&slug).unwrap().changes;
+        assert_eq!(log.len(), 1);
+        assert_eq!(
+            log.actions()[0].op.field_key("MiscItem.db").unwrap().field,
+            "name"
+        );
+    }
+
+    #[test]
+    fn append_actions_reporting_surfaces_cap_prune() {
+        let (_fs, ws) = setup("/ws-cap-bulk");
+        let slug = ws.create_mod(ModManifest::new("long-history")).unwrap();
+        let actions: Vec<_> = (0..=crate::modding::HISTORY_CAP)
+            .map(|i| {
+                field_action(
+                    "MiscItem.db",
+                    i as u32,
+                    "name",
+                    Value::String(format!("v{i}")),
+                )
+            })
+            .collect();
+
+        let outcome = ws.append_actions_reporting(&slug, actions).unwrap();
+        assert_eq!(outcome.pruned, 1);
+        assert_eq!(outcome.collapsed, 0);
+
+        let log = ws.read_mod(&slug).unwrap().changes;
+        assert_eq!(log.len(), crate::modding::HISTORY_CAP);
+        let ChangeOp::FieldDelta {
+            record_id: first, ..
+        } = &log.actions()[0].op
+        else {
+            unreachable!()
+        };
+        let ChangeOp::FieldDelta {
+            record_id: last, ..
+        } = &log.actions()[crate::modding::HISTORY_CAP - 1].op
+        else {
+            unreachable!()
+        };
+        assert_eq!(*first, 1);
+        assert_eq!(*last, crate::modding::HISTORY_CAP as u32);
+    }
+
+    #[test]
+    fn append_action_reporting_surfaces_cap_prune() {
+        let (_fs, ws) = setup("/ws-cap-single");
+        let slug = ws.create_mod(ModManifest::new("long-history")).unwrap();
+        for i in 0..crate::modding::HISTORY_CAP {
+            assert_eq!(
+                ws.append_action_reporting(
+                    &slug,
+                    field_action(
+                        "MiscItem.db",
+                        i as u32,
+                        "name",
+                        Value::String(format!("v{i}")),
+                    ),
+                )
+                .unwrap(),
+                0
+            );
+        }
+        assert_eq!(
+            ws.append_action_reporting(
+                &slug,
+                field_action(
+                    "MiscItem.db",
+                    crate::modding::HISTORY_CAP as u32,
+                    "name",
+                    Value::String("last".into()),
+                ),
+            )
+            .unwrap(),
+            1
+        );
     }
 
     #[test]
     fn pin_unpin_persists_across_reopen() {
-        let (root, ws) = ws();
+        let (fs, ws) = setup("/ws-pins");
         let a = ws.create_mod(ModManifest::new("a")).unwrap();
         let key = FieldKey {
             file_path: "MiscItem.db".into(),
@@ -649,11 +824,10 @@ mod tests {
             field: "name".into(),
         };
         ws.pin_resolution(key.clone(), &a).unwrap();
-        let map = ws.resolutions().unwrap();
-        assert_eq!(map.winner(&key), Some(a.as_str()));
+        assert_eq!(ws.resolutions().unwrap().winner(&key), Some(a.as_str()));
 
-        // Reopen — pin survives.
-        let ws2 = Workspace::open(root.path().to_path_buf()).unwrap();
+        // Reopen against the same port — the pin survives.
+        let ws2 = ws_at(&fs, "/ws-pins");
         assert_eq!(ws2.resolutions().unwrap().winner(&key), Some(a.as_str()));
 
         ws2.unpin_resolution(&key).unwrap();
@@ -662,7 +836,7 @@ mod tests {
 
     #[test]
     fn apply_prunes_pins_to_disabled_mods() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-prune");
         let a = ws.create_mod(ModManifest::new("a")).unwrap();
         let key = FieldKey {
             file_path: "MiscItem.db".into(),
@@ -671,14 +845,21 @@ mod tests {
         };
         ws.pin_resolution(key.clone(), &a).unwrap();
         // a is not enabled — apply should drop the pin.
-        let game = tempdir().unwrap();
-        ws.apply(game.path(), &PatcherRegistry::new()).unwrap();
+        fs_create_game(&ws);
+        ws.apply(Path::new(GAME), &PatcherRegistry::new()).unwrap();
         assert!(ws.resolutions().unwrap().winner(&key).is_none());
+    }
+
+    fn fs_create_game(ws: &Workspace) {
+        let game = Path::new(GAME);
+        if !ws.fs().is_dir(game) {
+            ws.fs().create_dir_all(game).unwrap();
+        }
     }
 
     #[test]
     fn list_mods_orders_enabled_first_in_load_order() {
-        let (_root, ws) = ws();
+        let (_fs, ws) = setup("/ws-list");
         let a = ws.create_mod(ModManifest::new("aaa")).unwrap();
         let b = ws.create_mod(ModManifest::new("bbb")).unwrap();
         let c = ws.create_mod(ModManifest::new("ccc")).unwrap();

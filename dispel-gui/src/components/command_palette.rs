@@ -76,13 +76,6 @@ impl Command {
             },
             // ── Tool views ──────────────────────────────────────────────────
             Command {
-                id: "open-db-viewer",
-                label: "Open: DB Viewer",
-                shortcut: None,
-                action: || Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::DbViewer)),
-                applicable_editors: vec![],
-            },
-            Command {
                 id: "open-store-editor",
                 label: "Open: Store Editor",
                 shortcut: None,
@@ -375,7 +368,7 @@ impl Command {
                         crate::editors::message_scr::MessageScrEditorMessage::LoadCatalog,
                     )
                 },
-                applicable_editors: vec![EditorType::QuestScrEditor],
+                applicable_editors: vec![EditorType::MessageScrEditor],
             },
             Command {
                 id: "save-message-scr",
@@ -440,7 +433,7 @@ impl Command {
                         crate::editors::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
                     )
                 },
-                applicable_editors: vec![EditorType::MapIniEditor],
+                applicable_editors: vec![EditorType::AllMapIniEditor],
             },
             Command {
                 id: "save-all-map-ini",
@@ -449,7 +442,7 @@ impl Command {
                 action: || {
                     Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::Save)
                 },
-                applicable_editors: vec![EditorType::MapIniEditor],
+                applicable_editors: vec![EditorType::AllMapIniEditor],
             },
             // ── Party Level Db Editor ────────────────────────────────────────
             Command {

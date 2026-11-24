@@ -639,10 +639,8 @@ mod tests {
     /// fully visible in the viewport. A subsequent `scroll_to_make_visible`
     /// for the same address must therefore be a no-op (same scroll).
     ///
-    /// This regression test validates the fix for the "scroll-lock after
-    /// go-to" bug: `draw_matrix` now updates `last_cursor_row` in the
-    /// `pending_center_on` branch so that the next frame's cursor tracking
-    /// doesn't re-trigger `scroll_to_make_visible` and override user scroll.
+    /// This also holds when `center_scroll_on` had to clamp the target near
+    /// the end of the file.
     #[test]
     fn center_scroll_on_then_scroll_to_make_visible_is_no_op() {
         // Address in the middle of a large file.

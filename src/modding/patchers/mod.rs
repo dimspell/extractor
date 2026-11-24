@@ -15,6 +15,7 @@ mod event_script;
 mod misc_item;
 mod party_level;
 mod quest;
+mod save_ifo;
 mod store;
 
 // Auto-generated (binary, via #[derive(RecordPatcher)])
@@ -33,12 +34,14 @@ pub use crate::references::weapons_db::WeaponItemPatcher;
 
 // Auto-generated (text, via #[derive(TextRecordPatcher)])
 pub use crate::references::all_map_ini::MapPatcher;
+pub use crate::references::chest_spawn::ChestSpawnPatcher;
 pub use crate::references::event_ini::EventPatcher;
 pub use crate::references::event_npc_ref::EventNpcRefPatcher;
 pub use crate::references::extra_ini::ExtraPatcher;
 pub use crate::references::map_ini::MapIniPatcher;
 pub use crate::references::message_scr::MessagePatcher;
 pub use crate::references::monster_ini::MonsterIniPatcher;
+pub use crate::references::monster_spawn::MonsterSpawnPatcher;
 pub use crate::references::npc_ini::NpcIniPatcher;
 pub use crate::references::party_ref::PartyRefPatcher;
 pub use crate::references::wave_ini::WaveIniPatcher;
@@ -49,4 +52,5 @@ pub use draw_item::DrawItemPatcher;
 pub use event_script::EventScriptPatcher;
 pub use party_level::PartyLevelDbPatcher;
 pub use quest::QuestPatcher;
+pub use save_ifo::SaveIfoPatcher;
 pub use store::StorePatcher;

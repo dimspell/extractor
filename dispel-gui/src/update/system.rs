@@ -3,110 +3,63 @@
 use crate::app::App;
 use crate::components::FileTree;
 use crate::components::utils::browse_folder;
-use crate::editors::all_map_ini::AllMapIniEditorMessage;
-use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::draw_item::DrawItemEditorMessage;
-use crate::editors::edit_item::EditItemEditorMessage;
-use crate::editors::event_ini::EventIniEditorMessage;
-use crate::editors::event_item::EventItemEditorMessage;
-use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
-use crate::editors::event_scr::EventScrEditorMessage;
-use crate::editors::extra_ini::ExtraIniEditorMessage;
-use crate::editors::heal_item::HealItemEditorMessage;
-use crate::editors::magic::MagicEditorMessage;
+use crate::editor_catalog::save_task_for_editor;
 use crate::editors::map_editor::MapEditorMessage;
-use crate::editors::map_ini::MapIniEditorMessage;
-use crate::editors::message_scr::MessageScrEditorMessage;
-use crate::editors::misc_item::MiscItemEditorMessage;
-use crate::editors::monster::MonsterEditorMessage;
-use crate::editors::monster_ini::MonsterIniEditorMessage;
-use crate::editors::npc_ini::NpcIniEditorMessage;
-use crate::editors::party_ini::PartyIniEditorMessage;
-use crate::editors::party_level_db::PartyLevelDbEditorMessage;
-use crate::editors::party_ref::PartyRefEditorMessage;
-use crate::editors::quest_scr::QuestScrEditorMessage;
-use crate::editors::store::StoreEditorMessage;
-use crate::editors::wave_ini::WaveIniEditorMessage;
-use crate::editors::weapon::WeaponEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
 use crate::message::{Message, MessageExt, system::SystemMessage};
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
 
-/// Returns a `Task` that dispatches `Save` to the given editor type, or
-/// `None` if the editor type does not support saving via Ctrl+S.
-fn save_task_for_editor(
-    editor_type: EditorType,
-    tab_id: usize,
-) -> Option<Task<crate::message::Message>> {
-    if !editor_type.supports_save() {
-        return None;
+/// Prompt shown when the user requests closing. Both the workspace tab flags
+/// and the dirty state kept by custom editors are reported so the user is
+/// warned before discarding unsaved file edits.
+fn close_dialog_text(app: &App) -> (&'static str, &'static str) {
+    let tab_modified = app.state.workspace.tabs.iter().any(|tab| tab.modified);
+    let has_open_tab = |id: &usize| app.state.workspace.tabs.iter().any(|t| t.id == *id);
+    let has_editor = |kind: EditorType| {
+        app.state
+            .workspace
+            .tabs
+            .iter()
+            .any(|t| t.editor_type == kind)
+    };
+    // Some editors own their dirty flag instead of setting `tab.modified`.
+    // Per-tab editors are mapped back through their tab id; single-instance
+    // editors are checked only while a tab of that kind is open.
+    let custom_dirty = app
+        .state
+        .editors
+        .snf_editors
+        .iter()
+        .any(|(id, editor)| editor.modified && has_open_tab(id))
+        || app
+            .state
+            .editors
+            .hex_editors
+            .iter()
+            .any(|(id, editor)| editor.provider.dirty_count() > 0 && has_open_tab(id))
+        || (app.state.editors.event_scr_editor.modified && has_editor(EditorType::EventScrEditor))
+        || (app
+            .state
+            .editors
+            .save_ifo_editor
+            .data
+            .as_ref()
+            .is_some_and(|data| data.dirty)
+            && has_editor(EditorType::SaveIfoEditor));
+
+    if tab_modified || custom_dirty {
+        (
+            "Unsaved files",
+            "Some open files have unsaved changes. Closing will discard those file edits; Yes saves workspace state and closes, No closes without saving it.",
+        )
+    } else {
+        (
+            "Save workspace?",
+            "Do you want to save your workspace before closing?",
+        )
     }
-    Some(Task::done(match editor_type {
-        // Standard editors (define_standard_editor! macro)
-        EditorType::WeaponEditor => Message::weapon(WeaponEditorMessage::Save),
-        EditorType::MonsterEditor => Message::monster(MonsterEditorMessage::Save),
-        EditorType::MonsterIniEditor => Message::monster_ini(MonsterIniEditorMessage::Save),
-        EditorType::HealItemEditor => Message::heal_item(HealItemEditorMessage::Save),
-        EditorType::MiscItemEditor => Message::misc_item(MiscItemEditorMessage::Save),
-        EditorType::EditItemEditor => Message::edit_item(EditItemEditorMessage::Save),
-        EditorType::EventItemEditor => Message::event_item(EventItemEditorMessage::Save),
-        EditorType::NpcIniEditor => Message::npc_ini(NpcIniEditorMessage::Save),
-        EditorType::MagicEditor => Message::magic(MagicEditorMessage::Save),
-        EditorType::PartyRefEditor => Message::party_ref(PartyRefEditorMessage::Save),
-        EditorType::PartyIniEditor => Message::party_ini(PartyIniEditorMessage::Save),
-        EditorType::AllMapIniEditor => Message::all_map_ini(AllMapIniEditorMessage::Save),
-        EditorType::DrawItemEditor => Message::draw_item(DrawItemEditorMessage::Save),
-        EditorType::EventIniEditor => Message::event_ini(EventIniEditorMessage::Save),
-        EditorType::EventNpcRefEditor => Message::event_npc_ref(EventNpcRefEditorMessage::Save),
-        EditorType::ExtraIniEditor => Message::extra_ini(ExtraIniEditorMessage::Save),
-        EditorType::MapIniEditor => Message::map_ini(MapIniEditorMessage::Save),
-        EditorType::MessageScrEditor => Message::message_scr(MessageScrEditorMessage::Save),
-        EditorType::QuestScrEditor => Message::quest_scr(QuestScrEditorMessage::Save),
-        EditorType::WaveIniEditor => Message::wave_ini(WaveIniEditorMessage::Save),
-        EditorType::ChDataEditor => Message::chdata(ChDataEditorMessage::Save),
-
-        // Custom editors with Save support
-        EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
-        EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
-
-        // Sprite editor
-        EditorType::SpriteViewer => {
-            Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
-        }
-
-        // Map editor uses SaveEntities with tab_id
-        EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
-
-        // EventScr script editor
-        EditorType::EventScrEditor => Message::event_scr(EventScrEditorMessage::SaveScript),
-
-        // Tabbed editors — they define a Save variant via define_tab_editor!
-        EditorType::DialogueScriptEditor => Message::dialogue_script(
-            crate::editors::dialogue_script::DialogueScriptEditorMessage::Save,
-        ),
-        EditorType::DialogueTextEditor => Message::dialogue_paragraph(
-            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save,
-        ),
-        EditorType::ExtraRefEditor => {
-            Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Save)
-        }
-        EditorType::MonsterRefEditor => {
-            Message::monster_ref(crate::editors::monster_ref::MonsterRefEditorMessage::Save)
-        }
-        EditorType::NpcRefEditor => {
-            Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Save)
-        }
-
-        // Safety net: supports_save() returned true but we're missing an arm.
-        // This is a programming error — the editor should either be listed above
-        // or removed from supports_save().
-        _ => unreachable!(
-            "save_task_for_editor: {:?} claims supports_save() but has no dispatch arm",
-            editor_type
-        ),
-    }))
 }
 
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
@@ -114,9 +67,10 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         SystemMessage::CloseRequested => {
             // Handle close requested with the confirmation dialog
             use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
+            let (title, description) = close_dialog_text(app);
             let dialog = MessageDialog::new()
-                .set_title("Save workspace?")
-                .set_description("Do you want to save your workspace before closing?")
+                .set_title(title)
+                .set_description(description)
                 .set_buttons(MessageButtons::YesNoCancel);
             let result = dialog.show();
             match result {
@@ -150,10 +104,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
             let result = app.state.undo_active(editor_type, tab_id);
-            if result.is_some() {
-                app.state
-                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
-            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
             Task::none()
         }
@@ -168,10 +118,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
             let result = app.state.redo_active(editor_type, tab_id);
-            if result.is_some() {
-                app.state
-                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
-            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
             Task::none()
         }
@@ -188,8 +134,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         }
         SystemMessage::FileSelected { field, path } => {
             let path = match path {
-                Some(p) => p,
-                None => return Task::none(),
+                Some(p) if !p.as_os_str().is_empty() => p,
+                _ => return Task::none(),
             };
             let s = path.to_string_lossy().to_string();
             match field.as_str() {
@@ -239,7 +185,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
 
                     return Task::batch([file_tree_task, index_task]);
                 }
-                "viewer_db" => app.state.editors.viewer.db_path = s,
                 _ => {}
             }
             Task::none()
@@ -337,34 +282,26 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         SystemMessage::CacheIndexationComplete(cache) => {
-            eprintln!(
-                "DEBUG: CacheIndexationComplete - {} files",
-                cache.files.len()
-            );
             // Cache indexation completed successfully
             if let Some(ref mut cache_manager) = app.state.file_index_cache_manager {
-                eprintln!("DEBUG: Saving cache to disk...");
                 if let Err(e) = cache_manager.save_cache(&cache) {
                     eprintln!("Failed to save file index cache: {}", e);
-                } else {
-                    eprintln!("DEBUG: Cache saved successfully!");
                 }
                 // Update file tree with cached data
                 if let Some(ref game_path) = app.state.workspace.game_path {
-                    eprintln!(
-                        "DEBUG: Updating file tree with {} cached files",
-                        cache.files.len()
-                    );
                     app.file_tree = FileTree::scan_with_cache(
                         game_path,
                         &app.state.file_index_cache_manager.clone(),
                     );
-                    eprintln!("DEBUG: File tree updated");
                 } else {
-                    eprintln!("DEBUG: No game_path in workspace");
+                    eprintln!(
+                        "File index cache completed without a configured game path; file tree not refreshed"
+                    );
                 }
             } else {
-                eprintln!("DEBUG: No cache_manager in state");
+                eprintln!(
+                    "File index cache completed without a configured cache manager; file tree not refreshed"
+                );
             }
             app.is_indexing = false;
             Task::none()
@@ -674,5 +611,120 @@ mod tests {
         push_weapon_tab(&mut app);
         let _ = handle(SystemMessage::Undo, &mut app);
         assert_eq!(app.state.status_msg, "Nothing to undo");
+    }
+
+    #[test]
+    fn test_file_selected_cancelled_or_empty_path_is_noop() {
+        let mut app = App::new().0;
+        push_weapon_tab(&mut app);
+
+        let game_path = std::path::PathBuf::from("/test/game");
+        let game_path_str = game_path.to_string_lossy().to_string();
+        app.state.workspace.game_path = Some(game_path.clone());
+        app.state.shared_game_path = game_path_str.clone();
+        app.search_index.game_path = Some(game_path_str.clone());
+        app.state.status_msg = "unchanged".to_string();
+        let tab_count = app.state.workspace.tabs.len();
+
+        for path in [None, Some(std::path::PathBuf::new())] {
+            let _ = handle(
+                SystemMessage::FileSelected {
+                    field: "workspace_game_path".to_string(),
+                    path,
+                },
+                &mut app,
+            );
+
+            assert_eq!(app.state.workspace.game_path, Some(game_path.clone()));
+            assert_eq!(app.state.shared_game_path, game_path_str);
+            assert_eq!(app.search_index.game_path, Some(game_path_str.clone()));
+            assert_eq!(app.state.workspace.tabs.len(), tab_count);
+            assert_eq!(app.state.workspace.active_tab, Some(0));
+            assert_eq!(app.state.status_msg, "unchanged");
+        }
+    }
+
+    #[test]
+    fn test_modified_tab_warns_file_edits_discarded() {
+        let mut app = App::new().0;
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Save workspace?");
+        assert!(!description.contains("unsaved"));
+
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: 1,
+                label: "Test".to_string(),
+                path: None,
+                editor_type: crate::workspace::EditorType::WeaponEditor,
+                modified: true,
+                pinned: false,
+            });
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "close prompt must warn about unsaved files: {description}"
+        );
+        assert!(
+            description.contains("discard those file edits"),
+            "close prompt must state file edits are discarded: {description}"
+        );
+        assert!(
+            description.contains("Yes saves workspace state and closes"),
+            "close prompt must state Yes saves workspace state: {description}"
+        );
+        assert!(
+            !description.contains("save the workspace before closing")
+                && !description.contains("save your files"),
+            "close prompt must not promise saving file edits: {description}"
+        );
+    }
+
+    #[test]
+    fn test_dirty_snf_tab_warns_without_tab_modified_flag() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .open("test.snf".into(), Some(PathBuf::from("test.snf")));
+        let tab_id = app.state.workspace.active_tab_id().as_usize();
+        assert!(!app.state.workspace.tabs[0].modified);
+
+        let mut state = crate::editors::snf_editor::SnfEditorState::load_from_path(
+            std::path::Path::new("test.snf"),
+        );
+        state.modified = true;
+        app.state.editors.snf_editors.insert(tab_id, state);
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "dirty SNF editor must trigger the file-edits warning: {description}"
+        );
+    }
+
+    #[test]
+    fn test_dirty_event_script_tab_warns_without_tab_modified_flag() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .open("Event.scr".into(), Some(PathBuf::from("Event.scr")));
+        app.state.workspace.tabs[0].editor_type = crate::workspace::EditorType::EventScrEditor;
+        assert!(!app.state.workspace.tabs[0].modified);
+
+        app.state.editors.event_scr_editor.modified = true;
+
+        let (title, description) = close_dialog_text(&app);
+        assert_eq!(title, "Unsaved files");
+        assert!(
+            description.contains("unsaved"),
+            "dirty event-script editor must trigger the file-edits warning: {description}"
+        );
     }
 }

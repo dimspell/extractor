@@ -33,15 +33,15 @@ mod message_routing_tests {
 
         use crate::message::workspace::WorkspaceMessage;
         let task = app.update(Message::Workspace(WorkspaceMessage::OpenToolTab(
-            EditorType::DbViewer,
+            EditorType::ModPackager,
         )));
 
         assert_eq!(app.state.workspace.tabs.len(), 1);
         assert_eq!(
             app.state.workspace.tabs[0].editor_type,
-            EditorType::DbViewer
+            EditorType::ModPackager
         );
-        assert_eq!(app.state.workspace.tabs[0].label, "DB Viewer");
+        assert_eq!(app.state.workspace.tabs[0].label, "Tool");
 
         let _ = task;
     }

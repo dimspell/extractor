@@ -35,10 +35,19 @@ define_message_ext! {
     map_editor:     MapEditor(crate::editors::map_editor::MapEditorMessage),
     tileset_editor: Tileset(crate::editors::tileset::TilesetEditorMessage),
     snf_editor:     Snf(crate::editors::snf_editor::SnfEditorMessage),
+    audio_viewer:   AudioViewer(crate::editors::audio_viewer::AudioViewerMessage),
+    bmp_viewer:     BmpViewer(crate::editors::bmp_viewer::BmpViewerMessage),
     mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
     hex_editor:      HexEditor(hexedit::HexEditorMessage),
     save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
+    save_ifo:        SaveIfo(crate::editors::save_ifo::SaveIfoEditorMessage),
+    fog_data:        FogData(crate::editors::fog_data::FogDataMessage),
+    chest_spawn:     ChestSpawn(crate::editors::chest_spawn::ChestSpawnEditorMessage),
+    monster_spawn:   MonsterSpawn(crate::editors::monster_spawn::MonsterSpawnEditorMessage),
+    map_info_multi:  MapInfoMulti(crate::editors::map_info_multi::MapInfoMultiEditorMessage),
+    tile_grid:       TileGrid(crate::editors::tile_grid::TileGridEditorMessage),
+    tile_grid_canvas: TileGridCanvas(crate::editors::tile_grid::TileGridCanvasMessage),
 }
 
 /// Extension trait for building nested editor messages.

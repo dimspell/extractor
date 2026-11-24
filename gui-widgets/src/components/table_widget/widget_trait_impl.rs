@@ -663,24 +663,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         action: &accesskit::ActionRequest,
         shell: &mut Shell<'_, Message>,
     ) {
-        eprintln!(
-            "[VO DEBUG] accessibility_action called action={:?} target={}",
-            action.action, action.target_node.0,
-        );
-
         let row = match action.action {
-            accesskit::Action::Focus | accesskit::Action::ScrollIntoView => {
-                let found = self
-                    .cell_node_map
-                    .borrow()
-                    .get(&action.target_node.0)
-                    .copied();
-                eprintln!(
-                    "[VO DEBUG] accessibility_action lookup target={} -> {:?}",
-                    action.target_node.0, found,
-                );
-                found.map(|(row, _col)| row)
-            }
+            accesskit::Action::Focus | accesskit::Action::ScrollIntoView => self
+                .cell_node_map
+                .borrow()
+                .get(&action.target_node.0)
+                .copied()
+                .map(|(row, _col)| row),
             _ => None,
         };
 

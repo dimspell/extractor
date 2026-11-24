@@ -126,11 +126,12 @@ impl Extractor for DialogueParagraph {
                 Err(_) => continue,
             };
 
-            let text = parts[1]
-                .to_string()
-                .trim_matches('|')
-                .replace("null", "")
-                .to_string();
+            let raw_text = parts[1].trim_matches('|');
+            let text = if raw_text == "null" {
+                String::new()
+            } else {
+                raw_text.to_string()
+            };
             let param1 = parts[2].trim().parse::<i32>().unwrap_or(0);
             let wave_ini_entry_id = parts[3].trim().parse::<i32>().unwrap_or(0);
 
@@ -183,7 +184,7 @@ pub fn save_dialogue_paragraphs(
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("dialogue_paragraphs"))?;
         for text in texts {
             stmt.execute(params![
                 file_id,
@@ -245,5 +246,17 @@ mod tests {
         assert_eq!(records[0].id, records2[0].id);
         assert_eq!(records[0].text, records2[0].text);
         assert_eq!(records[1].wave_ini_entry_id, records2[1].wave_ini_entry_id);
+    }
+
+    #[test]
+    fn test_parse_only_exact_null_is_an_empty_sentinel() {
+        let data = "1|annulled|0|0\r\n2|nullified null|0|0\r\n3|null|0|0\r\n";
+        let mut c = Cursor::new(data.as_bytes());
+        let paras = DialogueParagraph::parse(&mut c, data.len() as u64).unwrap();
+
+        assert_eq!(paras.len(), 3);
+        assert_eq!(paras[0].text, "annulled");
+        assert_eq!(paras[1].text, "nullified null");
+        assert_eq!(paras[2].text, "");
     }
 }

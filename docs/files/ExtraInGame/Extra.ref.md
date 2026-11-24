@@ -1,10 +1,14 @@
 # ExtraInGame/Ext*.ref Documentation
 
+> DISPEL® is a registered trademark. This project is not affiliated with,
+> endorsed by, or sponsored by the trademark owner.
+
 ## File Information
 
 ### Overview
 
-Binary files that define the placement and configuration of interactive objects (chests, doors, signs, altars, magic items) on specific maps. Each map has its own `Ext*.ref` file containing all interactive elements for that map.
+Binary files that define the placement and configuration of interactive objects (chests, doors, signs, altars, magic
+items) on specific maps. Each map has its own `Ext*.ref` file containing all interactive elements for that map.
 
 ### File Structure
 
@@ -21,7 +25,7 @@ Binary files that define the placement and configuration of interactive objects 
 - record_count: i32 (number of records)
 
 [Record 1]
-- map_object_id: u16 (map-local ID; the engine identifies it as `700 + map_object_id`)
+- map_object_id: u16 (map-local ID; exposed as `700 + map_object_id` in the tile/object system)
 - unknown1: u8 (padding, always 0)
 - extra_definition_id: u8 (links to Extra.ini)
 - object_name: 32 bytes (WINDOWS-1250, null-padded)
@@ -50,7 +54,13 @@ Binary files that define the placement and configuration of interactive objects 
 - additional_loot_1: i32 (second loot item identifier; 9999 = unused)
 - additional_loot_1_count: i32 (quantity of the second loot item)
 - additional_loot_2: i32 (third loot item identifier; 9999 = unused)
-- additional_loot_2_count_and_config: 28 bytes (first i32 is the third loot quantity; the remaining 24 bytes are object-specific configuration)
+- additional_loot_2_count: i32
+- loot_delivery_mode: i32 (0 = deterministic, 1 = roll-gated)
+- is_trapped: i32 (trap arming flag)
+- trap_spell_id: i32 (Magic.db index used when a trap triggers)
+- interaction_config_reserved_1: i32 (record +0x78; preserve verbatim)
+- interaction_config_reserved_2: i32 (record +0x7C; preserve verbatim)
+- use_counter: i32 (record +0x80; remaining uses, default 999)
 - interaction_event_id: i32 (links to Event.ini)
 - interaction_message_id: i32 (links to Message.scr)
 - footprint_width: i32 (occupied map-cell width)
@@ -63,9 +73,9 @@ Binary files that define the placement and configuration of interactive objects 
 - post_activation_footprint_mode: i32 (selects the post-activation map-grid footprint update mode)
 - preserve_final_sprite_frame: i32 (prevents the terminal sprite frame from being reset after interaction)
 - alternate_render_mode: i32 (selects the alternative object renderer)
-- activation_effect_id: u8 (index passed to the activation-effect dispatcher; observed values 0 and 10)
-- activation_effect_reserved: u8 (reserved; preserve verbatim)
-- activation_effect_padding: i16 (padding, normally 0)
+- open_sfx_id: u8 (record +0xAC; Wave.ini index played by `extra_play_open_sfx` on activation; 0 = none)
+- open_sfx_reserved: u8 (reserved; preserve verbatim)
+- open_sfx_padding: i16 (padding, normally 0)
 - active_overlay_enabled: i32 (enables the active-object overlay render path)
 - map_object_active: i32 (marks the object active in the map-object grid and update loop)
 
@@ -75,172 +85,159 @@ Binary files that define the placement and configuration of interactive objects 
 
 ### Field Definitions
 
-### Reverse-engineering notes
+### Field semantics
 
-The game copies each 184-byte record into its interactive-object runtime
-structure unchanged. The following meanings come from that runtime code rather
-than from value-frequency guesses:
+- `map_object_id` is exposed to the tile/object system as `700 + map_object_id`.
+- `interaction_state` is preserved across reloads; it selects the closed/open sprite sequence for chest-type objects.
+- `requires_key` enables validation of the three inclusive requirement ranges. A range starting with `9999` is disabled.
+- `gold_amount` awards gold, and three `(item, count)` loot pairs are processed: `loot_item`/`loot_item_count`, then the
+  two
+  `additional_loot_*` pairs.
+- `footprint_width`, `footprint_height`, and `footprint_orientation` determine which map cells the object occupies.
+  `interaction_range` limits activation distance.
 
-- `map_object_id` is used to identify the object as `700 + map_object_id` in
-  the map-object grid.
-- `interaction_state` is preserved across reloads and is changed by the object
-  interaction handlers. For chests it selects the closed/open sprite sequence.
-- `requires_key` chooses the handler path that validates the three inclusive
-  requirement ranges. A range starting with `9999` is disabled.
-- The engine grants `gold_amount` and processes three `(item, count)` loot
-  pairs. The first pair is `loot_item`/`loot_item_count`; the next two are the
-  `additional_loot_*` fields.
-- `footprint_width`, `footprint_height`, and `footprint_orientation` determine
-  which map cells the object occupies. `interaction_range` limits activation
-  distance.
-
-The 28-byte `additional_loot_2_count_and_config` field still contains mixed
-configuration: its first `i32` is the third loot quantity, its second `i32`
-selects the loot-delivery mode, and its final `i32` is a remaining-use counter.
-The intervening 16 bytes vary by object type and remain deliberately opaque.
+The seven words from `additional_loot_2_count` through `use_counter` were formerly exported as one opaque
+28-byte `additional_loot_2_count_and_config` BLOB. Two of those words are the trap flag and trap spell
+index; both are zero in every shipped placement. They are **not** the same as `open_sfx_id`.
 
 #### Core Identification
 
-| Field | Type | Description |
-|-------|------|-------------|
-| record_index | i32 | Zero-based parser-derived record position; not stored in the file |
-| map_object_id | u16 | Map-local object ID. The engine refers to the object as `700 + map_object_id`. |
-| extra_definition_id | u8 | ID of the visual/behavior definition in `Extra.ini`. |
-| object_name | String (32 bytes) | Author-facing object label, WINDOWS-1250 encoded and null-padded. |
+| Field               | Type              | Description                                                                    |
+|---------------------|-------------------|--------------------------------------------------------------------------------|
+| record_index        | i32               | Zero-based parser-derived record position; not stored in the file              |
+| map_object_id       | u16               | Map-local object ID. The engine refers to the object as `700 + map_object_id`. |
+| extra_definition_id | u8                | ID of the visual/behavior definition in `Extra.ini`.                           |
+| object_name         | String (32 bytes) | Author-facing object label, WINDOWS-1250 encoded and null-padded.              |
 
 #### Position and Orientation
 
-| Field | Type | Description |
-|-------|------|-------------|
-| map_x | i32 | Horizontal tile-grid coordinate. |
-| map_y | i32 | Vertical tile-grid coordinate. |
-| direction | u8 | Sprite-facing/frame index; chest rendering uses it with `interaction_state`. |
+| Field     | Type | Description                                                                  |
+|-----------|------|------------------------------------------------------------------------------|
+| map_x     | i32  | Horizontal tile-grid coordinate.                                             |
+| map_y     | i32  | Vertical tile-grid coordinate.                                               |
+| direction | u8   | Sprite-facing/frame index; chest rendering uses it with `interaction_state`. |
 
 #### Object Classification
 
-| Field | Type | Description |
-|-------|------|-------------|
-| object_type | u8 | Object category enum |
-| activation_effect_id | u8 | Index passed to the activation-effect dispatcher (observed: 0, 10). |
-| interaction_range | u8 | Maximum tile distance at which the engine allows activation. |
-| is_quest_element | i32 | Quest-related interaction flag; the engine uses it after a successful requirement check. |
+| Field                | Type | Description                                                               |
+|----------------------|------|---------------------------------------------------------------------------|
+| object_type          | u8   | Object category enum                                                      |
+| open_sfx_id          | u8   | Wave.ini index played on successful activation (`extra_play_open_sfx`).  |
+| interaction_range    | u8   | Maximum tile distance at which the engine allows activation.              |
+| is_quest_element     | i32  | Quest-related interaction flag; set after a successful requirement check. |
 
 #### Runtime and Rendering Controls
 
-| Field | Type | Description |
-|-------|------|-------------|
-| post_activation_tile_flag | BooleanFlag | Enables the post-activation tile flag written to the map-object grid. |
-| post_activation_footprint_mode | BooleanFlag | Selects the footprint update mode after activation. |
-| preserve_final_sprite_frame | i32 | Non-zero keeps the terminal sprite frame after interaction. |
-| alternate_render_mode | BooleanFlag | Selects the alternate renderer. |
-| active_overlay_enabled | BooleanFlag | Enables the active-object overlay render path. |
-| map_object_active | BooleanFlag | Makes the object participate in the map-object grid and update loop. |
-| activation_effect_reserved | u8 | Reserved byte adjacent to the effect ID; preserve verbatim. |
+| Field                          | Type        | Description                                                           |
+|--------------------------------|-------------|-----------------------------------------------------------------------|
+| post_activation_tile_flag      | BooleanFlag | Enables the post-activation tile flag written to the map-object grid. |
+| post_activation_footprint_mode | BooleanFlag | Selects the footprint update mode after activation.                   |
+| preserve_final_sprite_frame    | i32         | Non-zero keeps the terminal sprite frame after interaction.           |
+| alternate_render_mode          | BooleanFlag | Selects the alternate renderer.                                       |
+| active_overlay_enabled         | BooleanFlag | Enables the active-object overlay render path.                        |
+| map_object_active              | BooleanFlag | Makes the object participate in the map-object grid and update loop.  |
+| open_sfx_reserved              | u8          | Reserved byte adjacent to `open_sfx_id`; preserve verbatim.         |
 
 #### Container State
 
-| Field | Type | Description |
-|-------|------|-------------|
-| interaction_state | i32 | Current activation/open state (0 before use, 1 after use) |
-| requires_key | i32 | Whether interaction validates the configured key/item ranges |
+| Field             | Type | Description                                                  |
+|-------------------|------|--------------------------------------------------------------|
+| interaction_state | i32  | Current activation/open state (0 before use, 1 after use)    |
+| requires_key      | i32  | Whether interaction validates the configured key/item ranges |
 
 #### Key Requirements
 
-| Field | Type | Description |
-|-------|------|-------------|
-| required_item_id | u8 | Lower bound key ID to interact |
-| required_item_type_id | u8 | Category of lower bound key |
-| required_item_id2 | u8 | Upper bound key ID to interact |
-| required_item_type_id2 | u8 | Category of upper bound key |
+| Field                  | Type | Description                    |
+|------------------------|------|--------------------------------|
+| required_item_id       | u8   | Lower bound key ID to interact |
+| required_item_type_id  | u8   | Category of lower bound key    |
+| required_item_id2      | u8   | Upper bound key ID to interact |
+| required_item_type_id2 | u8   | Category of upper bound key    |
 
 #### Contents
 
-| Field | Type | Description |
-|-------|------|-------------|
-| gold_amount | i32 | Gold awarded by the normal loot path. |
-| loot_item | packed u16 | First static loot item (`low byte = item ID`, `high byte = item type`). |
-| loot_item_count | i32 | Quantity of `loot_item`. |
-| additional_loot_1 / additional_loot_2 | i32 | Further loot item IDs; `9999` means unused. |
+| Field                                 | Type       | Description                                                             |
+|---------------------------------------|------------|-------------------------------------------------------------------------|
+| gold_amount                           | i32        | Gold awarded by the normal loot path.                                   |
+| loot_item                             | packed u16 | First static loot item (`low byte = item ID`, `high byte = item type`). |
+| loot_item_count                       | i32        | Quantity of `loot_item`.                                                |
+| additional_loot_1 / additional_loot_2 | i32        | Further loot item IDs; `9999` means unused.                             |
 
 #### Event Triggers
 
-| Field | Type | Description |
-|-------|------|-------------|
-| interaction_event_id | i32 | `Event.ini` logic executed after interaction; zero means none. |
-| interaction_message_id | i32 | `Message.scr` entry used by message/sign-style objects; zero means none. |
+| Field                  | Type | Description                                                              |
+|------------------------|------|--------------------------------------------------------------------------|
+| interaction_event_id   | i32  | `Event.ini` logic executed after interaction; zero means none.           |
+| interaction_message_id | i32  | `Message.scr` entry used by message/sign-style objects; zero means none. |
 
 ### Enumerations
 
 #### Object Type (object_type)
 
-| Value | Name | Description |
-|-------|------|-------------|
-| 0 | Chest | Treasure container |
-| 2 | Door | Passage barrier |
-| 4 | Sign | Text display object |
-| 5 | Altar | Religious/ritual object |
-| 6 | Interactive | General interactive element |
-| 7 | Magic | Magical object |
+| Value | Name        | Description                 |
+|-------|-------------|-----------------------------|
+| 0     | Chest       | Treasure container          |
+| 2     | Door        | Passage barrier             |
+| 4     | Sign        | Text display object         |
+| 5     | Altar       | Religious/ritual object     |
+| 6     | Interactive | General interactive element |
+| 7     | Magic       | Magical object              |
 
-#### Activation Effect ID (activation_effect_id)
+#### Trap fields and open sound
 
-| Value | Name | Description |
-|-------|------|-------------|
-| 0 | None | No activation effect dispatched. |
-| 10 | Effect10 | Effect index 10; the exact effect asset is not yet identified. |
+`is_trapped` and `trap_spell_id` are the trap arming flag and `Magic.db` spell index. All 1,039
+shipped placements carry zero in both, so no shipped placement uses a trap.
+
+`open_sfx_id` is a **Wave.ini sound index** played when a door, lever, chest, key, or subtype-8 object
+is activated successfully. It was previously exported as `activation_effect_id` with the bogus values
+`None`/`Effect10`; that mapping also rewrote any index other than 0 or 10 to 255 on save. It is a
+plain `u8` now.
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 
-| Value | Name | Description |
-|-------|------|-------------|
-| 0 | Weapon | Weapon category |
-| 1 | Armor | Armor category |
-| 2 | Heal | Healing item category |
-| 3 | Misc | Miscellaneous item category |
-| 4 | Edit | Edit item category |
-| 5 | Event | Event item category |
-| 6 | Extra | Extra item category |
+The signed value is `-1` for no item, stored on disk as the byte `0xFF`.
+SQL columns and GUI numeric keys keep the on-disk byte value, so no item reads as `255` there.
+
+| Value (signed) | On-disk byte | Name    | Description                 |
+|----------------|--------------|---------|-----------------------------|
+| 1              | 0x01         | Weapon  | Weapon category             |
+| 2              | 0x02         | Healing | Healing item category       |
+| 3              | 0x03         | Edit    | Edit item category          |
+| 4              | 0x04         | Event   | Event item category         |
+| 5              | 0x05         | Misc    | Miscellaneous item category |
+| -1             | 0xFF         | NoItem  | No item                     |
 
 ### Interactive Element Types
 
-| Value | Description |
-|-------|-------------|
-| 0 | Pillars (e.g., Gods garden) |
-| 1 | Standard interactive |
-| 2 | Unknown variant |
-| 3 | Special altars (e.g., Vera altar) |
+| Value | Description                       |
+|-------|-----------------------------------|
+| 0     | Pillars (e.g., Gods garden)       |
+| 1     | Standard interactive              |
+| 2     | Unknown variant                   |
+| 3     | Special altars (e.g., Vera altar) |
 
 ### File Purpose
 
-These files define interactive object placements with exact coordinates, requirements, contents, and behaviors. Used for populating maps with chests, doors, signs, and other interactive elements. Each map in the game has a corresponding `Ext*.ref` file.
-
-### Usage in Game
-
-1. **Map Loading**: When a map loads, the game reads the corresponding `Ext*.ref` file
-2. **Object Placement**: Objects are placed at specified x/y coordinates
-3. **Interaction Handling**: Game checks requirements (keys, items) before allowing interaction
-4. **Event Triggering**: Interaction triggers events from `Event.ini`
-5. **Content Distribution**: Containers provide gold and items to players
-6. **Quest Integration**: Quest-related interactions can set `is_quest_element` after a successful requirement check.
+These files define interactive object placements with exact coordinates, requirements, contents, and behaviors. Used for
+populating maps with chests, doors, signs, and other interactive elements. Each map in the game has a corresponding
+`Ext*.ref` file.
 
 ### Cross-References
 
-| Field | References |
-|-------|------------|
-| extra_definition_id | `Extra.ini` (visual/behavior definition) |
-| interaction_event_id | `Event.ini` (event logic) |
-| interaction_message_id | `Message.scr` (text display) |
-| required_item_type_id | Item type enumeration |
-| loot_item_type_id | Item type enumeration |
+| Field                  | References                               |
+|------------------------|------------------------------------------|
+| extra_definition_id    | `Extra.ini` (visual/behavior definition) |
+| interaction_event_id   | `Event.ini` (event logic)                |
+| interaction_message_id | `Message.scr` (text display)             |
+| required_item_type_id  | Item type enumeration                    |
+| loot_item_type_id      | Item type enumeration                    |
 
 ### Technical Details
 
-**Endianness**: Little-Endian throughout
-**Record Count**: Stored as first 4 bytes (i32)
+**Endianness**: Little-Endian throughout **Record Count**: Stored as first 4 bytes (i32)
 **Record Size**: Fixed 184 bytes (46 × i32 equivalent)
-**File Size**: 4 + (record_count × 184) bytes
-**Text Encoding**: WINDOWS-1250 for name fields
-**Padding**: Extensive padding with known patterns (zeros, 205/0xCD bytes)
+**File Size**: 4 + (record_count × 184) bytes **Text Encoding**: WINDOWS-1250 for name fields **Padding**: Extensive
+padding with known patterns (zeros, 205 bytes)
 
 ### File Processing
 
@@ -265,27 +262,10 @@ These files define interactive object placements with exact coordinates, require
 
 - File uses little-endian byte order throughout
 - Name fields are null-terminated WINDOWS-1250 strings
-- Padding bytes often contain 0xCD (205) or 0x00 patterns
-- The `closed` field primarily applies to chest-type objects
+- Padding bytes are often filled with the byte value 205 or zero
 - Sign objects use `interaction_message_id` to display text from `Message.scr`.
 - Door objects may require specific keys defined by `required_item_*` fields
-- Magic objects (type 7) likely represent spell-related interactables
-- The dual key system (`required_item_id`/`required_item_id2`) may support key ranges or multiple key types
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, assets, or proprietary data. All references are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any game content or assets
-- Uses **generic descriptions** of objects and behaviors
-- Focuses on **technical organization**, not creative content
-- Maintains **nominal fair use** for trademark references
+- The dual key system (`required_item_id`/`required_item_id2`) supports key ranges or multiple key types
 
 ## Extractor
 

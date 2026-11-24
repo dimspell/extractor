@@ -35,6 +35,9 @@ use iced::{
 };
 use lucide_icons::Icon;
 
+#[cfg(test)]
+mod tests;
+
 pub const DEFAULT_TIMEOUT: u64 = 4;
 
 /// Severity / visual style of a toast notification.

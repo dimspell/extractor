@@ -7,27 +7,29 @@
 //! 2. For each touched path, snapshot its pristine bytes into the
 //!    [`VanillaStore`] if not already present.
 //! 3. For each touched path, **start from the vanilla bytes** (or absent) and
-//!    replay every action targeting that path, in mod load order then in
-//!    per-mod insertion order. Last writer wins per file.
+//!    replay the effective actions targeting that path, in mod load order then
+//!    in per-mod insertion order. "Effective" means a mod's last contribution
+//!    to each destination ([`effective_actions`]), the same view conflict
+//!    detection uses.
 //! 4. Write the resulting bytes back to the game directory (or delete the
 //!    file if the final state is "absent").
 //!
-//! Conflict detection is intentionally absent in Phase 2 — last-writer-wins
-//! is enough to verify correctness end-to-end. Phase 5 layers a real
-//! conflict surface on top of this same engine.
+//! This engine applies last-writer-wins; it does not perform conflict
+//! detection.
 //!
 //! [`VanillaStore`]: super::vanilla::VanillaStore
+//! [`effective_actions`]: super::changelog::effective_actions
 
 use std::collections::BTreeSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::bsdiff;
 use super::change::{ChangeAction, ChangeOp};
 use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
+use super::fs::{Fs, OsFs};
 use super::registry::PatcherRegistry;
-use super::resolution::{FieldKey, ResolutionMap};
+use super::resolution::ResolutionMap;
 use super::vanilla::{VanillaStore, validate_relative};
 
 /// One enabled mod, presented to the apply engine in load order.
@@ -56,7 +58,20 @@ pub fn apply_all(
     registry: &PatcherRegistry,
     resolutions: &ResolutionMap,
 ) -> Result<ApplyReport> {
-    if !game_dir.is_dir() {
+    apply_all_with_fs(&OsFs, mods, game_dir, vanilla, registry, resolutions)
+}
+
+/// Apply through an explicit filesystem port. The facade owns this port, so
+/// the same code path runs against [`OsFs`] or an in-memory test stand-in.
+pub fn apply_all_with_fs(
+    fs: &dyn Fs,
+    mods: &[ModEntry<'_>],
+    game_dir: &Path,
+    vanilla: &VanillaStore,
+    registry: &PatcherRegistry,
+    resolutions: &ResolutionMap,
+) -> Result<ApplyReport> {
+    if !fs.is_dir(game_dir) {
         return Err(ModdingError::Malformed(format!(
             "game_dir is not a directory: {}",
             game_dir.display()
@@ -86,25 +101,16 @@ pub fn apply_all(
         };
 
         for entry in mods {
-            for action in entry.changes.actions() {
+            for action in super::changelog::effective_actions(entry.changes.actions()) {
                 if action.file_path != *path {
                     continue;
                 }
-                if let ChangeOp::FieldDelta {
-                    record_id, field, ..
-                } = &action.op
+                if let Some(key) = action.op.field_key(&action.file_path)
+                    && let Some(winner) = resolutions.winner(&key)
+                    && winner != entry.mod_id
                 {
-                    let key = FieldKey {
-                        file_path: action.file_path.clone(),
-                        record_id: *record_id,
-                        field: field.clone(),
-                    };
-                    if let Some(winner) = resolutions.winner(&key)
-                        && winner != entry.mod_id
-                    {
-                        // A pin exists for this field, and it's not us.
-                        continue;
-                    }
+                    // A pin exists for this field, and it's not us.
+                    continue;
                 }
                 apply_one(action, &mut working, vanilla_bytes.as_deref(), registry)?;
                 report.actions_applied += 1;
@@ -116,14 +122,14 @@ pub fn apply_all(
         match working {
             FileState::Present(bytes) => {
                 if let Some(parent) = abs.parent() {
-                    fs::create_dir_all(parent)?;
+                    fs.create_dir_all(parent)?;
                 }
-                fs::write(&abs, &bytes)?;
+                fs.write(&abs, &bytes)?;
                 report.written.push(path.clone());
             }
             FileState::Absent => {
-                if abs.exists() {
-                    fs::remove_file(&abs)?;
+                if fs.exists(&abs) {
+                    fs.remove_file(&abs)?;
                 }
                 report.deleted.push(path.clone());
             }
@@ -140,11 +146,20 @@ pub fn apply_all(
 /// untouched — those are either pristine or were created by a mod and the
 /// caller (apply engine) is responsible for cleaning them up.
 pub fn revert_to_vanilla(game_dir: &Path, vanilla: &VanillaStore) -> Result<RevertReport> {
+    revert_to_vanilla_with_fs(vanilla.fs(), game_dir, vanilla)
+}
+
+/// Restore every snapshotted file through an explicit filesystem port.
+pub fn revert_to_vanilla_with_fs(
+    fs: &dyn Fs,
+    game_dir: &Path,
+    vanilla: &VanillaStore,
+) -> Result<RevertReport> {
     let mut report = RevertReport::default();
-    if !vanilla.root().is_dir() {
+    if !fs.is_dir(vanilla.root()) {
         return Ok(report);
     }
-    walk_vanilla(vanilla.root(), vanilla.root(), game_dir, &mut report)?;
+    walk_vanilla(fs, vanilla.root(), vanilla.root(), game_dir, &mut report)?;
     Ok(report)
 }
 
@@ -153,21 +168,25 @@ pub struct RevertReport {
     pub restored: Vec<String>,
 }
 
-fn walk_vanilla(root: &Path, dir: &Path, game_dir: &Path, report: &mut RevertReport) -> Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_dir() {
-            walk_vanilla(root, &path, game_dir, report)?;
-        } else if path.is_file() {
+fn walk_vanilla(
+    fs: &dyn Fs,
+    root: &Path,
+    dir: &Path,
+    game_dir: &Path,
+    report: &mut RevertReport,
+) -> Result<()> {
+    for path in fs.read_dir(dir)? {
+        if fs.is_dir(&path) {
+            walk_vanilla(fs, root, &path, game_dir, report)?;
+        } else if fs.is_file(&path) {
             let rel = path
                 .strip_prefix(root)
                 .map_err(|_| ModdingError::Malformed("vanilla path escaped root".into()))?;
             let dst = game_dir.join(rel);
             if let Some(parent) = dst.parent() {
-                fs::create_dir_all(parent)?;
+                fs.create_dir_all(parent)?;
             }
-            fs::copy(&path, &dst)?;
+            fs.write(&dst, &fs.read(&path)?)?;
             report.restored.push(rel.to_string_lossy().into_owned());
         }
     }
@@ -242,11 +261,70 @@ fn apply_one(
 mod tests {
     use super::*;
     use crate::modding::change::ChangeOp;
+    use crate::modding::fs::MemFs;
+    use crate::modding::resolution::FieldKey;
     use crate::modding::value::Value;
     use crate::references::extractor::Extractor;
     use crate::references::misc_item_db::MiscItem;
     use std::io::Cursor;
-    use tempfile::tempdir;
+    use std::sync::Arc;
+
+    const GAME: &str = "/game";
+
+    /// One in-memory filesystem holds both the game directory and the vanilla
+    /// mirror, so these tests never touch a real disk.
+    struct Rig {
+        fs: Arc<MemFs>,
+        vault: VanillaStore,
+    }
+
+    impl Rig {
+        fn new() -> Self {
+            let fs = Arc::new(MemFs::new());
+            let vault_root = PathBuf::from("/vault");
+            fs.create_dir_all(Path::new(GAME)).unwrap();
+            fs.create_dir_all(&vault_root).unwrap();
+            let vault = VanillaStore::with_fs(vault_root, fs.clone());
+            Self { fs, vault }
+        }
+
+        fn write_game(&self, rel: &str, bytes: &[u8]) {
+            let abs = Path::new(GAME).join(rel);
+            if let Some(parent) = abs.parent() {
+                self.fs.create_dir_all(parent).unwrap();
+            }
+            self.fs.write(&abs, bytes).unwrap();
+        }
+
+        fn read_game(&self, rel: &str) -> Vec<u8> {
+            self.fs.read(&Path::new(GAME).join(rel)).unwrap()
+        }
+
+        fn exists_game(&self, rel: &str) -> bool {
+            self.fs.exists(&Path::new(GAME).join(rel))
+        }
+
+        fn apply(
+            &self,
+            mods: &[ModEntry<'_>],
+            registry: &PatcherRegistry,
+            pins: &ResolutionMap,
+        ) -> ApplyReport {
+            apply_all_with_fs(
+                &*self.fs,
+                mods,
+                Path::new(GAME),
+                &self.vault,
+                registry,
+                pins,
+            )
+            .unwrap()
+        }
+
+        fn revert(&self) -> RevertReport {
+            revert_to_vanilla(Path::new(GAME), &self.vault).unwrap()
+        }
+    }
 
     fn one_misc_item_blob(name: &str, base_price: i32) -> Vec<u8> {
         let mut data = 1i32.to_le_bytes().to_vec();
@@ -265,16 +343,6 @@ mod tests {
         MiscItem::parse(&mut c, bytes.len() as u64).unwrap()
     }
 
-    fn write_game_file(game: &Path, rel: &str, bytes: &[u8]) {
-        let abs = game.join(rel);
-        fs::create_dir_all(abs.parent().unwrap()).unwrap();
-        fs::write(abs, bytes).unwrap();
-    }
-
-    fn read_game_file(game: &Path, rel: &str) -> Vec<u8> {
-        fs::read(game.join(rel)).unwrap()
-    }
-
     fn field_delta_log(rel: &str, id: u32, field: &str, new: Value) -> ChangeLog {
         ChangeLog::from_actions(vec![ChangeAction::new(
             rel,
@@ -289,13 +357,10 @@ mod tests {
 
     #[test]
     fn field_delta_applies_to_text_record_file() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
-
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         let log = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
         let mods = [ModEntry {
@@ -303,37 +368,28 @@ mod tests {
             changes: &log,
         }];
 
-        let report = apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
+        let report = rig.apply(&mods, &registry, &ResolutionMap::default());
         assert_eq!(report.actions_applied, 1);
         assert_eq!(report.written, vec![rel.to_string()]);
         assert!(report.deleted.is_empty());
 
-        let recs = parse_misc(&read_game_file(game.path(), rel));
+        let recs = parse_misc(&rig.read_game(rel));
         assert_eq!(recs[0].name, "Helmet");
         assert_eq!(recs[0].base_price, 15);
 
         // Vanilla still holds the original bytes.
         assert_eq!(
-            store.read(rel).unwrap().unwrap(),
+            rig.vault.read(rel).unwrap().unwrap(),
             one_misc_item_blob("Helt", 15)
         );
     }
 
     #[test]
     fn last_writer_wins_in_load_order() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
         let mod_b = field_delta_log(rel, 0, "name", Value::String("Hat".into()));
@@ -348,15 +404,8 @@ mod tests {
                 changes: &mod_b,
             },
         ];
-        apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(parse_misc(&read_game_file(game.path(), rel))[0].name, "Hat");
+        rig.apply(&mods, &registry, &ResolutionMap::default());
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Hat");
 
         // Reorder: a wins.
         let mods = [
@@ -369,28 +418,16 @@ mod tests {
                 changes: &mod_a,
             },
         ];
-        apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(
-            parse_misc(&read_game_file(game.path(), rel))[0].name,
-            "Helmet"
-        );
+        rig.apply(&mods, &registry, &ResolutionMap::default());
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Helmet");
     }
 
     #[test]
     fn pin_overrides_load_order_for_field() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         // Two mods: load order [a, b]. Without pin, b wins.
         let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
@@ -416,21 +453,16 @@ mod tests {
             },
             "a",
         );
-        apply_all(&mods, game.path(), &store, &registry, &pins).unwrap();
-        assert_eq!(
-            parse_misc(&read_game_file(game.path(), rel))[0].name,
-            "Helmet"
-        );
+        rig.apply(&mods, &registry, &pins);
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Helmet");
     }
 
     #[test]
     fn pin_does_not_affect_unrelated_fields() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         // Mod `a` changes the name; mod `b` changes base_price. No conflict.
         let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
@@ -455,67 +487,42 @@ mod tests {
             },
             "a",
         );
-        apply_all(&mods, game.path(), &store, &registry, &pins).unwrap();
-        let recs = parse_misc(&read_game_file(game.path(), rel));
+        rig.apply(&mods, &registry, &pins);
+        let recs = parse_misc(&rig.read_game(rel));
         assert_eq!(recs[0].name, "Helmet");
         assert_eq!(recs[0].base_price, 99);
     }
 
     #[test]
     fn disable_mod_recomposes_from_vanilla() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         let log = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
-        apply_all(
+        rig.apply(
             &[ModEntry {
                 mod_id: "a",
                 changes: &log,
             }],
-            game.path(),
-            &store,
             &registry,
             &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(
-            parse_misc(&read_game_file(game.path(), rel))[0].name,
-            "Helmet"
         );
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Helmet");
 
-        // Now disable the mod (empty mod list) — file should snap back to vanilla.
-        apply_all(
-            &[],
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        // Touched set is empty when no mods enabled; nothing rewritten.
-        // To actually snap back the user calls revert_to_vanilla, OR re-applies
-        // with the previously-touched files known. Verify revert path:
-        revert_to_vanilla(game.path(), &store).unwrap();
-        assert_eq!(
-            parse_misc(&read_game_file(game.path(), rel))[0].name,
-            "Helt"
-        );
+        // Revert from the vanilla snapshot restores the pristine bytes.
+        rig.revert();
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Helt");
     }
 
     #[test]
     fn binary_delta_against_vanilla_for_arbitrary_binary() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new();
-
         let rel = "Sprite/M_BODY1.SPR";
         let vanilla_bytes: Vec<u8> = (0u8..200).collect();
-        write_game_file(game.path(), rel, &vanilla_bytes);
+        rig.write_game(rel, &vanilla_bytes);
 
         let mut target = vanilla_bytes.clone();
         target[50] = 0xFF;
@@ -531,57 +538,41 @@ mod tests {
             changes: &log,
         }];
 
-        apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(read_game_file(game.path(), rel), target);
+        rig.apply(&mods, &registry, &ResolutionMap::default());
+        assert_eq!(rig.read_game(rel), target);
 
         // Revert restores vanilla.
-        revert_to_vanilla(game.path(), &store).unwrap();
-        assert_eq!(read_game_file(game.path(), rel), vanilla_bytes);
+        rig.revert();
+        assert_eq!(rig.read_game(rel), vanilla_bytes);
     }
 
     #[test]
     fn file_replace_overrides_existing() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new();
-
         let rel = "Map/cat1.map";
-        write_game_file(game.path(), rel, b"original");
+        rig.write_game(rel, b"original");
         let log = ChangeLog::from_actions(vec![ChangeAction::new(
             rel,
             ChangeOp::FileReplace {
                 content: b"replaced".to_vec(),
             },
         )]);
-        apply_all(
+        rig.apply(
             &[ModEntry {
                 mod_id: "x",
                 changes: &log,
             }],
-            game.path(),
-            &store,
             &registry,
             &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(read_game_file(game.path(), rel), b"replaced");
+        );
+        assert_eq!(rig.read_game(rel), b"replaced");
     }
 
     #[test]
     fn file_add_creates_new_file() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new();
-
         let rel = "Map/new_dungeon.map";
         let log = ChangeLog::from_actions(vec![ChangeAction::new(
             rel,
@@ -589,71 +580,60 @@ mod tests {
                 content: b"shiny new".to_vec(),
             },
         )]);
-        apply_all(
+        rig.apply(
             &[ModEntry {
                 mod_id: "x",
                 changes: &log,
             }],
-            game.path(),
-            &store,
             &registry,
             &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert_eq!(read_game_file(game.path(), rel), b"shiny new");
+        );
+        assert_eq!(rig.read_game(rel), b"shiny new");
         // Vanilla store has no snapshot for an absent file.
-        assert!(!store.has(rel));
+        assert!(!rig.vault.has(rel));
     }
 
     #[test]
     fn file_delete_removes_file() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new();
-
         let rel = "Sound/old.snf";
-        write_game_file(game.path(), rel, b"go away");
+        rig.write_game(rel, b"go away");
         let log = ChangeLog::from_actions(vec![ChangeAction::new(rel, ChangeOp::FileDelete)]);
-        let report = apply_all(
+        let report = rig.apply(
             &[ModEntry {
                 mod_id: "x",
                 changes: &log,
             }],
-            game.path(),
-            &store,
             &registry,
             &ResolutionMap::default(),
-        )
-        .unwrap();
-        assert!(!game.path().join(rel).exists());
+        );
+        assert!(!rig.exists_game(rel));
         assert_eq!(report.deleted, vec![rel.to_string()]);
 
         // Vanilla still has the original; revert brings it back.
-        revert_to_vanilla(game.path(), &store).unwrap();
-        assert_eq!(read_game_file(game.path(), rel), b"go away");
+        rig.revert();
+        assert_eq!(rig.read_game(rel), b"go away");
     }
 
     #[test]
     fn rejects_path_traversal() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new();
-
         let log = ChangeLog::from_actions(vec![ChangeAction::new(
             "../escape.txt",
             ChangeOp::FileReplace {
                 content: b"x".to_vec(),
             },
         )]);
-        let err = apply_all(
+        let err = apply_all_with_fs(
+            &*rig.fs,
             &[ModEntry {
                 mod_id: "x",
                 changes: &log,
             }],
-            game.path(),
-            &store,
+            Path::new(GAME),
+            &rig.vault,
             &registry,
             &ResolutionMap::default(),
         )
@@ -663,12 +643,10 @@ mod tests {
 
     #[test]
     fn idempotent_re_apply() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::with_defaults();
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
 
         let log = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
         let mods = [ModEntry {
@@ -676,49 +654,73 @@ mod tests {
             changes: &log,
         }];
 
-        let r1 = apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        let bytes1 = read_game_file(game.path(), rel);
-        let r2 = apply_all(
-            &mods,
-            game.path(),
-            &store,
-            &registry,
-            &ResolutionMap::default(),
-        )
-        .unwrap();
-        let bytes2 = read_game_file(game.path(), rel);
+        let r1 = rig.apply(&mods, &registry, &ResolutionMap::default());
+        let bytes1 = rig.read_game(rel);
+        let r2 = rig.apply(&mods, &registry, &ResolutionMap::default());
+        let bytes2 = rig.read_game(rel);
         assert_eq!(bytes1, bytes2);
         assert_eq!(r1, r2);
     }
 
     #[test]
     fn missing_field_patcher_errors() {
-        let game = tempdir().unwrap();
-        let vault = tempdir().unwrap();
-        let store = VanillaStore::new(vault.path().to_path_buf());
+        let rig = Rig::new();
         let registry = PatcherRegistry::new(); // empty — no MiscItem patcher
-
         let rel = "CharacterInGame/MiscItem.db";
-        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
         let log = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
-        let err = apply_all(
+        let err = apply_all_with_fs(
+            &*rig.fs,
             &[ModEntry {
                 mod_id: "a",
                 changes: &log,
             }],
-            game.path(),
-            &store,
+            Path::new(GAME),
+            &rig.vault,
             &registry,
             &ResolutionMap::default(),
         )
         .unwrap_err();
         assert!(err.to_string().contains("no field patcher"));
+    }
+
+    #[test]
+    fn unflattened_changelog_applies_the_last_contribution() {
+        // A changelog loaded from disk need not have been flattened. Apply and
+        // conflict detection both use `effective_actions`, so the surviving
+        // value is the last one regardless of how many earlier edits it had.
+        let rig = Rig::new();
+        let registry = PatcherRegistry::with_defaults();
+        let rel = "CharacterInGame/MiscItem.db";
+        rig.write_game(rel, &one_misc_item_blob("Helt", 15));
+
+        let log = ChangeLog::from_actions(vec![
+            ChangeAction::new(
+                rel,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "name".into(),
+                    old: Value::String("Helt".into()),
+                    new: Value::String("Hel".into()),
+                },
+            ),
+            ChangeAction::new(
+                rel,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "name".into(),
+                    old: Value::String("Hel".into()),
+                    new: Value::String("Helmet".into()),
+                },
+            ),
+        ]);
+        let mods = [ModEntry {
+            mod_id: "a",
+            changes: &log,
+        }];
+        let report = rig.apply(&mods, &registry, &ResolutionMap::default());
+        // Only the effective (last) action is replayed.
+        assert_eq!(report.actions_applied, 1);
+        assert_eq!(parse_misc(&rig.read_game(rel))[0].name, "Helmet");
     }
 }

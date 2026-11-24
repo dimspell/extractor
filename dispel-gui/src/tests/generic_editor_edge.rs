@@ -60,4 +60,43 @@ mod generic_editor_edge_tests {
         assert_eq!(editor.filtered.len(), 1, "filtered populated from catalog");
         assert_eq!(editor.filtered[0].1.name, "Test Sword");
     }
+
+    #[test]
+    fn party_level_records_loaded_via_read_file_fill_editor() {
+        use dispel_core::{Extractor, PartyLevelRecord};
+
+        let mut bytes = Vec::new();
+        PartyLevelRecord::to_writer(
+            &[PartyLevelRecord {
+                level: 1,
+                strength: 42,
+                ..Default::default()
+            }],
+            &mut bytes,
+        )
+        .unwrap();
+        let path = std::env::temp_dir().join(format!(
+            "dispel_gui_party_level_load_{}_{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, &bytes).unwrap();
+        let records = PartyLevelRecord::read_file(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+
+        let mut editor = GenericEditorState::<PartyLevelRecord> {
+            catalog: Some(records),
+            ..Default::default()
+        };
+        editor.refresh();
+        assert_eq!(editor.catalog.as_ref().map(Vec::len), Some(1));
+        assert_eq!(
+            editor.filtered.len(),
+            1,
+            "read_file must not yield an empty catalog"
+        );
+    }
 }

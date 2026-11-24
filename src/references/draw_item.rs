@@ -113,14 +113,14 @@ pub fn read_draw_items(source_path: &Path) -> std::io::Result<Vec<DrawItem>> {
 pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_draw_item.sql"))?;
+        let mut stmt = tx.prepare(crate::database::insert_sql("draw_items"))?;
         for draw_item in draw_items {
             stmt.execute(params![
                 draw_item.map_id,
                 draw_item.x_coord,
                 draw_item.y_coord,
                 draw_item.item.item_id() as i32,
-                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::NoItem)) as i32,
                 draw_item.item.raw(),
             ])?;
         }
@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].map_id, 2);
         assert_eq!(items[0].item.item_id(), 1);
-        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::Other)); // byte[1]=0 → no match → Other
+        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::NoItem)); // byte[1]=0 → no match → NoItem
     }
 
     #[test]
@@ -174,5 +174,20 @@ mod tests {
         assert_eq!(records[0].map_id, records2[0].map_id);
         assert_eq!(records[0].x_coord, records2[0].x_coord);
         assert_eq!(records[0].item.raw(), records2[0].item.raw());
+    }
+
+    #[test]
+    fn test_no_item_type_serializes_raw_decimal() {
+        let item = InventoryItem::new(ItemTypeId::NoItem, 5);
+        assert_eq!(item.raw(), 65285);
+        let record = DrawItem {
+            map_id: 1,
+            x_coord: 10,
+            y_coord: 20,
+            item,
+        };
+        let mut out = Vec::new();
+        DrawItem::to_writer(&[record], &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), "(1,10,20,65285)\r\n");
     }
 }

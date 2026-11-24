@@ -5,7 +5,11 @@ use super::character::{
 use super::events::{
     DismissedCompanionProgression, EVENT_RECORD_SIZE, PostEventsData, read_events,
 };
-use super::game_tmp::{EXTRA_OBJECT_TRAILER_RECORD_SIZE, read_maps, write_maps};
+use super::game_tmp::{
+    DRAW_ITEM_EDIT_SIZE, DRAW_ITEM_EVENT_SIZE, DRAW_ITEM_HEAL_SIZE, DRAW_ITEM_MISC_SIZE,
+    DRAW_ITEM_WEAPON_SIZE, EXTRA_OBJECT_TRAILER_FIXED_SIZE, EXTRA_OBJECT_TRAILER_RECORD_SIZE,
+    read_maps, write_maps,
+};
 use super::inventory::{INVENTORY_SLOTS_SIZE, InventoryData, InventorySlots};
 use super::journal::{JOURNAL_ENTRY_SIZE, JOURNAL_HEADER_SIZE, JournalData};
 use super::map_viewport::{MAP_VIEWPORT_STATE_SIZE, MapViewportState, PostMapsData};
@@ -16,26 +20,124 @@ use super::{
 use crate::references::extractor::Extractor;
 use std::io::{Cursor, Write};
 
-// #[test]
-// fn test_save_file_round_trips_six_map_fixtures() {
-//     for filename in ["3.sav", "4.sav", "5.sav"] {
-//         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-//             .join("fixtures/Dispel/zapisy")
-//             .join(filename);
-//         let original = std::fs::read(&path).unwrap();
-//
-//         let save = SaveFile::parse(&original).unwrap();
-//         let mut serialized = Vec::new();
-//         save.write_to(&mut serialized).unwrap();
-//
-//         assert_eq!(
-//             serialized,
-//             original,
-//             "{} did not round trip",
-//             path.display()
-//         );
-//     }
-// }
+#[test]
+fn test_save_file_round_trips_synthetic_fixture_without_user_files() {
+    // Self-contained: no dependency on the git-ignored `fixtures/` directory.
+    let save = synthetic_save();
+    let mut original = Vec::new();
+    save.write_to(&mut original).unwrap();
+    let mut map_bytes = Vec::new();
+    super::game_tmp::write_maps(&save.maps, &mut map_bytes).unwrap();
+
+    let parsed = SaveFile::parse(&original).unwrap();
+    let mut serialized = Vec::new();
+    parsed.write_to(&mut serialized).unwrap();
+
+    assert_eq!(serialized, original);
+    assert_eq!(parsed.game_tmp_blob_size as usize, 8 + map_bytes.len());
+    assert_eq!(parsed.maps.len(), 1);
+    assert_eq!(parsed.maps[0].map_id, 7);
+    assert_eq!(parsed.maps[0].monsters[0].hp_current, 42);
+    assert_eq!(parsed.maps[0].draw_items_weapon[0].weapon_item_id, 11);
+    assert_eq!(parsed.inventory.weapon_items[0].weapon_item_id, 31);
+    assert_eq!(parsed.party_members[0].name, "hero");
+    assert_eq!(parsed.post_events.walk_milestones[0].id, 400);
+    assert_eq!(parsed.journal.main[0].quest_title, "main quest");
+}
+
+#[test]
+fn test_save_file_counts_match_serialized_records_across_sections() {
+    let save = synthetic_save();
+    let mut bytes = Vec::new();
+    save.write_to(&mut bytes).unwrap();
+    let parsed = SaveFile::parse(&bytes).unwrap();
+
+    assert_eq!(
+        parsed.post_maps.number_of_visited_maps as usize,
+        parsed.maps.len()
+    );
+    assert_eq!(parsed.post_maps.map_ids.len(), parsed.maps.len());
+    assert_eq!(
+        parsed.party_members_count as usize,
+        parsed.party_members.len()
+    );
+    let map = &parsed.maps[0];
+    assert_eq!(map.extra_objects_trailer.records.len(), 1);
+    assert_eq!(map.draw_items_weapon.len(), 1);
+    assert_eq!(map.draw_items_heal.len(), 1);
+    assert_eq!(map.draw_items_edit.len(), 1);
+    assert_eq!(map.draw_items_misc.len(), 1);
+    assert_eq!(map.draw_items_event.len(), 1);
+    assert_eq!(parsed.inventory.event_items.len(), 1);
+    assert_eq!(parsed.inventory.misc_items.len(), 1);
+    assert_eq!(parsed.inventory.edit_items.len(), 1);
+    assert_eq!(parsed.inventory.weapon_items.len(), 1);
+    assert_eq!(parsed.inventory.heal_items.len(), 1);
+    assert_eq!(parsed.post_events.walk_completions.len(), 1);
+}
+
+#[test]
+fn test_parse_save_file_rejects_truncated_input_at_sampled_offsets() {
+    let save = synthetic_save();
+    let mut bytes = Vec::new();
+    save.write_to(&mut bytes).unwrap();
+
+    // Truncating before the final journal byte must be reported as a
+    // section-scoped EOF error, never as a successful partial model. The file
+    // is ~640 KB, so sample boundaries rather than every single length.
+    let mut lengths: Vec<usize> = (0..8).collect();
+    let step = bytes.len() / 64;
+    lengths.extend((8..bytes.len()).step_by(step));
+    for length in lengths {
+        let error = match SaveFile::parse(&bytes[..length]) {
+            Ok(_) => panic!("truncated input of {length} bytes parsed successfully"),
+            Err(error) => error,
+        };
+        assert_eq!(
+            error.kind(),
+            std::io::ErrorKind::UnexpectedEof,
+            "length {length}: {error}"
+        );
+        assert!(
+            error.to_string().starts_with("failed to read "),
+            "length {length}: {error}"
+        );
+        assert!(error.to_string().contains("byte offset "), "{error}");
+    }
+}
+
+#[test]
+fn test_parse_save_file_rejects_cross_section_count_mismatch() {
+    let save = synthetic_save();
+    let mut bytes = Vec::new();
+    save.write_to(&mut bytes).unwrap();
+    // Header map count at byte 4; post-maps repeats its own count later.
+    bytes[4..8].copy_from_slice(&0u32.to_le_bytes());
+
+    let error = SaveFile::parse(&bytes).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    assert!(error.to_string().contains("post-maps"), "{error}");
+}
+
+#[test]
+fn test_parse_and_write_share_the_same_preflight_validation() {
+    let invalid = invalid_save(|save| save.party_members_count = 1);
+    let read_error = super::codec::validate(&invalid, "read").unwrap_err();
+    let write_error = super::codec::validate(&invalid, "write").unwrap_err();
+
+    assert_eq!(read_error.kind(), std::io::ErrorKind::InvalidInput);
+    assert_eq!(write_error.kind(), std::io::ErrorKind::InvalidInput);
+    assert!(
+        read_error
+            .to_string()
+            .contains("failed to read party members")
+    );
+    assert!(
+        write_error
+            .to_string()
+            .contains("failed to write party members")
+    );
+}
 
 #[test]
 fn test_parse_save_file_reports_section_and_offset() {
@@ -292,8 +394,8 @@ fn test_extra_object_decodes_runtime_tail_at_exact_offsets() {
 
     let parsed = super::ExtraObjectRecord::parse(&bytes).unwrap();
 
-    assert_eq!(parsed.activation_effect_id, 10);
-    assert_eq!(parsed.activation_effect_reserved, 0xa5);
+    assert_eq!(parsed.open_sfx_id, 10);
+    assert_eq!(parsed.open_sfx_reserved, 0xa5);
     assert_eq!(parsed.active_overlay_enabled, 1);
     assert_eq!(parsed.map_object_active, 1);
     assert_eq!(parsed.interaction_pending, 1);
@@ -538,7 +640,7 @@ fn test_read_map_viewport_rejects_truncated_input() {
 #[test]
 fn test_map_viewport_named_fields_preserve_the_binary_layout() {
     let mut bytes = vec![0u8; MAP_VIEWPORT_STATE_SIZE];
-    for (index, chunk) in bytes.chunks_exact_mut(4).enumerate() {
+    for (index, chunk) in bytes.as_chunks_mut::<4>().0.iter_mut().enumerate() {
         chunk.copy_from_slice(&(index as u32).to_le_bytes());
     }
     bytes[10_128..10_132].copy_from_slice(&(-1i32).to_le_bytes());
@@ -680,25 +782,6 @@ fn test_write_save_file_validates_cross_field_counts_before_output() {
 }
 
 #[test]
-fn test_write_count_validation_rejects_values_above_wire_limits() {
-    let u16_error =
-        super::writer::checked_u16("inventory", "item count", usize::from(u16::MAX) + 1)
-            .unwrap_err();
-
-    assert_eq!(u16_error.kind(), std::io::ErrorKind::InvalidInput);
-    assert!(u16_error.to_string().contains("inventory"));
-}
-
-#[cfg(target_pointer_width = "64")]
-#[test]
-fn test_write_count_validation_rejects_u32_overflow() {
-    let error = super::writer::checked_u32("maps", "map count", u32::MAX as usize + 1).unwrap_err();
-
-    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-    assert!(error.to_string().contains("maps"));
-}
-
-#[test]
 fn test_write_save_file_reports_section_and_output_offset() {
     let save = valid_save();
     let mut writer = FailAfter::new(10);
@@ -708,6 +791,131 @@ fn test_write_save_file_reports_section_and_output_offset() {
     assert_eq!(error.kind(), std::io::ErrorKind::Other);
     assert!(error.to_string().contains("post-maps"));
     assert!(error.to_string().contains("byte offset 10"));
+}
+
+/// A complete, writer-canonical save built entirely in memory. Every counted
+/// section has one record so count prefixes and offsets are exercised.
+fn synthetic_save() -> SaveFile {
+    let mut save = valid_save();
+
+    // These two structs hold fixed-length vectors; `Default` leaves them empty
+    // and would write a short section. Seed them from zero-filled wire data.
+    save.map_viewport_state =
+        MapViewportState::read_from(&mut Cursor::new(vec![0u8; MAP_VIEWPORT_STATE_SIZE])).unwrap();
+    save.inventory_slots =
+        InventorySlots::read_from(&mut Cursor::new(vec![0u8; INVENTORY_SLOTS_SIZE])).unwrap();
+
+    let trailer_records = vec![super::ExtraObjectTrailerRecord {
+        item_category: 1,
+        global_item_index: 5,
+        ..Default::default()
+    }];
+    let draw_items_weapon = vec![super::DrawItemWeaponItem {
+        weapon_item_id: 11,
+        ..Default::default()
+    }];
+    let draw_items_heal = vec![super::DrawItemHealItem {
+        heal_item_id: 12,
+        ..Default::default()
+    }];
+    let draw_items_edit = vec![super::DrawItemEditItem {
+        edit_item_id: 13,
+        ..Default::default()
+    }];
+    // Records with fixed-size Vec<u8> fields must be built through `parse` so
+    // their buffers have the wire length (`Default` leaves them empty).
+    let draw_items_misc = vec![super::DrawItemMiscItem {
+        misc_item_id: 14,
+        ..super::DrawItemMiscItem::parse(&[0u8; DRAW_ITEM_MISC_SIZE]).unwrap()
+    }];
+    let draw_items_event = vec![super::DrawItemEventItem {
+        event_item_id: 15,
+        ..Default::default()
+    }];
+    let tail_size = EXTRA_OBJECT_TRAILER_FIXED_SIZE
+        + trailer_records.len() * EXTRA_OBJECT_TRAILER_RECORD_SIZE
+        + draw_items_weapon.len() * DRAW_ITEM_WEAPON_SIZE
+        + draw_items_heal.len() * DRAW_ITEM_HEAL_SIZE
+        + draw_items_edit.len() * DRAW_ITEM_EDIT_SIZE
+        + draw_items_misc.len() * DRAW_ITEM_MISC_SIZE
+        + draw_items_event.len() * DRAW_ITEM_EVENT_SIZE;
+
+    save.maps = vec![MapSectionData {
+        map_id: 7,
+        monsters: vec![MonsterRecord {
+            hp_current: 42,
+            ..MonsterRecord::parse(&[0u8; super::game_tmp::MONSTER_RECORD_SIZE]).unwrap()
+        }],
+        npcs: vec![super::NpcRecord {
+            npc_ini_id: 3,
+            ..Default::default()
+        }],
+        extra_objects: vec![super::ExtraObjectRecord {
+            map_object_id: 9,
+            ..Default::default()
+        }],
+        extra_objects_trailer: super::MapExtraObjectsTrailer {
+            tail_size: tail_size as u32,
+            records: trailer_records,
+            automatic_placement_active: 1,
+            automatic_placement_value: 2,
+            automatic_placement_global_item_index: 3,
+        },
+        draw_items_weapon,
+        draw_items_heal,
+        draw_items_edit,
+        draw_items_misc,
+        draw_items_event,
+    }];
+    save.post_maps.number_of_visited_maps = 1;
+    save.post_maps.map_ids = vec![7];
+
+    save.inventory.event_items = vec![super::InventoryEventItem {
+        name: "event".into(),
+        event_item_id: 21,
+        ..Default::default()
+    }];
+    save.inventory.misc_items = vec![super::InventoryMiscItem {
+        name: "misc".into(),
+        misc_item_id: 22,
+        ..super::InventoryMiscItem::parse(&[0u8; super::inventory::INVENTORY_MISC_ITEM_SIZE])
+            .unwrap()
+    }];
+    save.inventory.edit_items = vec![super::InventoryEditItem {
+        name: "edit".into(),
+        edit_item_id: 23,
+        ..Default::default()
+    }];
+    save.inventory.weapon_items = vec![super::InventoryWeaponItem {
+        name: "weapon".into(),
+        weapon_item_id: 31,
+        ..Default::default()
+    }];
+    save.inventory.heal_items = vec![super::InventoryHealItem {
+        name: "heal".into(),
+        heal_item_id: 24,
+        ..Default::default()
+    }];
+
+    save.party_members_count = 1;
+    save.party_members = vec![PartyMember {
+        name: "hero".into(),
+        record: PartyMemberBinaryRecord::parse(&vec![0u8; PartyMember::RUNTIME_STATE_SIZE])
+            .unwrap(),
+        ..Default::default()
+    }];
+    save.post_events.walk_milestones = vec![super::WalkMilestoneRecord {
+        id: 400,
+        x: 3,
+        y: 4,
+        ..Default::default()
+    }];
+    save.post_events.walk_completions = vec![super::WalkCompletionRecord {
+        id: 2000,
+        ..Default::default()
+    }];
+    save.journal.main[0].quest_title = "main quest".into();
+    save
 }
 
 fn valid_save() -> SaveFile {

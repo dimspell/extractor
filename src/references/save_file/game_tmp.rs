@@ -1,3 +1,6 @@
+use super::codec::{
+    CountWidth, check_map_trailer_size, read_counted_records, write_counted_records,
+};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
@@ -46,20 +49,33 @@ pub(super) fn read_maps<R: Read>(
     reader: &mut R,
     map_count: u32,
 ) -> std::io::Result<Vec<MapSectionData>> {
-    let mut maps = Vec::with_capacity(map_count as usize);
+    // Do not reserve from the untrusted count: a truncated stream should fail
+    // on its first missing record instead of requesting a huge allocation.
+    let mut maps = Vec::new();
 
     for _ in 0..map_count {
         let map_id = reader.read_u32::<LittleEndian>()?;
-        let monsters = read_u32_counted_records(reader, MONSTER_RECORD_SIZE, MonsterRecord::parse)?;
-        let npcs = read_u32_counted_records(reader, NPC_RECORD_SIZE, NpcRecord::parse)?;
+        let monsters = read_counted_records(
+            reader,
+            CountWidth::U32,
+            MONSTER_RECORD_SIZE,
+            MonsterRecord::parse,
+        )?;
+        let npcs =
+            read_counted_records(reader, CountWidth::U32, NPC_RECORD_SIZE, NpcRecord::parse)?;
 
         let _separator = reader.read_u32::<LittleEndian>()?;
-        let extra_objects =
-            read_u32_counted_records(reader, EXTRA_OBJECT_RECORD_SIZE, ExtraObjectRecord::parse)?;
+        let extra_objects = read_counted_records(
+            reader,
+            CountWidth::U32,
+            EXTRA_OBJECT_RECORD_SIZE,
+            ExtraObjectRecord::parse,
+        )?;
 
         let tail_size = reader.read_u32::<LittleEndian>()?;
-        let records = read_u16_counted_records(
+        let records = read_counted_records(
             reader,
+            CountWidth::U16,
             EXTRA_OBJECT_TRAILER_RECORD_SIZE,
             ExtraObjectTrailerRecord::parse,
         )?;
@@ -71,36 +87,38 @@ pub(super) fn read_maps<R: Read>(
             automatic_placement_global_item_index: reader.read_u16::<LittleEndian>()?,
         };
 
-        let draw_items_weapon =
-            read_u16_counted_records(reader, DRAW_ITEM_WEAPON_SIZE, DrawItemWeaponItem::parse)?;
-        let draw_items_heal =
-            read_u16_counted_records(reader, DRAW_ITEM_HEAL_SIZE, DrawItemHealItem::parse)?;
-        let draw_items_edit =
-            read_u16_counted_records(reader, DRAW_ITEM_EDIT_SIZE, DrawItemEditItem::parse)?;
-        let draw_items_misc =
-            read_u16_counted_records(reader, DRAW_ITEM_MISC_SIZE, DrawItemMiscItem::parse)?;
-        let draw_items_event =
-            read_u16_counted_records(reader, DRAW_ITEM_EVENT_SIZE, DrawItemEventItem::parse)?;
+        let draw_items_weapon = read_counted_records(
+            reader,
+            CountWidth::U16,
+            DRAW_ITEM_WEAPON_SIZE,
+            DrawItemWeaponItem::parse,
+        )?;
+        let draw_items_heal = read_counted_records(
+            reader,
+            CountWidth::U16,
+            DRAW_ITEM_HEAL_SIZE,
+            DrawItemHealItem::parse,
+        )?;
+        let draw_items_edit = read_counted_records(
+            reader,
+            CountWidth::U16,
+            DRAW_ITEM_EDIT_SIZE,
+            DrawItemEditItem::parse,
+        )?;
+        let draw_items_misc = read_counted_records(
+            reader,
+            CountWidth::U16,
+            DRAW_ITEM_MISC_SIZE,
+            DrawItemMiscItem::parse,
+        )?;
+        let draw_items_event = read_counted_records(
+            reader,
+            CountWidth::U16,
+            DRAW_ITEM_EVENT_SIZE,
+            DrawItemEventItem::parse,
+        )?;
 
-        let expected_tail_size = EXTRA_OBJECT_TRAILER_FIXED_SIZE
-            + extra_objects_trailer.records.len() * EXTRA_OBJECT_TRAILER_RECORD_SIZE
-            + draw_items_weapon.len() * DRAW_ITEM_WEAPON_SIZE
-            + draw_items_heal.len() * DRAW_ITEM_HEAL_SIZE
-            + draw_items_edit.len() * DRAW_ITEM_EDIT_SIZE
-            + draw_items_misc.len() * DRAW_ITEM_MISC_SIZE
-            + draw_items_event.len() * DRAW_ITEM_EVENT_SIZE;
-        if extra_objects_trailer.tail_size as usize != expected_tail_size {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!(
-                    "map extra-object trailer size is {}, expected {expected_tail_size}",
-                    extra_objects_trailer.tail_size
-                ),
-            ));
-        }
-
-        let _separator = reader.read_u32::<LittleEndian>()?;
-        maps.push(MapSectionData {
+        let section = MapSectionData {
             map_id,
             monsters,
             npcs,
@@ -111,7 +129,11 @@ pub(super) fn read_maps<R: Read>(
             draw_items_edit,
             draw_items_misc,
             draw_items_event,
-        });
+        };
+        check_map_trailer_size(&section)?;
+
+        let _separator = reader.read_u32::<LittleEndian>()?;
+        maps.push(section);
     }
 
     Ok(maps)
@@ -120,25 +142,41 @@ pub(super) fn read_maps<R: Read>(
 pub(super) fn write_maps<W: Write>(maps: &[MapSectionData], writer: &mut W) -> std::io::Result<()> {
     for map in maps {
         writer.write_u32::<LittleEndian>(map.map_id)?;
-        writer.write_u32::<LittleEndian>(map.monsters.len() as u32)?;
-        for monster in &map.monsters {
-            monster.write(writer)?;
-        }
-        writer.write_u32::<LittleEndian>(map.npcs.len() as u32)?;
-        for npc in &map.npcs {
-            npc.write(writer)?;
-        }
+        write_counted_records(
+            writer,
+            CountWidth::U32,
+            &map.monsters,
+            "maps",
+            "monster count",
+            |monster, writer| monster.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U32,
+            &map.npcs,
+            "maps",
+            "NPC count",
+            |npc, writer| npc.write(writer),
+        )?;
         writer.write_u32::<LittleEndian>(0)?;
-        writer.write_u32::<LittleEndian>(map.extra_objects.len() as u32)?;
-        for extra in &map.extra_objects {
-            extra.write(writer)?;
-        }
+        write_counted_records(
+            writer,
+            CountWidth::U32,
+            &map.extra_objects,
+            "maps",
+            "extra-object count",
+            |extra, writer| extra.write(writer),
+        )?;
 
         writer.write_u32::<LittleEndian>(map.extra_objects_trailer.tail_size)?;
-        writer.write_u16::<LittleEndian>(map.extra_objects_trailer.records.len() as u16)?;
-        for record in &map.extra_objects_trailer.records {
-            record.write(writer)?;
-        }
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.extra_objects_trailer.records,
+            "maps",
+            "extra-object trailer record count",
+            |record, writer| record.write(writer),
+        )?;
         writer.write_u8(map.extra_objects_trailer.automatic_placement_active)?;
         writer.write_u16::<LittleEndian>(map.extra_objects_trailer.automatic_placement_value)?;
         writer.write_u16::<LittleEndian>(
@@ -146,65 +184,49 @@ pub(super) fn write_maps<W: Write>(maps: &[MapSectionData], writer: &mut W) -> s
                 .automatic_placement_global_item_index,
         )?;
 
-        write_u16_counted_records(writer, &map.draw_items_weapon, |item, writer| {
-            item.write(writer)
-        })?;
-        write_u16_counted_records(writer, &map.draw_items_heal, |item, writer| {
-            item.write(writer)
-        })?;
-        write_u16_counted_records(writer, &map.draw_items_edit, |item, writer| {
-            item.write(writer)
-        })?;
-        write_u16_counted_records(writer, &map.draw_items_misc, |item, writer| {
-            item.write(writer)
-        })?;
-        write_u16_counted_records(writer, &map.draw_items_event, |item, writer| {
-            item.write(writer)
-        })?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.draw_items_weapon,
+            "maps",
+            "weapon ground-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.draw_items_heal,
+            "maps",
+            "heal ground-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.draw_items_edit,
+            "maps",
+            "edit ground-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.draw_items_misc,
+            "maps",
+            "misc ground-item count",
+            |item, writer| item.write(writer),
+        )?;
+        write_counted_records(
+            writer,
+            CountWidth::U16,
+            &map.draw_items_event,
+            "maps",
+            "event ground-item count",
+            |item, writer| item.write(writer),
+        )?;
         writer.write_u32::<LittleEndian>(0)?;
     }
     Ok(())
-}
-
-fn write_u16_counted_records<W: Write, T>(
-    writer: &mut W,
-    records: &[T],
-    mut write: impl FnMut(&T, &mut W) -> std::io::Result<()>,
-) -> std::io::Result<()> {
-    writer.write_u16::<LittleEndian>(records.len() as u16)?;
-    for record in records {
-        write(record, writer)?;
-    }
-    Ok(())
-}
-
-fn read_u32_counted_records<R: Read, T>(
-    reader: &mut R,
-    record_size: usize,
-    parse: fn(&[u8]) -> std::io::Result<T>,
-) -> std::io::Result<Vec<T>> {
-    let count = reader.read_u32::<LittleEndian>()? as usize;
-    read_records(reader, count, record_size, parse)
-}
-
-fn read_u16_counted_records<R: Read, T>(
-    reader: &mut R,
-    record_size: usize,
-    parse: fn(&[u8]) -> std::io::Result<T>,
-) -> std::io::Result<Vec<T>> {
-    let count = reader.read_u16::<LittleEndian>()? as usize;
-    read_records(reader, count, record_size, parse)
-}
-
-fn read_records<R: Read, T>(
-    reader: &mut R,
-    count: usize,
-    record_size: usize,
-    parse: fn(&[u8]) -> std::io::Result<T>,
-) -> std::io::Result<Vec<T>> {
-    let mut data = vec![0u8; count * record_size];
-    reader.read_exact(&mut data)?;
-    data.chunks_exact(record_size).map(parse).collect()
 }
 
 /// Monster record from save file (surface or dungeon)
@@ -356,13 +378,15 @@ pub struct MonsterRecord {
     pub saved_sprite_frame_id: u32,
     /// Render direction saved before a temporary animation replaces it.
     pub saved_render_direction: u32,
-    /// Special attack ID from Monster.db.
+    /// Special attack ID from Monster.db (attack-rider status type:
+    /// 1 = poison, 2 = paralysis; 0 = rider off).
     pub special_attack: u32,
-    /// Chance that the monster uses its special attack.
+    /// Rider trigger chance in percent (roll: `rand() % 100 <= value`).
     pub special_attack_chance: u32,
-    /// Duration of the special attack.
+    /// Status duration in fixed 55 ms scheduler ticks.
     pub special_attack_duration: u32,
-    /// Remaining ticks for the special-attack visual effect.
+    /// Remaining ticks for the special-attack visual effect (the journalled
+    /// rider countdown on the victim).
     pub special_attack_effect_ticks_remaining: u32,
     /// Current frame of the special-attack visual effect.
     pub special_attack_effect_frame: u32,
@@ -569,8 +593,20 @@ pub struct ExtraObjectRecord {
     pub additional_loot_1: u32,
     pub additional_loot_1_count: u32,
     pub additional_loot_2: u32,
-    /// Third loot quantity plus interaction configuration. See `ExtraRef`.
-    pub additional_loot_2_count_and_config: [u8; 28],
+    /// Quantity of the third loot item. See `ExtraRef`.
+    pub additional_loot_2_count: u32,
+    /// Loot delivery mode. See `ExtraRef`.
+    pub loot_delivery_mode: u32,
+    /// Trap arming flag (record `+0x70`). See `ExtraRef`.
+    pub is_trapped: u32,
+    /// Trap spell id (record `+0x74`). See `ExtraRef`.
+    pub trap_spell_id: u32,
+    /// Unassigned configuration word (record `+0x78`). Preserve verbatim.
+    pub interaction_config_reserved_1: u32,
+    /// Unassigned configuration word (record `+0x7C`). Preserve verbatim.
+    pub interaction_config_reserved_2: u32,
+    /// Remaining interaction uses (record `+0x80`). See `ExtraRef`.
+    pub use_counter: u32,
     pub interaction_event_id: u32,
     pub interaction_message_id: u32,
     pub footprint_width: u32,
@@ -584,10 +620,11 @@ pub struct ExtraObjectRecord {
     pub post_activation_footprint_mode: u32,
     pub preserve_final_sprite_frame: u32,
     pub alternate_render_mode: u32,
-    pub activation_effect_id: u8,
-    /// Reserved byte adjacent to the activation effect ID. Preserve it verbatim.
-    pub activation_effect_reserved: u8,
-    pub activation_effect_padding: i16,
+    /// Wave.ini open-SFX index (record `+0xAC`). See `ExtraRef`.
+    pub open_sfx_id: u8,
+    /// Reserved byte after [`Self::open_sfx_id`]. Preserve it verbatim.
+    pub open_sfx_reserved: u8,
+    pub open_sfx_padding: i16,
     /// Active-object overlay: 0=disabled, non-zero=enabled.
     pub active_overlay_enabled: u32,
     /// Map-grid/update participation: 0=inactive, non-zero=active.

@@ -54,12 +54,13 @@ impl RecordPatcher for DrawItemPatcher {
             }
             "item_id" => {
                 let new_id = parse_i32(field, new)? as u8;
-                let current_type = rec.item.item_type().unwrap_or(ItemTypeId::Other);
+                let current_type = rec.item.item_type().unwrap_or(ItemTypeId::NoItem);
                 rec.item = InventoryItem::new(current_type, new_id);
             }
             "item_type" => {
-                let new_type_raw = parse_i32(field, new)? as u8;
-                let new_type = ItemTypeId::from_u8(new_type_raw).unwrap_or(ItemTypeId::Other);
+                // The no-item byte is 0xFF, which reads as either 255 or -1.
+                let byte = parse_i32(field, new)? as u8;
+                let new_type = ItemTypeId::from_i8(byte as i8).unwrap_or(ItemTypeId::NoItem);
                 let current_id = rec.item.item_id();
                 rec.item = InventoryItem::new(new_type, current_id);
             }
@@ -128,13 +129,26 @@ mod tests {
     #[test]
     fn change_item_type_preserves_item_id() {
         let p = DrawItemPatcher;
-        // ItemTypeId::Other = 0
         let out = p
-            .apply_field(&one_record_blob(), 0, "item_type", &Value::I64(0))
+            .apply_field(&one_record_blob(), 0, "item_type", &Value::I64(-1))
             .unwrap();
         let recs = parse_back(&out);
-        assert_eq!(recs[0].item.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(recs[0].item.item_type(), Some(ItemTypeId::NoItem));
         assert_eq!(recs[0].item.item_id(), 5);
+        assert_eq!(recs[0].item.raw(), 0x0000_FF05);
+    }
+
+    #[test]
+    fn change_item_type_255_matches_signed_minus_one() {
+        let p = DrawItemPatcher;
+        let from_255 = p
+            .apply_field(&one_record_blob(), 0, "item_type", &Value::I64(255))
+            .unwrap();
+        let from_minus_one = p
+            .apply_field(&one_record_blob(), 0, "item_type", &Value::I64(-1))
+            .unwrap();
+        assert_eq!(from_255, from_minus_one);
+        assert!(String::from_utf8_lossy(&from_255).contains("65285"));
     }
 
     #[test]
@@ -145,7 +159,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             parse_back(&out)[0].item.item_type(),
-            Some(ItemTypeId::Other)
+            Some(ItemTypeId::NoItem)
         );
     }
 

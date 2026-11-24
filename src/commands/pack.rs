@@ -2,37 +2,15 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use dispel_core::references::event_scr::EventScript;
-use dispel_core::references::extractor::Extractor;
+use crate::references::event_scr::EventScript;
+use crate::references::extractor::Extractor;
 
+use crate::cli::ModPackArgs;
 use crate::commands::Command;
 
-#[derive(clap::Args, Clone)]
-pub struct ModPackArgs {
-    /// Path to the Dispel game directory (contains Ref/Event*.scr)
-    #[arg(short, long)]
-    pub game_path: String,
-
-    /// Output directory for JSON files
-    #[arg(short, long, default_value = "mod-pack")]
-    pub output: String,
-
-    /// Pretty-print JSON
-    #[arg(short, long)]
-    pub pretty: bool,
-
-    /// Output as a single JSON array file instead of individual files
-    #[arg(short, long)]
-    pub single_file: bool,
-}
-
-pub struct ModPackCommand {
-    pub args: ModPackArgs,
-}
-
-impl Command for ModPackCommand {
+impl Command for ModPackArgs {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let game_dir = Path::new(&self.args.game_path);
+        let game_dir = Path::new(&self.game_path);
         let ref_dir = game_dir.join("Ref");
 
         if !ref_dir.exists() {
@@ -44,7 +22,10 @@ impl Command for ModPackCommand {
         for entry in fs::read_dir(&ref_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("scr") {
+            if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("scr"))
+            {
                 scr_files.push(path);
             }
         }
@@ -61,9 +42,9 @@ impl Command for ModPackCommand {
             ref_dir.display()
         );
 
-        let output_dir = Path::new(&self.args.output);
+        let output_dir = Path::new(&self.output);
 
-        if self.args.single_file {
+        if self.single_file {
             self.export_single_file(&scr_files, output_dir)?;
         } else {
             self.export_individual_files(&scr_files, output_dir)?;
@@ -73,7 +54,7 @@ impl Command for ModPackCommand {
     }
 }
 
-impl ModPackCommand {
+impl ModPackArgs {
     fn export_single_file(
         &self,
         scr_files: &[PathBuf],
@@ -108,7 +89,7 @@ impl ModPackCommand {
         fs::create_dir_all(output_dir)?;
         let output_path = output_dir.join("event_scripts.json");
 
-        let json_str = if self.args.pretty {
+        let json_str = if self.pretty {
             serde_json::to_string_pretty(&output)?
         } else {
             serde_json::to_string(&output)?
@@ -138,7 +119,7 @@ impl ModPackCommand {
             match EventScript::read_file(path) {
                 Ok(records) => {
                     for record in records {
-                        let json_str = if self.args.pretty {
+                        let json_str = if self.pretty {
                             serde_json::to_string_pretty(&record)?
                         } else {
                             serde_json::to_string(&record)?
@@ -164,5 +145,44 @@ impl ModPackCommand {
         );
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mod_pack_finds_uppercase_scr_extension() {
+        let base = std::env::temp_dir().join(format!("dispel_modpack_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let game_dir = base.join("invented_game");
+        let ref_dir = game_dir.join("Ref");
+        std::fs::create_dir_all(&ref_dir).unwrap();
+        let output_dir = base.join("invented_output");
+
+        // Synthetic event script with an invented name and uppercase extension.
+        let script = b"[VAR]\ninvented_flag=1\n[MAP]\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\n";
+        std::fs::write(ref_dir.join("invented_query.SCR"), script).unwrap();
+
+        let args = ModPackArgs {
+            game_path: game_dir.to_string_lossy().to_string(),
+            output: output_dir.to_string_lossy().to_string(),
+            pretty: false,
+            single_file: true,
+        };
+        args.execute().unwrap();
+
+        let json: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(output_dir.join("event_scripts.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            json["data"].as_array().unwrap().len(),
+            1,
+            "an uppercase .SCR file must be discovered and exported"
+        );
+
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

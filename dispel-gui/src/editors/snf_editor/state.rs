@@ -1,45 +1,7 @@
 use dispel_core::snf::SnfFile;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 
-pub struct PlaybackHandle {
-    pub player: Arc<rodio::Player>,
-    stop_flag: Arc<AtomicBool>,
-    pub loop_flag: Arc<AtomicBool>,
-    _thread: std::thread::JoinHandle<()>,
-}
-
-impl PlaybackHandle {
-    pub fn new(
-        player: Arc<rodio::Player>,
-        stop_flag: Arc<AtomicBool>,
-        loop_flag: Arc<AtomicBool>,
-        thread: std::thread::JoinHandle<()>,
-    ) -> Self {
-        PlaybackHandle {
-            player,
-            stop_flag,
-            loop_flag,
-            _thread: thread,
-        }
-    }
-
-    pub fn stop(&self) {
-        self.stop_flag.store(true, Ordering::Relaxed);
-        self.player.stop();
-    }
-
-    pub fn set_looping(&self, v: bool) {
-        self.loop_flag.store(v, Ordering::Relaxed);
-    }
-}
-
-impl Drop for PlaybackHandle {
-    fn drop(&mut self) {
-        self.stop();
-    }
-}
+pub use crate::components::audio_playback::PlaybackHandle;
 
 #[derive(Debug, Clone)]
 pub enum ExportStatus {
@@ -55,6 +17,9 @@ pub struct SnfEditorState {
     pub waveform: Vec<(f32, f32)>,
     pub error: Option<String>,
     pub playback: Option<PlaybackHandle>,
+    /// Invalidated whenever playback is stopped, so a deferred device-open
+    /// result from an earlier Play request cannot restart audio.
+    pub playback_generation: u64,
     pub is_looping: bool,
     pub volume: f32,
     pub export_status: ExportStatus,
@@ -81,6 +46,7 @@ impl SnfEditorState {
                     waveform,
                     error: None,
                     playback: None,
+                    playback_generation: 0,
                     is_looping: false,
                     volume: 0.5,
                     export_status: ExportStatus::Idle,
@@ -95,6 +61,7 @@ impl SnfEditorState {
                 waveform: Vec::new(),
                 error: Some(e.to_string()),
                 playback: None,
+                playback_generation: 0,
                 is_looping: false,
                 volume: 0.5,
                 export_status: ExportStatus::Idle,

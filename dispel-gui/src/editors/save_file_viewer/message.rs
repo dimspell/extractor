@@ -61,10 +61,6 @@ pub enum SaveFileViewerMessage {
         kind: MapsTableKind,
         col: usize,
     },
-    /// Cursor moved while a column resize drag is active.
-    MapsTableResizeCursor(f32),
-    /// Column resize drag finished.
-    MapsTableEndResize,
     /// Table scrolled; persist the offset for stable re-renders.
     MapsTableScroll {
         map: usize,
@@ -84,10 +80,6 @@ pub enum SaveFileViewerMessage {
     InventoryTableStartResize { cat: InventoryCategory, col: usize },
     /// Reset a column to its default width (double-click on resize handle).
     InventoryTableResetColumnWidth { cat: InventoryCategory, col: usize },
-    /// Cursor moved while a column resize drag is active.
-    InventoryTableResizeCursor(f32),
-    /// Column resize drag finished.
-    InventoryTableEndResize,
     /// Inventory table scrolled; persist the offset for stable re-renders.
     InventoryTableScroll {
         cat: InventoryCategory,
@@ -130,10 +122,6 @@ pub enum SaveFileViewerMessage {
     EventsTableStartResize { col: usize },
     /// Reset a column to its default width (double-click on resize handle).
     EventsTableResetColumnWidth { col: usize },
-    /// Cursor moved while a column resize drag is active.
-    EventsTableResizeCursor(f32),
-    /// Column resize drag finished.
-    EventsTableEndResize,
     /// Events table scrolled; persist the offset for stable re-renders.
     EventsTableScroll {
         x: f32,
@@ -151,10 +139,6 @@ pub enum SaveFileViewerMessage {
     JournalTableStartResize { section: JournalSection, col: usize },
     /// Reset a column to its default width (double-click on resize handle).
     JournalTableResetColumnWidth { section: JournalSection, col: usize },
-    /// Cursor moved while a column resize drag is active.
-    JournalTableResizeCursor(f32),
-    /// Column resize drag finished.
-    JournalTableEndResize,
     /// Journal table scrolled; persist the offset for stable re-renders.
     JournalTableScroll {
         section: JournalSection,
@@ -162,6 +146,11 @@ pub enum SaveFileViewerMessage {
         y: f32,
         viewport_height: f32,
     },
+    /// Cursor moved while a column resize drag is active. The active table is
+    /// carried by `state.resizing`, so the message does not name a table.
+    TableResizeCursor(f32),
+    /// Column resize drag finished.
+    TableEndResize,
     /// A unified column-filtering action routed to one of the viewer tables.
     TableFilter {
         /// Which table (keyed identically to the per-table select/sort messages).

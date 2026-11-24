@@ -34,7 +34,7 @@ use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 /// Maximum number of panels before we disable splitting to prevent
 /// window-shattering fragmentation.
-const MAX_PANELS: usize = 8;
+pub(crate) const MAX_PANELS: usize = 8;
 
 /// Render the content for a single pane in the hex editor grid.
 pub fn pane_content<'a>(

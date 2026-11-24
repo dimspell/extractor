@@ -4,6 +4,9 @@ version = "0.9.3"
 edition = "2024"
 
 [features]
+# Accessibility is default-on and force-enabled by both consumers
+# (dispel-gui and hexedit) so the shared `table_widget` has one compiled shape
+# across the workspace. See docs/iced-fork-config.md.
 default = ["accessibility"]
 # Enables screen-reader (VoiceOver) support for the table widget: pulls in
 # iced's `accessibility` trait methods.
@@ -13,6 +16,15 @@ accessibility = ["iced/accessibility"]
 iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool", "wgpu"] }
 lru = "0.12"
 lucide-icons = "1.23"
+
+[dev-dependencies]
+# Headless UI tests (toast timing, collapsible tree, table accessibility).
+# Keep the iced_test/accessibility feature in sync with the `accessibility`
+# feature above so `Simulator::accessibility_tree/action` is available.
+iced_test = { workspace = true, features = ["accessibility"] }
+# tiny-skia is required for ICED_TEST_BACKEND=software in standalone
+# `cargo test -p gui-widgets` runs. Same single pin as every other iced dep.
+iced_renderer = { git = "https://github.com/dimspell/iced", rev = "c0ffdd8e7352df9283496f3db334731c00ef6d0d", default-features = false, features = ["tiny-skia"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

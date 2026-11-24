@@ -103,18 +103,42 @@ pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
         subscriptions.push(anim);
     }
 
-    // Poll for SNF playback completion so the Play/Pause button stays in sync.
-    if app
-        .state
-        .editors
-        .snf_editors
-        .values()
-        .any(|e| e.playback.is_some())
+    // Poll each playing SNF tab separately. The tick carries its owning tab so
+    // playback on a background tab is cleared too; otherwise the subscription
+    // would never terminate for a tab that is not active.
     {
         use crate::editors::snf_editor::SnfEditorMessage;
-        let snf_tick = iced::time::every(std::time::Duration::from_millis(250))
-            .map(|_| Message::snf_editor(SnfEditorMessage::Tick));
-        subscriptions.push(snf_tick);
+        for tab_id in app
+            .state
+            .editors
+            .snf_editors
+            .iter()
+            .filter(|(_, editor)| editor.playback.is_some())
+            .map(|(tab_id, _)| *tab_id)
+        {
+            let snf_tick = iced::time::every(std::time::Duration::from_millis(250))
+                .with(tab_id)
+                .map(|(tab_id, _)| Message::snf_editor(SnfEditorMessage::Tick(tab_id)));
+            subscriptions.push(snf_tick);
+        }
+    }
+
+    // Same per-tab polling for audio viewers.
+    {
+        use crate::editors::audio_viewer::AudioViewerMessage;
+        for tab_id in app
+            .state
+            .editors
+            .audio_viewers
+            .iter()
+            .filter(|(_, viewer)| viewer.playback.is_some())
+            .map(|(tab_id, _)| *tab_id)
+        {
+            let audio_tick = iced::time::every(std::time::Duration::from_millis(250))
+                .with(tab_id)
+                .map(|(tab_id, _)| Message::audio_viewer(AudioViewerMessage::Tick(tab_id)));
+            subscriptions.push(audio_tick);
+        }
     }
 
     // Poll for event script indexing progress.

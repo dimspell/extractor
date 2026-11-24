@@ -30,8 +30,10 @@ impl IndexationService {
             return false;
         }
 
-        // Check if cache is too old (30 days)
-        let cache_age = FileIndexCacheManager::current_timestamp() - cache.last_indexed;
+        // Check if cache is too old (30 days). A future/corrupt on-disk
+        // timestamp must saturate to a zero age instead of underflowing.
+        let cache_age =
+            FileIndexCacheManager::current_timestamp().saturating_sub(cache.last_indexed);
         if cache_age > 30 * 24 * 60 * 60 {
             // 30 days in seconds
             return false;
@@ -101,17 +103,14 @@ impl IndexationService {
     /// Start indexation with fallback to direct scan on error
     /// This provides a simpler API for cases where partial results or fallback are needed
     pub fn start_indexation_with_fallback(&self, game_path: PathBuf) -> JoinHandle<FileIndexCache> {
-        eprintln!("DEBUG: start_indexation_with_fallback called");
         let _cache_manager = self.cache_manager.clone();
 
         tokio::spawn(async move {
-            eprintln!("DEBUG: Starting async spawn for path: {:?}", game_path);
             let cancellation_flag = Arc::new(std::sync::Mutex::new(false));
             let progress_sender = mpsc::channel::<IndexationProgress>(100).0;
 
             let game_path_clone = game_path.clone();
             let files_vec = tokio::task::spawn_blocking(move || {
-                eprintln!("DEBUG: Starting blocking scan for: {:?}", game_path_clone);
                 let mut files_inner = Vec::new();
                 let mut start_time = None;
                 let mut last_update_time = None;
@@ -127,9 +126,8 @@ impl IndexationService {
                     &mut last_update_time,
                     &mut update_count,
                 );
-                match result {
-                    Ok(()) => eprintln!("DEBUG: scan completed OK, {} files", files_inner.len()),
-                    Err(e) => eprintln!("DEBUG: scan error: {}", e),
+                if let Err(e) = result {
+                    eprintln!("Error scanning directory during indexation: {}", e);
                 }
                 files_inner
             })
@@ -138,8 +136,6 @@ impl IndexationService {
                 eprintln!("[IndexationService WARNING] spawn_blocking error: {}", e);
                 Vec::new()
             });
-
-            eprintln!("DEBUG: Got {} files from spawn_blocking", files_vec.len());
 
             let mut cache = FileIndexCache {
                 game_path: game_path.clone(),
@@ -185,7 +181,6 @@ impl IndexationService {
         let entries = match entries_result {
             Ok(entries) => entries,
             Err(e) => {
-                let _processed = files.len() as u32;
                 return Err(IndexationError::IndexationFailed(format!(
                     "Failed to read directory '{}': {}",
                     path.display(),
@@ -194,10 +189,9 @@ impl IndexationService {
             }
         };
 
-        let mut entries = match entries.collect::<Result<Vec<_>, _>>() {
+        let entries = match entries.collect::<Result<Vec<_>, _>>() {
             Ok(entries) => entries,
             Err(e) => {
-                let _processed = files.len() as u32;
                 return Err(IndexationError::IndexationFailed(format!(
                     "Failed to read directory entries in '{}': {}",
                     path.display(),
@@ -206,13 +200,6 @@ impl IndexationService {
             }
         };
 
-        // Get file types synchronously
-        for entry in entries.iter_mut() {
-            if let Ok(file_type) = entry.file_type() {
-                let _is_dir = file_type.is_dir();
-                // We can't store additional data in the entry, so we'll check during iteration
-            }
-        }
         let mut entries_with_types: Vec<(std::fs::DirEntry, bool)> = entries
             .into_iter()
             .map(|entry| {
@@ -230,7 +217,6 @@ impl IndexationService {
         for (entry, is_directory) in entries_with_types {
             // Check for cancellation periodically
             if *cancellation_flag.lock().unwrap() {
-                let _count = files.len() as u32;
                 return Err(IndexationError::Cancelled);
             }
 
