@@ -144,7 +144,9 @@ fn build_inspector_field<'a>(
                     .width(Length::Fill)
                     .into()
             } else {
+                let field_name = descriptor.name.to_string();
                 text_input("", value.clone())
+                    .on_input(move |v| field_changed_msg(orig_idx, field_name.clone(), v))
                     .padding(4)
                     .size(11)
                     .width(Length::Fill)
@@ -205,4 +207,60 @@ fn build_inspector_field<'a>(
             );
     }
     field_column.into()
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+    use iced_test::selector::{Candidate, Target};
+    use iced_test::simulator;
+
+    fn field_changed(idx: usize, name: String, value: String) -> Message {
+        Message::Editor(crate::message::editor::EditorMessage::Weapon(
+            crate::editors::weapon::WeaponEditorMessage::FieldChanged(idx, name, value),
+        ))
+    }
+
+    fn spreadsheet_msg(_: SpreadsheetMessage) -> Message {
+        Message::System(crate::message::SystemMessage::DismissError)
+    }
+
+    #[test]
+    fn test_lookup_fallback_input_emits_field_changed() {
+        let descriptor = FieldDescriptor {
+            name: "monster_db_id",
+            label: "Monster ID:",
+            kind: FieldKind::Lookup("monster_names"),
+        };
+        let lookups = HashMap::new();
+        let contents = HashMap::new();
+        let element: Element<'_, Message> = build_inspector_field(
+            &descriptor,
+            String::new(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            spreadsheet_msg,
+        );
+        let mut ui = simulator(element);
+        let mut pick_input = |candidate: Candidate<'_>| match candidate {
+            Candidate::TextInput { .. } => Some(Target::from(candidate)),
+            _ => None,
+        };
+        ui.click(&mut pick_input)
+            .expect("fallback text input must be present");
+        ui.typewrite("42");
+        let messages: Vec<Message> = ui.into_messages().collect();
+        assert!(
+            messages.iter().any(|m| matches!(
+                m,
+                Message::Editor(crate::message::editor::EditorMessage::Weapon(
+                    crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, _)
+                ))
+            )),
+            "fallback text input must emit a FieldChanged message, got {messages:?}"
+        );
+    }
 }
