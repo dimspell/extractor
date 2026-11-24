@@ -72,7 +72,28 @@ pub fn read_tiled_object_refs(reader: &mut BufReader<File>) -> Result<Vec<TiledO
 /// (0,0,0) pixels.
 pub fn read_overlay_id_table(reader: &mut BufReader<File>) -> Result<Vec<u16>> {
     let size = reader.read_i32::<LittleEndian>()?;
-    let mut table = Vec::with_capacity(size as usize);
+    let size = usize::try_from(size).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid overlay-id table size {size}"),
+        )
+    })?;
+
+    // Every entry is two bytes. Refuse a count that cannot fit in the bytes
+    // left in the file before reserving, so a corrupt size cannot trigger a
+    // huge allocation.
+    let file_len = reader.get_ref().metadata()?.len();
+    let pos = reader.stream_position()?;
+    let remaining = file_len.saturating_sub(pos);
+    let max_entries = usize::try_from(remaining / 2).unwrap_or(usize::MAX);
+    if size > max_entries {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Overlay-id table size {size} exceeds the {max_entries} entries left in file"),
+        ));
+    }
+
+    let mut table = Vec::with_capacity(size);
     for _ in 0..size {
         table.push(reader.read_u16::<LittleEndian>()?);
     }
@@ -445,6 +466,40 @@ pub fn read_roof_tiles(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn reader_from_bytes(name: &str, bytes: &[u8]) -> BufReader<File> {
+        let path = std::env::temp_dir().join(format!("dispel-{name}-{}.bin", std::process::id()));
+        std::fs::write(&path, bytes).expect("write crafted map block");
+        BufReader::new(File::open(&path).expect("open crafted map block"))
+    }
+
+    #[test]
+    fn test_overlay_table_rejects_negative_size() {
+        let mut reader = reader_from_bytes("overlay-negative", &(-5_i32).to_le_bytes());
+        let err = super::read_overlay_id_table(&mut reader).expect_err("negative size must fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_overlay_table_rejects_size_larger_than_file() {
+        // Size claims a million u16 entries but the file only holds the size.
+        let mut reader = reader_from_bytes("overlay-oversized", &1_000_000_i32.to_le_bytes());
+        let err = super::read_overlay_id_table(&mut reader).expect_err("oversized size must fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_overlay_table_reads_valid_entries() {
+        let mut bytes = 2_i32.to_le_bytes().to_vec();
+        bytes.extend_from_slice(&7_u16.to_le_bytes());
+        bytes.extend_from_slice(&9_u16.to_le_bytes());
+        let mut reader = reader_from_bytes("overlay-valid", &bytes);
+        assert_eq!(
+            super::read_overlay_id_table(&mut reader).unwrap(),
+            vec![7, 9]
+        );
+    }
 
     #[test]
     fn test_tile_access_round_trip_synthetic_word() {
