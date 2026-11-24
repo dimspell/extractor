@@ -32,6 +32,16 @@ use super::state::State;
 
 type Paragraph = GraphicsParagraph;
 
+/// Label for a column header: a decimal ordinal or a two-digit uppercase hex
+/// index, which stays meaningful for 32- and 64-byte rows.
+pub(crate) fn column_label(col: usize, show_decimal: bool) -> String {
+    if show_decimal {
+        format!("{col}")
+    } else {
+        format!("{col:02X}")
+    }
+}
+
 // ── Top-level draw entry-point ────────────────────────────────────────
 
 /// Render the hex matrix into the given viewport.
@@ -195,20 +205,11 @@ pub fn draw_matrix<'a, Message>(
         Background::Color(header_bg),
     );
 
-    // Hex column numbers (e.g. "0 1 2 3 4 5 6 7  8 9 A B C D E F").
+    // Hex column numbers ("00".."1F" at 32 bytes per row, "00".."3F" at 64).
     for col in 0..widget.bytes_per_row as usize {
         let group = col / 8;
         let cell_x = hex_start_x + col as f32 * HEX_CELL_WIDTH + group as f32 * GROUP_GAP;
-        let label = if widget.show_decimal {
-            format!("{}", col)
-        } else {
-            let c = match col {
-                0..=9 => (b'0' + col as u8) as char,
-                10..=15 => (b'A' + col as u8 - 10) as char,
-                _ => '?',
-            };
-            c.to_string()
-        };
+        let label = column_label(col, widget.show_decimal);
         let label_w = label.len() as f32 * 9.0;
         let text_x = cell_x + (HEX_CELL_WIDTH - label_w) / 2.0;
         draw_glyph_string(

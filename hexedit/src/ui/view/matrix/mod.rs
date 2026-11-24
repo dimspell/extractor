@@ -19,6 +19,8 @@ mod event;
 mod layout;
 mod state;
 
+#[cfg(test)]
+pub(crate) use draw::column_label;
 pub use draw::{first_hex_char, first_printable_char};
 pub use state::{EditView, State};
 
