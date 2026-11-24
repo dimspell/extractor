@@ -82,14 +82,26 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         StoreEditorMessage::Scanned(result) => {
             match result {
                 Ok((weapons, heals, misc, edit, stores, warnings)) => {
-                    app.state.editors.weapon_editor.catalog = weapons.clone();
-                    app.state.editors.weapon_editor.refresh();
-                    app.state.editors.heal_item_editor.catalog = heals.clone();
-                    app.state.editors.heal_item_editor.refresh();
-                    app.state.editors.misc_item_editor.catalog = misc.clone();
-                    app.state.editors.misc_item_editor.refresh();
-                    app.state.editors.edit_item_editor.catalog = edit.clone();
-                    app.state.editors.edit_item_editor.refresh();
+                    // These four item catalogs are shared with their own editors.
+                    // A scan must never discard edits that are still in the
+                    // editor's undo history, so keep a loaded, modified catalog.
+                    macro_rules! apply_scanned {
+                        ($editor:expr, $scanned:expr) => {
+                            if let Some(records) = $scanned.as_ref() {
+                                let editor = &mut $editor;
+                                let has_unsaved_edits =
+                                    editor.catalog.is_some() && editor.edit_history.can_undo();
+                                if !has_unsaved_edits {
+                                    editor.catalog = Some(records.clone());
+                                    editor.refresh();
+                                }
+                            }
+                        };
+                    }
+                    apply_scanned!(app.state.editors.weapon_editor, weapons);
+                    apply_scanned!(app.state.editors.heal_item_editor, heals);
+                    apply_scanned!(app.state.editors.misc_item_editor, misc);
+                    apply_scanned!(app.state.editors.edit_item_editor, edit);
                     app.state.editors.store_editor.catalog = Some(stores.clone());
 
                     let weapons_count = weapons.as_ref().map(|w| w.len()).unwrap_or(0);
@@ -312,6 +324,46 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
 mod tests {
     use super::*;
     use dispel_core::Store;
+
+    #[test]
+    fn test_store_scan_preserves_unsaved_item_edits() {
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapon = WeaponItem {
+            name: "Edited In Editor".to_string(),
+            ..Default::default()
+        };
+        app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.editors.weapon_editor.refresh();
+        app.state.editors.weapon_editor.select(0);
+        assert!(app.state.editors.weapon_editor.update_field(
+            0,
+            "name",
+            "Unsaved Name".to_string()
+        ));
+        assert!(app.state.editors.weapon_editor.edit_history.can_undo());
+
+        let from_disk = WeaponItem {
+            name: "From Disk".to_string(),
+            ..Default::default()
+        };
+        let _ = handle(
+            StoreEditorMessage::Scanned(Ok((
+                Some(vec![from_disk]),
+                Some(vec![]),
+                Some(vec![]),
+                Some(vec![]),
+                vec![Store::default()],
+                vec![],
+            ))),
+            &mut app,
+        );
+
+        let catalog = app.state.editors.weapon_editor.catalog.as_ref().unwrap();
+        assert_eq!(
+            catalog[0].name, "Unsaved Name",
+            "scan must not discard an unsaved edit"
+        );
+    }
 
     #[test]
     fn test_store_scan_tolerates_missing_item_file_with_warning() {
