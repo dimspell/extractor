@@ -54,6 +54,7 @@ mod sprite_viewer_tests {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 zoom: 1.0,
+                fit_mode: false,
             },
         );
         app
@@ -97,6 +98,7 @@ mod sprite_viewer_tests {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 zoom: 1.0,
+                fit_mode: false,
             },
         );
         app

@@ -110,18 +110,21 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
 
         // ── Zoom ─────────────────────────────────────────────────────────────
         SpriteViewerMessage::ZoomIn => {
+            viewer.fit_mode = false;
             viewer.zoom = (viewer.zoom * 1.25).min(10.0);
         }
         SpriteViewerMessage::ZoomOut => {
+            viewer.fit_mode = false;
             viewer.zoom = (viewer.zoom / 1.25).max(0.1);
         }
         SpriteViewerMessage::ZoomReset => {
+            viewer.fit_mode = false;
             viewer.zoom = 1.0;
         }
         SpriteViewerMessage::ZoomToFit => {
-            // Zoom to make the frame fill the available preview area
-            // Rough fit: use 4× as the max auto-zoom
-            viewer.zoom = 4.0;
+            // The actual scale is computed from the live viewport in the view,
+            // so the frame fits exactly instead of using a fixed multiplier.
+            viewer.fit_mode = true;
         }
         SpriteViewerMessage::TogglePreserveBlack => {
             viewer.preserve_black = !viewer.preserve_black;
