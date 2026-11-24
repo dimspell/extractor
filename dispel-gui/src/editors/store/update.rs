@@ -94,6 +94,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                                 if !has_unsaved_edits {
                                     editor.catalog = Some(records.clone());
                                     editor.refresh();
+                                    editor.spreadsheet.apply_filter(records);
                                 }
                             }
                         };
@@ -324,6 +325,67 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
 mod tests {
     use super::*;
     use dispel_core::Store;
+
+    fn scanned_with_weapons(weapons: Vec<WeaponItem>) -> StoreEditorMessage {
+        StoreEditorMessage::Scanned(Ok((
+            Some(weapons),
+            Some(vec![]),
+            Some(vec![]),
+            Some(vec![]),
+            vec![Store::default()],
+            vec![],
+        )))
+    }
+
+    #[test]
+    fn test_store_scan_initializes_filtered_indices() {
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapons = vec![
+            WeaponItem {
+                name: "Invented Blade".to_string(),
+                ..Default::default()
+            },
+            WeaponItem {
+                name: "Invented Shield".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        let _ = handle(scanned_with_weapons(weapons), &mut app);
+
+        let editor = &app.state.editors.weapon_editor;
+        assert_eq!(editor.catalog.as_ref().unwrap().len(), 2);
+        assert_eq!(
+            editor.spreadsheet.filtered_indices,
+            vec![0, 1],
+            "scan must initialize filtered_indices for every loaded record"
+        );
+    }
+
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_store_scan_table_is_not_empty() {
+        use crate::view::editor::spreadsheet::view::table::build_table_content;
+        use iced_test::simulator;
+
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapons = vec![WeaponItem {
+            name: "Invented Blade".to_string(),
+            ..Default::default()
+        }];
+        let _ = handle(scanned_with_weapons(weapons), &mut app);
+
+        let editor = &app.state.editors.weapon_editor;
+        let element: iced::Element<'_, crate::message::Message> = build_table_content::<WeaponItem>(
+            WeaponItem::field_descriptors(),
+            editor.catalog.as_ref(),
+            &editor.spreadsheet,
+            |_| crate::message::Message::System(crate::message::SystemMessage::DismissError),
+        );
+        let mut ui = simulator(element);
+        ui.find("No matching records")
+            .expect_err("scanned records must be visible instead of the empty-filter message");
+    }
 
     #[test]
     fn test_store_scan_preserves_unsaved_item_edits() {
