@@ -74,16 +74,6 @@ impl Command {
                 action: || Message::System(crate::message::system::SystemMessage::ClearWorkspace),
                 applicable_editors: vec![],
             },
-            // ── Tool views ──────────────────────────────────────────────────
-            Command {
-                id: "open-store-editor",
-                label: "Open: Store Editor",
-                shortcut: None,
-                action: || {
-                    Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::StoreEditor))
-                },
-                applicable_editors: vec![],
-            },
             // ── File operations ──────────────────────────────────────────────
             Command {
                 id: "open-as-hex",
