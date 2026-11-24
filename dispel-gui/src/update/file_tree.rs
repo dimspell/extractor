@@ -73,6 +73,11 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
                     .state
                     .tree_filter
                     .build_matching_paths(app.file_tree.data.root.as_ref());
+                // Matching files inside collapsed folders would stay hidden.
+                app.file_tree
+                    .state
+                    .tree_filter
+                    .expand_matching_directories(app.file_tree.data.root.as_mut());
             }
             Task::none()
         }
