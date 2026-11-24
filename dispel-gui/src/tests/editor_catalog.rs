@@ -180,11 +180,10 @@ mod exhaustive {
 
     // ── Catalog-derived mapping agreement ───────────────────────────────────
 
-    /// The command palette's `applicable_editors` used to be hand-copied and
-    /// wrong in two places (`load-message-scr` → QuestScr, all-map commands →
-    /// MapIni). Derive the expected target from the catalog by comparing the
-    /// message a command produces with the catalog's own load/save message
-    /// constructors, then assert the command points at that editor.
+    /// Scan/save is reached from each editor's own buttons and global Ctrl+S,
+    /// so the palette must not repeat those actions. The catalog still owns the
+    /// load/save messages those buttons send; the remaining palette commands
+    /// keep their editor scoping.
     #[test]
     fn command_applicability_agrees_with_catalog() {
         let mut load_by_msg: HashMap<String, EditorType> = HashMap::new();
@@ -198,39 +197,41 @@ mod exhaustive {
                 save_by_msg.insert(format!("{:?}", save(0)), et);
             }
         }
+        assert!(
+            load_by_msg.len() >= 20 && save_by_msg.len() >= 20,
+            "the catalog must still declare load/save messages for per-editor buttons"
+        );
 
-        let mut checked = 0;
+        let mut scoped = 0;
         for cmd in crate::components::command_palette::Command::all() {
-            let is_load = cmd.id.starts_with("scan-") || cmd.id.starts_with("load-");
-            let is_save = cmd.id.starts_with("save-");
-            if !is_load && !is_save {
-                continue;
+            let is_scan_save = cmd.id.starts_with("scan-")
+                || cmd.id.starts_with("load-")
+                || cmd.id.starts_with("save-");
+            assert!(
+                !is_scan_save,
+                "palette must not duplicate a per-editor scan/save action: {}",
+                cmd.id
+            );
+            let _ = (cmd.action)();
+            if cmd.id.starts_with("hex-") {
+                assert_eq!(
+                    cmd.applicable_editors,
+                    vec![EditorType::HexEditor],
+                    "hex commands must stay scoped to the hex editor"
+                );
+                scoped += 1;
+            } else {
+                assert!(
+                    cmd.applicable_editors.is_empty(),
+                    "command '{}' should be universal, got {:?}",
+                    cmd.id,
+                    cmd.applicable_editors
+                );
             }
-            assert_eq!(
-                cmd.applicable_editors.len(),
-                1,
-                "catalog command '{}' should target exactly one editor",
-                cmd.id
-            );
-            let actual = format!("{:?}", (cmd.action)());
-            let table = if is_load { &load_by_msg } else { &save_by_msg };
-            let expected = table.get(&actual).unwrap_or_else(|| {
-                panic!(
-                    "command '{}' produces a message no catalog editor declares: {}",
-                    cmd.id, actual
-                )
-            });
-            assert_eq!(
-                cmd.applicable_editors[0], *expected,
-                "command '{}' is scoped to the wrong editor",
-                cmd.id
-            );
-            checked += 1;
         }
         assert!(
-            checked >= 20,
-            "expected the catalog to drive at least 20 scan/save commands, found {}",
-            checked
+            scoped >= 2,
+            "expected the hex editor commands to remain in the palette, found {scoped}"
         );
     }
 

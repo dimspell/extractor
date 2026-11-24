@@ -136,3 +136,19 @@ fn test_reset_settings_syncs_bpr_input() {
         "bpr_input should reset alongside bytes_per_row"
     );
 }
+
+#[test]
+fn test_column_header_labels_are_two_digit_hex_at_32_columns() {
+    use crate::ui::view::matrix::column_label;
+    let labels: Vec<String> = (0..32).map(|c| column_label(c, false)).collect();
+    assert_eq!(labels[0], "00");
+    assert_eq!(labels[15], "0F");
+    assert_eq!(labels[16], "10");
+    assert_eq!(labels[31], "1F");
+    assert!(
+        labels.iter().all(|l| l.len() == 2 && l != "?"),
+        "every 32-column label must be a two-digit hex value, got {labels:?}"
+    );
+    assert_eq!(column_label(63, false), "3F");
+    assert_eq!(column_label(10, true), "10");
+}

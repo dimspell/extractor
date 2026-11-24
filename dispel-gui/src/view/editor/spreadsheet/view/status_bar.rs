@@ -8,7 +8,7 @@ use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
-use iced::widget::{button, column, container, progress_bar, row, text};
+use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Length};
 
 pub fn build_status_bar<'a, R: EditableRecord>(
@@ -23,9 +23,7 @@ pub fn build_status_bar<'a, R: EditableRecord>(
                 text("Loading spreadsheet...")
                     .size(11)
                     .style(style::subtle_text),
-                container(progress_bar(0.0..=100.0, 50.0))
-                    .width(Fill)
-                    .height(Length::Fixed(6.0)),
+                text("Working…").size(10).style(style::subtle_text),
             ]
             .spacing(4)
             .width(Length::Fixed(160.0)),

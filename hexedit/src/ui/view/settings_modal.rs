@@ -63,7 +63,8 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let palette: Vec<Element<'_, HexEditorMessage>> = (0..=15)
         .map(|i| {
             let b = (i * 17) as u8;
-            let (fg_opt, _) = default_byte_colors(state.color_scheme, b, state.dim_nulls);
+            let (fg_opt, _) =
+                default_byte_colors(state.theme, state.color_scheme, b, state.dim_nulls);
             let fg = fg_opt.unwrap_or(state.theme.hex_fg);
             container(text("  ").size(10))
                 .style(move |_: &_| container::Style {

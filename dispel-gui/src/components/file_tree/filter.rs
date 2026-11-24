@@ -62,6 +62,27 @@ impl FileTreeFilter {
         self.matching_paths = paths;
     }
 
+    /// Expand every directory that is an ancestor of a match so the matching
+    /// files are actually visible in the collapsible tree.
+    pub fn expand_matching_directories(&self, root: Option<&mut TreeNode<GameFileNode>>) {
+        fn visit(node: &mut TreeNode<GameFileNode>, paths: &HashSet<PathBuf>) {
+            if node.data.is_dir && paths.contains(&node.data.path) {
+                node.expanded = true;
+            }
+            for child in &mut node.children {
+                visit(child, paths);
+            }
+        }
+
+        let Some(root) = root else {
+            return;
+        };
+        let Some(paths) = &self.matching_paths else {
+            return;
+        };
+        visit(root, paths);
+    }
+
     /// Walk the entire tree and collect paths of files that match the current
     /// fuzzy search query. Also includes ancestor directories so the tree
     /// structure is preserved when rendering.

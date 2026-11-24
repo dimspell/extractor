@@ -82,14 +82,30 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         StoreEditorMessage::Scanned(result) => {
             match result {
                 Ok((weapons, heals, misc, edit, stores, warnings)) => {
-                    app.state.editors.weapon_editor.catalog = weapons.clone();
-                    app.state.editors.weapon_editor.refresh();
-                    app.state.editors.heal_item_editor.catalog = heals.clone();
-                    app.state.editors.heal_item_editor.refresh();
-                    app.state.editors.misc_item_editor.catalog = misc.clone();
-                    app.state.editors.misc_item_editor.refresh();
-                    app.state.editors.edit_item_editor.catalog = edit.clone();
-                    app.state.editors.edit_item_editor.refresh();
+                    // These four item catalogs are shared with their own editors.
+                    // A scan must never discard edits that are still in the
+                    // editor's undo history, so keep a loaded, modified catalog.
+                    macro_rules! apply_scanned {
+                        ($editor:expr, $scanned:expr) => {
+                            if let Some(records) = $scanned.as_ref() {
+                                let editor = &mut $editor;
+                                let has_unsaved_edits =
+                                    editor.catalog.is_some() && editor.edit_history.can_undo();
+                                if !has_unsaved_edits {
+                                    editor.catalog = Some(records.clone());
+                                    editor.refresh();
+                                    editor.spreadsheet.apply_filter(records);
+                                    editor
+                                        .spreadsheet
+                                        .compute_all_caches(records, &app.state.lookups);
+                                }
+                            }
+                        };
+                    }
+                    apply_scanned!(app.state.editors.weapon_editor, weapons);
+                    apply_scanned!(app.state.editors.heal_item_editor, heals);
+                    apply_scanned!(app.state.editors.misc_item_editor, misc);
+                    apply_scanned!(app.state.editors.edit_item_editor, edit);
                     app.state.editors.store_editor.catalog = Some(stores.clone());
 
                     let weapons_count = weapons.as_ref().map(|w| w.len()).unwrap_or(0);
@@ -312,6 +328,130 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
 mod tests {
     use super::*;
     use dispel_core::Store;
+
+    fn scanned_with_weapons(weapons: Vec<WeaponItem>) -> StoreEditorMessage {
+        StoreEditorMessage::Scanned(Ok((
+            Some(weapons),
+            Some(vec![]),
+            Some(vec![]),
+            Some(vec![]),
+            vec![Store::default()],
+            vec![],
+        )))
+    }
+
+    #[test]
+    fn test_store_scan_initializes_filtered_indices() {
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapons = vec![
+            WeaponItem {
+                name: "Invented Blade".to_string(),
+                ..Default::default()
+            },
+            WeaponItem {
+                name: "Invented Shield".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        let _ = handle(scanned_with_weapons(weapons), &mut app);
+
+        let editor = &app.state.editors.weapon_editor;
+        assert_eq!(editor.catalog.as_ref().unwrap().len(), 2);
+        assert_eq!(
+            editor.spreadsheet.filtered_indices,
+            vec![0, 1],
+            "scan must initialize filtered_indices for every loaded record"
+        );
+    }
+
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_store_scan_table_is_not_empty() {
+        use crate::view::editor::spreadsheet::view::table::build_table_content;
+        use iced_test::simulator;
+
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapons = vec![
+            WeaponItem {
+                name: "Invented Blade".to_string(),
+                ..Default::default()
+            },
+            WeaponItem {
+                name: "Invented Shield".to_string(),
+                ..Default::default()
+            },
+        ];
+        let _ = handle(scanned_with_weapons(weapons), &mut app);
+
+        let editor = &app.state.editors.weapon_editor;
+        let name_col = WeaponItem::field_descriptors()
+            .iter()
+            .position(|d| d.name == "name")
+            .expect("weapon records have a name field");
+        // TableWidget paints each cell from display_cache; an empty cache draws
+        // blank cells even though filtered_indices already lists the rows.
+        assert_eq!(
+            editor.spreadsheet.get_display(0, name_col),
+            "Invented Blade",
+            "the scanned row's name must be cached for rendering"
+        );
+        assert_eq!(
+            editor.spreadsheet.get_display(1, name_col),
+            "Invented Shield",
+            "every scanned row must have cached cell values"
+        );
+
+        let element: iced::Element<'_, crate::message::Message> = build_table_content::<WeaponItem>(
+            WeaponItem::field_descriptors(),
+            editor.catalog.as_ref(),
+            &editor.spreadsheet,
+            |_| crate::message::Message::System(crate::message::SystemMessage::DismissError),
+        );
+        let mut ui = simulator(element);
+        ui.find("No matching records")
+            .expect_err("scanned records must be visible instead of the empty-filter message");
+    }
+
+    #[test]
+    fn test_store_scan_preserves_unsaved_item_edits() {
+        let mut app = App::test_new(crate::workspace::Workspace::new());
+        let weapon = WeaponItem {
+            name: "Edited In Editor".to_string(),
+            ..Default::default()
+        };
+        app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.editors.weapon_editor.refresh();
+        app.state.editors.weapon_editor.select(0);
+        assert!(app.state.editors.weapon_editor.update_field(
+            0,
+            "name",
+            "Unsaved Name".to_string()
+        ));
+        assert!(app.state.editors.weapon_editor.edit_history.can_undo());
+
+        let from_disk = WeaponItem {
+            name: "From Disk".to_string(),
+            ..Default::default()
+        };
+        let _ = handle(
+            StoreEditorMessage::Scanned(Ok((
+                Some(vec![from_disk]),
+                Some(vec![]),
+                Some(vec![]),
+                Some(vec![]),
+                vec![Store::default()],
+                vec![],
+            ))),
+            &mut app,
+        );
+
+        let catalog = app.state.editors.weapon_editor.catalog.as_ref().unwrap();
+        assert_eq!(
+            catalog[0].name, "Unsaved Name",
+            "scan must not discard an unsaved edit"
+        );
+    }
 
     #[test]
     fn test_store_scan_tolerates_missing_item_file_with_warning() {

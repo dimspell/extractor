@@ -54,6 +54,7 @@ mod sprite_viewer_tests {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 zoom: 1.0,
+                fit_mode: false,
             },
         );
         app
@@ -97,6 +98,7 @@ mod sprite_viewer_tests {
                 undo_stack: Vec::new(),
                 redo_stack: Vec::new(),
                 zoom: 1.0,
+                fit_mode: false,
             },
         );
         app
@@ -236,6 +238,59 @@ mod sprite_viewer_tests {
             !app.state.editors.sprite_viewers[&0].is_playing,
             "ScrubTo pauses playback"
         );
+    }
+
+    // ── Zoom / Fit ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_zoom_to_fit_resets_manual_zoom() {
+        let mut app = app_with_sprite_viewer_frames();
+        for _ in 0..5 {
+            let _ = crate::editors::sprite_editor::handle(SpriteViewerMessage::ZoomIn, &mut app);
+        }
+        assert!(app.state.editors.sprite_viewers[&0].zoom > 1.0);
+        assert!(!app.state.editors.sprite_viewers[&0].fit_mode);
+
+        let _ = crate::editors::sprite_editor::handle(SpriteViewerMessage::ZoomToFit, &mut app);
+        let viewer = &app.state.editors.sprite_viewers[&0];
+        assert!(viewer.fit_mode);
+        assert_eq!(
+            viewer.zoom, 1.0,
+            "Fit must clear the manual multiplier so the effective scale is exactly fit_scale"
+        );
+
+        let viewport = iced::Size::new(640.0, 480.0);
+        let frame = (viewer.frames[0].width, viewer.frames[0].height);
+        let effective = crate::editors::sprite_editor::fit_scale(viewport, frame) * viewer.zoom;
+        assert_eq!(
+            effective,
+            crate::editors::sprite_editor::fit_scale(viewport, frame)
+        );
+    }
+
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_zoom_to_fit_clears_stale_percentage_label() {
+        use iced_test::simulator;
+
+        let mut app = app_with_sprite_viewer_frames();
+        for _ in 0..5 {
+            let _ = crate::editors::sprite_editor::handle(SpriteViewerMessage::ZoomIn, &mut app);
+        }
+        let stale = format!(
+            "{}%",
+            (app.state.editors.sprite_viewers[&0].zoom * 100.0).round() as u32
+        );
+        {
+            let mut ui = simulator(app.view());
+            ui.find(stale.clone())
+                .expect("manual zoom shows a percentage");
+        }
+
+        let _ = crate::editors::sprite_editor::handle(SpriteViewerMessage::ZoomToFit, &mut app);
+        let mut ui = simulator(app.view());
+        ui.find(stale)
+            .expect_err("Fit must not keep showing a stale manual zoom percentage");
     }
 
     // ── Export dialog ────────────────────────────────────────────────────────

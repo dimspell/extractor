@@ -8,8 +8,10 @@ pub mod traits;
 pub mod view_state;
 
 pub use decode::decode_tileset_file;
-pub use draw_helpers::{diamond_path, draw_item_color};
-pub use geometry::{is_visible, screen_to_tile, tile_center, tile_to_screen, tile_world_center};
+pub use draw_helpers::{diamond_path, draw_item_color, mirror_rgba_rows};
+pub use geometry::{
+    is_visible, screen_to_tile, tile_center, tile_to_screen, tile_world_center, zoom_anchor,
+};
 pub use input::handle_input;
 pub use render_tiles::GenericTilesLayer;
 pub use state::{EntitySpriteHandle, InternalSpriteHandle, MapCanvasState};

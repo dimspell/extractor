@@ -329,9 +329,10 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                             progress_clone,
                         );
                         if let Ok(ref index) = result
-                            && let Ok(json) = serde_json::to_string_pretty(index)
+                            && let Err(e) =
+                                crate::editors::event_scr::functions::save_index(&index_path, index)
                         {
-                            std::fs::write(&index_path, &json).ok();
+                            eprintln!("Failed to save event-script function index: {e}");
                         }
                         result
                     })

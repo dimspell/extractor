@@ -12,7 +12,7 @@ use crate::workspace::EditorType;
 use gui_widgets::components::modal::modal;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{Space, pane_grid};
-use iced::widget::{button, column, container, progress_bar, row, stack, text};
+use iced::widget::{button, column, container, row, stack, text};
 use iced::{Element, Fill, Font, Length, alignment};
 use lucide_icons::Icon;
 
@@ -302,7 +302,7 @@ impl App {
             container(
                 column![
                     text("Indexing files…").size(11).style(style::subtle_text),
-                    progress_bar(0.0..=1.0, 0.5).style(style::primary_progress_bar),
+                    text("Working…").size(10).style(style::subtle_text),
                 ]
                 .spacing(8)
                 .align_x(iced::Alignment::Center),

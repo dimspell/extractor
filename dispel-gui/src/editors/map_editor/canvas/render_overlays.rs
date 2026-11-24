@@ -13,6 +13,12 @@ use iced::widget::canvas::{self, Action, Frame, Geometry, Text as CanvasText};
 use iced::widget::text::Alignment as TextAlignment;
 use iced::{Color, Event, Font, Point, Rectangle, alignment, mouse};
 
+/// The hover ring is shown for any hovered entity except the one already
+/// selected. With no selection every hovered entity gets a ring.
+fn should_show_hover_ring(hovered: SelectedEntity, selected: Option<SelectedEntity>) -> bool {
+    selected != Some(hovered)
+}
+
 /// Canvas Program for overlay elements (collisions, events, entities).
 /// Drawn on top of tiles canvas using a separate canvas in a Stack.
 pub struct MapCanvasOverlaysLayer<'a> {
@@ -491,7 +497,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
 
         // Hover ring for entities (monsters/NPCs/extras only — shown with a yellow ring)
         if let Some(hov) = &hovered_element
-            && *hov != self.state.view.selected_entity.unwrap_or(*hov)
+            && should_show_hover_ring(*hov, self.state.view.selected_entity)
             && let Some((htx, hty)) = entity_tile(*hov, self.state)
         {
             let (px, py) = tile_to_screen(htx, hty, diagonal, pan_x, pan_y, zoom);
@@ -638,5 +644,28 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
         } else {
             mouse::Interaction::Idle
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hover_ring_shown_with_no_selection() {
+        assert!(should_show_hover_ring(SelectedEntity::Monster(3), None));
+        assert!(should_show_hover_ring(SelectedEntity::Npc(7), None));
+    }
+
+    #[test]
+    fn test_hover_ring_hidden_for_selected_entity() {
+        assert!(!should_show_hover_ring(
+            SelectedEntity::Monster(3),
+            Some(SelectedEntity::Monster(3))
+        ));
+        assert!(should_show_hover_ring(
+            SelectedEntity::Monster(3),
+            Some(SelectedEntity::Npc(3))
+        ));
     }
 }

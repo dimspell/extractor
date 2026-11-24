@@ -4,7 +4,7 @@ use std::sync::Arc;
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font, Task, Theme};
 
-use hexedit::ui::theme::DARK_THEME;
+use hexedit::ui::theme::ThemeVariant;
 use hexedit::{
     AppMessage, EncodingEntry, HexEditorApp, HexEditorConfig, HexEditorDocument, HexEditorMessage,
     HexEditorState, SaveOutcome, SaveRequest, WriteMode, app_update, app_view, standalone_config,
@@ -54,22 +54,32 @@ fn load_settings() -> PersistedSettings {
     }
 }
 
+/// Iced palette seed for the given hex-editor theme variant.
+fn seed_for_variant(variant: ThemeVariant) -> iced::theme::palette::Seed {
+    let palette = variant.theme();
+    iced::theme::palette::Seed {
+        background: palette.iced_bg,
+        text: palette.iced_text,
+        primary: palette.iced_primary,
+        success: palette.iced_success,
+        danger: palette.iced_danger,
+        warning: palette.iced_warning,
+    }
+}
+
+/// Theme variant of the active document, or Dark when no file is open.
+fn active_variant(app: &App) -> ThemeVariant {
+    app.app
+        .active_tab
+        .and_then(|idx| app.app.documents.get(idx))
+        .map(|doc| doc.state.theme_variant)
+        .unwrap_or_default()
+}
+
 fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
         .title("HexEdit")
-        .theme(|_: &App| {
-            Theme::custom(
-                "HexEdit",
-                iced::theme::palette::Seed {
-                    background: DARK_THEME.iced_bg,
-                    text: DARK_THEME.iced_text,
-                    primary: DARK_THEME.iced_primary,
-                    success: DARK_THEME.iced_success,
-                    danger: DARK_THEME.iced_danger,
-                    warning: DARK_THEME.iced_warning,
-                },
-            )
-        })
+        .theme(|app: &App| Theme::custom("HexEdit", seed_for_variant(active_variant(app))))
         .window_size((1100.0, 800.0))
         .run()
 }
@@ -274,5 +284,38 @@ impl App {
         .width(Fill)
         .height(Fill)
         .into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hexedit::ui::theme::{DARK_THEME, LIGHT_THEME};
+
+    #[test]
+    fn test_seed_for_variant_uses_that_palette() {
+        let dark = seed_for_variant(ThemeVariant::Dark);
+        let light = seed_for_variant(ThemeVariant::Light);
+        assert_eq!(dark.background, DARK_THEME.iced_bg);
+        assert_eq!(dark.text, DARK_THEME.iced_text);
+        assert_eq!(light.background, LIGHT_THEME.iced_bg);
+        assert_eq!(light.text, LIGHT_THEME.iced_text);
+        assert_ne!(dark.background, light.background);
+    }
+
+    #[test]
+    fn test_active_variant_defaults_to_dark_without_documents() {
+        let mut app = App {
+            app: HexEditorApp::new(),
+            status: String::new(),
+        };
+        assert_eq!(active_variant(&app), ThemeVariant::Dark);
+        app.app.documents.push(HexEditorDocument {
+            state: HexEditorState::from_bytes("Invented.bin", vec![], None, None),
+            pinned: false,
+        });
+        app.app.active_tab = Some(0);
+        app.app.documents[0].state.theme_variant = ThemeVariant::Light;
+        assert_eq!(active_variant(&app), ThemeVariant::Light);
     }
 }

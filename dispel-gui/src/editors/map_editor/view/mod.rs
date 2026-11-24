@@ -6,9 +6,7 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::toast;
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
-use iced::widget::{
-    button, canvas, column, container, progress_bar, row, stack, text, text_input, toggler,
-};
+use iced::widget::{button, canvas, column, container, row, stack, text, text_input, toggler};
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
@@ -49,7 +47,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         LoadingState::Loading => container(
             column![
                 text("Loading map…").size(12).style(style::subtle_text),
-                progress_bar(0.0..=1.0, 0.5).style(style::primary_progress_bar),
+                text("Working…").size(10).style(style::subtle_text),
             ]
             .spacing(8)
             .padding(24),
@@ -524,8 +522,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         .on_press(Message::map_editor(MapEditorMessage::ZoomChanged(
                             tab_id,
                             1.25,
-                            f32::NAN,
-                            f32::NAN
+                            state.view.last_canvas_w * 0.5,
+                            state.view.last_canvas_h * 0.5
                         )))
                         .padding([5, 10])
                         .style(style::browse_button),
@@ -534,8 +532,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         .on_press(Message::map_editor(MapEditorMessage::ZoomChanged(
                             tab_id,
                             1.0 / 1.25,
-                            f32::NAN,
-                            f32::NAN
+                            state.view.last_canvas_w * 0.5,
+                            state.view.last_canvas_h * 0.5
                         )))
                         .padding([5, 10])
                         .style(style::browse_button),

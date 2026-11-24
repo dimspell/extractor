@@ -152,6 +152,37 @@ fn test_file_tree_search_filters_matching_files() {
     );
 }
 
+#[test]
+fn test_search_expands_collapsed_ancestor_of_match() {
+    use super::filter::FileTreeFilter;
+
+    let temp_dir = tempdir().unwrap();
+    let game = temp_dir.path().join("game");
+    let folder = game.join("InventedFolder");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::File::create(folder.join("InventedWibble.txt")).unwrap();
+
+    let mut tree = FileTree::scan(&game);
+    {
+        let root = tree.data.root.as_mut().expect("scanned tree has a root");
+        let dir = root
+            .find_mut(&|n: &GameFileNode| n.path == folder)
+            .expect("folder node");
+        dir.expanded = false;
+        assert!(!dir.expanded, "folder starts collapsed");
+    }
+
+    let mut filter = FileTreeFilter::new().with_search_query("wibble".to_string());
+    filter.build_matching_paths(tree.data.root.as_ref());
+    filter.expand_matching_directories(tree.data.root.as_mut());
+
+    let root = tree.data.root.as_mut().expect("scanned tree has a root");
+    let dir = root
+        .find_mut(&|n: &GameFileNode| n.path == folder)
+        .expect("folder node");
+    assert!(dir.expanded, "ancestor of a search match must be expanded");
+}
+
 /// Test filter functionality
 #[test]
 fn test_file_tree_filter_functionality() {

@@ -225,8 +225,11 @@ impl SnfFile {
         let wav_header_size = 44usize;
         let mut out = Vec::with_capacity(wav_header_size + self.pcm_data.len());
 
+        // The RIFF/data sizes must describe the PCM bytes actually written,
+        // even if a divergent header `data_size` was parsed from the source.
+        let pcm_len = u32::try_from(self.pcm_data.len()).unwrap_or(u32::MAX);
         // RIFF chunk: size = total file size - 8 ("RIFF" + size field)
-        let riff_size = (36u32).saturating_add(self.data_size.max(0) as u32);
+        let riff_size = (36u32).saturating_add(pcm_len);
         out.extend_from_slice(b"RIFF");
         out.extend_from_slice(&riff_size.to_le_bytes());
         out.extend_from_slice(b"WAVE");
@@ -241,7 +244,7 @@ impl SnfFile {
         out.extend_from_slice(&self.bits_per_sample.to_le_bytes());
         // data sub-chunk
         out.extend_from_slice(b"data");
-        out.extend_from_slice(&(self.data_size.max(0) as u32).to_le_bytes());
+        out.extend_from_slice(&pcm_len.to_le_bytes());
         out.extend_from_slice(&self.pcm_data);
         out
     }
@@ -372,6 +375,30 @@ pub fn import_wav(wav_path: &Path, snf_path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wav_sizes_follow_pcm_length_not_header_data_size() {
+        let file = SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 1,
+            sample_rate: 44100,
+            byte_rate: 88200,
+            block_align: 2,
+            bits_per_sample: 16,
+            data_size: 9999,
+            pcm_data: vec![0u8; 6],
+        };
+        let wav = file.to_wav_bytes();
+        let riff_size = u32::from_le_bytes([wav[4], wav[5], wav[6], wav[7]]);
+        let data_size = u32::from_le_bytes([wav[40], wav[41], wav[42], wav[43]]);
+        assert_eq!(data_size, 6, "data chunk must describe written PCM bytes");
+        assert_eq!(
+            riff_size,
+            36 + 6,
+            "RIFF size must describe written PCM bytes"
+        );
+        assert_eq!(wav.len(), 44 + 6);
+    }
 
     #[test]
     fn wav_round_trip() {

@@ -215,8 +215,9 @@ pub fn get_sequence_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<Se
     }
 
     let start_position = reader.stream_position()?;
-    let mut frame_infos = Vec::with_capacity(frame_count as usize);
-    for _ in 0..frame_count {
+    let frame_slot_count = checked_count(frame_count, "frame count")?;
+    let mut frame_infos = Vec::with_capacity(frame_slot_count);
+    for _ in 0..frame_slot_count {
         let image_info = get_image_info(reader)?;
         frame_infos.push(image_info);
         reader.seek(SeekFrom::Current(image_info.size_bytes))?;
@@ -992,6 +993,19 @@ pub fn rgba_to_rgb16_bytes(r: u8, g: u8, b: u8, a: u8, pixel_format: SpritePixel
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_get_sequence_info_rejects_negative_frame_count() {
+        // A zero stamp is followed by frame_count and a reserved word.
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&0_i32.to_le_bytes()); // stamp
+        bytes.extend_from_slice(&(-1_i32).to_le_bytes()); // frame count
+        bytes.extend_from_slice(&0_i32.to_le_bytes()); // reserved
+        let mut reader = BufReader::new(Cursor::new(bytes));
+        let err = get_sequence_info(&mut reader).expect_err("negative frame count must fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
 
     // ── RGB565 encode / decode round-trip ─────────────────────────────
 

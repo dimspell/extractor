@@ -1,7 +1,7 @@
 use super::message::{MapDataHandle, SelectedEntity};
 use crate::components::loading_state::LoadingState;
 pub use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
-use gui_widgets::components::toast::{Status, Toast};
+use gui_widgets::components::toast::{Status, Toast, ToastId};
 use iced::widget::image::Handle;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -149,6 +149,12 @@ impl Default for MapDataState {
 /// Maximum number of toasts kept on screen.
 const MAX_TOASTS: usize = 4;
 
+fn next_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
+
 impl MapDataState {
     pub fn map_data(&self) -> Option<&MapDataHandle> {
         self.loading_state.data()
@@ -169,6 +175,7 @@ impl MapDataState {
             return;
         }
         self.toasts.push(Toast {
+            id: ToastId::new(next_id()),
             title,
             body,
             status,
@@ -443,6 +450,16 @@ mod tests {
         // Same title but different body → new toast.
         s.notify(Status::Success, "Saved", "dun04.map");
         assert_eq!(s.toasts.len(), 2);
+    }
+
+    #[test]
+    fn test_notify_replace_keeps_toast_id() {
+        let mut s = MapDataState::default();
+        s.notify_replace("Collision", Status::Primary, "Collision", "(1,1)");
+        let id = s.toasts[0].id.clone();
+        s.notify_replace("Collision", Status::Primary, "Collision", "(2,2)");
+        assert_eq!(s.toasts[0].id, id, "replace must keep the timer identity");
+        assert_eq!(s.toasts[0].body, "(2,2)");
     }
 
     #[test]

@@ -1,6 +1,27 @@
 use iced::widget::button;
 use iced::{Background, Border, Color, Shadow, Theme, Vector, color};
 
+/// Mute every colour in a style for a control that cannot be pressed.
+fn dimmed(base: button::Style) -> button::Style {
+    let dim = |c: Color| Color { a: c.a * 0.45, ..c };
+    button::Style {
+        background: base.background.map(|bg| match bg {
+            Background::Color(c) => Background::Color(dim(c)),
+            other => other,
+        }),
+        text_color: dim(base.text_color),
+        border: Border {
+            color: dim(base.border.color),
+            ..base.border
+        },
+        shadow: Shadow {
+            color: dim(base.shadow.color),
+            ..base.shadow
+        },
+        ..base
+    }
+}
+
 pub fn tab_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),
@@ -127,6 +148,7 @@ pub fn chip(_theme: &Theme, status: button::Status) -> button::Style {
             },
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -152,6 +174,7 @@ pub fn active_chip(_theme: &Theme, status: button::Status) -> button::Style {
             background: Some(Background::Color(color!(0x8b5a2b, 0.3))),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -173,6 +196,7 @@ pub fn browse_button(_theme: &Theme, status: button::Status) -> button::Style {
             text_color: Color::WHITE,
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -192,48 +216,6 @@ pub fn command_palette_button(_theme: &Theme, status: button::Status) -> button:
         button::Status::Hovered => button::Style {
             background: Some(Background::Color(color!(0x5d4037))),
             text_color: Color::WHITE,
-            ..base
-        },
-        _ => base,
-    }
-}
-
-pub fn grid_header_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: color!(0xd7ccc8), // Light tan for dark background
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    };
-    match status {
-        button::Status::Hovered => button::Style {
-            text_color: color!(0xeae0c8),
-            background: Some(Background::Color(color!(0x4e342e))),
-            ..base
-        },
-        _ => base,
-    }
-}
-
-pub fn grid_cell_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: color!(0xd7ccc8), // Light tan for dark background
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    };
-    match status {
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(color!(0x333333))),
-            text_color: color!(0xeae0c8),
             ..base
         },
         _ => base,
@@ -327,124 +309,6 @@ pub fn normal_row_button(_theme: &Theme, status: button::Status) -> button::Styl
     }
 }
 
-pub fn pane_header_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let base = button::Style {
-        background: Some(Background::Color(Color::TRANSPARENT)),
-        text_color: color!(0xcccccc),
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 2.into(),
-        },
-        ..Default::default()
-    };
-    match status {
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(color!(0x5d4037))),
-            text_color: color!(0xffd700),
-            ..base
-        },
-        _ => base,
-    }
-}
-/// Header cell button — transparent base, column separator via border, hover highlight
-pub fn spreadsheet_header_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let base = button::Style {
-        background: None,
-        text_color: color!(0xb8a898),
-        border: Border {
-            color: color!(0x3d2b1f),
-            width: 1.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    };
-    match status {
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(color!(0x2d2218))),
-            text_color: color!(0xeae0c8),
-            ..base
-        },
-        button::Status::Pressed => button::Style {
-            background: Some(Background::Color(color!(0x3d2b1f))),
-            text_color: color!(0xffd700),
-            ..base
-        },
-        _ => base,
-    }
-}
-///     border).
-pub fn spreadsheet_row(
-    is_selected: bool,
-    row_idx: usize,
-    is_highlighted: bool,
-    is_current_highlight: bool,
-) -> impl Fn(&Theme, button::Status) -> button::Style {
-    move |_theme, status| {
-        let (bg, tc) = if is_current_highlight {
-            // "Find next match" target — brightest, most prominent
-            (color!(0x7a6a2a), color!(0xffffff))
-        } else if is_highlighted {
-            // Other rows that match in highlight mode
-            (color!(0x5a4e1a), color!(0xfff2c0))
-        } else if is_selected {
-            (color!(0x3a2e1a), color!(0xffd700))
-        } else if row_idx.is_multiple_of(2) {
-            (color!(0x1e1b17), color!(0xd4c5a9))
-        } else {
-            (color!(0x232019), color!(0xd4c5a9))
-        };
-
-        let final_bg = match status {
-            button::Status::Hovered if !is_selected && !is_highlighted && !is_current_highlight => {
-                color!(0x2d2820)
-            }
-            _ => bg,
-        };
-
-        let border_color = if is_current_highlight {
-            color!(0xffd700, 0.85)
-        } else if is_highlighted {
-            color!(0xdaa520, 0.7)
-        } else if is_selected {
-            color!(0xdaa520, 0.5)
-        } else {
-            color!(0x2a2520)
-        };
-
-        let border_width = if is_current_highlight {
-            2.0
-        } else if is_selected || is_highlighted {
-            1.0
-        } else {
-            0.5
-        };
-
-        button::Style {
-            background: Some(Background::Color(final_bg)),
-            text_color: tc,
-            border: Border {
-                color: border_color,
-                width: border_width,
-                radius: 0.into(),
-            },
-            ..Default::default()
-        }
-    }
-}
-/// Data cell button — fully transparent, no decoration; row background and selection show through
-pub fn spreadsheet_cell_btn(_theme: &Theme, _status: button::Status) -> button::Style {
-    button::Style {
-        background: None,
-        text_color: color!(0xd4c5a9),
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    }
-}
 /// Highlighted (selected) filter mode button — gold accent.
 pub fn filter_mode_active(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
@@ -584,27 +448,6 @@ pub fn tree_file_row(_theme: &Theme, status: button::Status) -> button::Style {
         _ => base,
     }
 }
-/// File tree menu button (⋮) — minimal, subtle
-pub fn tree_menu_button(_theme: &Theme, status: button::Status) -> button::Style {
-    let base = button::Style {
-        background: None,
-        text_color: color!(0x8d6e63),
-        border: Border {
-            color: Color::TRANSPARENT,
-            width: 0.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    };
-    match status {
-        button::Status::Hovered => button::Style {
-            background: Some(Background::Color(color!(0x3d2b1f))),
-            text_color: color!(0xd7ccc8),
-            ..base
-        },
-        _ => base,
-    }
-}
 
 pub fn menu_disabled_item(_theme: &Theme, _status: button::Status) -> button::Style {
     button::Style {
@@ -667,6 +510,7 @@ pub fn playback_button(_theme: &Theme, status: button::Status) -> button::Style 
             text_color: color!(0xffee58),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -713,6 +557,43 @@ pub fn export_button(_theme: &Theme, status: button::Status) -> button::Style {
             background: Some(Background::Color(color!(0x4e342e))),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_dimmed(style_fn: fn(&Theme, button::Status) -> button::Style, name: &str) {
+        let theme = Theme::Dark;
+        let active = style_fn(&theme, button::Status::Active);
+        let disabled = style_fn(&theme, button::Status::Disabled);
+        assert!(
+            disabled.text_color.a < active.text_color.a,
+            "{name}: disabled text must be dimmer than active"
+        );
+        let bg_alpha = |s: button::Style| match s.background {
+            Some(Background::Color(c)) => c.a,
+            _ => 1.0,
+        };
+        assert!(
+            bg_alpha(disabled) < bg_alpha(active),
+            "{name}: disabled background must be dimmer than active"
+        );
+        assert!(
+            disabled.border.color.a < active.border.color.a,
+            "{name}: disabled border must be dimmer than active"
+        );
+    }
+
+    #[test]
+    fn test_shared_button_styles_dim_when_disabled() {
+        assert_dimmed(chip, "chip");
+        assert_dimmed(active_chip, "active_chip");
+        assert_dimmed(playback_button, "playback_button");
+        assert_dimmed(export_button, "export_button");
+        assert_dimmed(browse_button, "browse_button");
     }
 }

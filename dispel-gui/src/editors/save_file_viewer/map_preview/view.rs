@@ -8,7 +8,7 @@ use crate::editors::save_file_viewer::map_preview::state::{
     MapPreviewLoading, MapPreviewState, PreviewLayer,
 };
 use crate::message::{Message, MessageExt};
-use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text};
+use iced::widget::{button, canvas, column, container, row, stack, text};
 use iced::{Element, Fill};
 
 /// Render the map preview control panel and canvas.
@@ -21,7 +21,7 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             .into(),
 
         MapPreviewLoading::Loading => container(
-            column![text("Loading map…").size(12), progress_bar(0.0..=1.0, 0.5),]
+            column![text("Loading map…").size(12), text("Working…").size(10),]
                 .spacing(8)
                 .padding(16),
         )
@@ -48,12 +48,9 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
         MapPreviewLoading::Loaded => {
             if !state.tiles_ready {
                 return container(
-                    column![
-                        text("Decoding tiles…").size(12),
-                        progress_bar(0.0..=1.0, 0.5),
-                    ]
-                    .spacing(8)
-                    .padding(16),
+                    column![text("Decoding tiles…").size(12), text("Working…").size(10),]
+                        .spacing(8)
+                        .padding(16),
                 )
                 .width(Fill)
                 .height(Fill)
@@ -98,8 +95,8 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                         .on_press(Message::save_file_viewer(
                             SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
                                 1.25,
-                                f32::NAN,
-                                f32::NAN
+                                state.view.last_canvas_w * 0.5,
+                                state.view.last_canvas_h * 0.5
                             ),)
                         ))
                         .padding([5, 10]),
@@ -108,8 +105,8 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                         .on_press(Message::save_file_viewer(
                             SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
                                 1.0 / 1.25,
-                                f32::NAN,
-                                f32::NAN
+                                state.view.last_canvas_w * 0.5,
+                                state.view.last_canvas_h * 0.5
                             ),)
                         ))
                         .padding([5, 10]),

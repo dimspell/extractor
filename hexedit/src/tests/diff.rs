@@ -130,3 +130,39 @@ fn test_diff_drag_on_comparison_side_publishes_side() {
         "drag on the comparison side must publish DiffExtendTo with is_baseline=false, got {messages:?}"
     );
 }
+
+#[test]
+fn test_diff_text_colors_contrast_in_both_themes() {
+    use crate::coloring::contrast_ratio;
+    use crate::ui::theme::{DARK_THEME, LIGHT_THEME};
+    use crate::ui::view::diff::diff_text_color;
+
+    for theme in [&DARK_THEME, &LIGHT_THEME] {
+        let bg = theme.diff_bg;
+        let (dr, dg, db) = (bg.r, bg.g, bg.b);
+        let baseline_bg = iced::Color::from_rgb(
+            (dr + 0.25).min(1.0),
+            (dg * 0.4).max(0.0),
+            (db * 0.3).max(0.0),
+        );
+        let comparison_bg = iced::Color::from_rgb(
+            (dr * 0.4).max(0.0),
+            (dg + 0.25).min(1.0),
+            (db * 0.4).max(0.0),
+        );
+        for (cell_bg, baseline) in [(baseline_bg, true), (comparison_bg, false)] {
+            let fg = diff_text_color(theme, cell_bg, baseline);
+            let cr = contrast_ratio(&fg, &cell_bg);
+            assert!(
+                cr >= 4.0,
+                "{} theme {} text contrast {cr:.2} is too low",
+                if std::ptr::eq(theme, &DARK_THEME) {
+                    "dark"
+                } else {
+                    "light"
+                },
+                if baseline { "baseline" } else { "comparison" }
+            );
+        }
+    }
+}

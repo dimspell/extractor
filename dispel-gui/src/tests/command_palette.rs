@@ -190,4 +190,48 @@ mod command_palette_tests {
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp));
         assert_eq!(task.units(), 0);
     }
+
+    #[test]
+    fn test_palette_does_not_duplicate_store_editor() {
+        let commands = crate::components::command_palette::Command::all();
+        assert!(
+            !commands.iter().any(|c| c.id == "open-store-editor"),
+            "the Store Editor is opened from the sidebar, not the palette"
+        );
+        assert!(
+            !commands.iter().any(|c| c.label == "Open: Store Editor"),
+            "no palette label may duplicate the sidebar Store Editor button"
+        );
+    }
+
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_sidebar_store_button_still_opens_editor() {
+        use crate::workspace::EditorType;
+        use iced_test::simulator;
+
+        let mut app = App::test_new(Workspace::new());
+        let mut ui = simulator(app.view());
+        ui.click("Store Editor")
+            .expect("sidebar must keep a Store Editor button");
+        let messages: Vec<Message> = ui.into_messages().collect();
+        assert!(
+            messages.iter().any(|m| matches!(
+                m,
+                Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::StoreEditor))
+            )),
+            "sidebar Store Editor must emit OpenToolTab(StoreEditor), got {messages:?}"
+        );
+        for msg in messages {
+            let _ = app.update(msg);
+        }
+        assert!(
+            app.state
+                .workspace
+                .tabs
+                .iter()
+                .any(|t| t.editor_type == EditorType::StoreEditor),
+            "sidebar Store Editor button must open the editor"
+        );
+    }
 }

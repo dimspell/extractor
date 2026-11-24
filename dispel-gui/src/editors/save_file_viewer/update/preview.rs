@@ -93,8 +93,17 @@ pub async fn load_preview_sprites(
                         let frame = frames.get(seq).or_else(|| frames.first())?;
                         let w = frame.image.width();
                         let h = frame.image.height();
+                        let pixels = if flip {
+                            crate::components::map_render::mirror_rgba_rows(
+                                frame.image.as_raw(),
+                                w,
+                                h,
+                            )
+                        } else {
+                            frame.image.as_raw().to_vec()
+                        };
                         return Some(EntitySpriteHandle {
-                            handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
+                            handle: Handle::from_rgba(w, h, pixels),
                             width: w,
                             height: h,
                             origin_x: frame.origin_x,

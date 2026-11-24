@@ -216,13 +216,30 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
 // ── Main preview ──────────────────────────────────────────────────────────────
 
 fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    let inner: Element<'_, Message> =
-        if let Some(frame) = viewer.frames.get(viewer.selected_frame_global()) {
-            let w = (frame.width as f32 * viewer.zoom).ceil();
-            let h = (frame.height as f32 * viewer.zoom).ceil();
-            image(frame.image.clone())
-                .width(Length::Fixed(w))
-                .height(Length::Fixed(h))
+    use crate::editors::sprite_editor::fit_scale;
+    use iced::{Size, widget::responsive};
+
+    let fit_mode = viewer.fit_mode;
+    let zoom = viewer.zoom;
+    let frame_info = viewer
+        .frames
+        .get(viewer.selected_frame_global())
+        .map(|f| (f.image.clone(), f.width, f.height));
+
+    // `responsive` sits outside the scrollable so it sees a finite viewport;
+    // the image is clipped by the scrollable instead of painting over controls.
+    responsive(move |size: Size| {
+        let inner: Element<'_, Message> = if let Some((handle, w, h)) = &frame_info {
+            let scale = if fit_mode {
+                fit_scale(size, (*w, *h))
+            } else {
+                1.0
+            } * zoom;
+            let draw_w = (*w as f32 * scale).ceil().max(1.0);
+            let draw_h = (*h as f32 * scale).ceil().max(1.0);
+            container(image(handle.clone()).width(draw_w).height(draw_h))
+                .width(draw_w)
+                .height(draw_h)
                 .into()
         } else {
             text("No frames loaded")
@@ -231,13 +248,19 @@ fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
                 .into()
         };
 
-    container(inner)
-        .width(Fill)
-        .height(Fill)
-        .center_x(Fill)
-        .center_y(Fill)
-        .padding(8)
-        .into()
+        let result: Element<'_, Message> = scrollable(inner)
+            .direction(scrollable::Direction::Both {
+                vertical: Default::default(),
+                horizontal: Default::default(),
+            })
+            .width(Fill)
+            .height(Fill)
+            .into();
+        result
+    })
+    .width(Fill)
+    .height(Fill)
+    .into()
 }
 
 // ── Zoom controls ─────────────────────────────────────────────────────────────
@@ -263,9 +286,13 @@ fn view_zoom_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .padding([2, 6])
         .style(style::chip);
 
-    let zoom_label = text(format!("{}%", (viewer.zoom * 100.0).round() as u32))
-        .size(11)
-        .style(style::subtle_text);
+    let zoom_label = text(if viewer.fit_mode {
+        "Fit".to_string()
+    } else {
+        format!("{}%", (viewer.zoom * 100.0).round() as u32)
+    })
+    .size(11)
+    .style(style::subtle_text);
 
     let preserve_black = row![
         checkbox(viewer.preserve_black).on_toggle(|_| sv(SpriteViewerMessage::TogglePreserveBlack)),

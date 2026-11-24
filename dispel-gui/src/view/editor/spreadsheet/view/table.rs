@@ -19,17 +19,25 @@ pub fn build_table_content<'a, R: EditableRecord>(
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     if catalog.is_none() {
-        return container(
-            text("No data loaded. Click Scan to load records.")
-                .size(13)
-                .style(style::subtle_text),
-        )
-        .width(Fill)
-        .padding(20)
-        .into();
+        return empty_table_message("No records. Click Scan to load records.");
+    }
+
+    if catalog.is_some_and(|c| c.is_empty()) {
+        return empty_table_message("No records");
+    }
+
+    if spreadsheet.filtered_indices.is_empty() {
+        return empty_table_message("No matching records");
     }
 
     build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg)
+}
+
+fn empty_table_message<'a>(message: &'static str) -> Element<'a, Message> {
+    container(text(message).size(13).style(style::subtle_text))
+        .width(Fill)
+        .padding(20)
+        .into()
 }
 
 fn build_table_content_widget<'a>(
@@ -102,5 +110,61 @@ fn build_table_content_widget<'a>(
             .into()
     } else {
         body
+    }
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+    use crate::components::editable::EditableRecord;
+    use crate::message::SystemMessage;
+    use dispel_core::WeaponItem;
+    use iced_test::simulator;
+
+    fn msg(_: SpreadsheetMessage) -> Message {
+        Message::System(SystemMessage::DismissError)
+    }
+
+    #[test]
+    fn test_empty_catalog_shows_no_records_message() {
+        let spreadsheet = SpreadsheetState::new();
+        let element: Element<'_, Message> = build_table_content::<WeaponItem>(
+            WeaponItem::field_descriptors(),
+            None,
+            &spreadsheet,
+            msg,
+        );
+        let mut ui = simulator(element);
+        assert!(
+            ui.find("No records. Click Scan to load records.").is_ok(),
+            "an unloaded catalog must explain how to load records"
+        );
+    }
+
+    #[test]
+    fn test_empty_and_filtered_results_render_a_message() {
+        let spreadsheet = SpreadsheetState::new();
+        let empty: Vec<WeaponItem> = Vec::new();
+        let element: Element<'_, Message> = build_table_content::<WeaponItem>(
+            WeaponItem::field_descriptors(),
+            Some(&empty),
+            &spreadsheet,
+            msg,
+        );
+        let mut ui = simulator(element);
+        assert!(ui.find("No records").is_ok());
+
+        let populated = vec![WeaponItem::default()];
+        let element: Element<'_, Message> = build_table_content::<WeaponItem>(
+            WeaponItem::field_descriptors(),
+            Some(&populated),
+            &spreadsheet,
+            msg,
+        );
+        let mut ui = simulator(element);
+        assert!(
+            ui.find("No matching records").is_ok(),
+            "zero filter results must be explained"
+        );
     }
 }

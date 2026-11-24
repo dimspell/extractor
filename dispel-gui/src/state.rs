@@ -81,7 +81,11 @@ impl AppState {
     }
 
     pub fn load_workspace(&mut self) -> io::Result<()> {
-        self.workspace = Workspace::load(&Self::workspace_path()).unwrap_or_default();
+        self.load_workspace_from(&Self::workspace_path())
+    }
+
+    fn load_workspace_from(&mut self, path: &PathBuf) -> io::Result<()> {
+        self.workspace = Workspace::load(path)?;
         // Sync game_path from workspace to shared_game_path
         if let Some(ref path) = self.workspace.game_path {
             self.shared_game_path = path.to_string_lossy().to_string();
@@ -434,6 +438,29 @@ impl Default for PaneState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_load_workspace_propagates_corrupt_json() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("workspace.json");
+        std::fs::write(&path, b"{ this is not json").expect("write corrupt workspace");
+        let mut state = AppState::default();
+        state
+            .load_workspace_from(&path)
+            .expect_err("corrupt workspace must fail to load");
+    }
+
+    #[test]
+    fn test_load_workspace_missing_file_yields_fresh_workspace() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("workspace.json");
+        let mut state = AppState::default();
+        state
+            .load_workspace_from(&path)
+            .expect("missing workspace is not an error");
+        assert!(state.workspace.game_path.is_none());
+        assert!(state.recent_files.is_empty());
+    }
 
     #[test]
     fn test_validate_unsupported_type_reports_not_available() {

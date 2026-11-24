@@ -1,6 +1,20 @@
 use crate::editors::sprite_editor::ExportFormat;
 use dispel_core::sprite::{SpriteFile, SpriteRenderOptions, read_sprite_file};
+use iced::Size;
 use std::path::{Path, PathBuf};
+
+/// Scale that fits a frame inside the preview viewport while preserving its
+/// aspect ratio. A zero-sized frame or viewport falls back to 1:1 so the
+/// preview cannot collapse before layout has run.
+pub fn fit_scale(viewport: Size, frame: (u32, u32)) -> f32 {
+    let (w, h) = frame;
+    if w == 0 || h == 0 || viewport.width <= 0.0 || viewport.height <= 0.0 {
+        return 1.0;
+    }
+    (viewport.width / w as f32)
+        .min(viewport.height / h as f32)
+        .max(0.01)
+}
 
 /// A decoded sprite frame ready for display, editing, and export.
 #[derive(Debug, Clone)]
@@ -59,6 +73,9 @@ pub struct SpriteViewerState {
     // Zoom
     /// Zoom multiplier (1.0 = 100%, clamped to [0.1, 10.0]).
     pub zoom: f32,
+    /// When true the frame is scaled to the live preview viewport instead of
+    /// using the fixed `zoom` multiplier.
+    pub fit_mode: bool,
     // Playback
     pub is_playing: bool,
     pub is_looping: bool,
@@ -90,6 +107,7 @@ impl Default for SpriteViewerState {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             zoom: 1.0,
+            fit_mode: true,
             is_playing: false,
             is_looping: true,
             speed_100x: 100,
@@ -315,5 +333,32 @@ impl SpriteViewerState {
 
     pub fn mark_clean(&mut self) {
         self.dirty = false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fit_scale_uses_the_limiting_viewport_axis() {
+        let scale = fit_scale(Size::new(640.0, 480.0), (32, 32));
+        assert!(
+            (scale - 15.0).abs() < 1e-5,
+            "expected 480/32 = 15, got {scale}"
+        );
+        let scale = fit_scale(Size::new(100.0, 400.0), (100, 50));
+        assert!(
+            (scale - 1.0).abs() < 1e-5,
+            "expected 100/100 = 1, got {scale}"
+        );
+    }
+
+    #[test]
+    fn test_fit_scale_handles_unlaid_out_viewport() {
+        assert_eq!(fit_scale(Size::new(0.0, 0.0), (32, 32)), 1.0);
+        assert_eq!(fit_scale(Size::new(100.0, 100.0), (0, 10)), 1.0);
+        assert!(fit_scale(Size::new(100.0, 100.0), (10000, 1)) >= 0.01);
+        assert!(SpriteViewerState::default().fit_mode);
     }
 }
