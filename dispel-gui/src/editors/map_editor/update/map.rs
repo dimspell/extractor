@@ -813,8 +813,13 @@ fn decoded_from_frame(
 ) -> DecodedEntitySprite {
     let w = frame.image.width();
     let h = frame.image.height();
+    let pixels = if flip {
+        crate::components::map_render::mirror_rgba_rows(frame.image.as_raw(), w, h)
+    } else {
+        frame.image.as_raw().to_vec()
+    };
     DecodedEntitySprite {
-        pixels: frame.image.as_raw().to_vec(),
+        pixels,
         width: w,
         height: h,
         origin_x: frame.origin_x,

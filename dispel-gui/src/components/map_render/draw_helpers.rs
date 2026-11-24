@@ -34,6 +34,29 @@ pub fn draw_tile_layer(
     }
 }
 
+/// Mirror an RGBA image horizontally, one pixel row at a time. Flipped
+/// entities need their pixels mirrored as well as their origin offset shifted,
+/// otherwise the sprite is drawn in the wrong direction.
+pub fn mirror_rgba_rows(pixels: &[u8], width: u32, height: u32) -> Vec<u8> {
+    let w = width as usize;
+    let row_len = w.saturating_mul(4);
+    if row_len == 0 {
+        return Vec::new();
+    }
+    let mut mirrored = vec![0u8; pixels.len()];
+    for y in 0..height as usize {
+        let start = y.saturating_mul(row_len);
+        let Some(row) = pixels.get(start..start.saturating_add(row_len)) else {
+            break;
+        };
+        for (x, px) in row.as_chunks::<4>().0.iter().enumerate() {
+            let dst = start.saturating_add((w - 1 - x) * 4);
+            mirrored[dst..dst + 4].copy_from_slice(px);
+        }
+    }
+    mirrored
+}
+
 /// Render an entity sprite handle onto the canvas frame.
 pub fn draw_entity_sprite(
     frame: &mut Frame,
@@ -78,4 +101,24 @@ pub fn diamond_path(cx: f32, cy: f32, r: f32) -> canvas::Path {
         b.line_to(Point::new(cx - r, cy));
         b.close();
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mirror_rgba_rows_reverses_each_row() {
+        // 2×2 image with a distinct colour per pixel.
+        let pixels = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+        assert_eq!(
+            mirror_rgba_rows(&pixels, 2, 2),
+            vec![5, 6, 7, 8, 1, 2, 3, 4, 13, 14, 15, 16, 9, 10, 11, 12]
+        );
+    }
+
+    #[test]
+    fn test_mirror_rgba_rows_zero_width_is_empty() {
+        assert!(mirror_rgba_rows(&[1, 2, 3, 4], 0, 2).is_empty());
+    }
 }
