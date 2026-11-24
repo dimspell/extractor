@@ -125,5 +125,39 @@ pub fn composite_item_picker(
             .into()
     };
 
-    col![type_picker, item_picker].spacing(4).into()
+    row![
+        text(label)
+            .size(11)
+            .width(LABEL_W)
+            .style(style::subtle_text),
+        col![type_picker, item_picker].spacing(4),
+    ]
+    .spacing(6)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+    use iced_test::simulator;
+
+    fn label_rendered(entries: Option<&[(String, String)]>) -> bool {
+        let element: Element<'_, Message> =
+            composite_item_picker("Invented Item", "1:0", entries, |_| {
+                Message::FileTree(crate::message::FileTreeMessage::Search(String::new()))
+            });
+        let mut ui = simulator(element);
+        ui.find("Invented Item").is_ok()
+    }
+
+    #[test]
+    fn test_composite_picker_shows_label_with_and_without_lookups() {
+        assert!(label_rendered(None), "label must render without lookups");
+        let entries = [("1:0".to_string(), "Invented Sword".to_string())];
+        assert!(
+            label_rendered(Some(&entries)),
+            "label must render when lookups are loaded"
+        );
+    }
 }
