@@ -40,6 +40,12 @@ mod tests;
 
 pub const DEFAULT_TIMEOUT: u64 = 4;
 
+fn next_toast_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+    NEXT.fetch_add(1, Ordering::Relaxed)
+}
+
 /// Severity / visual style of a toast notification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Status {
@@ -51,9 +57,21 @@ pub enum Status {
     Warning,
 }
 
+/// A single toast notification. The `id` is stable across rewrites of an
+/// existing toast's content so its timer keeps following the same slot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToastId(u64);
+
+impl ToastId {
+    pub fn new(id: u64) -> Self {
+        ToastId(id)
+    }
+}
+
 /// A single toast notification.
 #[derive(Debug, Clone)]
 pub struct Toast {
+    pub id: ToastId,
     pub title: String,
     pub body: String,
     pub status: Status,
@@ -63,6 +81,7 @@ impl Toast {
     /// Create a success toast.
     pub fn success(title: impl Into<String>, body: impl Into<String>) -> Self {
         Toast {
+            id: ToastId::new(next_toast_id()),
             title: title.into(),
             body: body.into(),
             status: Status::Success,
@@ -72,6 +91,7 @@ impl Toast {
     /// Create an error/danger toast.
     pub fn error(title: impl Into<String>, body: impl Into<String>) -> Self {
         Toast {
+            id: ToastId::new(next_toast_id()),
             title: title.into(),
             body: body.into(),
             status: Status::Danger,
@@ -81,6 +101,7 @@ impl Toast {
     /// Create an info/primary toast.
     pub fn info(title: impl Into<String>, body: impl Into<String>) -> Self {
         Toast {
+            id: ToastId::new(next_toast_id()),
             title: title.into(),
             body: body.into(),
             status: Status::Primary,
@@ -90,6 +111,7 @@ impl Toast {
     /// Create a warning toast.
     pub fn warning(title: impl Into<String>, body: impl Into<String>) -> Self {
         Toast {
+            id: ToastId::new(next_toast_id()),
             title: title.into(),
             body: body.into(),
             status: Status::Warning,
@@ -100,9 +122,50 @@ impl Toast {
 /// A widget that displays [`Toast`] notifications as an overlay on top of
 /// `content`. Toasts are stacked vertically at the top-right and auto-dismiss
 /// after a configurable timeout.
+/// Timer for one toast, keyed by its stable id. `title`/`body`/`status` are
+/// the content the timer started with; any change resets the countdown.
+#[derive(Clone)]
+struct ToastTimer {
+    id: ToastId,
+    title: String,
+    body: String,
+    status: Status,
+    started: Instant,
+}
+
+type ToastTimers = Vec<ToastTimer>;
+
+/// Reconcile timers against the current toast list. Timers follow stable ids,
+/// so removing a toast from the middle leaves the other countdowns untouched;
+/// a content change restarts only that toast's countdown.
+fn sync_timers(timers: &mut ToastTimers, entries: &[(ToastId, String, String, Status)]) {
+    timers.retain(|timer| entries.iter().any(|(id, _, _, _)| *id == timer.id));
+    for (id, title, body, status) in entries {
+        match timers.iter_mut().find(|timer| timer.id == *id) {
+            Some(timer)
+                if timer.title == *title && timer.body == *body && timer.status == *status => {}
+            Some(timer) => {
+                timer.title = title.clone();
+                timer.body = body.clone();
+                timer.status = *status;
+                timer.started = Instant::now();
+            }
+            None => timers.push(ToastTimer {
+                id: id.clone(),
+                title: title.clone(),
+                body: body.clone(),
+                status: *status,
+                started: Instant::now(),
+            }),
+        }
+    }
+}
+
 pub struct Manager<'a, Message> {
     content: Element<'a, Message>,
     toasts: Vec<Element<'a, Message>>,
+    /// Stable id + content snapshot for each toast, in display order.
+    entries: Vec<(ToastId, String, String, Status)>,
     timeout_secs: u64,
     on_close: Box<dyn Fn(usize) -> Message + 'a>,
 }
@@ -120,6 +183,17 @@ where
         toasts: &'a [Toast],
         on_close: impl Fn(usize) -> Message + 'a,
     ) -> Self {
+        let entries = toasts
+            .iter()
+            .map(|toast| {
+                (
+                    toast.id.clone(),
+                    toast.title.clone(),
+                    toast.body.clone(),
+                    toast.status,
+                )
+            })
+            .collect();
         let toasts = toasts
             .iter()
             .enumerate()
@@ -159,6 +233,7 @@ where
         Self {
             content: content.into(),
             toasts,
+            entries,
             timeout_secs: DEFAULT_TIMEOUT,
             on_close: Box::new(on_close),
         }
@@ -195,22 +270,13 @@ impl<Message> Widget<Message, Theme, Renderer> for Manager<'_, Message> {
     }
 
     fn state(&self) -> widget::tree::State {
-        widget::tree::State::new(Vec::<Option<Instant>>::new())
+        widget::tree::State::new(ToastTimers::new())
     }
 
     fn diff(&mut self, tree: &mut Tree) {
-        let instants = tree.state.downcast_mut::<Vec<Option<Instant>>>();
-
-        instants.retain(Option::is_some);
-
-        match (instants.len(), self.toasts.len()) {
-            (old, new) if old > new => {
-                instants.truncate(new);
-            }
-            (old, new) if old < new => {
-                instants.extend(std::iter::repeat_n(Some(Instant::now()), new - old));
-            }
-            _ => {}
+        {
+            let timers = tree.state.downcast_mut::<ToastTimers>();
+            sync_timers(timers, &self.entries);
         }
 
         tree.diff_children(
@@ -305,7 +371,7 @@ impl<Message> Widget<Message, Theme, Renderer> for Manager<'_, Message> {
         viewport: &Rectangle,
         translation: Vector,
     ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
-        let instants = tree.state.downcast_mut::<Vec<Option<Instant>>>();
+        let timers = tree.state.downcast_mut::<ToastTimers>();
 
         let (content_state, toasts_state) = tree.children.split_at_mut(1);
 
@@ -323,7 +389,8 @@ impl<Message> Widget<Message, Theme, Renderer> for Manager<'_, Message> {
                 viewport: *viewport,
                 toasts: &mut self.toasts,
                 trees: toasts_state,
-                instants,
+                timers,
+                entries: &self.entries,
                 on_close: &self.on_close,
                 timeout_secs: self.timeout_secs,
             }))
@@ -341,7 +408,8 @@ struct Overlay<'a, 'b, Message> {
     viewport: Rectangle,
     toasts: &'b mut [Element<'a, Message>],
     trees: &'b mut [Tree],
-    instants: &'b mut [Option<Instant>],
+    timers: &'b mut ToastTimers,
+    entries: &'b [(ToastId, String, String, Status)],
     on_close: &'b dyn Fn(usize) -> Message,
     timeout_secs: u64,
 }
@@ -374,32 +442,29 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
         shell: &mut Shell<'_, Message>,
     ) {
         if let Event::Window(iced::window::Event::RedrawRequested(now)) = &event {
-            self.instants
-                .iter_mut()
-                .enumerate()
-                .for_each(|(index, maybe_instant)| {
-                    if let Some(instant) = maybe_instant.as_mut() {
-                        let remaining =
-                            time::seconds(self.timeout_secs).saturating_sub(instant.elapsed());
-
-                        if remaining == Duration::ZERO {
-                            maybe_instant.take();
-                            shell.publish((self.on_close)(index));
-                        } else {
-                            shell.request_redraw_at(*now + remaining);
-                        }
-                    }
-                });
+            for (index, (id, _, _, _)) in self.entries.iter().enumerate() {
+                let Some(timer) = self.timers.iter_mut().find(|t| t.id == *id) else {
+                    continue;
+                };
+                let remaining =
+                    time::seconds(self.timeout_secs).saturating_sub(timer.started.elapsed());
+                if remaining == Duration::ZERO {
+                    self.timers.retain(|t| t.id != *id);
+                    shell.publish((self.on_close)(index));
+                } else {
+                    shell.request_redraw_at(*now + remaining);
+                }
+            }
         }
 
         let viewport = layout.bounds();
 
-        for (((child, state), layout), instant) in self
+        for (((child, state), layout), (id, _, _, _)) in self
             .toasts
             .iter_mut()
             .zip(self.trees.iter_mut())
             .zip(layout.children())
-            .zip(self.instants.iter_mut())
+            .zip(self.entries.iter())
         {
             let mut local_messages = Bus::new();
             let mut local_shell = shell.local(&mut local_messages);
@@ -414,8 +479,9 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
                 &viewport,
             );
 
+            // Any interaction with the toast pauses auto-dismiss entirely.
             if !local_shell.is_empty() {
-                instant.take();
+                self.timers.retain(|timer| timer.id != *id);
             }
 
             shell.merge(local_shell, std::convert::identity);

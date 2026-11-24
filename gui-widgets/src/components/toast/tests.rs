@@ -11,6 +11,58 @@ fn redraw() -> Event {
     Event::Window(iced::window::Event::RedrawRequested(Instant::now()))
 }
 
+fn entry(id: u64, title: &str, body: &str) -> (ToastId, String, String, Status) {
+    (ToastId::new(id), title.into(), body.into(), Status::Primary)
+}
+
+fn old_timer(id: u64, title: &str, body: &str) -> ToastTimer {
+    ToastTimer {
+        id: ToastId::new(id),
+        title: title.into(),
+        body: body.into(),
+        status: Status::Primary,
+        started: Instant::now() - Duration::from_secs(100),
+    }
+}
+
+#[test]
+fn test_remove_middle_toast_keeps_other_timers() {
+    let entries = [entry(1, "A", "a"), entry(2, "B", "b"), entry(3, "C", "c")];
+    let old = Instant::now() - Duration::from_secs(100);
+    let mut timers: ToastTimers = entries
+        .iter()
+        .map(|(id, title, body, status)| ToastTimer {
+            id: id.clone(),
+            title: title.clone(),
+            body: body.clone(),
+            status: *status,
+            started: old,
+        })
+        .collect();
+
+    sync_timers(&mut timers, &[entries[0].clone(), entries[2].clone()]);
+
+    assert_eq!(
+        timers.iter().map(|t| t.id.0).collect::<Vec<_>>(),
+        vec![1, 3],
+        "removing the middle toast must keep the surviving timers"
+    );
+    assert!(timers.iter().all(|t| t.started == old));
+}
+
+#[test]
+fn test_replace_toast_content_resets_its_timer() {
+    let old = old_timer(7, "A", "old body");
+    let started_before = old.started;
+    let mut timers = vec![old];
+    sync_timers(&mut timers, &[entry(7, "A", "new body")]);
+    assert_eq!(timers.len(), 1, "replacing content must not add a toast");
+    assert!(
+        timers[0].started > started_before,
+        "replacing content must restart the countdown"
+    );
+}
+
 #[test]
 fn test_toast_status_constructors() {
     assert_eq!(Toast::success("t", "b").status, Status::Success);
