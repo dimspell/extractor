@@ -27,6 +27,34 @@ use super::layout::{
 use super::state::State;
 use super::{DiffView, DisplayRow};
 
+/// Pick a readable text colour for a tinted diff cell.
+///
+/// The theme's diff foreground supplies the hue (shifted toward red for the
+/// baseline side and toward green for the comparison side); its brightness is
+/// then set from the cell background luminance so both light and dark themes
+/// keep legible text.
+pub(crate) fn diff_text_color(theme: &HexEditorTheme, background: Color, baseline: bool) -> Color {
+    let fg = theme.diff_fg;
+    let tinted = if baseline {
+        Color::from_rgb(fg.r, fg.g * 0.4, fg.b * 0.4)
+    } else {
+        Color::from_rgb(fg.r * 0.4, fg.g, fg.b * 0.4)
+    };
+    let bg_luma = crate::coloring::relative_luminance(&background);
+    // Blend most of the way toward black on bright cells and toward white on
+    // dark cells; the retained quarter keeps the red/green tint visible.
+    let (tr, tg, tb) = if bg_luma > 0.18 {
+        (0.0, 0.0, 0.0)
+    } else {
+        (1.0, 1.0, 1.0)
+    };
+    Color::from_rgb(
+        tinted.r * 0.25 + tr * 0.75,
+        tinted.g * 0.25 + tg * 0.75,
+        tinted.b * 0.25 + tb * 0.75,
+    )
+}
+
 /// Render the entire diff view into the given viewport.
 pub fn draw_diff_view<'a, Message>(
     widget: &DiffView<'a, Message>,
@@ -118,8 +146,8 @@ pub fn draw_diff_view<'a, Message>(
         (dg + 0.25).min(1.0),
         (db * 0.4).max(0.0),
     );
-    let diff_text_baseline = Color::from_rgb(1.0, 0.7, 0.7);
-    let diff_text_comparison = Color::from_rgb(0.7, 1.0, 0.7);
+    let diff_text_baseline = diff_text_color(widget.theme, diff_bg_baseline, true);
+    let diff_text_comparison = diff_text_color(widget.theme, diff_bg_comparison, false);
 
     let sel_range = widget.selection.range();
     let cursor_addr = widget.selection.cursor;

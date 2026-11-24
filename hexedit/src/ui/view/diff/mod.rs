@@ -15,6 +15,8 @@
 //! normal hex matrix pane instead.
 
 mod draw;
+#[cfg(test)]
+pub(crate) use draw::diff_text_color;
 mod event;
 pub(crate) mod layout;
 mod state;
