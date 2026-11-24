@@ -108,8 +108,28 @@ pub fn read_overlay_id_table(reader: &mut BufReader<File>) -> Result<Vec<u16>> {
 /// (stamps are always 6 or 9; anything else is a parse error).
 pub fn sprite_block(reader: &mut BufReader<File>) -> Result<(Vec<SequenceInfo>, Vec<i32>)> {
     let sprite_count = reader.read_i32::<LittleEndian>()?;
+    let sprite_count = usize::try_from(sprite_count).map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Invalid sprite count {sprite_count}"),
+        )
+    })?;
+
+    // Each sprite reads at least one four-byte image stamp. Cap the capacity
+    // by the bytes actually left in the file before reserving.
+    let file_len = reader.get_ref().metadata()?.len();
+    let pos = reader.stream_position()?;
+    let remaining = file_len.saturating_sub(pos);
+    let max_sprites = usize::try_from(remaining / 4).unwrap_or(usize::MAX);
+    if sprite_count > max_sprites {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("Sprite count {sprite_count} exceeds the {max_sprites} sprites left in file"),
+        ));
+    }
+
     let mut sprites = vec![];
-    let mut stamps = Vec::with_capacity(sprite_count.unsigned_abs() as usize);
+    let mut stamps = Vec::with_capacity(sprite_count);
     for _ in 0..sprite_count {
         let image_stamp = reader.read_i32::<LittleEndian>()?;
         let image_offset: i32 = if image_stamp == 6 {
@@ -486,6 +506,20 @@ mod tests {
         // Size claims a million u16 entries but the file only holds the size.
         let mut reader = reader_from_bytes("overlay-oversized", &1_000_000_i32.to_le_bytes());
         let err = super::read_overlay_id_table(&mut reader).expect_err("oversized size must fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_sprite_block_rejects_negative_count() {
+        let mut reader = reader_from_bytes("sprite-count-negative", &(-1_i32).to_le_bytes());
+        let err = super::sprite_block(&mut reader).expect_err("negative count must fail");
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn test_sprite_block_rejects_count_larger_than_file() {
+        let mut reader = reader_from_bytes("sprite-count-oversized", &1_000_000_i32.to_le_bytes());
+        let err = super::sprite_block(&mut reader).expect_err("oversized count must fail");
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 
