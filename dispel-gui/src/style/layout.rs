@@ -26,18 +26,6 @@ pub fn sidebar_container(_theme: &Theme) -> container::Style {
     }
 }
 
-pub fn log_container(_theme: &Theme) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(color!(0x121212))), // Deep stone
-        border: Border {
-            color: color!(0x424242),
-            width: 1.0,
-            radius: 0.into(),
-        },
-        ..Default::default()
-    }
-}
-
 pub fn info_card(_theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(color!(0x2d1f1b))), // Dark leather card
@@ -57,18 +45,6 @@ pub fn toolbar_container(_theme: &Theme) -> container::Style {
             color: color!(0x3d2b1f),
             width: 0.0,
             radius: 0.into(),
-        },
-        ..Default::default()
-    }
-}
-
-pub fn sql_editor_container(_theme: &Theme) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(color!(0x121212))),
-        border: Border {
-            color: color!(0x5d4037),
-            width: 1.0,
-            radius: 4.into(),
         },
         ..Default::default()
     }
@@ -124,32 +100,6 @@ pub fn normal_row(_theme: &Theme) -> container::Style {
             width: 1.0,
             radius: 2.into(),
         },
-        ..Default::default()
-    }
-}
-/// Mode chip container (NORMAL).
-pub fn normal_mode_chip(_theme: &Theme) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(color!(0x2a1f18))),
-        border: Border {
-            color: color!(0x5d4037),
-            width: 1.0,
-            radius: 3.into(),
-        },
-        text_color: Some(color!(0xbcaaa4)),
-        ..Default::default()
-    }
-}
-/// Mode chip container (EDIT) — leather brown with gold border.
-pub fn edit_mode_chip(_theme: &Theme) -> container::Style {
-    container::Style {
-        background: Some(Background::Color(color!(0x8b5a2b))),
-        border: Border {
-            color: color!(0xffd700),
-            width: 1.0,
-            radius: 3.into(),
-        },
-        text_color: Some(color!(0xffd700)),
         ..Default::default()
     }
 }
