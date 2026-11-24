@@ -356,6 +356,7 @@ pub fn draw_diff_view<'a, Message>(
                 h_px,
                 color_scheme: widget.color_scheme,
                 dim_nulls: widget.dim_nulls,
+                theme: widget.theme,
                 pattern_hash: minimap::pattern_hash(widget.patterns),
                 dirty_fingerprint: minimap::set_fingerprint(&empty_dirty),
                 diff_fingerprint: minimap::set_fingerprint(widget.diff),
@@ -536,7 +537,8 @@ fn render_byte_cell<Message>(
     };
 
     // Foreground via provider chain.
-    let (default_fg, _) = default_byte_colors(widget.color_scheme, byte, widget.dim_nulls);
+    let (default_fg, _) =
+        default_byte_colors(widget.theme, widget.color_scheme, byte, widget.dim_nulls);
     let default_fg = default_fg.unwrap_or(hex_color);
 
     let text_color = if in_sel {

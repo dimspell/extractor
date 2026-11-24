@@ -343,7 +343,8 @@ pub fn draw_matrix<'a, Message>(
             };
 
             // Default foreground via the shared provider chain.
-            let (default_fg, _) = default_byte_colors(widget.color_scheme, b, widget.dim_nulls);
+            let (default_fg, _) =
+                default_byte_colors(theme, widget.color_scheme, b, widget.dim_nulls);
             let default_fg = default_fg.unwrap_or(hex_color);
 
             let text_color = if is_editing {
@@ -573,6 +574,7 @@ pub fn draw_matrix<'a, Message>(
                 h_px,
                 color_scheme: widget.color_scheme,
                 dim_nulls: widget.dim_nulls,
+                theme: widget.theme,
                 pattern_hash: minimap::pattern_hash(widget.patterns),
                 dirty_fingerprint: minimap::set_fingerprint(widget.dirty),
                 diff_fingerprint: minimap::set_fingerprint(widget.vanilla_diff),

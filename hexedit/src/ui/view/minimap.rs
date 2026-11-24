@@ -235,7 +235,7 @@ fn block_mean_variance_color(block_start: u64, block_end: u64, ctx: &BlockContex
 
     if n == 0.0 {
         // Block outside the mapped range → fall back to dim default.
-        let (fg, _) = default_byte_colors(ctx.color_scheme, 0, ctx.dim_nulls);
+        let (fg, _) = default_byte_colors(ctx.theme, ctx.color_scheme, 0, ctx.dim_nulls);
         let c = fg.unwrap_or(ctx.theme.monochrome_fg);
         return Color::from_rgb(
             c.r * 0.55 * MINIMAP_MIN_BRIGHTNESS,
@@ -258,7 +258,7 @@ fn block_mean_variance_color(block_start: u64, block_end: u64, ctx: &BlockContex
     let brightness = MINIMAP_MIN_BRIGHTNESS + norm * MINIMAP_VARIANCE_BOOST;
 
     let mean_byte = mean_f.round() as u8;
-    let (fg, _) = default_byte_colors(ctx.color_scheme, mean_byte, ctx.dim_nulls);
+    let (fg, _) = default_byte_colors(ctx.theme, ctx.color_scheme, mean_byte, ctx.dim_nulls);
     let c = fg.unwrap_or(ctx.theme.monochrome_fg);
     Color::from_rgb(
         c.r * 0.55 * brightness,
@@ -442,6 +442,9 @@ pub(crate) struct MinimapCache {
     pub color_scheme: ColorScheme,
     /// Dim-nulls setting when cached.
     pub dim_nulls: bool,
+    /// Theme identity when cached: the byte and block palettes differ between
+    /// themes, so a theme change must force a recompute.
+    pub theme: &'static HexEditorTheme,
     /// Hash of pattern_by_addr contents (*not* the full map — just a
     /// checksum so we can cheaply detect changes).
     pub pattern_hash: u64,
@@ -492,6 +495,7 @@ pub(crate) fn minimap_cache_valid(cache: &MinimapCache, h_px: u32, ctx: &BlockCo
         && cache.h_px == h_px
         && cache.color_scheme == ctx.color_scheme
         && cache.dim_nulls == ctx.dim_nulls
+        && *cache.theme == *ctx.theme
         && cache.pattern_hash == pattern_hash(ctx.pattern_by_addr)
         && cache.dirty_fingerprint == set_fingerprint(ctx.dirty)
         && cache.diff_fingerprint == set_fingerprint(ctx.vanilla_diff)
@@ -1101,6 +1105,7 @@ mod tests {
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
+            theme: &DARK_THEME,
             pattern_hash: pattern_hash(&patterns),
             dirty_fingerprint: set_fingerprint(&dirty),
             diff_fingerprint: set_fingerprint(&diff),
@@ -1130,6 +1135,7 @@ mod tests {
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
+            theme: &DARK_THEME,
             pattern_hash: 0,
             dirty_fingerprint: set_fingerprint(&empty),
             diff_fingerprint: set_fingerprint(&empty),
@@ -1159,6 +1165,7 @@ mod tests {
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
+            theme: &DARK_THEME,
             pattern_hash: 0,
             dirty_fingerprint: set_fingerprint(&empty),
             diff_fingerprint: set_fingerprint(&empty),
@@ -1179,6 +1186,37 @@ mod tests {
     }
 
     #[test]
+    fn minimap_cache_valid_detects_theme_change() {
+        use crate::ui::theme::LIGHT_THEME;
+        let empty: BTreeSet<u64> = BTreeSet::new();
+        let empty_ptr = (&[] as &[u8]).as_ptr() as usize;
+        let cache = MinimapCache {
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            theme: &DARK_THEME,
+            pattern_hash: 0,
+            dirty_fingerprint: set_fingerprint(&empty),
+            diff_fingerprint: set_fingerprint(&empty),
+            content_ptr: empty_ptr,
+        };
+        let ctx = BlockContext {
+            bytes: &[],
+            total_len: 100,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &empty,
+            vanilla_diff: &empty,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            theme: &LIGHT_THEME,
+        };
+        assert!(!minimap_cache_valid(&cache, 10, &ctx));
+    }
+
+    #[test]
     fn minimap_cache_valid_detects_dirty_fingerprint_change() {
         let empty: BTreeSet<u64> = BTreeSet::new();
         let empty_ptr = (&[] as &[u8]).as_ptr() as usize;
@@ -1188,6 +1226,7 @@ mod tests {
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
+            theme: &DARK_THEME,
             pattern_hash: 0,
             dirty_fingerprint: set_fingerprint(&empty),
             diff_fingerprint: set_fingerprint(&empty),
@@ -1237,7 +1276,7 @@ mod tests {
         assert_eq!(cols[3].len(), 3);
 
         let brightness = 0.30_f32;
-        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
+        let (fg0, _) = default_byte_colors(&DARK_THEME, ColorScheme::Monochrome, 0x00, false);
         let c0 = fg0.unwrap();
         let dim = Color::from_rgb(
             c0.r * 0.55 * brightness,
@@ -1245,7 +1284,7 @@ mod tests {
             c0.b * 0.55 * brightness,
         );
 
-        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 0xFF, false);
+        let (fg1, _) = default_byte_colors(&DARK_THEME, ColorScheme::Monochrome, 0xFF, false);
         let c1 = fg1.unwrap();
         let bright = Color::from_rgb(
             c1.r * 0.55 * brightness,

@@ -13,7 +13,7 @@ use std::ops::RangeInclusive;
 
 use iced::Color;
 
-use crate::ui::theme::DARK_THEME;
+use crate::ui::theme::{DARK_THEME, HexEditorTheme};
 
 use crate::selection::Selection;
 
@@ -309,20 +309,19 @@ pub fn scheme_color(scheme: ColorScheme, b: u8) -> Color {
 }
 
 /// Convenience wrapper: apply `SchemeProvider` + `DimNullsProvider` in the
-/// correct order and return the `(fg, bg)` pair.  Uses [`DEFAULT_NULL_DIM`]
-/// as the dim-null colour.
-///
-/// This is the single source of truth for the provider chain so the matrix
-/// widget and the settings-modal palette preview stay in sync.
+/// correct order and return the `(fg, bg)` pair.  Both the scheme palette and
+/// the dim-null colour come from `theme`, so the matrix, minimap, diff view
+/// and settings preview all agree with the active palette.
 pub fn default_byte_colors(
+    theme: &HexEditorTheme,
     scheme: ColorScheme,
     byte: u8,
     dim_nulls: bool,
 ) -> (Option<Color>, Option<Color>) {
-    let scheme_prov = SchemeProvider { scheme };
+    let scheme_prov = SchemeProvider { scheme, theme };
     let dim_prov = DimNullsProvider {
         enabled: dim_nulls,
-        null_color: DEFAULT_NULL_DIM,
+        null_color: theme.default_null_dim,
     };
     fold_color(
         [
@@ -337,14 +336,17 @@ pub fn default_byte_colors(
 // ── Providers for the CellColorProvider chain ─────────────────────────────
 
 /// Applies a [`ColorScheme`] as a foreground provider in the chain.
-/// Always returns `Some(fg)` and never touches the background.
-pub struct SchemeProvider {
+/// Always returns `Some(fg)` and never touches the background. The palette is
+/// taken from the active theme so it stays legible on both light and dark
+/// backgrounds.
+pub struct SchemeProvider<'a> {
     pub scheme: ColorScheme,
+    pub theme: &'a HexEditorTheme,
 }
 
-impl CellColorProvider for SchemeProvider {
+impl CellColorProvider for SchemeProvider<'_> {
     fn color(&self, _addr: u64, byte: u8) -> (Option<Color>, Option<Color>) {
-        (Some(scheme_color(self.scheme, byte)), None)
+        (Some(self.theme.scheme_color(self.scheme, byte)), None)
     }
 }
 
@@ -512,6 +514,7 @@ mod tests {
     fn scheme_provider_monochrome_constant() {
         let p = SchemeProvider {
             scheme: ColorScheme::Monochrome,
+            theme: &DARK_THEME,
         };
         // All bytes get the same colour.
         let c0 = p.color(0, 0x00).0.unwrap();
@@ -527,6 +530,7 @@ mod tests {
     fn scheme_provider_nybble_delegates_to_nybble_color() {
         let p = SchemeProvider {
             scheme: ColorScheme::Nybble,
+            theme: &DARK_THEME,
         };
         for b in [0x00, 0x01, 0x0F, 0x10, 0x7F, 0x80, 0xFF] {
             let expected = nybble_color(b);
@@ -556,6 +560,7 @@ mod tests {
     fn scheme_provider_categories_delegates() {
         let p = SchemeProvider {
             scheme: ColorScheme::Categories,
+            theme: &DARK_THEME,
         };
         // Spot-check each category boundary.
         let checkpoints = [0x00, 0x01, 0x09, 0x0D, 0x0E, 0x20, 0x7E, 0x7F, 0x80, 0xFF];
@@ -577,6 +582,7 @@ mod tests {
     fn scheme_provider_rainbow_delegates() {
         let p = SchemeProvider {
             scheme: ColorScheme::Rainbow,
+            theme: &DARK_THEME,
         };
         for b in [0x00, 0x01, 0x40, 0x80, 0xBF, 0xCC, 0xFF] {
             let expected = rainbow_color(b);
@@ -893,6 +899,7 @@ mod tests {
     fn scheme_provider_heatmap_delegates() {
         let p = SchemeProvider {
             scheme: ColorScheme::Heatmap,
+            theme: &DARK_THEME,
         };
         for b in [0x00, 0x01, 0x40, 0x80, 0xBF, 0xFF] {
             let expected = heatmap_color(b);
@@ -980,7 +987,7 @@ mod tests {
     #[test]
     fn default_byte_colors_provider_chain() {
         // With dim_nulls=true, a null byte should get DEFAULT_NULL_DIM.
-        let (fg, bg) = default_byte_colors(ColorScheme::Monochrome, 0x00, true);
+        let (fg, bg) = default_byte_colors(&DARK_THEME, ColorScheme::Monochrome, 0x00, true);
         assert!(bg.is_none(), "should not touch background");
         let fg = fg.unwrap();
         assert!(
@@ -991,7 +998,7 @@ mod tests {
         );
 
         // With dim_nulls=false, scheme passes through.
-        let (fg2, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
+        let (fg2, _) = default_byte_colors(&DARK_THEME, ColorScheme::Monochrome, 0x00, false);
         let expected = scheme_color(ColorScheme::Monochrome, 0x00);
         assert!(
             (fg2.unwrap().r - expected.r).abs() < 0.001,
@@ -1000,8 +1007,40 @@ mod tests {
     }
 
     #[test]
+    fn default_byte_colors_follow_active_theme() {
+        use crate::ui::theme::LIGHT_THEME;
+        for scheme in ColorScheme::ALL {
+            let mut any_difference = false;
+            for b in [0x01, 0x42, 0xFF] {
+                let (dark, _) = default_byte_colors(&DARK_THEME, scheme, b, false);
+                let (light, _) = default_byte_colors(&LIGHT_THEME, scheme, b, false);
+                let dark = dark.unwrap();
+                let light = light.unwrap();
+                if (dark.r - light.r).abs() > 0.01
+                    || (dark.g - light.g).abs() > 0.01
+                    || (dark.b - light.b).abs() > 0.01
+                {
+                    any_difference = true;
+                }
+                assert!(
+                    contrast_ratio(&light, &LIGHT_THEME.matrix_bg) >= 2.0,
+                    "light byte {b:#04X} under {scheme} lacks contrast"
+                );
+                assert!(
+                    contrast_ratio(&dark, &DARK_THEME.matrix_bg) >= 2.0,
+                    "dark byte {b:#04X} under {scheme} lacks contrast"
+                );
+            }
+            assert!(
+                any_difference,
+                "scheme {scheme} must produce different colours between themes"
+            );
+        }
+    }
+
+    #[test]
     fn default_byte_colors_non_null_not_dimmed() {
-        let (fg, _) = default_byte_colors(ColorScheme::Nybble, 0x42, true);
+        let (fg, _) = default_byte_colors(&DARK_THEME, ColorScheme::Nybble, 0x42, true);
         let expected = scheme_color(ColorScheme::Nybble, 0x42);
         let fg = fg.unwrap();
         assert!(
