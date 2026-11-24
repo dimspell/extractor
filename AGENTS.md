@@ -228,7 +228,7 @@ Structure:
 - Top level: `app.rs`, `config.rs`, `state.rs`, `message.rs`, `main.rs`
 - `domain/` (~16 files): editing, goto, pattern, provider, search, selection, vanilla_diff, …
 - `ui/`: coloring, inspector, update, view/, theme
-- `tests/`: 16 dedicated test files (**25 `.rs` files with `#[cfg(test)]` total**)
+- `tests/`: 16 dedicated test files (**26 `.rs` files with `#[cfg(test)]` total**)
 
 **Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via the domain-level `SavePort` (`SaveRequest` → `SaveOutcome`) in `hex_save.rs`.
 
