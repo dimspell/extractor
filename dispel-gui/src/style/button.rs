@@ -1,6 +1,27 @@
 use iced::widget::button;
 use iced::{Background, Border, Color, Shadow, Theme, Vector, color};
 
+/// Mute every colour in a style for a control that cannot be pressed.
+fn dimmed(base: button::Style) -> button::Style {
+    let dim = |c: Color| Color { a: c.a * 0.45, ..c };
+    button::Style {
+        background: base.background.map(|bg| match bg {
+            Background::Color(c) => Background::Color(dim(c)),
+            other => other,
+        }),
+        text_color: dim(base.text_color),
+        border: Border {
+            color: dim(base.border.color),
+            ..base.border
+        },
+        shadow: Shadow {
+            color: dim(base.shadow.color),
+            ..base.shadow
+        },
+        ..base
+    }
+}
+
 pub fn tab_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),
@@ -127,6 +148,7 @@ pub fn chip(_theme: &Theme, status: button::Status) -> button::Style {
             },
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -152,6 +174,7 @@ pub fn active_chip(_theme: &Theme, status: button::Status) -> button::Style {
             background: Some(Background::Color(color!(0x8b5a2b, 0.3))),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -173,6 +196,7 @@ pub fn browse_button(_theme: &Theme, status: button::Status) -> button::Style {
             text_color: Color::WHITE,
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -667,6 +691,7 @@ pub fn playback_button(_theme: &Theme, status: button::Status) -> button::Style 
             text_color: color!(0xffee58),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
     }
 }
@@ -713,6 +738,43 @@ pub fn export_button(_theme: &Theme, status: button::Status) -> button::Style {
             background: Some(Background::Color(color!(0x4e342e))),
             ..base
         },
+        button::Status::Disabled => dimmed(base),
         _ => base,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_dimmed(style_fn: fn(&Theme, button::Status) -> button::Style, name: &str) {
+        let theme = Theme::Dark;
+        let active = style_fn(&theme, button::Status::Active);
+        let disabled = style_fn(&theme, button::Status::Disabled);
+        assert!(
+            disabled.text_color.a < active.text_color.a,
+            "{name}: disabled text must be dimmer than active"
+        );
+        let bg_alpha = |s: button::Style| match s.background {
+            Some(Background::Color(c)) => c.a,
+            _ => 1.0,
+        };
+        assert!(
+            bg_alpha(disabled) < bg_alpha(active),
+            "{name}: disabled background must be dimmer than active"
+        );
+        assert!(
+            disabled.border.color.a < active.border.color.a,
+            "{name}: disabled border must be dimmer than active"
+        );
+    }
+
+    #[test]
+    fn test_shared_button_styles_dim_when_disabled() {
+        assert_dimmed(chip, "chip");
+        assert_dimmed(active_chip, "active_chip");
+        assert_dimmed(playback_button, "playback_button");
+        assert_dimmed(export_button, "export_button");
+        assert_dimmed(browse_button, "browse_button");
     }
 }
