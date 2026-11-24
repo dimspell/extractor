@@ -95,6 +95,9 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                                     editor.catalog = Some(records.clone());
                                     editor.refresh();
                                     editor.spreadsheet.apply_filter(records);
+                                    editor
+                                        .spreadsheet
+                                        .compute_all_caches(records, &app.state.lookups);
                                 }
                             }
                         };
@@ -369,13 +372,36 @@ mod tests {
         use iced_test::simulator;
 
         let mut app = App::test_new(crate::workspace::Workspace::new());
-        let weapons = vec![WeaponItem {
-            name: "Invented Blade".to_string(),
-            ..Default::default()
-        }];
+        let weapons = vec![
+            WeaponItem {
+                name: "Invented Blade".to_string(),
+                ..Default::default()
+            },
+            WeaponItem {
+                name: "Invented Shield".to_string(),
+                ..Default::default()
+            },
+        ];
         let _ = handle(scanned_with_weapons(weapons), &mut app);
 
         let editor = &app.state.editors.weapon_editor;
+        let name_col = WeaponItem::field_descriptors()
+            .iter()
+            .position(|d| d.name == "name")
+            .expect("weapon records have a name field");
+        // TableWidget paints each cell from display_cache; an empty cache draws
+        // blank cells even though filtered_indices already lists the rows.
+        assert_eq!(
+            editor.spreadsheet.get_display(0, name_col),
+            "Invented Blade",
+            "the scanned row's name must be cached for rendering"
+        );
+        assert_eq!(
+            editor.spreadsheet.get_display(1, name_col),
+            "Invented Shield",
+            "every scanned row must have cached cell values"
+        );
+
         let element: iced::Element<'_, crate::message::Message> = build_table_content::<WeaponItem>(
             WeaponItem::field_descriptors(),
             editor.catalog.as_ref(),
