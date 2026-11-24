@@ -63,10 +63,15 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
             let old_zoom = state.view.zoom;
             let new_zoom = (old_zoom * factor).clamp(0.05, 8.0);
             let ratio = new_zoom / old_zoom;
-            if cx.is_finite() && cy.is_finite() {
-                state.view.pan_x = cx - (cx - state.view.pan_x) * ratio;
-                state.view.pan_y = cy - (cy - state.view.pan_y) * ratio;
-            }
+            // Toolbar buttons pass NaN; zoom around the viewport centre.
+            let (ax, ay) = crate::components::map_render::zoom_anchor(
+                cx,
+                cy,
+                state.view.last_canvas_w,
+                state.view.last_canvas_h,
+            );
+            state.view.pan_x = ax - (ax - state.view.pan_x) * ratio;
+            state.view.pan_y = ay - (ay - state.view.pan_y) * ratio;
             state.view.zoom = new_zoom;
             state.view.tile_layer_cache.clear();
             Task::none()

@@ -524,8 +524,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         .on_press(Message::map_editor(MapEditorMessage::ZoomChanged(
                             tab_id,
                             1.25,
-                            f32::NAN,
-                            f32::NAN
+                            state.view.last_canvas_w * 0.5,
+                            state.view.last_canvas_h * 0.5
                         )))
                         .padding([5, 10])
                         .style(style::browse_button),
@@ -534,8 +534,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         .on_press(Message::map_editor(MapEditorMessage::ZoomChanged(
                             tab_id,
                             1.0 / 1.25,
-                            f32::NAN,
-                            f32::NAN
+                            state.view.last_canvas_w * 0.5,
+                            state.view.last_canvas_h * 0.5
                         )))
                         .padding([5, 10])
                         .style(style::browse_button),

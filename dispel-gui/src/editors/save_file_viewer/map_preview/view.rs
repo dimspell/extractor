@@ -98,8 +98,8 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                         .on_press(Message::save_file_viewer(
                             SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
                                 1.25,
-                                f32::NAN,
-                                f32::NAN
+                                state.view.last_canvas_w * 0.5,
+                                state.view.last_canvas_h * 0.5
                             ),)
                         ))
                         .padding([5, 10]),
@@ -108,8 +108,8 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                         .on_press(Message::save_file_viewer(
                             SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
                                 1.0 / 1.25,
-                                f32::NAN,
-                                f32::NAN
+                                state.view.last_canvas_w * 0.5,
+                                state.view.last_canvas_h * 0.5
                             ),)
                         ))
                         .padding([5, 10]),
