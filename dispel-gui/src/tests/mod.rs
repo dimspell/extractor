@@ -35,6 +35,7 @@ pub(crate) mod global_search;
 pub(crate) mod hex_config_parity;
 pub(crate) mod hex_inspector_toggle;
 pub(crate) mod indexation;
+pub(crate) mod loading_indicator;
 pub(crate) mod map_editor;
 pub(crate) mod message_routing;
 pub(crate) mod pane_grid;
