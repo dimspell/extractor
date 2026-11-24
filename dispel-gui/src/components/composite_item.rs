@@ -7,18 +7,45 @@ use iced::{Element, Length};
 use crate::message::Message;
 use crate::style;
 
+const LABEL_W: f32 = 140.0;
+
+/// Render a picker body, optionally prefixed with a fixed-width label column.
+///
+/// Callers that already render a label above the field pass `show_label = false`
+/// so the text is not drawn twice.
+fn with_optional_label<'a>(
+    label: &'static str,
+    body: Element<'a, Message>,
+    show_label: bool,
+) -> Element<'a, Message> {
+    if show_label {
+        row![
+            text(label)
+                .size(11)
+                .width(LABEL_W)
+                .style(style::subtle_text),
+            body,
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center)
+        .into()
+    } else {
+        body
+    }
+}
+
 /// Build a cascading item-type + item-id picker for `CompositeItem` fields.
 ///
 /// Renders two pick-lists (type then item). Falls back to a plain `text_input`
-/// when `entries` is `None` (lookups unavailable).
+/// when `entries` is `None` (lookups unavailable). `show_label` controls whether
+/// the label column is drawn by this component or by the caller.
 pub fn composite_item_picker(
     label: &'static str,
     value: &str,
     entries: Option<&[(String, String)]>,
+    show_label: bool,
     on_change: impl Fn(String) -> Message + 'static,
 ) -> Element<'static, Message> {
-    const LABEL_W: f32 = 140.0;
-
     let current_type_byte: u8 = value
         .split(':')
         .next()
@@ -31,20 +58,13 @@ pub fn composite_item_picker(
 
     let Some(entries) = entries else {
         let oc = on_change;
-        return row![
-            text(label)
-                .size(11)
-                .width(LABEL_W)
-                .style(style::subtle_text),
-            text_input("", value.to_owned())
-                .on_input(move |v| oc(v))
-                .padding(4)
-                .size(11)
-                .width(Length::Fill),
-        ]
-        .spacing(6)
-        .align_y(iced::Alignment::Center)
-        .into();
+        let input: Element<'static, Message> = text_input("", value.to_owned())
+            .on_input(move |v| oc(v))
+            .padding(4)
+            .size(11)
+            .width(Length::Fill)
+            .into();
+        return with_optional_label(label, input, show_label);
     };
 
     // Deduplicated type list, preserving insertion order
@@ -125,16 +145,8 @@ pub fn composite_item_picker(
             .into()
     };
 
-    row![
-        text(label)
-            .size(11)
-            .width(LABEL_W)
-            .style(style::subtle_text),
-        col![type_picker, item_picker].spacing(4),
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center)
-    .into()
+    let pickers: Element<'static, Message> = col![type_picker, item_picker].spacing(4).into();
+    with_optional_label(label, pickers, show_label)
 }
 
 #[cfg(all(test, feature = "iced_test"))]
@@ -142,9 +154,9 @@ mod tests {
     use super::*;
     use iced_test::simulator;
 
-    fn label_rendered(entries: Option<&[(String, String)]>) -> bool {
+    fn label_rendered(entries: Option<&[(String, String)]>, show_label: bool) -> bool {
         let element: Element<'_, Message> =
-            composite_item_picker("Invented Item", "1:0", entries, |_| {
+            composite_item_picker("Invented Item", "1:0", entries, show_label, |_| {
                 Message::FileTree(crate::message::FileTreeMessage::Search(String::new()))
             });
         let mut ui = simulator(element);
@@ -152,12 +164,19 @@ mod tests {
     }
 
     #[test]
-    fn test_composite_picker_shows_label_with_and_without_lookups() {
-        assert!(label_rendered(None), "label must render without lookups");
+    fn test_composite_picker_label_follows_show_label() {
         let entries = [("1:0".to_string(), "Invented Sword".to_string())];
-        assert!(
-            label_rendered(Some(&entries)),
-            "label must render when lookups are loaded"
-        );
+        for show_label in [true, false] {
+            assert_eq!(
+                label_rendered(None, show_label),
+                show_label,
+                "fallback picker label must follow show_label"
+            );
+            assert_eq!(
+                label_rendered(Some(&entries), show_label),
+                show_label,
+                "lookup picker label must follow show_label"
+            );
+        }
     }
 }

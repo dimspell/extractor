@@ -170,7 +170,7 @@ fn build_inspector_field<'a>(
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
             let field_name = descriptor.name.to_string();
-            composite_item_picker(descriptor.label, &value, entries, move |v| {
+            composite_item_picker(descriptor.label, &value, entries, false, move |v| {
                 spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                     orig_idx,
                     field_name.clone(),
@@ -223,6 +223,72 @@ mod tests {
 
     fn spreadsheet_msg(_: SpreadsheetMessage) -> Message {
         Message::System(crate::message::SystemMessage::DismissError)
+    }
+
+    fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
+        let mut ui = simulator(element);
+        let mut count = 0usize;
+        let mut selector = |candidate: Candidate<'_>| -> Option<Target> {
+            if let Candidate::Text { content, .. } = candidate
+                && content == label
+            {
+                count += 1;
+            }
+            None
+        };
+        let _ = ui.find(&mut selector);
+        count
+    }
+
+    #[test]
+    fn test_composite_field_label_appears_once() {
+        let descriptor = FieldDescriptor {
+            name: "item_type",
+            label: "Invented Item:",
+            kind: FieldKind::CompositeItem {
+                lookup_key: "invented_items",
+            },
+        };
+        let empty_lookups = HashMap::new();
+        let contents = HashMap::new();
+
+        // Fallback path (no lookups): the inspector wraps the body with one label.
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &empty_lookups,
+            None,
+            field_changed,
+            &contents,
+            spreadsheet_msg,
+        );
+        assert_eq!(
+            count_label_text(element, "Invented Item:"),
+            1,
+            "composite field must not render its label twice without lookups"
+        );
+
+        // Picker path (lookups loaded): same single-label guarantee.
+        let lookups = HashMap::from([(
+            "invented_items".to_string(),
+            vec![("1:0".to_string(), "Invented Sword".to_string())],
+        )]);
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            spreadsheet_msg,
+        );
+        assert_eq!(
+            count_label_text(element, "Invented Item:"),
+            1,
+            "composite field must not render its label twice with lookups"
+        );
     }
 
     #[test]

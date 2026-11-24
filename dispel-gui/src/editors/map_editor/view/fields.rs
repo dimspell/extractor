@@ -155,7 +155,7 @@ pub fn inspector_field_row<'a>(
 
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
-            composite_item_picker(label, value, entries, move |v| {
+            composite_item_picker(label, value, entries, true, move |v| {
                 Message::map_editor(MapEditorMessage::EntityFieldChanged(
                     tab_id,
                     sel,
@@ -164,5 +164,49 @@ pub fn inspector_field_row<'a>(
                 ))
             })
         }
+    }
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+    use iced_test::selector::{Candidate, Target};
+    use iced_test::simulator;
+
+    fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
+        let mut ui = simulator(element);
+        let mut count = 0usize;
+        let mut selector = |candidate: Candidate<'_>| -> Option<Target> {
+            if let Candidate::Text { content, .. } = candidate
+                && content == label
+            {
+                count += 1;
+            }
+            None
+        };
+        let _ = ui.find(&mut selector);
+        count
+    }
+
+    #[test]
+    fn test_map_editor_composite_field_keeps_its_label() {
+        let kind = FieldKind::CompositeItem {
+            lookup_key: "invented_items",
+        };
+        let lookups = HashMap::new();
+        let element = inspector_field_row(
+            "Invented Item:",
+            "item_type",
+            &kind,
+            "1:0",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+        );
+        assert_eq!(
+            count_label_text(element, "Invented Item:"),
+            1,
+            "map editor has no outer label, so the picker must render exactly one"
+        );
     }
 }
