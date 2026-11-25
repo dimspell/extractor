@@ -488,3 +488,44 @@ fn test_every_lookup_and_composite_field_round_trips_through_both_views() {
     audit_composite::<MonsterRef>("loot_item_3");
     audit_composite::<NPC>("interaction_result_item");
 }
+
+#[test]
+fn test_lookup_label_collision_emits_each_own_id() {
+    let desc = descriptor_of::<MonsterRef>("monster_db_id");
+    let FieldKind::Lookup(key) = &desc.kind else {
+        panic!("monster_db_id is not a lookup field");
+    };
+    let lookups = HashMap::from([(
+        key.to_string(),
+        vec![("7".to_string(), "Unknown (9)".to_string())],
+    )]);
+
+    let emitted = |value: &str, offset: isize| -> Vec<String> {
+        let empty = HashMap::new();
+        let element = build_inspector_field(
+            desc,
+            value.to_string(),
+            0,
+            &lookups,
+            None,
+            captured_field_changed,
+            &empty,
+            captured_spreadsheet,
+        );
+        activate_select_option(element, 0, offset)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Editor(EditorMessage::Weapon(
+                    crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect()
+    };
+
+    // The missing id 9 is selected as a fallback; re-selecting it must emit 9.
+    assert_eq!(emitted("9", 0), vec!["9"]);
+    // Moving up reaches the real entry whose display collides with the
+    // fallback; selecting it must emit its own id 7.
+    assert_eq!(emitted("9", -1), vec!["7"]);
+}
