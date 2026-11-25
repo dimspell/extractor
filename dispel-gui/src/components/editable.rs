@@ -416,7 +416,7 @@ macro_rules! __er_get {
         $crate::components::editable::format_vec_u32(&$this.$field)
     };
     (Opti32Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
-        $crate::components::editable::get_opt_val($this.$field, |v| v.value().to_string())
+        $crate::components::editable::get_opt_val($this.$field, |v| v.to_string())
     };
     (FlagBool, [$ty:ty], $this:ident, $field:ident) => {
         ($this.$field == <$ty>::Present).to_string()

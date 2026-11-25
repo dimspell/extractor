@@ -348,6 +348,42 @@ mod tests {
     }
 
     #[test]
+    fn test_optional_enum_uses_display_names() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::DialogueScript;
+
+        let mut record = DialogueScript::default();
+        assert!(record.set_field("dialog_type", "Choice".to_string()));
+        assert_eq!(record.get_field("dialog_type"), "Choice");
+        assert!(record.set_field("dialog_owner", "Npc".to_string()));
+        assert_eq!(record.get_field("dialog_owner"), "Npc");
+
+        for name in ["dialog_type", "dialog_owner"] {
+            let desc = DialogueScript::field_descriptors()
+                .iter()
+                .find(|d| d.name == name)
+                .expect("descriptor exists");
+            let value = record.get_field(name);
+            let lookups = HashMap::new();
+            let contents = HashMap::new();
+            let element = build_inspector_field(
+                desc,
+                value.clone(),
+                0,
+                &lookups,
+                None,
+                field_changed,
+                &contents,
+                spreadsheet_msg,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, &value),
+                "optional enum {name} must render its display name {value}"
+            );
+        }
+    }
+
+    #[test]
     fn test_lookup_fallback_input_emits_field_changed() {
         let descriptor = FieldDescriptor {
             name: "monster_db_id",
