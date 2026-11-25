@@ -9,6 +9,10 @@ use crate::style;
 
 const LABEL_W: f32 = 140.0;
 
+/// The empty-slot option shared with the item catalog.
+const NO_ITEM_KEY: &str = "255:15";
+const NO_ITEM_LABEL: &str = "[-]";
+
 /// Render a picker body, optionally prefixed with a fixed-width label column.
 ///
 /// Callers that already render a label above the field pass `show_label = false`
@@ -90,7 +94,7 @@ pub fn composite_item_picker(
     let type_labels: Vec<String> = item_types.iter().map(|t| t.to_string()).collect();
     let current_type_label = current_type.to_string();
 
-    let filtered_items: Vec<(String, String)> = entries
+    let mut filtered_items: Vec<(String, String)> = entries
         .iter()
         .filter(|(key, _)| {
             key.split(':').next().and_then(|s| s.parse::<u8>().ok()) == Some(current_type_byte)
@@ -98,14 +102,37 @@ pub fn composite_item_picker(
         .cloned()
         .collect();
 
-    let selected_item = filtered_items
+    // Every key with the no-item byte denotes the same empty slot, regardless
+    // of its id. Resolve all of them to the shared sentinel option so the
+    // selection is never blank.
+    let is_no_item = current_type_byte == u8::from(ItemTypeId::NoItem);
+    if is_no_item && !filtered_items.iter().any(|(key, _)| key == NO_ITEM_KEY) {
+        filtered_items.push((NO_ITEM_KEY.to_string(), NO_ITEM_LABEL.to_string()));
+    }
+    let lookup_key = if is_no_item { NO_ITEM_KEY } else { value };
+
+    let mut selected_item = filtered_items
         .iter()
-        .find(|(key, _)| *key == value)
+        .find(|(key, _)| *key == lookup_key)
         .map(|(_, name)| name.clone());
 
-    let item_options: Vec<String> = filtered_items
+    let mut labelled_keys: Vec<(String, String)> = filtered_items
         .iter()
-        .map(|(_, name)| name.clone())
+        .map(|(key, name)| (name.clone(), key.clone()))
+        .collect();
+
+    // An id that is gone from the lookup still gets a visible, selectable
+    // label. The stored value is left untouched; choosing the fallback keeps
+    // the original key.
+    if selected_item.is_none() {
+        let fallback_label = format!("Unknown ({})", current_id);
+        labelled_keys.push((fallback_label.clone(), value.to_string()));
+        selected_item = Some(fallback_label);
+    }
+
+    let item_options: Vec<String> = labelled_keys
+        .iter()
+        .map(|(label, _)| label.clone())
         .collect();
 
     // Clone type_labels before passing to pick_list (closure needs the data too)
@@ -132,13 +159,14 @@ pub fn composite_item_picker(
     };
 
     let item_picker: Element<'static, Message> = {
+        let fallback_key = value.to_string();
         pick_list(selected_item, item_options, |v| v.to_string())
             .on_select(move |selected_name| {
-                let composite_key = filtered_items
+                let composite_key = labelled_keys
                     .iter()
-                    .find(|(_, name)| name == &selected_name)
-                    .map(|(key, _)| key.clone())
-                    .unwrap_or_default();
+                    .find(|(label, _)| *label == selected_name)
+                    .map(|(_, key)| key.clone())
+                    .unwrap_or_else(|| fallback_key.clone());
                 on_change(composite_key)
             })
             .width(Length::Fill)
@@ -161,6 +189,46 @@ mod tests {
             });
         let mut ui = simulator(element);
         ui.find("Invented Item").is_ok()
+    }
+
+    #[test]
+    fn test_unmapped_composite_keys_render_a_label_and_emit_sentinel() {
+        let entries = [
+            ("1:0".to_string(), "Invented Sword".to_string()),
+            ("255:15".to_string(), "[-]".to_string()),
+        ];
+        let element = |value: &'static str| {
+            composite_item_picker("Invented Item", value, Some(&entries), false, |v| {
+                Message::FileTree(crate::message::FileTreeMessage::Search(v))
+            })
+        };
+
+        for value in ["255:0", "255:255"] {
+            let values = crate::tests::common::select_values(element(value));
+            assert!(
+                values.iter().any(|v| v == "[-]"),
+                "{value} must resolve to the no-item sentinel label, got {values:?}"
+            );
+        }
+
+        let values = crate::tests::common::select_values(element("1:999"));
+        assert!(
+            values.iter().any(|v| v.starts_with("Unknown (999)")),
+            "an unmapped item id must render a visible fallback label, got {values:?}"
+        );
+
+        let messages = crate::tests::common::activate_select_option(element("255:0"), 1);
+        let emitted: Vec<String> = messages
+            .into_iter()
+            .filter_map(|m| match m {
+                Message::FileTree(crate::message::FileTreeMessage::Search(v)) => Some(v),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            emitted.iter().any(|v| v == "255:15"),
+            "choosing the sentinel must emit the normalized key, got {emitted:?}"
+        );
     }
 
     #[test]
