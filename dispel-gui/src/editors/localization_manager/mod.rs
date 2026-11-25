@@ -3,7 +3,7 @@
 mod message;
 mod state;
 mod update;
-mod view;
+pub(crate) mod view;
 
 pub use message::*;
 pub use state::*;

@@ -71,20 +71,13 @@ pub fn inspector_field_row<'a>(
             // Clone entries so the move closures own their data.
             let entries: Vec<(String, String)> =
                 lookups.get(*lookup_key).cloned().unwrap_or_default();
-            let options: Vec<String> = entries.iter().map(|(_, d)| d.clone()).collect();
-            let selected = entries
-                .iter()
-                .find(|(id, _)| id == value)
-                .map(|(_, display)| display.clone());
 
-            let field_widget: Element<'a, Message> = if !options.is_empty() {
-                pick_list(selected, options, String::clone)
+            let field_widget: Element<'a, Message> = if !entries.is_empty() {
+                let select = crate::components::select::lookup_select(&entries, value);
+                let label_to_id = select.label_to_id;
+                pick_list(select.selected, select.options, String::clone)
                     .on_select(move |v: String| {
-                        let id = entries
-                            .iter()
-                            .find(|(_, d)| d == &v)
-                            .map(|(id, _)| id.clone())
-                            .unwrap_or_default();
+                        let id = label_to_id.get(&v).cloned().unwrap_or_default();
                         Message::map_editor(MapEditorMessage::EntityFieldChanged(
                             tab_id,
                             sel,
@@ -124,24 +117,27 @@ pub fn inspector_field_row<'a>(
         }
 
         FieldKind::Enum { variants } => {
-            let options: Vec<&'static str> = variants.to_vec();
-            let selected = options
-                .iter()
-                .find(|&&opt| opt == value)
-                .copied()
-                .or_else(|| options.first().copied());
+            let mut options: Vec<String> = variants.iter().map(|v| (*v).to_string()).collect();
+            let selected = if options.iter().any(|opt| opt == value) {
+                Some(value.to_string())
+            } else if !value.is_empty() {
+                options.push(value.to_string());
+                Some(value.to_string())
+            } else {
+                None
+            };
             row![
                 text(label)
                     .size(11)
                     .width(LABEL_W)
                     .style(style::subtle_text),
-                pick_list(selected, options, |v| v.to_string())
-                    .on_select(move |v: &'static str| {
+                pick_list(selected, options, String::clone)
+                    .on_select(move |v: String| {
                         Message::map_editor(MapEditorMessage::EntityFieldChanged(
                             tab_id,
                             sel,
                             name.to_string(),
-                            v.to_string(),
+                            v,
                         ))
                     })
                     .width(Fill)
@@ -186,6 +182,153 @@ mod tests {
         };
         let _ = ui.find(&mut selector);
         count
+    }
+
+    #[test]
+    fn test_npc_facing_directions_offer_left_in_map_editor() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};
+
+        let _ = NpcLookingDirection::Left;
+
+        fn check<R: EditableRecord>(field: &'static str) {
+            let mut record = R::default();
+            assert!(
+                record.set_field(field, "Left".to_string()),
+                "{field} must accept Left"
+            );
+            let value = record.get_field(field);
+            assert_eq!(value, "Left", "{field} must display Left");
+            let desc = R::field_descriptors()
+                .iter()
+                .find(|d| d.name == field)
+                .expect("descriptor exists");
+
+            let lookups = HashMap::new();
+            let element = inspector_field_row(
+                desc.label,
+                desc.name,
+                &desc.kind,
+                &value,
+                0,
+                SelectedEntity::Npc(0),
+                &lookups,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, "Left"),
+                "map editor row for {field} must render the selected Left label"
+            );
+        }
+
+        for field in [
+            "waypoint1_facing_direction",
+            "waypoint2_facing_direction",
+            "waypoint3_facing_direction",
+            "waypoint4_facing_direction",
+        ] {
+            check::<NPC>(field);
+            check::<EventNpcRef>(field);
+        }
+    }
+
+    #[test]
+    fn test_map_editor_enum_shows_unknown_value() {
+        let kind = FieldKind::Enum {
+            variants: &["Alpha", "Beta"],
+        };
+        let lookups = HashMap::new();
+
+        let unknown = inspector_field_row(
+            "Invented:",
+            "invented_field",
+            &kind,
+            "Bogus",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(unknown, "Bogus"),
+            "an unexpected enum value must render itself, not the first option"
+        );
+
+        let known = inspector_field_row(
+            "Invented:",
+            "invented_field",
+            &kind,
+            "Beta",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(known, "Beta"),
+            "a known enum value must render exactly"
+        );
+    }
+
+    #[test]
+    fn test_map_editor_lookup_shows_missing_and_duplicate_ids() {
+        let kind = FieldKind::Lookup("monster_names");
+        let lookups = HashMap::from([(
+            "monster_names".to_string(),
+            vec![
+                ("7".to_string(), "Invented Creature".to_string()),
+                ("9".to_string(), "Invented Creature".to_string()),
+            ],
+        )]);
+
+        let missing = inspector_field_row(
+            "Monster:",
+            "monster_db_id",
+            &kind,
+            "99",
+            0,
+            SelectedEntity::Monster(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(missing, "Unknown (99)"),
+            "an id missing from the lookup must render a visible label"
+        );
+
+        let duplicate = inspector_field_row(
+            "Monster:",
+            "monster_db_id",
+            &kind,
+            "9",
+            0,
+            SelectedEntity::Monster(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(duplicate, "Invented Creature (9)"),
+            "duplicate display names must be qualified with their id"
+        );
+
+        let duplicate = inspector_field_row(
+            "Monster:",
+            "monster_db_id",
+            &kind,
+            "9",
+            0,
+            SelectedEntity::Monster(0),
+            &lookups,
+        );
+        let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
+        let emitted: Vec<String> = messages
+            .into_iter()
+            .filter_map(|m| match m {
+                Message::Editor(crate::message::editor::EditorMessage::MapEditor(
+                    MapEditorMessage::EntityFieldChanged(_, _, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            emitted.iter().any(|v| v == "7"),
+            "selecting the other duplicate must emit its own id, got {emitted:?}"
+        );
     }
 
     #[test]

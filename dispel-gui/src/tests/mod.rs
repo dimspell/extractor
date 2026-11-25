@@ -39,6 +39,7 @@ pub(crate) mod loading_indicator;
 pub(crate) mod map_editor;
 pub(crate) mod message_routing;
 pub(crate) mod pane_grid;
+pub(crate) mod select_boxes;
 pub(crate) mod snf_editor;
 pub(crate) mod sprite_viewer;
 pub(crate) mod start_page;

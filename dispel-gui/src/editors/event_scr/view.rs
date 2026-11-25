@@ -520,7 +520,7 @@ fn render_error_aware<'a>(
     }
 }
 
-fn build_prefix_options(
+pub(crate) fn build_prefix_options(
     script: &dispel_core::references::event_scr::EventScript,
     act: &dispel_core::references::event_scr::ActionFunction,
 ) -> Vec<String> {

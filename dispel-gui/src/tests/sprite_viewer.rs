@@ -293,6 +293,42 @@ mod sprite_viewer_tests {
             .expect_err("Fit must not keep showing a stale manual zoom percentage");
     }
 
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_preview_render_does_not_panic() {
+        use iced_test::simulator;
+
+        let mut app = app_with_sprite_viewer_frames();
+        {
+            let viewer = app.state.editors.sprite_viewers.get_mut(&0).unwrap();
+            viewer.frame_counts = vec![2, 0, 0];
+            viewer.frames = vec![
+                SpriteFrame {
+                    sequence_idx: 0,
+                    frame_idx: 0,
+                    image: iced::widget::image::Handle::from_rgba(1, 1, vec![0, 0, 0, 0]),
+                    rgba_bytes: vec![],
+                    width: 32,
+                    height: 48,
+                },
+                SpriteFrame {
+                    sequence_idx: 0,
+                    frame_idx: 1,
+                    image: iced::widget::image::Handle::from_rgba(1, 1, vec![0, 0, 0, 0]),
+                    rgba_bytes: vec![],
+                    width: 64,
+                    height: 24,
+                },
+            ];
+        }
+        let with_frames = &app.state.editors.sprite_viewers[&0];
+        let _ = simulator(crate::editors::sprite_editor::view_preview(with_frames));
+
+        let empty_app = app_with_sprite_viewer();
+        let empty = &empty_app.state.editors.sprite_viewers[&0];
+        let _ = simulator(crate::editors::sprite_editor::view_preview(empty));
+    }
+
     // ── Export dialog ────────────────────────────────────────────────────────
 
     #[test]

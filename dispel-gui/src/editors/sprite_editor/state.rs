@@ -1,6 +1,6 @@
 use crate::editors::sprite_editor::ExportFormat;
 use dispel_core::sprite::{SpriteFile, SpriteRenderOptions, read_sprite_file};
-use iced::Size;
+use iced::{Point, Size};
 use std::path::{Path, PathBuf};
 
 /// Scale that fits a frame inside the preview viewport while preserving its
@@ -14,6 +14,74 @@ pub fn fit_scale(viewport: Size, frame: (u32, u32)) -> f32 {
     (viewport.width / w as f32)
         .min(viewport.height / h as f32)
         .max(0.01)
+}
+
+/// Largest frame dimensions within one sequence, used as the shared preview
+/// canvas so frames of different sizes stay on one center during animation.
+/// Returns `(1, 1)` when the sequence has no decoded frames.
+pub fn sequence_bounds(frames: &[SpriteFrame], sequence_idx: usize) -> (u32, u32) {
+    let mut width = 0u32;
+    let mut height = 0u32;
+    for frame in frames.iter().filter(|f| f.sequence_idx == sequence_idx) {
+        width = width.max(frame.width);
+        height = height.max(frame.height);
+    }
+    (width.max(1), height.max(1))
+}
+
+/// Resolved geometry for the preview at a given viewport size.
+#[derive(Debug, Clone, Copy)]
+pub struct PreviewLayout {
+    /// Size of the scrollable inner container: at least the viewport, larger
+    /// when the scaled canvas does not fit.
+    pub inner_size: Size,
+    /// Scaled size of the sequence canvas (bounds × scale).
+    pub canvas_size: Size,
+    /// Scaled size of the current frame.
+    pub frame_size: Size,
+    /// Center of the inner container; every frame is placed around this point.
+    pub center: Point,
+    /// Top-left corner of the current frame within the inner container.
+    pub frame_offset: Point,
+    /// Uniform scale applied to the canvas and to every frame.
+    pub scale: f32,
+}
+
+/// Compute preview geometry from the viewport, the sequence canvas bounds and
+/// the current frame size. Fit mode scales the whole sequence; manual zoom
+/// scales it by `zoom` on top. The frame is always centered on the canvas
+/// center, so changing frames never shifts the sprite.
+pub fn preview_layout(
+    viewport: Size,
+    bounds: (u32, u32),
+    frame: (u32, u32),
+    fit_mode: bool,
+    zoom: f32,
+) -> PreviewLayout {
+    let scale = if fit_mode {
+        fit_scale(viewport, bounds)
+    } else {
+        1.0
+    } * zoom;
+
+    let canvas_w = (bounds.0 as f32 * scale).ceil().max(1.0);
+    let canvas_h = (bounds.1 as f32 * scale).ceil().max(1.0);
+    let frame_w = (frame.0 as f32 * scale).ceil().max(1.0);
+    let frame_h = (frame.1 as f32 * scale).ceil().max(1.0);
+
+    let inner_w = canvas_w.max(viewport.width).max(1.0);
+    let inner_h = canvas_h.max(viewport.height).max(1.0);
+    let center = Point::new(inner_w / 2.0, inner_h / 2.0);
+    let frame_offset = Point::new(center.x - frame_w / 2.0, center.y - frame_h / 2.0);
+
+    PreviewLayout {
+        inner_size: Size::new(inner_w, inner_h),
+        canvas_size: Size::new(canvas_w, canvas_h),
+        frame_size: Size::new(frame_w, frame_h),
+        center,
+        frame_offset,
+        scale,
+    }
 }
 
 /// A decoded sprite frame ready for display, editing, and export.
@@ -107,7 +175,7 @@ impl Default for SpriteViewerState {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
             zoom: 1.0,
-            fit_mode: true,
+            fit_mode: false,
             is_playing: false,
             is_looping: true,
             speed_100x: 100,
@@ -359,6 +427,100 @@ mod tests {
         assert_eq!(fit_scale(Size::new(0.0, 0.0), (32, 32)), 1.0);
         assert_eq!(fit_scale(Size::new(100.0, 100.0), (0, 10)), 1.0);
         assert!(fit_scale(Size::new(100.0, 100.0), (10000, 1)) >= 0.01);
-        assert!(SpriteViewerState::default().fit_mode);
+        assert!(!SpriteViewerState::default().fit_mode);
+    }
+
+    #[test]
+    fn test_default_preview_is_native_size() {
+        let state = SpriteViewerState::default();
+        assert!(!state.fit_mode, "preview starts at 1:1, not Fit");
+        assert_eq!(state.zoom, 1.0, "preview starts at native size");
+    }
+
+    fn invented_frame(seq: usize, frame: usize, width: u32, height: u32) -> SpriteFrame {
+        SpriteFrame {
+            sequence_idx: seq,
+            frame_idx: frame,
+            image: iced::widget::image::Handle::from_rgba(1, 1, vec![0, 0, 0, 0]),
+            rgba_bytes: vec![],
+            width,
+            height,
+        }
+    }
+
+    #[test]
+    fn test_sequence_bounds_use_largest_frame_in_selected_sequence() {
+        let frames = vec![
+            invented_frame(0, 0, 32, 48),
+            invented_frame(0, 1, 64, 24),
+            invented_frame(1, 0, 16, 16),
+            invented_frame(1, 1, 10, 96),
+        ];
+        assert_eq!(sequence_bounds(&frames, 0), (64, 48));
+        assert_eq!(sequence_bounds(&frames, 1), (16, 96));
+        assert_eq!(sequence_bounds(&frames, 2), (1, 1));
+    }
+
+    #[test]
+    fn test_frames_share_one_center_across_animation() {
+        let viewport = Size::new(800.0, 600.0);
+        let bounds = (64, 48);
+        let small = preview_layout(viewport, bounds, (16, 12), false, 1.0);
+        let large = preview_layout(viewport, bounds, (64, 48), false, 1.0);
+        assert_eq!(small.center.x, large.center.x);
+        assert_eq!(small.center.y, large.center.y);
+        assert_eq!(
+            small.frame_offset.x + small.frame_size.width / 2.0,
+            small.center.x
+        );
+        assert_eq!(
+            large.frame_offset.x + large.frame_size.width / 2.0,
+            large.center.x
+        );
+        assert_eq!(
+            small.frame_offset.y + small.frame_size.height / 2.0,
+            small.center.y
+        );
+        assert_eq!(
+            large.frame_offset.y + large.frame_size.height / 2.0,
+            large.center.y
+        );
+    }
+
+    #[test]
+    fn test_preview_centers_when_smaller_than_viewport() {
+        let viewport = Size::new(800.0, 600.0);
+        let layout = preview_layout(viewport, (100, 80), (100, 80), false, 1.0);
+        assert_eq!(layout.inner_size.width, 800.0);
+        assert_eq!(layout.inner_size.height, 600.0);
+        assert_eq!(layout.scale, 1.0);
+        assert_eq!(layout.frame_offset.x, (800.0 - 100.0) / 2.0);
+        assert_eq!(layout.frame_offset.y, (600.0 - 80.0) / 2.0);
+    }
+
+    #[test]
+    fn test_preview_scrolls_when_larger_than_viewport() {
+        let viewport = Size::new(200.0, 150.0);
+        let layout = preview_layout(viewport, (400, 300), (400, 300), false, 2.0);
+        assert_eq!(layout.scale, 2.0);
+        assert_eq!(layout.inner_size.width, 800.0);
+        assert_eq!(layout.inner_size.height, 600.0);
+        assert_eq!(layout.frame_size.width, 800.0);
+        assert_eq!(layout.frame_size.height, 600.0);
+        assert_eq!(layout.frame_offset.x, 0.0);
+        assert_eq!(layout.frame_offset.y, 0.0);
+    }
+
+    #[test]
+    fn test_preview_fit_uses_sequence_bounds_not_current_frame() {
+        let viewport = Size::new(640.0, 480.0);
+        let layout = preview_layout(viewport, (64, 48), (16, 12), true, 1.0);
+        assert_eq!(layout.scale, 10.0);
+        assert_eq!(layout.frame_size.width, 160.0);
+        assert_eq!(layout.frame_size.height, 120.0);
+        assert_eq!(layout.inner_size.width, 640.0);
+        assert_eq!(layout.inner_size.height, 480.0);
+        assert_eq!(layout.frame_offset.x, (640.0 - 160.0) / 2.0);
+        assert_eq!(layout.frame_offset.y, (480.0 - 120.0) / 2.0);
     }
 }

@@ -81,7 +81,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn build_inspector_field<'a>(
+pub(crate) fn build_inspector_field<'a>(
     descriptor: &'a FieldDescriptor,
     value: String,
     orig_idx: usize,
@@ -114,24 +114,15 @@ fn build_inspector_field<'a>(
             }
         }
         FieldKind::Lookup(key) => {
-            if let Some(options) = lookups.get(*key) {
+            if let Some(entries) = lookups.get(*key)
+                && !entries.is_empty()
+            {
+                let select = crate::components::select::lookup_select(entries, &value);
                 let field_name = descriptor.name.to_string();
-                let selected = options
-                    .iter()
-                    .find(|(id, _)| id == &value)
-                    .map(|(_, name)| name.clone());
-
-                let options_vec: Vec<String> =
-                    options.iter().map(|(_, name)| name.clone()).collect();
-
-                // Build name→id lookup for the closure
-                let name_to_id: HashMap<String, String> = options
-                    .iter()
-                    .map(|(id, name)| (name.clone(), id.clone()))
-                    .collect();
-                pick_list(selected, options_vec, String::clone)
+                let label_to_id = select.label_to_id;
+                pick_list(select.selected, select.options, String::clone)
                     .on_select(move |selected_name| {
-                        let selected_id = name_to_id
+                        let selected_id = label_to_id
                             .get(selected_name.as_str())
                             .cloned()
                             .unwrap_or_default();
@@ -225,6 +216,15 @@ mod tests {
         Message::System(crate::message::SystemMessage::DismissError)
     }
 
+    fn field_changed_spreadsheet_msg(msg: SpreadsheetMessage) -> Message {
+        match msg {
+            SpreadsheetMessage::InspectorFieldChanged(idx, name, value) => {
+                field_changed(idx, name, value)
+            }
+            _ => spreadsheet_msg(msg),
+        }
+    }
+
     fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
         let mut ui = simulator(element);
         let mut count = 0usize;
@@ -288,6 +288,170 @@ mod tests {
             count_label_text(element, "Invented Item:"),
             1,
             "composite field must not render its label twice with lookups"
+        );
+    }
+
+    #[test]
+    fn test_npc_facing_directions_offer_left_in_inspector() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};
+
+        let _ = NpcLookingDirection::Left;
+
+        fn check<R: EditableRecord>(field: &'static str) {
+            let mut record = R::default();
+            assert!(
+                record.set_field(field, "Left".to_string()),
+                "{field} must accept Left"
+            );
+            assert_eq!(record.get_field(field), "Left", "{field} must display Left");
+            let desc = R::field_descriptors()
+                .iter()
+                .find(|d| d.name == field)
+                .expect("descriptor exists");
+            let FieldKind::Enum { variants } = &desc.kind else {
+                panic!("{field} must be an enum");
+            };
+            assert!(
+                variants.contains(&"Left"),
+                "{field} descriptor must offer Left"
+            );
+
+            let value = record.get_field(field);
+            let contents = HashMap::new();
+            let lookups = HashMap::new();
+            let element = build_inspector_field(
+                desc,
+                value,
+                0,
+                &lookups,
+                None,
+                field_changed,
+                &contents,
+                spreadsheet_msg,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, "Left"),
+                "inspector for {field} must render the selected Left label"
+            );
+        }
+
+        for field in [
+            "waypoint1_facing_direction",
+            "waypoint2_facing_direction",
+            "waypoint3_facing_direction",
+            "waypoint4_facing_direction",
+        ] {
+            check::<NPC>(field);
+            check::<EventNpcRef>(field);
+        }
+    }
+
+    #[test]
+    fn test_optional_enum_uses_display_names() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::DialogueScript;
+
+        let mut record = DialogueScript::default();
+        assert!(record.set_field("dialog_type", "Choice".to_string()));
+        assert_eq!(record.get_field("dialog_type"), "Choice");
+        assert!(record.set_field("dialog_owner", "Npc".to_string()));
+        assert_eq!(record.get_field("dialog_owner"), "Npc");
+
+        for name in ["dialog_type", "dialog_owner"] {
+            let desc = DialogueScript::field_descriptors()
+                .iter()
+                .find(|d| d.name == name)
+                .expect("descriptor exists");
+            let value = record.get_field(name);
+            let lookups = HashMap::new();
+            let contents = HashMap::new();
+            let element = build_inspector_field(
+                desc,
+                value.clone(),
+                0,
+                &lookups,
+                None,
+                field_changed,
+                &contents,
+                spreadsheet_msg,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, &value),
+                "optional enum {name} must render its display name {value}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_lookup_shows_missing_and_duplicate_ids() {
+        let descriptor = FieldDescriptor {
+            name: "monster_db_id",
+            label: "Monster ID:",
+            kind: FieldKind::Lookup("monster_names"),
+        };
+        let lookups = HashMap::from([(
+            "monster_names".to_string(),
+            vec![
+                ("7".to_string(), "Invented Creature".to_string()),
+                ("9".to_string(), "Invented Creature".to_string()),
+            ],
+        )]);
+        let contents = HashMap::new();
+
+        let missing = build_inspector_field(
+            &descriptor,
+            "99".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            spreadsheet_msg,
+        );
+        assert!(
+            crate::tests::common::select_shows(missing, "Unknown (99)"),
+            "an id missing from the lookup must render a visible label"
+        );
+
+        let duplicate = build_inspector_field(
+            &descriptor,
+            "9".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            spreadsheet_msg,
+        );
+        assert!(
+            crate::tests::common::select_shows(duplicate, "Invented Creature (9)"),
+            "duplicate display names must be qualified with their id"
+        );
+
+        let duplicate = build_inspector_field(
+            &descriptor,
+            "9".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            field_changed_spreadsheet_msg,
+        );
+        let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
+        let emitted: Vec<String> = messages
+            .into_iter()
+            .filter_map(|m| match m {
+                Message::Editor(crate::message::editor::EditorMessage::Weapon(
+                    crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            emitted.iter().any(|v| v == "7"),
+            "selecting the other duplicate must emit its own id, got {emitted:?}"
         );
     }
 

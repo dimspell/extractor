@@ -369,7 +369,7 @@ fn product_card<'a>(
     .into()
 }
 
-fn product_modal<'a>(
+pub(crate) fn product_modal<'a>(
     editor: &'a StoreEditorState,
     weapons: &'a Option<Vec<dispel_core::WeaponItem>>,
     heals: &'a Option<Vec<dispel_core::HealItem>>,
@@ -394,19 +394,31 @@ fn product_modal<'a>(
     let content = column![
         text(title).size(15).style(style::section_header),
         horizontal_rule(1),
-        row![
-            text("Type").size(12).width(70),
-            pick_list(
-                Some(ProductTypeOption::from_id(editor.modal_edit_type)),
-                ProductTypeOption::all(),
-                |v| v.to_string(),
-            )
-            .on_select(
-                |selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id()))
-            )
-            .padding(6)
-            .width(Fill),
-        ]
+        row![text("Type").size(12).width(70), {
+            let current_type = editor.modal_edit_type;
+            let mut labels: Vec<String> = ProductTypeOption::all()
+                .iter()
+                .map(|option| option.to_string())
+                .collect();
+            let selected = if (1..=4).contains(&current_type) {
+                ProductTypeOption::from_id(current_type).to_string()
+            } else {
+                let unknown = format!("Type {current_type} (unknown)");
+                labels.push(unknown.clone());
+                unknown
+            };
+            pick_list(Some(selected), labels, String::clone)
+                .on_select(move |selected: String| {
+                    let id = ProductTypeOption::all()
+                        .iter()
+                        .find(|option| option.to_string() == selected)
+                        .map(|option| option.to_id())
+                        .unwrap_or(current_type);
+                    Message::store(StoreEditorMessage::ModalTypeChanged(id))
+                })
+                .padding(6)
+                .width(Fill)
+        },]
         .spacing(8)
         .align_y(iced::Alignment::Center),
         row![
@@ -438,6 +450,52 @@ fn product_modal<'a>(
     .width(320);
 
     container(content).style(style::modal_container).into()
+}
+
+#[cfg(all(test, feature = "iced_test"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_product_modal_labels_unknown_type() {
+        let mut editor = StoreEditorState {
+            modal_edit_type: 9,
+            ..Default::default()
+        };
+
+        let unknown = product_modal(&editor, &None, &None, &None, &None);
+        let values = crate::tests::common::select_values(unknown);
+        assert!(
+            values.iter().any(|v| v.contains('9')),
+            "an out-of-range product type must render a label with its raw id, got {values:?}"
+        );
+
+        let messages = crate::tests::common::activate_select_option(
+            product_modal(&editor, &None, &None, &None, &None),
+            0,
+            -3,
+        );
+        let emitted: Vec<i16> = messages
+            .into_iter()
+            .filter_map(|m| match m {
+                Message::Editor(crate::message::editor::EditorMessage::Store(
+                    StoreEditorMessage::ModalTypeChanged(id),
+                )) => Some(id),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            emitted.contains(&2),
+            "choosing a known product type must emit its id, got {emitted:?}"
+        );
+
+        editor.modal_edit_type = 2;
+        let known = product_modal(&editor, &None, &None, &None, &None);
+        assert!(
+            crate::tests::common::select_shows(known, "HealItem"),
+            "a known product type keeps its display label"
+        );
+    }
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────────

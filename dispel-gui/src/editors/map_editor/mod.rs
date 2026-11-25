@@ -4,7 +4,7 @@ pub mod canvas;
 pub(crate) mod message;
 pub(crate) mod state;
 mod update;
-mod view;
+pub(crate) mod view;
 
 pub use message::*;
 pub use state::*;
