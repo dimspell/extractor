@@ -1,14 +1,18 @@
 # DISPEL® Game File Extractor
 
-A modding toolkit for the **DISPEL®** RPG game. Reads and writes game files in native binary, INI, and DB formats. Includes a CLI, a desktop GUI with 46 editor types, a hex editor, and a full mod packaging pipeline. All edits are persisted directly to game files — no intermediate database.
+This toolkit reads and writes DISPEL® game files in binary, INI and DB formats. It includes a CLI, a desktop GUI with 46 editor types, a hex editor and a mod packaging pipeline. The tools write each edit into the game file. They do not keep a separate database.
 
-**Not affiliated with, endorsed by, or sponsored by the trademark owner.**
+## Scope and notice
 
----
+This project reads and writes data files for DISPEL®. It ships no game content. You provide the files you edit.
+
+DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark owner.
+
+The source code is licensed under the MIT License (LICENSE). Game content is not covered by this license.
 
 ## What's in this repository
 
-This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
+This Cargo workspace has six crates. The workspace uses Rust 2024 and version `0.9.3`.
 
 | Crate                     | Type       | Role                                                            |
 | ------------------------- | ---------- | --------------------------------------------------------------- |
@@ -23,17 +27,15 @@ This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 
 | Directory             | Contents                                                            |
 | --------------------- | ------------------------------------------------------------------- |
-| `src/references/`     | 30+ parsers for `.db`, `.ini`, `.ref` game data files               |
+| `src/references/`     | 51 source files with parsers for `.db`, `.ini` and `.ref` files      |
 | `src/map/`            | `.map` parser + isometric tile/sprite/event renderer                |
 | `src/sprite.rs`       | `.spr` sprite and animation parser (RGB 565)                        |
-| `src/snf.rs`          | `.snf` audio parser (PCM → WAV conversion)                          |
+| `src/snf.rs`          | `.snf` audio parser (PCM to WAV conversion)                         |
 | `src/modding/`        | Mod authoring pipeline (apply, patch, package, conflict resolution) |
 | `src/commands/`       | CLI command implementations (11 subcommands)                        |
 | `src/queries/`        | 118 SQL files (59 schema DDL + 59 parameterized INSERTs)            |
-| `src/localization.rs` | Text export/import for translations                                 |
+| `src/localization.rs` | Text export and import for translations                             |
 | `src/database.rs`     | SQLite schema bootstrap                                             |
-
----
 
 ## Supported file formats
 
@@ -53,7 +55,7 @@ This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 | `DrawItem.db`      | Draw items              |
 | `PartyLevelNpc.db` | Party level NPC data    |
 
-### INI / text files
+### INI and text files
 
 | File          | Description                |
 | ------------- | -------------------------- |
@@ -79,15 +81,13 @@ This is a 6-crate Cargo workspace (Rust 2024, version `0.9.3`):
 | Extension       | Description                                    |
 | --------------- | ---------------------------------------------- |
 | `.map`          | Map geometry (tiles, sprites, events)          |
-| `.gtl` / `.btl` | Tilesets (ground / roof, RGB 565, 32×32 tiles) |
+| `.gtl` / `.btl` | Tilesets (ground / roof, RGB 565, 32x32 tiles) |
 | `.spr`          | Character sprites and animations (RGB 565)     |
-| `.snf`          | Sound effects (custom PCM → WAV)               |
+| `.snf`          | Sound effects (custom PCM to WAV)              |
 | `.dlg` / `.pgp` | Dialogue scripts and text (EUC-KR / 1250)      |
 | `.scr`          | Event scripts (1250)                           |
 
-Full format specs are in `docs/files/` (36 per-format documents plus `CROSS_REFERENCES.md`).
-
----
+Format specifications are in `docs/files/`. That directory holds 36 per-format documents and `CROSS_REFERENCES.md`.
 
 ## CLI usage
 
@@ -131,17 +131,18 @@ cargo run -- schema --type weapons
 cargo run -- template --type weapons --pretty
 ```
 
-### Sprite and animation extraction
+### Extract sprites and animations
 
 ```bash
 cargo run -- sprite fixtures/Dispel/CharacterInGame/M_BODY1.SPR --mode sprite
 cargo run -- sprite fixtures/Dispel/CharacterInGame/M_BODY1.SPR --mode animation
 ```
 
-### Sound conversion
+### Convert sound files
 
 ```bash
-cargo run -- sound --input fixtures/Dispel/Sound/sample.snf --output output.wav
+cargo run -- sound to-wav fixtures/Dispel/Sound/sample.snf output.wav
+cargo run -- sound from-wav output.wav sample.snf
 ```
 
 ### Map operations
@@ -171,6 +172,8 @@ cargo run -- database import fixtures/Dispel/ db.sqlite
 
 ### Mod packaging
 
+The CLI `mod-pack` command reads `Event*.scr` files from the game `Ref/` folder and writes JSON.
+
 ```bash
 cargo run -- mod-pack --help
 ```
@@ -181,8 +184,6 @@ cargo run -- mod-pack --help
 cargo run -- --help
 ```
 
----
-
 ## GUI
 
 Launch the desktop editor:
@@ -191,28 +192,26 @@ Launch the desktop editor:
 cargo run -p dispel-gui
 ```
 
-The GUI provides:
+The GUI has these features:
 
-- **46 editor types** — spreadsheet views for every supported game data format
-- **3-pane layout** — sidebar (file tree), main content (editors), history panel (undo/redo)
-- **Undo/redo** with full edit history per editor
-- **Mod recording** — tracks every field change for mod changelog generation
-- **Full-text search** — nucleo-matcher fuzzy search across all loaded files
-- **Hex editor** — built-in hex editor (from `hexedit` crate)
-- **Map viewer** — isometric rendering with viewport + LRU cache
-- **SNF audio playback** — rodio-based sound preview
-- **Audio viewer** — read-only OGG/WAV playback with timeline and volume
-- **BMP viewer** — read-only image preview with zoom and fit-to-viewport
-- **Mod packager** — package changes into `dispel-mod` archives
-
----
+- 46 editor types with spreadsheet views for supported game data formats
+- A three-pane layout with a sidebar for the file tree, main content for editors and a history panel for undo and redo
+- Undo and redo with an edit history for each editor
+- Mod recording that tracks every field change for the mod changelog
+- Full-text search with nucleo-matcher fuzzy search across loaded files
+- A hex editor from the `hexedit` crate
+- A map viewer with isometric rendering, a viewport and an LRU cache
+- SNF audio playback with rodio
+- An audio viewer for read-only OGG and WAV playback with timeline and volume
+- A BMP viewer for read-only image preview with zoom and fit to viewport
+- A mod packager that stores work in `.dispel-mods`. It writes a zip with `manifest.json`, `changes.json`, `patches/` and `files/`.
 
 ## Project structure
 
 ```
 dispel-extractor/
 ├── src/                      # dispel-core library + CLI binary
-│   ├── references/           # 30+ game data file parsers
+│   ├── references/           # 51 game data file parsers
 │   ├── map/                  # .map parser + isometric renderer
 │   ├── modding/              # Mod authoring pipeline
 │   ├── commands/             # CLI command implementations
@@ -236,13 +235,9 @@ dispel-extractor/
     └── release.sh            # Automated release script
 ```
 
----
-
 ## Development
 
-The canonical build, format, lint and test commands live in
-`scripts/ci-commands.sh` (11 commands). CI and the Makefile delegate to that
-script, so use it or the matching `make` target rather than an inline command:
+The canonical build, format, lint and test commands live in `scripts/ci-commands.sh`. The script has 11 commands. CI and the Makefile call that script. Use the script or the matching `make` target.
 
 ```bash
 bash scripts/ci-commands.sh --list   # show all canonical commands
@@ -282,15 +277,3 @@ cargo run -p dispel-gui
 | `make sprite-animation`       | Extract animations            |
 | `make mod-pack`               | Package a mod                 |
 | `make help`                   | Show all Makefile targets     |
-
----
-
-## Legal
-
-This project is **not affiliated with, endorsed by, or sponsored by** the DISPEL® trademark owner.
-
-This tool is for **independent file-format interoperability research based on observable program behavior** only. It does not redistribute copyrighted game files and does not circumvent technological protection measures.
-
-### License
-
-The source code is licensed under the **[MIT License](LICENSE)**. Game content, assets, and proprietary formats are not covered by this license.

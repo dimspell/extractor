@@ -1,3 +1,3 @@
 # sweeten
 
-The code from this module comes from the https://github.com/airstrike/sweeten repository.
+The code in this module comes from https://github.com/airstrike/sweeten.
