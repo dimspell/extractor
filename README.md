@@ -12,7 +12,7 @@ The source code is licensed under the MIT License (LICENSE). Game content is not
 
 ## What's in this repository
 
-This Cargo workspace has six crates. The workspace uses Rust 2024 and version `0.9.3`.
+This Cargo workspace has six crates. The workspace uses Rust 2024 and version `0.9.5`.
 
 | Crate                     | Type       | Role                                                            |
 | ------------------------- | ---------- | --------------------------------------------------------------- |
