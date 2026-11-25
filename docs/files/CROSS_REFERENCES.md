@@ -451,7 +451,7 @@ cargo run -- map render --map "file.map" --btl "file.btl" --gtl "file.gtl" --out
 cargo run -- map sprites "path/to/file.map"
 
 # Convert audio
-cargo run -- sound "path/to/file.snf" "output.wav"
+cargo run -- sound to-wav "path/to/file.snf" "output.wav"
 
 # Import to SQLite database
 cargo run -- database import "path/to/Dispel/" "database.sqlite"

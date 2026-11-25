@@ -1,7 +1,4 @@
-# Magic.db — Spell Database
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Magic.db: spell database
 
 ## File Information
 
@@ -12,7 +9,7 @@
 
 ## Record Structure (88 bytes)
 
-All fields are little-endian `u32`; the record ID is its zero-based position.
+All fields are little-endian `u32` values. The record ID is its zero-based position.
 
 | Offset | Field                                            | Meaning                                                                                                                                             |
 |-------:|--------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -38,25 +35,24 @@ All fields are little-endian `u32`; the record ID is its zero-based position.
 
 ## Field semantics
 
-- Effective mana cost is derived from `mana_cost` and the caster's magic type skill, clamped to a minimum of 5.
-- Effective success chance is derived from `base_success_rate` and that same skill category.
+- The documented mana cost combines `mana_cost` with the magic type skill. The minimum is 5.
+- The documented success chance combines `base_success_rate` with the same skill category.
 - `cast_duration` controls the progress limit used by the casting/action state.
 - `effect_visual_id` selects the mapping used to create the spell visual or projectile.
-- The flags at offsets 4 and 68 select the renderer's palette-blending path; clear values use direct pixel copies.
+- The flags at offsets 4 and 68 select the renderer's palette-blending path. Clear values use direct pixel copies.
 - `effect_animation_repeats` keeps the target-effect animation alive after its last frame.
-- `animation_data_index` (offset 44) is resolved to a pointer after the file is loaded.
+- `animation_data_index` at offset 44 is an index into the animation data table.
 
 ## File Purpose
 
-Defines spell combat parameters, cast timing, and visual configuration. Effect-configuration words at offsets 48–56
-retain offset-based names because their purpose has not been established.
+The file holds spell parameters, cast timing and visual fields. The tool keeps offset-based names for the words at offsets 48 to 56.
 
 ## Implementation
 
 - **Rust Module**: `src/references/magic_db.rs`
 - **Extractor**: `MagicSpell` struct implementing `Extractor` trait
-- **Data Structure**: `MagicSpell` with comprehensive spell attributes
-- **Database**: Saved to SQLite via `save_magic_spells` function
+- **Data Structure**: `MagicSpell` with spell attributes
+- **Database**: saved to SQLite by the `save_magic_spells` function
 
 ## Example Usage
 

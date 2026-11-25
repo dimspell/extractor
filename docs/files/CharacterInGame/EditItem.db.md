@@ -1,10 +1,6 @@
 # EditItem.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
-`CharacterInGame/EditItem.db` defines consumable item-modification materials. It is a little-endian binary file with a
-four-byte record count followed by fixed-size 268-byte records. Text is encoded as WINDOWS-1250.
+`CharacterInGame/EditItem.db` holds consumable item-modification materials. The file is little-endian. It has a four-byte record count followed by fixed-size 268-byte records. Text uses WINDOWS-1250.
 
 ## Record layout
 
@@ -32,12 +28,7 @@ four-byte record count followed by fixed-size 268-byte records. Text is encoded 
 
 ## Runtime item ID
 
-The four bytes at byte offset 236 are not two independent padding fields. The on-disk database stores zero there, then
-the game loader overwrites the word with the zero-based record index. Inventory and ground-item records preserve that
-value as `edit_item_id` to link an instance back to its database definition.
-
-When writing the original database, retain the stored value (normally zero). The game will assign the runtime ID when it
-loads the file.
+Known files store zero at byte offset 236. The tool reads those four bytes as `runtime_item_id` and writes them back unchanged. Other records keep the same value in `edit_item_id`. Keep the stored value when you write the database.
 
 ## Notes
 

@@ -1,8 +1,5 @@
 # DRAWITEM.ref
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ## Purpose
 
 `DRAWITEM.ref` stores item placements for maps.
@@ -45,6 +42,4 @@ normalized CRLF line endings.
 
 The Rust parser is [draw_item.rs](../../../src/references/draw_item.rs).
 
-## Legal Notice
 
-This document describes a file format. It contains no game records, asset names, or other game-content data.

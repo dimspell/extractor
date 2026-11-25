@@ -1,8 +1,5 @@
 # WeaponItem.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 `CharacterInGame/WeaponItem.db` defines weapons and armour.
 
 ## Format
@@ -11,9 +8,7 @@
 - Records: `record_count` fixed-size records of 284 bytes.
 - Text: `name` and `description` are null-padded WINDOWS-1250 strings.
 
-The game loader reads the complete record block, then overwrites each record's
-`weapon_item_id` word with its zero-based record index. The file's stored value at that offset is therefore not a stable
-persistent ID.
+Known files store zero at offset 236. The tool reads this word as `weapon_item_id` and writes it back unchanged. The stored value is not a stable ID.
 
 | Offset | Size | Type   | Field              | Meaning                                        |
 |-------:|-----:|--------|--------------------|------------------------------------------------|
@@ -44,6 +39,4 @@ persistent ID.
 |    280 |    2 | i16    | `reserved_0x118`   | Reserved; zero by default              |
 |    282 |    2 | i16    | `reserved_0x11a`   | Reserved; zero by default              |
 
-The seven reserved words are serialized and copied into save-game inventory records. No observed reader touches
-them, and all known records contain zero at those offsets. Preserve their values when editing; their purpose is
-unknown.
+The tool writes the seven reserved words into save-game inventory records. All known records contain zero at those offsets. Keep their values when you edit them. Their purpose is unknown.

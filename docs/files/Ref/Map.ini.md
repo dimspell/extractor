@@ -1,17 +1,13 @@
 # Map.ini Documentation
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ## File Information
 
 - **Location**: `Dispel/Ref/Map.ini` (relative to game installation directory)
 - **Encoding**: EUC-KR
 - **Format**: CSV (Comma-Separated Values)
-- **Comment lines**: Lines starting with `;` are ignored
+- **Comment lines**: The parser ignores lines starting with `;`.
 
-`Map.ini` is a map initialization data file used by the game engine to configure individual map properties, starting
-positions, and associated resources.
+The tool reads `Map.ini` as a map initialization list. Each row holds a map ID, coordinates, an event ID and resource file names.
 
 ## Structure
 
@@ -51,7 +47,7 @@ id,camera_event,start_x,start_y,map_id,monsters,npcs,extras,cd_track
 ## Special Values
 
 - **"null"**: Used for `monsters`, `npcs`, and `extras` fields when the file is absent
-- **Comments**: Lines starting with `;` are ignored
+- **Comments**: The parser ignores lines starting with `;`.
 - **Coordinates**: Use isometric tile coordinate system
 - **Event IDs**: Special event numbers that trigger when camera moves
 
@@ -59,24 +55,24 @@ id,camera_event,start_x,start_y,map_id,monsters,npcs,extras,cd_track
 
 This file defines initialization parameters for each map including:
 
-1. Starting player positions (X,Y coordinates)
+1. Start positions (X,Y coordinates)
 2. Linked resource files (monsters, NPCs, extra objects)
 3. Background music track selection
 4. Map transition and linking information
 5. Camera movement event triggers
 
-The game engine uses this data during map loading to:
+The tool stores these values:
 
-- Position the player correctly
-- Load appropriate monster/NPC placements
-- Set up interactive objects
-- Play the correct background music
-- Handle map transitions and camera events
+- Start coordinates
+- Monster and NPC placement file names
+- Extra object file names
+- Music track number
+- Camera event and target map IDs
 
 ## Notes
 
-- The file is parsed by the `MapIni` struct in `src/references/map_ini.rs`
-- Map initialization records are stored in a database using the `save_map_inis` function
+- The `MapIni` struct in `src/references/map_ini.rs` parses the file.
+- The `save_map_inis` function stores the records in a database.
 - The file format uses EUC-KR encoding
 - Coordinate system uses isometric tiles, not pixel coordinates
 

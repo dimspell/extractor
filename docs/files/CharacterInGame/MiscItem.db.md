@@ -1,22 +1,19 @@
 # MiscItem.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## File Information
 
 ### Overview
 
-Binary database file that defines generic miscellaneous items with names, descriptions, and economic values for the
-game's crafting, inventory, and utility systems.
+The tool reads `MiscItem.db` as name, description and price records for miscellaneous items.
 
 ### File Structure
 
-**Location**: `CharacterInGame/MiscItem.db`
-**Encoding**: Binary (Little-Endian)
-**Text Encodings**: Mixed (WINDOWS-1250 and EUC-KR)
-**Header**: 4-byte record count **Record Size**: 256 bytes (64 × 4-byte fields)
-**Total Records**: Variable (determined by header)
+- **Location**: `CharacterInGame/MiscItem.db`
+- **Encoding**: Binary (Little-Endian)
+- **Text Encodings**: Mixed (WINDOWS-1250 and EUC-KR)
+- **Header**: 4-byte record count
+- **Record Size**: 256 bytes (64 × 4-byte fields)
+- **Total Records**: Variable (determined by header)
 
 ### Binary Format
 

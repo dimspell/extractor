@@ -1,11 +1,8 @@
 # HealItem.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## Purpose
 
-`HealItem.db` stores fixed-size definitions for consumable items that restore health or mana and cure status effects.
+The tool reads `HealItem.db` as fixed-size definitions for items that restore health or mana and cure status effects.
 
 ## File Structure
 
@@ -31,9 +28,9 @@
 | 248    |    1 | `cures_polymorph`         | flag   | Polymorph cure.                |
 | 249    |    3 | `reserved_trailer`        | bytes  | Preserved opaque data. Unused. |
 
-## Runtime Behavior
+## Field values
 
-The loader replaces `runtime_item_index_slot` with the sequential record index. Do not use this field as item data.
+Known files store zero in `runtime_item_index_slot`. The tool reads the word and writes it back unchanged. Do not use this field as item data.
 
 Each effect flag uses `HealItemFlag`. `0` disables the effect. `1` enables the effect.
 
@@ -41,6 +38,4 @@ Each effect flag uses `HealItemFlag`. `0` disables the effect. `1` enables the e
 
 The Rust parser is [heal_item_db.rs](../../../src/references/heal_item_db.rs).
 
-## Legal Notice
 
-This document describes a file format. It contains no game records, asset names, or other game-content data.

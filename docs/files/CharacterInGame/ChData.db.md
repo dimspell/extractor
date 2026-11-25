@@ -1,7 +1,4 @@
-# ChData.db - Character Initial Attributes
-
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
+# ChData.db: character initial attributes
 
 ## File Information
 
@@ -18,7 +15,7 @@
 
 ### Class Base Attributes (32 bytes)
 
-16 × `i16` — Base attributes (STR, CON, WIS, AGI) for each of 4 classes:
+The tool reads 16 `i16` base attributes: STR, CON, WIS and AGI for each of 4 classes.
 
 | Offset | Class   | Fields (each i16)  |
 |--------|---------|--------------------|
@@ -29,12 +26,11 @@
 
 ### Reserved (2 bytes)
 
-- `reserved_stat`: i16 — Separator between base stats and extra points (purpose unknown)
+- `reserved_stat`: i16 between the base stats and the extra points. Purpose unknown.
 
 ### Derived Stat Bonuses (20 bytes)
 
-5 × `i32` — per-class derived-stat bonuses applied at character creation. Only the low byte of each is significant
-(values are small, e.g. 5). Each bonus is added to a derived combat stat:
+The tool reads 5 `i32` derived-stat bonuses, one per class. Known files store small values such as 5. Only the low byte of each value carries meaning.
 
 | Offset | Class   | Field                  | Derived stat | Base attr |
 |--------|---------|------------------------|--------------|-----------|
@@ -44,7 +40,7 @@
 | 76     | Archer  | archer_hit_bonus       | hit_rate     | CON       |
 | 80     | Mage    | mage_magic_power_bonus | magic_power  | WIS       |
 
-> Points-per-level is hardcoded to 5 in the game and is NOT read from this file.
+> The tool does not read a points-per-level value from this file. The documented value is 5.
 
 ## Field Details
 
@@ -52,7 +48,7 @@
 
 - 30-byte WINDOWS-1250 encoded string
 - Starts with "Item" magic signature
-- Otherwise unused by the game
+- The tool treats this field as unused.
 
 ### Class Attributes (warrior_strength through mage_agility)
 
@@ -63,16 +59,15 @@
 ### reserved_stat
 
 - i16 between class attributes and extra points
-- Value in the game appears to be ignored
+- Known files store zero at this offset.
 
 ### Derived Stat Bonuses (warrior_offense_bonus through mage_magic_power_bonus)
 
-- 5 × i32 — per-class derived-stat bonuses. Each is added to a derived combat stat (offense, defense, dodge_rate,
-  hit_rate, magic_power) for the corresponding class.
+- The tool reads 5 `i32` derived-stat bonuses. Each maps to a derived combat stat: offense, defense, dodge_rate, hit_rate or magic_power.
 
 ### mage_magic_power_bonus
 
-- i32 — Mage class bonus added to magic_power (WIS-derived).
+- i32 value for the Mage bonus to magic_power, which uses WIS.
 
 ## Example Usage
 
@@ -139,10 +134,10 @@ Bytes 80-83:  mage_magic_power_bonus (i32)
 
 ### Data Types
 
-- `unused_name`: [u8; 30] WINDOWS-1250
-- Class attributes: [i16; 16]
+- `unused_name`: `[u8; 30]` WINDOWS-1250
+- Class attributes: `[i16; 16]`
 - `reserved_stat`: i16
-- Derived stat bonuses: [i32; 4]
+- Derived stat bonuses: `[i32; 4]`
 - Mage magic power bonus: i32
 
 ### Endianness

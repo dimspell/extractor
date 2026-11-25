@@ -1,7 +1,4 @@
-# Mondun/Monmap Files - Monster Placement References
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Mondun and Monmap files: monster placement references
 
 ## File Information
 
@@ -9,7 +6,7 @@
 - **Encoding**: Binary (Little-Endian)
 - **Record Size**: 56 bytes per monster entry
 
-Binary files that define monster placements, coordinates, event triggers, and loot configurations for game maps.
+The tool reads these files as monster placements. Each record holds coordinates, an event ID and loot slots.
 
 ## File Types
 
@@ -56,7 +53,7 @@ Binary files that define monster placements, coordinates, event triggers, and lo
 
 ## Map.ini Integration
 
-These files are referenced in `Ref/Map.ini` to associate monster placements with specific maps:
+`Ref/Map.ini` names these files for each map:
 
 ```
 ; Map ID, X, Y, Width, Height, MonsterFile, NPCFile, ExitFile, MapType
@@ -68,14 +65,13 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 
 ## Field Details
 
-**monster_db_id**: Links to monster definitions in `Monster.db`. Determines monster type, stats, and appearance.
+**monster_db_id**: refers to a record in `Monster.db`.
 
 **map_x, map_y**: Tile coordinates where the monster spawns on the map.
 
 **event_id_on_kill**: Links to the event triggered when the monster dies.
 
-**loot_item_1..3**: Packed 32-bit `InventoryItem` values. The low bytes contain the item ID and type; the upper bits are
-preserved when writing.
+**loot_item_1..3**: packed 32-bit `InventoryItem` values. The low bytes hold the item ID and type. The tool preserves the upper bits.
 
 ## Loot System
 
@@ -83,7 +79,7 @@ preserved when writing.
 
 - 3 loot slots per monster
 - Each slot has item ID and type
-- Items dropped when monster is defeated
+- The slots hold item IDs and types.
 
 ### Item Types
 
@@ -92,7 +88,7 @@ preserved when writing.
 - `Edit` (3): Modifiable equipment
 - `Event` (4): Quest-related objects
 - `Misc` (5): Various utility items
-- `NoItem` (-1, `0xFF` on disk; SQL/GUI numeric keys use 255): No item
+- `NoItem` (-1, `0xFF` on disk. SQL and GUI numeric keys use 255): No item
 
 ## Related Files
 
@@ -108,7 +104,7 @@ preserved when writing.
 - **Editor**: `src/references/monster_ref_editor.rs` (EditableRecord impl)
 - **Extractor**: `MonsterRef` struct implementing `Extractor` trait
 - **Data Structure**: `MonsterRef` with position, event, and loot data
-- **Database**: Saved to SQLite via `save_monster_refs` function
+- **Database**: saved to SQLite by the `save_monster_refs` function
 
 ## Example Usage
 
@@ -137,10 +133,10 @@ cargo run -- database import "fixtures/Dispel/"
 
 ## Technical Notes
 
-- Both file types use identical binary format
+- Both file types use the same binary format.
 - Distinction is organizational (dungeon vs overworld)
-- Padding fields have constrained value ranges (see Binary Format above)
-- Files are processed by `MonsterRef` struct in the codebase
+- The padding fields use constrained value ranges. See Binary Format above.
+- The `MonsterRef` struct processes these files.
 
 ## Extractor
 
@@ -163,8 +159,8 @@ cargo run -- validate -i monsteref.json --type monster_ref
 
 The MonsterRef editor provides a 3-panel interface:
 
-1. **File list** — discovered Mondun*/Monmap*.ref files
-2. **Record list** — monster placements in the selected file
-3. **Record editor** — editable fields with monster name dropdown (loaded from Monster.ini)
+1. File list: Mondun* and Monmap* `.ref` files found by the tool
+2. Record list: monster placements in the selected file
+3. Record editor: editable fields with a monster name dropdown loaded from `Monster.ini`
 
 All saves create a timestamped `.bak` backup automatically.
