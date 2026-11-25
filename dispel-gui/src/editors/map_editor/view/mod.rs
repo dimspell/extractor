@@ -10,7 +10,7 @@ use iced::widget::{button, canvas, column, container, row, stack, text, text_inp
 use iced::{Element, Fill};
 use lucide_icons::Icon;
 
-mod fields;
+pub(crate) mod fields;
 mod inspector;
 mod sprites;
 

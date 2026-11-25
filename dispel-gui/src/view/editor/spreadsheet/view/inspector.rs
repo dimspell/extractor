@@ -81,7 +81,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn build_inspector_field<'a>(
+pub(crate) fn build_inspector_field<'a>(
     descriptor: &'a FieldDescriptor,
     value: String,
     orig_idx: usize,

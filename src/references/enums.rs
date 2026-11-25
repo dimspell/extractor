@@ -39,6 +39,8 @@ macro_rules! impl_wire_value {
 // Every enum that participates in derive-generated conversions is registered
 // here. The fallback itself lives only in `WireValue::from_wire` above.
 impl_wire_value!(EventType, i32, from_i32);
+impl_wire_value!(DialogType, i32, from_i32);
+impl_wire_value!(DialogOwner, i32, from_i32);
 impl_wire_value!(MonsterAiType, i32, from_i32);
 impl_wire_value!(PropertyFlag, i32, from_i32);
 impl_wire_value!(MapLighting, i32, from_i32);
@@ -371,10 +373,11 @@ pub enum ExtraType {
 }
 
 /// Dialog types for conversation systems
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum DialogType {
     /// Normal dialog line (linear)
+    #[default]
     Normal = 0,
     /// Choice dialog (branching conversation)
     Choice = 1,
@@ -420,10 +423,11 @@ impl std::fmt::Display for DialogType {
 }
 
 /// Dialog owner/speaker types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum DialogOwner {
     /// Main character speaking
+    #[default]
     Player = 0,
     /// NPC speaking
     Npc = 1,

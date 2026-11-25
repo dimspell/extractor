@@ -369,7 +369,7 @@ fn product_card<'a>(
     .into()
 }
 
-fn product_modal<'a>(
+pub(crate) fn product_modal<'a>(
     editor: &'a StoreEditorState,
     weapons: &'a Option<Vec<dispel_core::WeaponItem>>,
     heals: &'a Option<Vec<dispel_core::HealItem>>,

@@ -66,7 +66,7 @@ dispel-extractor/
 │       ├── dispatch_table.rs # Editor message dispatch table
 │       ├── binary_layout.rs  # Binary layout helpers
 │       ├── indexation/       # File/asset caching + full-text search
-│       ├── tests/            # Dedicated GUI test suite (29 test files)
+│       ├── tests/            # Dedicated GUI test suite (30 test files)
 │       └── recording_tests.rs # Mod recording integration tests (38 tests)
 ├── examples/                 # e.g. check_save_roundtrip.rs
 ├── docs/                     # Overview .md files + docs/files/ (36 per-format + CROSS_REFERENCES.md = 37)
