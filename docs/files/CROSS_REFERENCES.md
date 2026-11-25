@@ -12,7 +12,7 @@ This section groups files by role. A family name such as `DlgMapFiles.dlg` stand
 
 - `AllMap.ini`: Master map index. It lists each map and its resources.
 - `Ref/Map.ini`: Map setup with spawn coordinates and file links. Each row holds one entrance.
-- `CharacterInGame/Monster.ini`: Monster visuals and animation sequences.
+- `Monster.ini`: Monster visuals and animation sequences.
 - `Npc.ini`: NPC visuals and sprite file names.
 - `Extra.ini`: Interactive object definitions.
 - `Event.ini`: Event conditions and script file names.
@@ -110,8 +110,8 @@ CharacterInGame/ChData.db
 ### 4. Monster data
 
 ```
-CharacterInGame/Monster.ini
-    └── sprite_filename → .spr file under CharacterInGame/
+Monster.ini
+    └── sprite_filename → .spr file under MonsterInGame/
 
 MonsterInGame/Monster.db
     ├── known_spell_slot1 / 2 / 3 → spell indices (-1 = SQL NULL)
@@ -199,8 +199,9 @@ ProductType (Store.db slots)
     ├── 1 Weapon → WeaponItem.db
     ├── 2 Healing → HealItem.db
     ├── 3 EditItem → EditItem.db
-    ├── 4 MiscItem → MiscItem.db
-    └── 0 ends the list, with at most 15 products
+    └── 4 MiscItem → MiscItem.db
+
+Note: 0 ends the list. A store holds at most 15 products.
 ```
 
 ## Complete cross-reference table
@@ -214,7 +215,7 @@ ProductType (Store.db slots)
 | Ref/Map.ini | monsters_filename | Mondun01.ref | file name | Monster placements |
 | Ref/Map.ini | npc_filename | Npccat1.ref | file name | NPC placements |
 | Ref/Map.ini | extra_filename | Extdun01.ref | file name | Object placements |
-| Ref/Map.ini | cd_music_track_number | Wave.ini | index | Music track |
+| Ref/Map.ini | cd_music_track_number | CD audio track | number | Music track |
 | Mondun01.ref | monster_db_id | Monster.db | id | Monster type |
 | Mondun01.ref | loot_item_1 / 2 / 3 | items lookup | type:ID | Loot |
 | Mondun01.ref | event_id_on_kill | event index | - | Kill trigger |
@@ -243,10 +244,10 @@ ProductType (Store.db slots)
 | Extdun01.ref | open_sfx_id | Wave.ini | index | Open sound |
 | DRAWITEM.ref | map_id | AllMap.ini | id | Map location |
 | DRAWITEM.ref | item | items lookup | type:ID | Dropped item |
-| Map.map | ground GTL index | Map.gtl | tile index | Ground tiles |
-| Map.map | BTL IDs | Map.btl | tile index | Roof tiles |
+| Map.map | ground GTL index | per-map .gtl file | tile index | Ground tiles |
+| Map.map | BTL IDs | per-map .btl file | tile index | Roof tiles |
 | Map.map | event ID bits | event index | - | Tile event |
-| STORE.DB | product | items lookup | type:ID | Product |
+| STORE.DB | product | item databases | product type:ID | Product |
 | PrtLevel.db | magic_spell_id_1 / 2 / 3 | spell index | - | Spells |
 | Monster.ini / Npc.ini / Extra.ini | sprite_filename | .spr | file name | Sprites |
 | Event.ini | event_filename | event script | file name | Event logic |
@@ -321,7 +322,7 @@ cargo run -- extract -i "path/to/AllMap.ini"
 cargo run -- extract -i "path/to/Ref/Map.ini"
 cargo run -- extract -i "path/to/Event.ini"
 cargo run -- extract -i "path/to/Extra.ini"
-cargo run -- extract -i "path/to/CharacterInGame/Monster.ini"
+cargo run -- extract -i "path/to/Monster.ini"
 cargo run -- extract -i "path/to/Npc.ini"
 cargo run -- extract -i "path/to/Wave.ini"
 
