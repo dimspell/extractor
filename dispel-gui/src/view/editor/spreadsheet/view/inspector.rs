@@ -12,7 +12,7 @@ use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::utils::horizontal_space;
-use crate::message::Message;
+use crate::message::{Message, SystemMessage};
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
@@ -161,13 +161,21 @@ pub(crate) fn build_inspector_field<'a>(
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
             let field_name = descriptor.name.to_string();
-            composite_item_picker(descriptor.label, &value, entries, false, move |v| {
-                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                    orig_idx,
-                    field_name.clone(),
-                    v,
-                ))
-            })
+            composite_item_picker(
+                descriptor.label,
+                &value,
+                entries,
+                false,
+                "",
+                |_| Message::System(SystemMessage::DismissError),
+                move |v| {
+                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        v,
+                    ))
+                },
+            )
         }
         _ => {
             let field_name = descriptor.name.to_string();

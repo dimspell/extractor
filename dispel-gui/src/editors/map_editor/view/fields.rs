@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldKind};
-use crate::message::{Message, MessageExt};
+use crate::message::{Message, MessageExt, SystemMessage};
 use crate::style;
 use iced::widget::{column, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill};
@@ -151,14 +151,22 @@ pub fn inspector_field_row<'a>(
 
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
-            composite_item_picker(label, value, entries, true, move |v| {
-                Message::map_editor(MapEditorMessage::EntityFieldChanged(
-                    tab_id,
-                    sel,
-                    name.to_string(),
-                    v,
-                ))
-            })
+            composite_item_picker(
+                label,
+                value,
+                entries,
+                true,
+                "",
+                |_| Message::System(SystemMessage::DismissError),
+                move |v| {
+                    Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                        tab_id,
+                        sel,
+                        name.to_string(),
+                        v,
+                    ))
+                },
+            )
         }
     }
 }
