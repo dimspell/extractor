@@ -183,6 +183,21 @@ where
         );
         render_both(desc, &label, &lookups, &label);
     }
+
+    // Walk the options themselves so a variant the setter cannot accept, or
+    // that renders differently, is caught independently of real wire values.
+    for &variant in *variants {
+        let mut record = R::default();
+        assert!(
+            record.set_field(field, variant.to_string()),
+            "{field}: option {variant:?} cannot be set"
+        );
+        assert_eq!(
+            record.get_field(field),
+            variant,
+            "{field}: option {variant:?} does not round-trip to itself"
+        );
+    }
 }
 
 fn inspector_emissions(
