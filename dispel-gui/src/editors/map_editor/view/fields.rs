@@ -117,24 +117,27 @@ pub fn inspector_field_row<'a>(
         }
 
         FieldKind::Enum { variants } => {
-            let options: Vec<&'static str> = variants.to_vec();
-            let selected = options
-                .iter()
-                .find(|&&opt| opt == value)
-                .copied()
-                .or_else(|| options.first().copied());
+            let mut options: Vec<String> = variants.iter().map(|v| (*v).to_string()).collect();
+            let selected = if options.iter().any(|opt| opt == value) {
+                Some(value.to_string())
+            } else if !value.is_empty() {
+                options.push(value.to_string());
+                Some(value.to_string())
+            } else {
+                None
+            };
             row![
                 text(label)
                     .size(11)
                     .width(LABEL_W)
                     .style(style::subtle_text),
-                pick_list(selected, options, |v| v.to_string())
-                    .on_select(move |v: &'static str| {
+                pick_list(selected, options, String::clone)
+                    .on_select(move |v: String| {
                         Message::map_editor(MapEditorMessage::EntityFieldChanged(
                             tab_id,
                             sel,
                             name.to_string(),
-                            v.to_string(),
+                            v,
                         ))
                     })
                     .width(Fill)
@@ -226,6 +229,42 @@ mod tests {
             check::<NPC>(field);
             check::<EventNpcRef>(field);
         }
+    }
+
+    #[test]
+    fn test_map_editor_enum_shows_unknown_value() {
+        let kind = FieldKind::Enum {
+            variants: &["Alpha", "Beta"],
+        };
+        let lookups = HashMap::new();
+
+        let unknown = inspector_field_row(
+            "Invented:",
+            "invented_field",
+            &kind,
+            "Bogus",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(unknown, "Bogus"),
+            "an unexpected enum value must render itself, not the first option"
+        );
+
+        let known = inspector_field_row(
+            "Invented:",
+            "invented_field",
+            &kind,
+            "Beta",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+        );
+        assert!(
+            crate::tests::common::select_shows(known, "Beta"),
+            "a known enum value must render exactly"
+        );
     }
 
     #[test]
