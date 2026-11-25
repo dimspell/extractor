@@ -6,7 +6,7 @@ This toolkit reads and writes game files in binary, INI and DB formats. It also 
 
 ## Project Overview
 
-The workspace is a **6-crate Cargo workspace** with Rust edition 2024 and version `0.9.3`.
+The workspace is a **6-crate Cargo workspace** with Rust edition 2024 and version `0.9.5`.
 
 | Crate | Type | Role |
 |---|---|---|
@@ -527,7 +527,7 @@ cargo run -- map tiles "file.gtl" --output dir/
 cargo run -- map render --map file.map --btl file.btl --gtl file.gtl --output out.png
 
 # Audio
-cargo run -- sound "file.snf" output.wav
+cargo run -- sound to-wav "file.snf" output.wav
 
 # SQLite (optional)
 cargo run -- database import "path/to/Dispel/" db.sqlite
