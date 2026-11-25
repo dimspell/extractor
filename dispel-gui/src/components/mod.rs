@@ -13,6 +13,7 @@ pub mod global_search;
 pub mod item_catalog;
 pub mod loading_state;
 pub(crate) mod map_render;
+pub mod select;
 pub mod standard;
 pub mod tab_bar;
 pub mod utils;
