@@ -215,12 +215,13 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
 // ── Main preview ──────────────────────────────────────────────────────────────
 
-fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    use crate::editors::sprite_editor::fit_scale;
+pub(crate) fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
+    use crate::editors::sprite_editor::{preview_layout, sequence_bounds};
     use iced::{Size, widget::responsive};
 
     let fit_mode = viewer.fit_mode;
     let zoom = viewer.zoom;
+    let bounds = sequence_bounds(&viewer.frames, viewer.selected_sequence);
     let frame_info = viewer
         .frames
         .get(viewer.selected_frame_global())
@@ -229,22 +230,25 @@ fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
     // `responsive` sits outside the scrollable so it sees a finite viewport;
     // the image is clipped by the scrollable instead of painting over controls.
     responsive(move |size: Size| {
-        let inner: Element<'_, Message> = if let Some((handle, w, h)) = &frame_info {
-            let scale = if fit_mode {
-                fit_scale(size, (*w, *h))
-            } else {
-                1.0
-            } * zoom;
-            let draw_w = (*w as f32 * scale).ceil().max(1.0);
-            let draw_h = (*h as f32 * scale).ceil().max(1.0);
-            container(image(handle.clone()).width(draw_w).height(draw_h))
-                .width(draw_w)
-                .height(draw_h)
-                .into()
+        let frame = frame_info
+            .as_ref()
+            .map(|(_, w, h)| (*w, *h))
+            .unwrap_or((1, 1));
+        let layout = preview_layout(size, bounds, frame, fit_mode, zoom);
+
+        let inner: Element<'_, Message> = if let Some((handle, ..)) = &frame_info {
+            container(
+                image(handle.clone())
+                    .width(layout.frame_size.width)
+                    .height(layout.frame_size.height),
+            )
+            .center_x(layout.inner_size.width)
+            .center_y(layout.inner_size.height)
+            .into()
         } else {
-            text("No frames loaded")
-                .size(12)
-                .style(style::subtle_text)
+            container(text("No frames loaded").size(12).style(style::subtle_text))
+                .center_x(layout.inner_size.width)
+                .center_y(layout.inner_size.height)
                 .into()
         };
 

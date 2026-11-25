@@ -10,3 +10,5 @@ pub use message::*;
 pub use state::*;
 pub use update::handle;
 pub use view::view;
+#[cfg(test)]
+pub(crate) use view::view_preview;
