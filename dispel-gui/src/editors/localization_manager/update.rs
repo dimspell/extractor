@@ -42,6 +42,10 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     let count = entries.len();
                     let translated = entries.iter().filter(|e| e.is_translated()).count();
                     app.state.editors.localization_manager.entries = entries;
+                    app.state
+                        .editors
+                        .localization_manager
+                        .clear_stale_file_filter();
                     app.state.editors.localization_manager.status_msg =
                         format!("{count} strings loaded ({translated} already translated).");
                     app.state.editors.localization_manager.loading_state = LoadingState::Loaded(());
@@ -286,6 +290,10 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     let count = entries.iter().filter(|e| e.is_translated()).count();
                     let overlong = entries.iter().filter(|e| e.would_truncate()).count();
                     app.state.editors.localization_manager.entries = entries;
+                    app.state
+                        .editors
+                        .localization_manager
+                        .clear_stale_file_filter();
                     let mut msg = if overlong > 0 {
                         format!("Imported. {count} strings translated, {overlong} overlong.")
                     } else {
@@ -889,6 +897,45 @@ fn revert_from_backup(game_path: &Path, backup_dir: &Path) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "iced_test")]
+    #[test]
+    fn test_scan_clears_stale_file_filter() {
+        use crate::app::App;
+        use crate::workspace::Workspace;
+        use dispel_core::localization::TextEncoding;
+
+        fn entry(file: &str) -> TextEntry {
+            TextEntry {
+                file_path: file.to_string(),
+                record_id: 0,
+                field_name: "name",
+                original: "Invented".to_string(),
+                translation: String::new(),
+                encoding: TextEncoding::Utf8,
+                max_bytes: 64,
+            }
+        }
+
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.localization_manager.filter_file =
+            Some("Invented/Removed.ini".to_string());
+        app.state.editors.localization_manager.entries = vec![entry("Invented/Removed.ini")];
+
+        let _ = app.update(crate::message::Message::localization(
+            LocalizationMessage::Scanned(Ok(vec![entry("Invented/Kept.ini")])),
+        ));
+
+        assert_eq!(
+            app.state.editors.localization_manager.filter_file, None,
+            "a filter for a file absent from the new scan must be cleared"
+        );
+        let view = crate::editors::localization_manager::view::view(&app);
+        assert!(
+            crate::tests::common::select_shows(view, "All files"),
+            "the filter select must show All after a stale filter is cleared"
+        );
+    }
 
     fn packaged(
         path: &str,

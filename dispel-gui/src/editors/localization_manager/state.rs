@@ -79,6 +79,20 @@ impl LocalizationManagerState {
             .collect()
     }
 
+    /// Drop a file filter when no current entry still matches it.
+    ///
+    /// Uses the same path-contains test as `visible_entries`, so the filter
+    /// cannot point at a file the refreshed entries no longer contain.
+    pub fn clear_stale_file_filter(&mut self) {
+        let still_present = self
+            .filter_file
+            .as_deref()
+            .is_some_and(|filter| self.entries.iter().any(|e| e.file_path.contains(filter)));
+        if !still_present {
+            self.filter_file = None;
+        }
+    }
+
     /// Distinct file paths present in entries, sorted.
     pub fn available_files(&self) -> Vec<String> {
         let mut paths: Vec<String> = self
