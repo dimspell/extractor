@@ -1,8 +1,6 @@
 # PrtLevel.db
 
-`NpcInGame/PrtLevel.db` contains eight party-member progression tables, each with 20 levels. It has no header: the game
-reads level `n` of party slot `s`
-at `s * 720 + (n - 1) * 36`.
+`NpcInGame/PrtLevel.db` contains eight party-member progression tables, each with 20 levels. It has no header. The tool reads level `n` of party slot `s` at `s * 720 + (n - 1) * 36`.
 
 Each entry is 36 bytes.
 
@@ -24,13 +22,8 @@ Each entry is 36 bytes.
 |   `28` |    4 | u32  | `weapon_skill_level`     | Party member's shared weapon proficiency             |
 |   `32` |    4 | u32  | `tactical_action_chance` | Percentage threshold for a level-10+ tactical action |
 
-The first three bytes were previously misidentified as a sentinel. They are magic-spell references copied into runtime
-state. All reserved bytes are preserved verbatim by the parser.
+The first three bytes hold magic-spell IDs. The tool preserves all reserved bytes.
 
-`weapon_skill_level` is not MP recharge: the game uses it in the same generic weapon calculations that select one of the
-player's weapon-skill levels.
-`tactical_action_chance` is not defence: it is compared to a random value from 0 to 99 before changing the party
-member's tactical action state.
+`weapon_skill_level` holds a shared weapon proficiency value. `tactical_action_chance` holds a percentage threshold from 0 to 99.
 
-DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-owner.
+

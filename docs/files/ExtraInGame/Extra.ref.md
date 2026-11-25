@@ -1,8 +1,5 @@
 # ExtraInGame/Ext*.ref Documentation
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ## File Information
 
 ### Overview
@@ -87,18 +84,13 @@ items) on specific maps. Each map has its own `Ext*.ref` file containing all int
 
 ### Field semantics
 
-- `map_object_id` is exposed to the tile/object system as `700 + map_object_id`.
-- `interaction_state` is preserved across reloads; it selects the closed/open sprite sequence for chest-type objects.
-- `requires_key` enables validation of the three inclusive requirement ranges. A range starting with `9999` is disabled.
-- `gold_amount` awards gold, and three `(item, count)` loot pairs are processed: `loot_item`/`loot_item_count`, then the
-  two
-  `additional_loot_*` pairs.
-- `footprint_width`, `footprint_height`, and `footprint_orientation` determine which map cells the object occupies.
-  `interaction_range` limits activation distance.
+- The tool exposes `map_object_id` to the tile and object system as `700 + map_object_id`.
+- The tool preserves `interaction_state` across reloads. It selects the closed or open sprite sequence for chest-type objects.
+- `requires_key` enables validation of three inclusive requirement ranges. The tool disables a range that starts with `9999`.
+- `gold_amount` holds the gold value. The tool reads three `(item, count)` loot pairs: `loot_item` with `loot_item_count`, then the two `additional_loot_*` pairs.
+- `footprint_width`, `footprint_height` and `footprint_orientation` describe the map cells the object occupies. `interaction_range` limits activation distance.
 
-The seven words from `additional_loot_2_count` through `use_counter` were formerly exported as one opaque
-28-byte `additional_loot_2_count_and_config` BLOB. Two of those words are the trap flag and trap spell
-index; both are zero in every shipped placement. They are **not** the same as `open_sfx_id`.
+The seven words from `additional_loot_2_count` through `use_counter` hold the trap flag, trap spell index and related configuration. Both trap fields are zero in every sample placement. They are separate from `open_sfx_id`.
 
 #### Core Identification
 
@@ -185,13 +177,9 @@ index; both are zero in every shipped placement. They are **not** the same as `o
 
 #### Trap fields and open sound
 
-`is_trapped` and `trap_spell_id` are the trap arming flag and `Magic.db` spell index. All 1,039
-shipped placements carry zero in both, so no shipped placement uses a trap.
+`is_trapped` and `trap_spell_id` hold the trap arming flag and `Magic.db` spell index. The 1,039 sample placements carry zero in both fields.
 
-`open_sfx_id` is a **Wave.ini sound index** played when a door, lever, chest, key, or subtype-8 object
-is activated successfully. It was previously exported as `activation_effect_id` with the bogus values
-`None`/`Effect10`; that mapping also rewrote any index other than 0 or 10 to 255 on save. It is a
-plain `u8` now.
+`open_sfx_id` holds a `Wave.ini` sound index for a door, lever, chest, key or subtype-8 object. Zero means no sound. The field is a `u8`.
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 
@@ -218,9 +206,7 @@ SQL columns and GUI numeric keys keep the on-disk byte value, so no item reads a
 
 ### File Purpose
 
-These files define interactive object placements with exact coordinates, requirements, contents, and behaviors. Used for
-populating maps with chests, doors, signs, and other interactive elements. Each map in the game has a corresponding
-`Ext*.ref` file.
+The tool reads these files as interactive object placements. Each placement holds coordinates, requirements, contents and state values. Each map has its own `Ext*.ref` file.
 
 ### Cross-References
 
@@ -234,10 +220,12 @@ populating maps with chests, doors, signs, and other interactive elements. Each 
 
 ### Technical Details
 
-**Endianness**: Little-Endian throughout **Record Count**: Stored as first 4 bytes (i32)
-**Record Size**: Fixed 184 bytes (46 × i32 equivalent)
-**File Size**: 4 + (record_count × 184) bytes **Text Encoding**: WINDOWS-1250 for name fields **Padding**: Extensive
-padding with known patterns (zeros, 205 bytes)
+- **Endianness**: little-endian throughout
+- **Record count**: the first 4 bytes, as i32
+- **Record size**: 184 bytes, or 46 i32 words
+- **File size**: 4 + (record_count × 184) bytes
+- **Text encoding**: WINDOWS-1250 for name fields
+- **Padding**: zeros and 205 bytes
 
 ### File Processing
 

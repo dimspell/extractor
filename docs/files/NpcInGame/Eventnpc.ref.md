@@ -1,7 +1,4 @@
-# Eventnpc.ref - Event NPC Definitions
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Eventnpc.ref: event NPC definitions
 
 ## File Information
 
@@ -17,8 +14,8 @@
 
 - Lines starting with `;` are comments
 - Rows are comma-separated, 40 columns each
-- Rows are terminated by CRLF
-- Empty lines are ignored
+- Each row ends with CRLF
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -124,22 +121,17 @@ id, the high 16 bits the parameter - the same split the `Npccat*.ref` records us
 
 - Lines starting with `;` are comments
 - Empty lines ignored
-- The `id` column is the row index. The game itself ignores the value and
-  selects rows by position.
+- The `id` column holds the row index. The tool selects rows by position.
 
 ## Known Data Defect
 
-The shipped `Eventnpc.ref` holds one row whose comma between the
-`npc_ini_id` and the `name` column is missing:
+The sample `Eventnpc.ref` holds one row with a missing comma between the `npc_ini_id` and `name` columns:
 
 ```text
 2,69Character Name,guard,0,0,1,1,301,251,0,4,0,...,0,6
 ```
 
-The row therefore carries 39 columns. The game reads the leading digits of
-`69Character Name` as the archetype id and loses the name. The extractor splits
-the glued column back apart, so the record keeps the id `69` and the name
-`Character Name`. Saving the file writes the repaired 40-column row.
+That row carries 39 columns. The tool splits the glued column apart. The record keeps id `69` and name `Character Name`. When you save the file, the tool writes a repaired 40-column row.
 
 ## Extractor
 

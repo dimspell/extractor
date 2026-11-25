@@ -1,10 +1,6 @@
 # DISPEL® Ground Tile Layer (`.gtl`)
 
-Raw tileset binary used for terrain, paths, and natural features. The format is identical to `.btl`; only the semantic
-role differs.
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+The tool reads `.gtl` files as raw tilesets for terrain, paths and natural features. The binary format matches `.btl`.
 
 ## Quick Facts
 
@@ -47,12 +43,9 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 
 ## Isometric Rendering
 
-Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
-seamlessly.
+The renderer projects tiles as isometric diamonds of 62×32 pixels. A diamond-shaped mask clips each tile.
 
-**The ground pass is an opaque row-copy**: the 32 rows are copied verbatim, so the
-tile's RGB(0,0,0) pixels are drawn like any other. An atlas that treats black as transparent punches holes in the
-floor — `map atlas` therefore defaults to the opaque mode for `.GTL` files.
+The ground pass copies 32 rows without filtering. The tool draws RGB(0,0,0) pixels like any other pixel. `map atlas` defaults to opaque mode for `.gtl` files.
 
 ## Relationship to `.map` Files
 

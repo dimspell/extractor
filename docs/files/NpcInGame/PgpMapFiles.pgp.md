@@ -1,7 +1,4 @@
-# Pgpcat1.pgp - Dialogue Text
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Pgpcat1.pgp: dialogue text
 
 ## File Information
 
@@ -16,7 +13,7 @@
 
 - Lines starting with `;` are comments
 - Pipe-delimited format
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -37,14 +34,14 @@
 ## Parameter Usage
 
 - `param1`: Dialogue branch conditions
-- `wave_ini_entry_id`: Sound effect played at dialogue start; 0 = none
+- `wave_ini_entry_id`: sound effect at dialogue start. Zero means none.
 
 ## Text Formatting
 
 - "null" literal for empty text
 - "$" literal interpreted as a line-break in game
 - Pipe (|) delimiter between fields
-- Semicolon (;) for comment lines
+- Semicolon (`;`) for comment lines
 - Multi-line comments supported
 
 ## Special Values
@@ -56,8 +53,7 @@
 
 ## File Purpose
 
-Stores dialogue text content with developer comments and logical parameters. Used for displaying conversation text,
-branching dialogue, and triggering game events.
+The tool stores dialogue text with developer comments and parameters. Each row holds an ID, text and a sound reference.
 
 ## Related Files
 
@@ -70,7 +66,7 @@ branching dialogue, and triggering game events.
 
 - **Rust Module**: `src/references/dialogue_paragraph.rs`
 - **Extractor**: `DialogueParagraph` struct implementing `Extractor` trait
-- **Database**: Saved to SQLite via `save_dialogue_paragraphs` function
+- **Database**: saved to SQLite by the `save_dialogue_paragraphs` function
 
 ## Extractor
 

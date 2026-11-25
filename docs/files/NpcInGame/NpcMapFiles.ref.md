@@ -1,7 +1,4 @@
-# Npccat1.ref - NPC Placement Data
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Npccat1.ref: NPC placement data
 
 ## File Information
 
@@ -41,7 +38,7 @@
 |    664 | dialog_id                                              | Dialogue node ID.                                                            |
 |    668 | dialogue_face_sprite_id                                | Face sprite ID.                                                              |
 
-## Looking Directions
+## Direction values
 
 - `0`: Up (North)
 - `1`: Up-Right (Northeast)
@@ -82,7 +79,7 @@ characters.
 
 - **Rust Module**: `src/references/npc_ref.rs`
 - **Extractor**: `NPC` struct implementing `Extractor` trait
-- **Database**: Saved to SQLite via `save_npc_refs` function
+- **Database**: saved to SQLite by the `save_npc_refs` function
 
 ## Extractor
 

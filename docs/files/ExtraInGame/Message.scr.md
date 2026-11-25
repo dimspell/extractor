@@ -1,7 +1,4 @@
-# Message.scr — UI Text Messages
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Message.scr: UI text messages
 
 ## File Information
 
@@ -16,7 +13,7 @@
 
 - Lines starting with `;` are comments
 - Pipe-delimited format: `field1|field2|field3|field4`
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -37,7 +34,7 @@
 
 - Three lines of text for UI display
 - Each line can be up to 255 characters
-- Lines are displayed vertically stacked
+- The three lines appear in vertical order.
 - Empty lines use "null" literal
 
 ## Special Values
@@ -69,7 +66,7 @@ Stores multi-line text messages for UI elements such as:
 - **Rust Module**: `src/references/message_scr.rs`
 - **Extractor**: `Message` struct implementing `Extractor` trait
 - **Data Structure**: `Message` with ID and three text lines
-- **Database**: Saved to SQLite via `save_messages` function
+- **Database**: saved to SQLite by the `save_messages` function
 
 ## Example Usage
 
@@ -94,7 +91,7 @@ cargo run -- extract -i "Dispel/ExtraInGame/Message.scr"
 
 ## Display System
 
-- Messages are displayed in UI panels
+- The tool shows messages in UI panels.
 - Three-line vertical layout
 - Centered or aligned based on context
 - WINDOWS-1250 character encoding support

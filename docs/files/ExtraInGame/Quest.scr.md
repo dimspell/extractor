@@ -1,7 +1,4 @@
-# Quest.scr — Quest Journal Entries
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Quest.scr: quest journal entries
 
 ## File Information
 
@@ -16,7 +13,7 @@
 
 - Lines starting with `;` are comments
 - Pipe-delimited format: `field1|field2|field3|field4`
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -76,7 +73,7 @@
 ### Traders Journal (type=2)
 
 - Commerce-related quests
-- Trading missions
+- Trade missions
 - Economic activities
 - Merchant interactions
 - Supply chain quests
@@ -97,14 +94,14 @@ Defines all quests with categories, titles, and descriptions. Used for:
 - Player objectives
 - Story advancement
 - Reward distribution
-- Linked to event system for completion
+- Event IDs link to the event system.
 
 ## Implementation
 
 - **Rust Module**: `src/references/quest_scr.rs`
 - **Extractor**: `Quest` struct implementing `Extractor` trait
 - **Data Structure**: `Quest` with ID, type, title, and description
-- **Database**: Saved to SQLite via `save_quests` function
+- **Database**: saved to SQLite by the `save_quests` function
 
 ## Example Usage
 
