@@ -1,9 +1,8 @@
-# Dispel Game File System - Cross References
+# Dispel game file system: cross references
 
 ## Overview
 
-This document maps the relationships and cross-references between all game data files in the Dispel game system. The
-files form a complex interconnected database that drives the game's mechanics, visuals, and interactions.
+This document maps the cross references between game data files. The tool reads and writes data files that you supply. Each row below links a field in one file to a file name or a field in another file.
 
 ## File Dependency Map
 
@@ -333,16 +332,16 @@ Message.scr (UI messages)
 
 ## Data Flow Summary
 
-1. **Map Loading**: AllMap.ini → Map.ini → Load map geometry (.map), place monsters (.ref), NPCs (.ref), objects (.ref)
-2. **Map Rendering**: Map.map → Map.gtl (ground tiles) + Map.btl (building tiles) + Sprites.spr (objects/NPCs)
-3. **NPC Interaction**: NpcMapFiles.ref → Npc.ini → Sprites.spr + DlgMapFiles.dlg → PgpMapFiles.pgp
-4. **Monster Combat**: MondunMonmap.ref → Monster.ini → Sprites.spr + Monster.db → Magic.db
-5. **Object Interaction**: Extra.ref → Extra.ini → Sprites.spr + Event.ini + Message.scr
-6. **Quest Progression**: Event.ini → Script files → Quest.scr
-7. **Character Development**: PartyRef.ref → PrtLevel.db → WeaponItem.db + Magic.db
-8. **Commerce**: Store.db → Item databases (WeaponItem.db, HealItem.db, etc.)
-9. **Audio**: Wave.ini → .snf files (referenced during events/dialogue)
-10. **Monster Loot**: MondunMonmap.ref → Item databases (loot drops)
+1. Map data: AllMap.ini → Map.ini → Map.map, MondunMonmap.ref, NpcMapFiles.ref and Extra.ref
+2. Map rendering: Map.map → Map.gtl (ground tiles), Map.btl (building tiles) and Sprites.spr (objects and NPCs)
+3. NPC data: NpcMapFiles.ref → Npc.ini → Sprites.spr, and DlgMapFiles.dlg → PgpMapFiles.pgp
+4. Monster data: MondunMonmap.ref → Monster.ini → Sprites.spr, and Monster.db → Magic.db
+5. Object data: Extra.ref → Extra.ini → Sprites.spr, Event.ini and Message.scr
+6. Quest data: Event.ini → script files → Quest.scr
+7. Character data: PartyRef.ref → PrtLevel.db → WeaponItem.db and Magic.db
+8. Commerce data: Store.db → item databases such as WeaponItem.db and HealItem.db
+9. Audio data: Wave.ini → .snf files
+10. Monster loot: MondunMonmap.ref → item databases
 
 ## Item Database Relationships
 
@@ -393,20 +392,13 @@ MiscItem.db (generic utility items)
 | WINDOWS-1250 | AllMap.ini, Monster.ini, Store.db, WeaponItem.db, HealItem.db (names), MiscItem.db, EditItem.db, EventItem.db, Message.scr, Quest.scr, PgpMapFiles.pgp, Extra.ref, NpcMapFiles.ref, PartyRef.ref, Eventnpc.ref |
 | Binary       | Monster.db, WeaponItem.db, HealItem.db, MiscItem.db, EditItem.db, EventItem.db, Store.db, ChData.db, PrtLevel.db, Magic.db, DrawItem.db, Map.map, Map.gtl, Map.btl, Sprites.spr                                |
 
-## Legal Compliance
+## Scope
 
-This cross-reference documentation:
+The tool reads and writes data files that you supply. This document lists the field links between those files.
 
-- Describes **technical relationships between file formats only**
-- Does **not distribute any copyrighted game content**
-- Focuses on **data structure organization and system design**
-- Uses **generic descriptions** of game mechanics
-- Maintains **nominative use** for trademark references
-- Is intended for **independent interoperability research based on observable behavior** only, without circumvention of technological protection measures
+## Extractor commands
 
-## Extractor Commands
-
-The extractor tool (`src/`) provides commands to parse and extract data from all game files.
+The tool in `src/` parses and extracts data from game files. Run these commands from the repository root.
 
 ### Quick Reference
 
@@ -464,8 +456,3 @@ cargo run -- sound "path/to/file.snf" "output.wav"
 # Import to SQLite database
 cargo run -- database import "path/to/Dispel/" "database.sqlite"
 ```
-
----
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the
-trademark owner.

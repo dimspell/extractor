@@ -1,12 +1,9 @@
-# *.spr — Sprite File Format
-
-> **DISPEL®** is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# *.spr: sprite file format
 
 ## Scope
 
-This document describes the `.spr` layout that this project reads and writes.
-All integer values use little-endian byte order.
+The tool reads and writes `.spr` files with this layout. All integer values use
+little-endian byte order.
 
 ## File Summary
 

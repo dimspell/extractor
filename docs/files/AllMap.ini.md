@@ -1,27 +1,23 @@
-# AllMap.ini Documentation
+# AllMap.ini documentation
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
-## File Information
+## File information
 
 - **Location**: `Dispel/AllMap.ini` (relative to game installation directory)
 - **Encoding**: WINDOWS-1250
 - **Format**: CSV (Comma-Separated Values)
-- **Comment lines**: Lines starting with `;` are ignored
+- **Comment lines**: The parser ignores lines starting with `;`
 
-`AllMap.ini` is a master map list file used by the game engine to index all available maps and their associated
-resources.
+The tool reads `AllMap.ini` as a master map list. Each row links a map ID to a map file name, two dialogue file names and a lighting value.
 
 ## Structure
 
-Each line represents one map with the following fields:
+Each non-comment line holds six comma-separated fields:
 
 ```
 id,map_file,name,pgp,dlg,lit
 ```
 
-### Field Definitions
+### Field definitions
 
 | Field      | Type        | Description                                                   |
 |------------|-------------|---------------------------------------------------------------|
@@ -32,7 +28,7 @@ id,map_file,name,pgp,dlg,lit
 | `dlg`      | String/Null | Dialog text filename or "null" if absent                      |
 | `lit`      | Integer     | Lighting indicator: `0` = dark/dungeon, `1` = lit/outdoor     |
 
-### Example Entries
+### Example entries
 
 ```
 1,cat1,Forest,Pgpcat1.pgp,Dlgcat1.dlg,1
@@ -40,26 +36,20 @@ id,map_file,name,pgp,dlg,lit
 3,cat3,Village,null,null,1
 ```
 
-### Special Values
+### Special values
 
-- **"null"**: Used for `pgp` and `dlg` fields when the file is absent
-- **Lighting**: `0` indicates dark/dungeon maps, `1` indicates lit/outdoor maps
+- **"null"**: The tool reads this string when a `pgp` or `dlg` value is absent.
+- **Light values**: `0` marks dark or dungeon maps. `1` marks lit or outdoor maps.
 
-## Purpose
+## Tool use
 
-This file serves as the master index for all game maps, linking map IDs to their respective filenames and metadata. The
-game engine uses this file to:
-
-1. Load the correct map files
-2. Associate party (PGP) and dialog (DLG) files with maps
-3. Determine lighting conditions for rendering
+The tool links each map ID to a map file name. It also stores the dialogue file names and the lighting value.
 
 ## Parser
 
-The file is parsed by the `Map` struct in `src/references/all_map_ini.rs`, which implements the `Extractor` and
-`Localizable` traits.
+The `Map` struct in `src/references/all_map_ini.rs` parses the file. It implements the `Extractor` and `Localizable` traits.
 
-### How to Run
+### How to run
 
 ```bash
 # Extract AllMap.ini to JSON

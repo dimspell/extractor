@@ -1,8 +1,5 @@
 # Save File Documentation
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## File Information
 
 - **Location**: `Dispel/Save/` directory (relative to game installation directory)
@@ -10,13 +7,11 @@
 - **Format**: Binary (little-endian)
 - **Extension**: `.sav` (or similar save file extension)
 
-The save file is a binary serialization of the player's game state, including character stats, inventory, party members,
-journal entries, and map-specific data.
+The tool reads and writes data files that you supply. This file holds character stats, inventory, party members, journal entries and map-specific data. All integers use little-endian byte order.
 
 ## Structure
 
-The save file is parsed sequentially from start to end. The top-level structure is defined by the `SaveFile` struct in
-`src/references/save_file/mod.rs`.
+The tool reads the file from start to end. The `SaveFile` struct in `src/references/save_file/mod.rs` defines the top-level layout.
 
 ### Top-Level Layout
 
@@ -43,15 +38,11 @@ The save file is parsed sequentially from start to end. The top-level structure 
 
 ### Header
 
-The first 8 bytes contain:
-
-1. `game_tmp_blob_size` (4 bytes, `u32`): A jump address pointing to the byte offset after all map data. The reader uses
-   this to seek past the map sections if needed.
-2. `number_of_visited_maps` (4 bytes, `u32`): The number of `MapSectionData` records that follow.
+The first 8 bytes hold two values. `game_tmp_blob_size` is a 4-byte `u32`. It gives the byte offset after all map data. The reader can seek to that offset. `number_of_visited_maps` is a 4-byte `u32`. It gives the count of `MapSectionData` records that follow.
 
 ### Map Sections (`maps`)
 
-Each visited map is serialized as a `MapSectionData` record containing:
+Each visited map uses a `MapSectionData` record with these fields:
 
 | Field                   | Type                      | Description                                                 |
 |-------------------------|---------------------------|-------------------------------------------------------------|
@@ -66,14 +57,13 @@ Each visited map is serialized as a `MapSectionData` record containing:
 | `draw_items_misc`       | `Vec<DrawItemMiscItem>`   | Ground items — Misc type (268 bytes each)                   |
 | `draw_items_event`      | `Vec<DrawItemEventItem>`  | Ground items — Event type (252 bytes each)                  |
 
-Each collection is prefixed with a count (`u32` for monsters/NPCs/extra objects, `u16` for ground items).
+A count precedes each collection. It uses `u32` for monsters, NPCs and extra objects. It uses `u16` for ground items.
 
-Each ground-item record ends with a one-based `u16` ground-object ID and two preserved padding bytes. The item category
-determines the ID range used by the game.
+Each ground-item record ends with a one-based `u16` ground-object ID and two preserved padding bytes. The item category sets the ID range.
 
 An NPC record stores an active path-step direction at byte 161 and its animation frame at byte 162. The direction values
 are `0=(0,+32)`, `1=(-32,+16)`, `2=(-64,0)`, `3=(-32,-16)`,
-`4=(0,-32)`, `5=(+32,-16)`, `6=(+64,0)`, `7=(+32,+16)`, and `255=inactive`. The pairs are screen-space offsets from the
+`4=(0,-32)`, `5=(+32,-16)`, `6=(+64,0)`, `7=(+32,+16)`, and `255=inactive`. The pairs give screen-space offsets from the
 destination cell.
 
 Monster runtime data includes the current combat target, timed status-effect type and duration, movement-animation frame
@@ -81,9 +71,7 @@ and offsets, path-buffer length and index, and temporary visual effects. Tempora
 and duration fields for status, ground, special-attack, guard, blood, and timed-overlay effects. Blood-effect directions
 use values `0..=7`.
 
-The monster status-effect type uses `0=none`; observed active values are `1`,
-`2`, `3`, `4`, `7`, and `12`. Its parameter is `-1` when unused. Type `3`
-stores a monster identifier in the parameter field.
+The monster status-effect type uses `0=none`. Observed active values are `1`, `2`, `3`, `4`, `7` and `12`. Its parameter is `-1` when unused. Type `3` stores a monster identifier in the parameter field.
 
 NPC runtime flags use these values:
 
@@ -94,17 +82,13 @@ NPC runtime flags use these values:
 - `player_interaction_latched`: `0=not interacting`, `1=interaction started`.
 - `start_dialogue_on_arrival`: `0=normal arrival`, `1=start arrival dialogue`.
 
-The arrival dialogue ID follows the arrival-action flag. Two intervening runtime words are reserved, initialized to
-zero, and preserved without interpretation.
+The arrival dialogue ID follows the arrival-action flag. The tool reserves two intervening runtime words. They are zero in known files. It preserves them.
 
-An extra-object record begins with its selected render state, render variant, and current sprite frame. It ends with the
-activation effect ID, one reserved byte, two padding bytes, the overlay flag, the map-active flag, and the pending
-interaction latch. Boolean controls use `0=disabled` and non-zero `enabled`; the pending latch uses `0=no request` and
-`1=activation requested`.
+An extra-object record starts with its selected render state, render variant and current sprite frame. It ends with the activation effect ID, one reserved byte, two padding bytes, the overlay flag, the map-active flag and the pending interaction latch. Boolean controls use `0=disabled` and non-zero `enabled`. The pending latch uses `0=no request` and `1=activation requested`.
 
 ### Post-Maps Data (`post_maps`)
 
-Contains save-world header values and the list of visited map IDs:
+The section holds save-world header values and a list of visited map IDs:
 
 | Field                          | Type       | Description                                                                                      |
 |--------------------------------|------------|--------------------------------------------------------------------------------------------------|
@@ -120,13 +104,11 @@ Contains save-world header values and the list of visited map IDs:
 | `number_of_visited_maps`       | `u32`      | Number of visited maps (must match the map section count)                                        |
 | `map_ids`                      | `Vec<u32>` | IDs of the visited maps                                                                          |
 
-The two map identifiers address different tables. `all_map_ini_id` selects the map itself. `ref_map_ini_id` selects the
-route or entrance used to initialize that map. Multiple `Ref/Map.ini` records can target the same `AllMap.ini` map while
-providing different spawn coordinates.
+The two map identifiers address different tables. `all_map_ini_id` refers to the map entry in `AllMap.ini`. `ref_map_ini_id` refers to an entrance record in `Ref/Map.ini`. Several `Ref/Map.ini` records can share one `AllMap.ini` ID with different spawn coordinates.
 
 ### Map Viewport State (`map_viewport_state`)
 
-A fixed-size (10,148 bytes) serialized state of the game's isometric map viewport:
+A fixed-size block of 10,148 bytes with these fields:
 
 | Field                          | Type                    | Description                                                                                                                         |
 |--------------------------------|-------------------------|-------------------------------------------------------------------------------------------------------------------------------------|
@@ -240,9 +222,7 @@ Four fixed-size (60-byte) null-terminated WINDOWS-1250 strings representing char
 | `player_class_name`       | String (20 bytes) | Player class name (WINDOWS-1250, null-terminated) |
 | `selected_spell_ui_index` | `u16`             | UI index of selected spell                        |
 
-**Note**: The full identity block in the save file is larger than 35 bytes. The `CharacterIdentity::read_from` method
-skips over many runtime fields (inventory serial counters, waypoint data, movement state, pathfinding scratch, etc.) and
-only retains the trailing 35 bytes.
+**Note**: The full identity block in the save file is larger than 35 bytes. The `CharacterIdentity::read_from` method skips many runtime fields. These include inventory serial counters, waypoint data, movement state and pathfinding scratch. It keeps the trailing 35 bytes.
 
 ### Inventory Data (`inventory`)
 
@@ -256,9 +236,7 @@ Raw inventory data for 5 item categories, each prefixed with a `u16` count:
 | Weapon items | 292 bytes   | Weapon-type items |
 | Heal items   | 256 bytes   | Heal-type items   |
 
-Each item record contains a copy of its database definition followed by save-runtime fields. The runtime category is
-zero-based: `0`=weapon, `1`=heal, `2`=edit,
-`3`=misc, and `4`=event. This numbering differs from the one-based item type used by some map and object files.
+Each item record holds a copy of its database definition followed by save-runtime fields. The runtime category uses zero-based values: `0` for weapon, `1` for heal, `2` for edit, `3` for misc and `4` for event. Other map and object files use one-based item types.
 
 | Category | Runtime fields after/copied into the definition                                            |
 |----------|--------------------------------------------------------------------------------------------|
@@ -268,9 +246,7 @@ zero-based: `0`=weapon, `1`=heal, `2`=edit,
 | Weapon   | Category, global inventory-instance ID                                                     |
 | Heal     | Reserved definition byte, category, category-local record index, two runtime scratch bytes |
 
-The global inventory-instance ID connects a weapon to equipped slots and connects weapon or miscellaneous items to
-inventory placement cells. Heal runtime scratch bytes are normally zero, but saved games show that they are not
-initialized consistently.
+The global inventory-instance ID links a weapon to equipped slots. It links weapon and miscellaneous items to inventory placement cells. Heal runtime scratch bytes are usually zero. Some saved games store other values.
 
 ### Inventory Slots (`inventory_slots`)
 
@@ -284,7 +260,7 @@ initialized consistently.
 
 ### Learned Spells (`learned_spells`)
 
-41 bytes, one byte per spell, indicating whether each spell has been learned.
+The block holds 41 bytes, one byte per spell. A byte holds the learned state of one spell.
 
 ### Party Members (`party_members`)
 
@@ -295,11 +271,7 @@ Variable-length records, each consisting of:
 - An optional 52-byte combat snapshot (48 bytes + 4-byte terminator), present when the companion has an active combat
   object
 
-The 300-byte payload is a serialized stream of overlapping four-byte runtime snapshots. Adjacent snapshots frequently
-begin one or two bytes apart. As a result, the stream repeats parts of health, mana, class, level, spell IDs, animation
-flags, coordinates, and other fields. The parser exposes the primary values and preserves each repeated snapshot tail or
-overlap under an explicit
-`*_snapshot_tail` or `*_snapshot_overlap` name.
+The 300-byte payload holds overlapping four-byte runtime snapshots. Adjacent snapshots often start one or two bytes apart. The stream repeats parts of health, mana, class, level, spell IDs, animation flags, coordinates and other fields. The parser exposes the primary values. It preserves each repeated snapshot tail or overlap under a `*_snapshot_tail` or `*_snapshot_overlap` name.
 
 ### Events (`events`)
 
@@ -336,8 +308,7 @@ Each dismissed-companion progression record contains three bytes:
 | `companion_level` | `u8` | Companion level when the progression was retained           |
 | `player_level`    | `u8` | Player level when the progression was retained              |
 
-Milestone records are written at walk animation milestones (walk progress reaching `path_length - 2`, or the walk frame
-counter reaching 4). Completion records are written when a walk cycle finishes.
+The tool writes milestone records at walk animation milestones. These occur when walk progress reaches `path_length - 2` or the walk frame counter reaches 4. It writes completion records when a walk cycle finishes.
 
 #### Walk Milestone Record (24 bytes)
 
@@ -404,8 +375,7 @@ counter reaching 4). Completion records are written when a walk cycle finishes.
 
 ## Binary Record Macro
 
-Several structs in this module use the `#[derive(BinaryRecord)]` macro from `dispel-macros`, which generates `parse` and
-`write` methods for binary serialization. The `#[binary_record(...)]` attribute controls field encoding, including:
+Several structs in this module use the `#[derive(BinaryRecord)]` macro from `dispel-macros`. The macro generates `parse` and `write` methods for binary serialization. The `#[binary_record(...)]` attribute controls field encoding:
 
 - `string(encoding = "WINDOWS-1250", size = N)`: Fixed-size null-terminated string
 - `size = N`: Fixed-size byte array
@@ -413,19 +383,16 @@ Several structs in this module use the `#[derive(BinaryRecord)]` macro from `dis
 
 ## Validation
 
-The writer performs preflight validation before serializing:
+The writer runs preflight validation before it writes bytes. It checks these rules:
 
-1. **Count limits**: All collection counts must fit in their wire types (`u16` or `u32`)
-2. **Fixed collection lengths**: Sprite paths (4), learned spells (41), events (2,251), journal entries (100 per
-   section), map viewport cells (500)
-3. **Cross-field consistency**: Visited-map count must match map section count and map ID count; party member count must
-   match the stored count
-4. **Trailer size validation**: Map extra-object trailer size must match the computed expected size
+1. Count limits: Each collection count must fit its wire type (`u16` or `u32`).
+2. Fixed collection lengths: Sprite paths use 4 entries, learned spells 41, events 2,251, journal entries 100 per section and map viewport cells 500.
+3. Cross-field consistency: The visited-map count must match the map section count and map ID count. The party member count must match the stored count.
+4. Trailer size: The map extra-object trailer size must match the computed expected size.
 
 ## Extractor
 
-The save file format is parsed by the `SaveFile` struct in `src/references/save_file/mod.rs`, which implements the
-`Extractor` trait.
+The `SaveFile` struct in `src/references/save_file/mod.rs` parses the file. It implements the `Extractor` trait.
 
 ### How to Run
 
@@ -439,7 +406,7 @@ cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 
 ## Purpose
 
-This file stores the complete player game state, including:
+The file holds these values:
 
 1. Character progression (stats, level, XP, gold)
 2. Inventory and equipment
@@ -449,34 +416,16 @@ This file stores the complete player game state, including:
 6. Event script flags
 7. Isometric viewport state
 
-## Legal Notice
+## Scope
 
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any
-copyrighted game content, save data, or proprietary assets. All references to save file structures are for **independent
-interoperability research based on observable behavior** to document file organization and data structures, without
-circumvention of technological protection measures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the
-trademark owner.
-
-### Legal Compliance
-
-This documentation:
-
-- Describes **file format specifications only**
-- Does **not** distribute any save data or game content
-- Focuses on **technical organization**, not creative content
-- Uses **generic descriptions** of file purposes
-- Maintains **nominative use** for trademark references
+The tool reads and writes data files that you supply. This document lists the file layout and field values.
 
 ## Notes
 
-- All integers are little-endian
-- Text fields use WINDOWS-1250 encoding
-- The `game_tmp_blob_size` field in the header acts as a jump address; the reader seeks to this offset after parsing map
-  sections
-- The `CharacterIdentity` struct only retains the trailing 35 bytes of the full identity block, skipping many runtime
-  fields
-- Party member records have an optional combat snapshot that is conditionally present based on a marker value
-- Reserved runtime and header fields are preserved verbatim for round-trip fidelity.
-- The writer validates all fixed-size constraints before serialization to prevent corrupt output
+- All integers are little-endian.
+- Text fields use WINDOWS-1250 encoding.
+- The `game_tmp_blob_size` field holds a jump address. The reader seeks to this offset after it parses the map sections.
+- The `CharacterIdentity` struct retains the trailing 35 bytes of the identity block. It skips many runtime fields.
+- Party member records can include a combat snapshot. A marker value controls its presence.
+- The tool preserves reserved runtime and header fields for round-trip fidelity.
+- The writer validates all fixed-size constraints before it writes output.

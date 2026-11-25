@@ -1,13 +1,10 @@
 # Wave.ini
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## Purpose
 
 `Wave.ini` maps a sound identifier to an SNF filename and a simultaneous-playback limit.
 
-## File Structure
+## File structure
 
 - **Location**: `Wave.ini`
 - **Encoding**: EUC-KR
@@ -25,18 +22,10 @@
 | `snf_filename`           | string or `null` | Referenced SNF filename.                    |
 | `max_simultaneous_plays` | `i32`            | Maximum concurrent instances of this sound. |
 
-## Runtime Behavior
+## Field values
 
-The loader creates `max_simultaneous_plays` audio-buffer copies for each entry. Playback uses a free copy.
-
-A limit of one prevents a sound from overlapping with itself. Larger limits allow concurrent playback.
-
-This value is not a priority, channel, or loop flag.
+A value of `1` records one concurrent instance. Larger values record more concurrent instances. The field is not a priority, channel or loop flag.
 
 ## Parser
 
-The Rust parser is in `src/references/wave_ini.rs` (`WaveIni` struct, `Extractor` trait).
-
-## Legal Notice
-
-This document describes a file format. It contains no game records, asset names, or other game-content data.
+The Rust parser is in `src/references/wave_ini.rs`. It defines the `WaveIni` struct and implements the `Extractor` trait.
