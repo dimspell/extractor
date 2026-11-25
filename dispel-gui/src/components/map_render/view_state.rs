@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::editors::map_editor::message::{MapTool, MapViewMode, ObjectBrushMode, SelectedEntity};
 use iced::widget::canvas;
 
@@ -53,6 +55,9 @@ pub struct MapViewState {
     pub selected_sprite_sequence: Option<usize>,
     /// Currently selected entity in the inspector panel.
     pub selected_entity: Option<SelectedEntity>,
+    /// Search text of the composite item picker, keyed by field name. Each map
+    /// editor is per-tab, so the field name alone identifies the input.
+    pub composite_item_filters: HashMap<String, String>,
     /// Cached tile-layer frame. Clear whenever pan, zoom, tiles, or entity
     /// sprites change. Avoids redrawing the expensive tile layer on every
     /// cursor-move event (which only affects the overlay canvas).
@@ -96,6 +101,7 @@ impl Default for MapViewState {
             layers_popover_open: false,
             selected_sprite_sequence: None,
             selected_entity: None,
+            composite_item_filters: HashMap::new(),
             tile_layer_cache: canvas::Cache::new(),
             overlay_cache: canvas::Cache::new(),
         }

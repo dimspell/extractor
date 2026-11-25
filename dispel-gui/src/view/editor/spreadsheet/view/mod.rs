@@ -73,6 +73,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
                     editor,
                     spreadsheet,
                     lookups,
+                    &spreadsheet.composite_item_filters,
                     field_changed_msg,
                     spreadsheet_msg,
                 ),

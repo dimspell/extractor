@@ -24,7 +24,13 @@ pub fn build_inspector<'a>(
     let (title, width, body): (&'static str, f32, Element<'a, Message>) = match sel {
         SelectedEntity::Monster(i) => {
             let body = if let Some(record) = state.data.monsters.get(i) {
-                fields::build_record_fields::<MonsterRef>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<MonsterRef>(
+                    record,
+                    tab_id,
+                    sel,
+                    lookups,
+                    &state.view.composite_item_filters,
+                )
             } else {
                 text("Monster not found").size(12).into()
             };
@@ -36,7 +42,14 @@ pub fn build_inspector<'a>(
                 for desc in NPC::field_descriptors() {
                     let value = record.get_field(desc.name);
                     els.push(fields::inspector_field_row(
-                        desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
+                        desc.label,
+                        desc.name,
+                        &desc.kind,
+                        &value,
+                        tab_id,
+                        sel,
+                        lookups,
+                        &state.view.composite_item_filters,
                     ));
                 }
                 column(els).spacing(6).into()
@@ -47,7 +60,13 @@ pub fn build_inspector<'a>(
         }
         SelectedEntity::Extra(i) => {
             let body = if let Some(record) = state.data.extra_refs.get(i) {
-                fields::build_record_fields::<ExtraRef>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<ExtraRef>(
+                    record,
+                    tab_id,
+                    sel,
+                    lookups,
+                    &state.view.composite_item_filters,
+                )
             } else {
                 text("Object not found").size(12).into()
             };
@@ -55,7 +74,13 @@ pub fn build_inspector<'a>(
         }
         SelectedEntity::DrawItem(i) => {
             let body = if let Some(record) = state.data.draw_items.get(i) {
-                fields::build_record_fields::<DrawItem>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<DrawItem>(
+                    record,
+                    tab_id,
+                    sel,
+                    lookups,
+                    &state.view.composite_item_filters,
+                )
             } else {
                 text("Draw item not found").size(12).into()
             };

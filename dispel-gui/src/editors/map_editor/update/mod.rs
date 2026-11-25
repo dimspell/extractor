@@ -23,6 +23,12 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         MapEditorMessage::EntityFieldChanged(tab_id, entity, field, value) => {
             entity::field_changed(app, tab_id, entity, field, value)
         }
+        MapEditorMessage::CompositeItemFilterChanged(tab_id, field, query) => {
+            if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
+                editor.view.composite_item_filters.insert(field, query);
+            }
+            Task::none()
+        }
         MapEditorMessage::Undo(tab_id) => entity::undo(app, tab_id),
         MapEditorMessage::Redo(tab_id) => entity::redo(app, tab_id),
         MapEditorMessage::SaveEntities(tab_id) => persistence::save_entities(app, tab_id),

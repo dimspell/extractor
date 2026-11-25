@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldKind};
-use crate::message::{Message, MessageExt, SystemMessage};
+use crate::message::{Message, MessageExt};
 use crate::style;
 use iced::widget::{column, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill};
@@ -18,13 +18,21 @@ pub fn build_record_fields<'a, R: EditableRecord>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    composite_filters: &'a HashMap<String, String>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
 
     for desc in R::field_descriptors() {
         let value = record.get_field(desc.name);
         col = col.push(inspector_field_row(
-            desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
+            desc.label,
+            desc.name,
+            &desc.kind,
+            &value,
+            tab_id,
+            sel,
+            lookups,
+            composite_filters,
         ));
     }
     scrollable(col).spacing(6).into()
@@ -35,6 +43,7 @@ pub fn build_record_fields<'a, R: EditableRecord>(
 /// `label` and `name` are `&'static str` (from `FieldDescriptor`); `value` is a
 /// short-lived borrow of a locally-computed `String`; text inputs clone it before
 /// constructing their returned widgets.
+#[allow(clippy::too_many_arguments)]
 pub fn inspector_field_row<'a>(
     label: &'static str,
     name: &'static str,
@@ -43,6 +52,7 @@ pub fn inspector_field_row<'a>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    composite_filters: &'a HashMap<String, String>,
 ) -> Element<'a, Message> {
     const LABEL_W: f32 = 140.0;
     match kind {
@@ -151,13 +161,23 @@ pub fn inspector_field_row<'a>(
 
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
+            let filter = composite_filters
+                .get(name)
+                .map(String::as_str)
+                .unwrap_or("");
             composite_item_picker(
                 label,
                 value,
                 entries,
                 true,
-                "",
-                |_| Message::System(SystemMessage::DismissError),
+                filter,
+                move |text| {
+                    Message::map_editor(MapEditorMessage::CompositeItemFilterChanged(
+                        tab_id,
+                        name.to_string(),
+                        text,
+                    ))
+                },
                 move |v| {
                     Message::map_editor(MapEditorMessage::EntityFieldChanged(
                         tab_id,
@@ -176,6 +196,9 @@ mod tests {
     use super::*;
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
+
+    static EMPTY_FILTERS: std::sync::LazyLock<HashMap<String, String>> =
+        std::sync::LazyLock::new(HashMap::new);
 
     fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
         let mut ui = simulator(element);
@@ -221,6 +244,7 @@ mod tests {
                 0,
                 SelectedEntity::Npc(0),
                 &lookups,
+                &EMPTY_FILTERS,
             );
             assert!(
                 crate::tests::common::select_shows(element, "Left"),
@@ -254,6 +278,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         assert!(
             crate::tests::common::select_shows(unknown, "Bogus"),
@@ -268,6 +293,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         assert!(
             crate::tests::common::select_shows(known, "Beta"),
@@ -294,6 +320,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         assert!(
             crate::tests::common::select_shows(missing, "Unknown (99)"),
@@ -308,6 +335,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         assert!(
             crate::tests::common::select_shows(duplicate, "Invented Creature (9)"),
@@ -322,6 +350,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
         let emitted: Vec<String> = messages
@@ -353,6 +382,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_FILTERS,
         );
         assert_eq!(
             count_label_text(element, "Invented Item:"),

@@ -5,12 +5,12 @@
 //! contain and omit the displayed id. Each label must survive `set_field` /
 //! `get_field` and be visible in the spreadsheet inspector and the map editor.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display};
 
 use dispel_core::references::enums::WireValue;
 use dispel_core::{
-    BooleanFlag, DialogOwner, DialogType, DialogueScript, EditItem, EditItemEffect,
+    BooleanFlag, DialogOwner, DialogType, DialogueScript, DrawItem, EditItem, EditItemEffect,
     EditItemModification, Event, EventNpcRef, EventType, ExtraObjectType, ExtraRef, HealItem,
     HealItemFlag, MagicSpell, MagicSpellFlag, MagicType, Map, MapLighting, Monster, MonsterAiType,
     MonsterRef, MonsterSpawn, NPC, NpcInteractionMode, NpcLookingDirection, NpcMovementMode,
@@ -18,13 +18,19 @@ use dispel_core::{
 };
 
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::editors::map_editor::MapEditorMessage;
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::view::fields;
-use crate::message::{EditorMessage, Message, SystemMessage};
+use crate::message::{EditorMessage, FileTreeMessage, Message, SystemMessage};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::view::inspector::build_inspector_field;
+use iced_test::selector::{Candidate, Target};
+use iced_test::simulator;
 
-use super::common::{activate_select_option, select_shows};
+use super::common::{activate_select_option, select_shows, select_values};
+
+static EMPTY_FILTERS: std::sync::LazyLock<HashMap<String, String>> =
+    std::sync::LazyLock::new(HashMap::new);
 
 /// The formatting protocol of a field's get path.
 trait LabelFormat<E> {
@@ -128,11 +134,18 @@ fn render_both(
         None,
         captured_field_changed,
         &empty,
+        &EMPTY_FILTERS,
         captured_spreadsheet,
     );
+    let shown = select_values(inspector);
     assert!(
-        select_shows(inspector, expected),
-        "inspector for {} must render {expected:?}",
+        shown.iter().any(|value| value == expected),
+        "inspector for {} must render {expected:?}, got {shown:?}",
+        desc.name
+    );
+    assert!(
+        shown.iter().all(|value| !value.trim().is_empty()),
+        "inspector for {} must never render a blank selection, got {shown:?}",
         desc.name
     );
 
@@ -144,10 +157,17 @@ fn render_both(
         0,
         SelectedEntity::Npc(0),
         lookups,
+        &EMPTY_FILTERS,
+    );
+    let shown = select_values(row);
+    assert!(
+        shown.iter().any(|value| value == expected),
+        "map editor row for {} must render {expected:?}, got {shown:?}",
+        desc.name
     );
     assert!(
-        select_shows(row, expected),
-        "map editor row for {} must render {expected:?}",
+        shown.iter().all(|value| !value.trim().is_empty()),
+        "map editor row for {} must never render a blank selection, got {shown:?}",
         desc.name
     );
 }
@@ -215,6 +235,7 @@ fn inspector_emissions(
         None,
         captured_field_changed,
         &empty,
+        &EMPTY_FILTERS,
         captured_spreadsheet,
     );
     activate_select_option(element, nth, 0)
@@ -241,6 +262,7 @@ fn map_emissions(
         0,
         SelectedEntity::Npc(0),
         lookups,
+        &EMPTY_FILTERS,
     );
     activate_select_option(element, 0, 0)
         .into_iter()
@@ -251,6 +273,31 @@ fn map_emissions(
             _ => None,
         })
         .collect()
+}
+
+/// Type into the composite search input of a rendered inspector and return the
+/// messages emitted while typing (one per keystroke).
+fn type_filter(element: iced::Element<'_, Message>, query: &str) -> Vec<Message> {
+    let mut ui = simulator(element);
+    let mut search = |candidate: Candidate<'_>| match candidate {
+        Candidate::TextInput { state, .. } if state.text().into_owned() == "Search items..." => {
+            Some(Target::from(candidate))
+        }
+        _ => None,
+    };
+    ui.click(&mut search)
+        .expect("composite search input must be rendered");
+    ui.typewrite(query);
+    ui.into_messages().collect()
+}
+
+fn filter_capturing_spreadsheet(msg: SpreadsheetMessage) -> Message {
+    match msg {
+        SpreadsheetMessage::CompositeItemFilterChanged(_, query) => {
+            Message::FileTree(FileTreeMessage::Search(query))
+        }
+        other => captured_spreadsheet(other),
+    }
 }
 
 fn audit_lookup<R: EditableRecord>(field: &'static str) {
@@ -307,10 +354,10 @@ fn audit_composite<R: EditableRecord>(field: &'static str) {
     )]);
 
     render_both(desc, "1:5", &present, "Invented Sword");
-    render_both(desc, "1:5", &absent, "Unknown (5)");
-    render_both(desc, "1:99", &present, "Unknown (99)");
+    render_both(desc, "1:5", &absent, "Unknown (1:5)");
+    render_both(desc, "1:99", &present, "Unknown (1:99)");
 
-    for emitted in inspector_emissions(desc, "1:5", &present, 1)
+    for emitted in inspector_emissions(desc, "1:5", &present, 0)
         .into_iter()
         .chain(map_emissions(desc, "1:5", &present))
     {
@@ -505,6 +552,176 @@ fn test_every_lookup_and_composite_field_round_trips_through_both_views() {
 }
 
 #[test]
+fn test_composite_filter_narrows_spreadsheet_inspector_options() {
+    let desc = descriptor_of::<DrawItem>("item");
+    let FieldKind::CompositeItem { lookup_key } = &desc.kind else {
+        panic!("item must be a composite field");
+    };
+    let lookups = HashMap::from([(
+        lookup_key.to_string(),
+        vec![
+            ("1:5".to_string(), "[Weapon] Invented Sword".to_string()),
+            ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ("255:15".to_string(), "[-]".to_string()),
+        ],
+    )]);
+    let contents = HashMap::new();
+
+    let unfiltered = build_inspector_field(
+        desc,
+        "1:5".into(),
+        0,
+        &lookups,
+        None,
+        captured_field_changed,
+        &contents,
+        &EMPTY_FILTERS,
+        filter_capturing_spreadsheet,
+    );
+    let query = type_filter(unfiltered, "herb")
+        .into_iter()
+        .filter_map(|m| match m {
+            Message::FileTree(FileTreeMessage::Search(q)) => Some(q),
+            _ => None,
+        })
+        .last()
+        .expect("the search input must emit its query");
+    assert_eq!(query, "herb");
+
+    let filters = HashMap::from([("item".to_string(), query)]);
+    let filtered = build_inspector_field(
+        desc,
+        "1:5".into(),
+        0,
+        &lookups,
+        None,
+        captured_field_changed,
+        &contents,
+        &filters,
+        captured_spreadsheet,
+    );
+    assert!(
+        select_values(filtered)
+            .iter()
+            .any(|value| value == "[Weapon] Invented Sword"),
+        "the current item must stay visible while its filter is active"
+    );
+
+    let reachable: HashSet<String> = (-3..=3)
+        .flat_map(|offset| {
+            let element = build_inspector_field(
+                desc,
+                "1:5".into(),
+                0,
+                &lookups,
+                None,
+                captured_field_changed,
+                &contents,
+                &filters,
+                captured_spreadsheet,
+            );
+            activate_select_option(element, 0, offset)
+                .into_iter()
+                .filter_map(|m| match m {
+                    Message::Editor(EditorMessage::Weapon(
+                        crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+                    )) => Some(value),
+                    _ => None,
+                })
+        })
+        .collect();
+    assert_eq!(
+        reachable,
+        HashSet::from(["1:5".to_string(), "2:7".to_string()]),
+        "the filter must remove every non-matching option"
+    );
+}
+
+#[test]
+fn test_composite_filter_narrows_map_editor_options() {
+    let desc = descriptor_of::<DrawItem>("item");
+    let FieldKind::CompositeItem { lookup_key } = &desc.kind else {
+        panic!("item must be a composite field");
+    };
+    let lookups = HashMap::from([(
+        lookup_key.to_string(),
+        vec![
+            ("1:5".to_string(), "[Weapon] Invented Sword".to_string()),
+            ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ("255:15".to_string(), "[-]".to_string()),
+        ],
+    )]);
+
+    let unfiltered = fields::inspector_field_row(
+        desc.label,
+        desc.name,
+        &desc.kind,
+        "1:5",
+        0,
+        SelectedEntity::Npc(0),
+        &lookups,
+        &EMPTY_FILTERS,
+    );
+    let query = type_filter(unfiltered, "herb")
+        .into_iter()
+        .filter_map(|m| match m {
+            Message::Editor(EditorMessage::MapEditor(
+                MapEditorMessage::CompositeItemFilterChanged(_, _, query),
+            )) => Some(query),
+            _ => None,
+        })
+        .last()
+        .expect("the search input must emit its query");
+    assert_eq!(query, "herb");
+
+    let filters = HashMap::from([("item".to_string(), query)]);
+    let filtered = fields::inspector_field_row(
+        desc.label,
+        desc.name,
+        &desc.kind,
+        "1:5",
+        0,
+        SelectedEntity::Npc(0),
+        &lookups,
+        &filters,
+    );
+    assert!(
+        select_values(filtered)
+            .iter()
+            .any(|value| value == "[Weapon] Invented Sword"),
+        "the current item must stay visible while its filter is active"
+    );
+
+    let reachable: HashSet<String> = (-3..=3)
+        .flat_map(|offset| {
+            let element = fields::inspector_field_row(
+                desc.label,
+                desc.name,
+                &desc.kind,
+                "1:5",
+                0,
+                SelectedEntity::Npc(0),
+                &lookups,
+                &filters,
+            );
+            activate_select_option(element, 0, offset)
+                .into_iter()
+                .filter_map(|m| match m {
+                    Message::Editor(EditorMessage::MapEditor(
+                        MapEditorMessage::EntityFieldChanged(_, _, _, value),
+                    )) => Some(value),
+                    _ => None,
+                })
+        })
+        .collect();
+    assert_eq!(
+        reachable,
+        HashSet::from(["1:5".to_string(), "2:7".to_string()]),
+        "the map editor filter must remove every non-matching option"
+    );
+}
+
+#[test]
 fn test_lookup_label_collision_emits_each_own_id() {
     let desc = descriptor_of::<MonsterRef>("monster_db_id");
     let FieldKind::Lookup(key) = &desc.kind else {
@@ -525,6 +742,7 @@ fn test_lookup_label_collision_emits_each_own_id() {
             None,
             captured_field_changed,
             &empty,
+            &EMPTY_FILTERS,
             captured_spreadsheet,
         );
         activate_select_option(element, 0, offset)

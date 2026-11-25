@@ -12,7 +12,7 @@ use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::utils::horizontal_space;
-use crate::message::{Message, SystemMessage};
+use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
@@ -24,6 +24,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
     spreadsheet: &'a SpreadsheetState,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    composite_filters: &'a HashMap<String, String>,
     field_changed_msg: fn(usize, String, String) -> Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
@@ -59,6 +60,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
                     validation_error,
                     field_changed_msg,
                     &spreadsheet.inspector_textarea_contents,
+                    composite_filters,
                     spreadsheet_msg,
                 ));
             }
@@ -89,6 +91,7 @@ pub(crate) fn build_inspector_field<'a>(
     validation_error: Option<String>,
     field_changed_msg: fn(usize, String, String) -> Message,
     textarea_contents: &'a HashMap<String, TextAreaContent>,
+    composite_filters: &'a HashMap<String, String>,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     let label = text(descriptor.label).size(11).style(style::subtle_text);
@@ -161,13 +164,23 @@ pub(crate) fn build_inspector_field<'a>(
         FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
             let field_name = descriptor.name.to_string();
+            let filter_name = descriptor.name.to_string();
+            let filter = composite_filters
+                .get(descriptor.name)
+                .map(String::as_str)
+                .unwrap_or("");
             composite_item_picker(
                 descriptor.label,
                 &value,
                 entries,
                 false,
-                "",
-                |_| Message::System(SystemMessage::DismissError),
+                filter,
+                move |text| {
+                    spreadsheet_msg(SpreadsheetMessage::CompositeItemFilterChanged(
+                        filter_name.clone(),
+                        text,
+                    ))
+                },
                 move |v| {
                     spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                         orig_idx,
@@ -213,6 +226,9 @@ mod tests {
     use super::*;
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
+
+    static EMPTY_FILTERS: std::sync::LazyLock<HashMap<String, String>> =
+        std::sync::LazyLock::new(HashMap::new);
 
     fn field_changed(idx: usize, name: String, value: String) -> Message {
         Message::Editor(crate::message::editor::EditorMessage::Weapon(
@@ -269,6 +285,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             spreadsheet_msg,
         );
         assert_eq!(
@@ -290,6 +307,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             spreadsheet_msg,
         );
         assert_eq!(
@@ -336,6 +354,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
+                &EMPTY_FILTERS,
                 spreadsheet_msg,
             );
             assert!(
@@ -382,6 +401,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
+                &EMPTY_FILTERS,
                 spreadsheet_msg,
             );
             assert!(
@@ -415,6 +435,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             spreadsheet_msg,
         );
         assert!(
@@ -430,6 +451,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             spreadsheet_msg,
         );
         assert!(
@@ -445,6 +467,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             field_changed_spreadsheet_msg,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
@@ -480,11 +503,16 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_FILTERS,
             spreadsheet_msg,
         );
         let mut ui = simulator(element);
+        // Select by placeholder: a composite picker would render its search
+        // input first, and clicking that would not edit the field value.
         let mut pick_input = |candidate: Candidate<'_>| match candidate {
-            Candidate::TextInput { .. } => Some(Target::from(candidate)),
+            Candidate::TextInput { state, .. } if state.text().into_owned().is_empty() => {
+                Some(Target::from(candidate))
+            }
             _ => None,
         };
         ui.click(&mut pick_input)
