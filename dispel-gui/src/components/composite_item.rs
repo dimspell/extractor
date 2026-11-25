@@ -71,28 +71,28 @@ pub fn composite_item_picker(
         return with_optional_label(label, input, show_label);
     };
 
-    // Deduplicated type list, preserving insertion order
-    let item_types: Vec<ItemTypeId> = {
-        let mut seen = Vec::new();
-        let mut result = Vec::new();
-        for (key, _) in entries {
-            let tb: u8 = key
-                .split(':')
-                .next()
-                .and_then(|s| s.parse().ok())
-                .unwrap_or(255);
-            if !seen.contains(&tb) {
-                seen.push(tb);
-                if let Some(ty) = ItemTypeId::from_u8(tb) {
-                    result.push(ty);
-                }
-            }
+    // Parallel label/byte vectors, so a displayed type always maps back to the
+    // byte the setter needs. Insert the current type when the lookup omits it.
+    let mut type_labels: Vec<String> = Vec::new();
+    let mut type_bytes: Vec<u8> = Vec::new();
+    for (key, _) in entries {
+        let tb: u8 = key
+            .split(':')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(255);
+        if !type_bytes.contains(&tb)
+            && let Some(ty) = ItemTypeId::from_u8(tb)
+        {
+            type_bytes.push(tb);
+            type_labels.push(ty.to_string());
         }
-        result
-    };
-
-    let type_labels: Vec<String> = item_types.iter().map(|t| t.to_string()).collect();
+    }
     let current_type_label = current_type.to_string();
+    if !type_bytes.contains(&current_type_byte) {
+        type_bytes.push(current_type_byte);
+        type_labels.push(current_type_label.clone());
+    }
 
     let mut filtered_items: Vec<(String, String)> = entries
         .iter()
@@ -135,24 +135,36 @@ pub fn composite_item_picker(
         .map(|(label, _)| label.clone())
         .collect();
 
-    // Clone type_labels before passing to pick_list (closure needs the data too)
-    let type_labels_for_picker = type_labels.clone();
-
     let type_picker: Element<'static, Message> = {
         let oc = on_change.clone();
         let current_id = current_id.clone();
+        let labels = type_labels.clone();
+        let bytes = type_bytes.clone();
+        let entries_owned: Vec<(String, String)> = entries.to_vec();
         pick_list(Some(current_type_label), type_labels, |v| v.to_string())
             .on_select(move |selected_label| {
-                let type_byte = type_labels_for_picker
+                let new_byte = labels
                     .iter()
                     .position(|l| l == &selected_label)
-                    .and_then(|i| item_types.get(i))
-                    .map(|t| u8::from(*t))
-                    .unwrap_or(255);
-                // Preserve the item ID when switching type so the user doesn't
-                // lose their selection. The setter macro receives the full
-                // composite key and updates both fields.
-                oc(format!("{}:{}", type_byte, current_id))
+                    .and_then(|i| bytes.get(i).copied())
+                    .unwrap_or_else(|| u8::from(ItemTypeId::NoItem));
+                let ids: Vec<String> = entries_owned
+                    .iter()
+                    .filter(|(key, _)| {
+                        key.split(':').next().and_then(|s| s.parse::<u8>().ok()) == Some(new_byte)
+                    })
+                    .map(|(key, _)| key.split(':').nth(1).unwrap_or("0").to_string())
+                    .collect();
+                // Prefer the current id when the new type offers it, otherwise
+                // use the first entry of that type, or the shared empty slot.
+                let key = if ids.contains(&current_id) {
+                    format!("{}:{}", new_byte, current_id)
+                } else if let Some(id) = ids.first() {
+                    format!("{}:{}", new_byte, id)
+                } else {
+                    NO_ITEM_KEY.to_string()
+                };
+                oc(key)
             })
             .width(Length::Fill)
             .into()
@@ -217,7 +229,7 @@ mod tests {
             "an unmapped item id must render a visible fallback label, got {values:?}"
         );
 
-        let messages = crate::tests::common::activate_select_option(element("255:0"), 1);
+        let messages = crate::tests::common::activate_select_option(element("255:0"), 1, 0);
         let emitted: Vec<String> = messages
             .into_iter()
             .filter_map(|m| match m {
@@ -228,6 +240,37 @@ mod tests {
         assert!(
             emitted.iter().any(|v| v == "255:15"),
             "choosing the sentinel must emit the normalized key, got {emitted:?}"
+        );
+    }
+
+    #[test]
+    fn test_composite_type_picker_keeps_current_type_and_selects_valid_id() {
+        // The lookup knows only type 2; the record currently uses type 3.
+        let entries = [("2:5".to_string(), "Invented Potion".to_string())];
+        let element = || {
+            composite_item_picker("Invented Item", "3:7", Some(&entries), false, |v| {
+                Message::FileTree(crate::message::FileTreeMessage::Search(v))
+            })
+        };
+
+        let values = crate::tests::common::select_values(element());
+        assert!(
+            values.first().is_some_and(|v| v == "Edit"),
+            "the type picker must show the current type, got {values:?}"
+        );
+
+        // "Edit" is inserted after "Healing", so move the highlight up once.
+        let messages = crate::tests::common::activate_select_option(element(), 0, -1);
+        let emitted: Vec<String> = messages
+            .into_iter()
+            .filter_map(|m| match m {
+                Message::FileTree(crate::message::FileTreeMessage::Search(v)) => Some(v),
+                _ => None,
+            })
+            .collect();
+        assert!(
+            emitted.iter().any(|v| v == "2:5"),
+            "switching type must choose an id present in the new type, got {emitted:?}"
         );
     }
 

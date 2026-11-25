@@ -44,12 +44,13 @@ pub(crate) fn select_shows<M: 'static>(element: iced::Element<'_, M>, value: &st
     select_values(element).iter().any(|v| v == value)
 }
 
-/// Focus the `nth` select box and activate its highlighted option, returning
-/// the messages produced by that interaction.
+/// Focus the `nth` select box, move the highlight by `offset` entries, and
+/// activate it. Returns the messages produced by the interactions.
 #[cfg(feature = "iced_test")]
 pub(crate) fn activate_select_option<M: 'static>(
     element: iced::Element<'_, M>,
     nth: usize,
+    offset: isize,
 ) -> Vec<M> {
     use iced_test::core::accessibility::accesskit;
     use iced_test::instruction::Key;
@@ -70,6 +71,26 @@ pub(crate) fn activate_select_option<M: 'static>(
         data: None,
     });
     ui.tap_key(Key::Enter);
+
+    let named = if offset < 0 {
+        iced::keyboard::key::Named::ArrowUp
+    } else {
+        iced::keyboard::key::Named::ArrowDown
+    };
+    for _ in 0..offset.unsigned_abs() {
+        ui.simulate([iced::Event::Keyboard(iced::keyboard::Event::KeyPressed {
+            key: iced::keyboard::Key::Named(named),
+            modified_key: iced::keyboard::Key::Named(named),
+            physical_key: iced::keyboard::key::Physical::Unidentified(
+                iced::keyboard::key::NativeCode::Unidentified,
+            ),
+            location: iced::keyboard::Location::Standard,
+            modifiers: iced::keyboard::Modifiers::empty(),
+            text: None,
+            repeat: false,
+        })]);
+    }
+
     ui.tap_key(Key::Enter);
     ui.into_messages().collect()
 }
