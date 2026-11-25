@@ -984,7 +984,3 @@ Keep these invariants when you change the code:
 ## Project context
 
 hexedit is part of the [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor), a 6-crate Rust workspace: root `dispel-extractor`, `dispel-encodings`, `dispel-gui`, `dispel-macros`, `gui-widgets` and `hexedit`. It powers the hex editor tab inside `dispel-gui`. You can also use it standalone for general binary editing.
-
-## License
-
-The MIT License (LICENSE) covers `hexedit`.

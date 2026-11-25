@@ -4,11 +4,11 @@ This toolkit reads and writes DISPEL® game files in binary, INI and DB formats.
 
 ## Scope and notice
 
-This project reads and writes data files for DISPEL®. It ships no game content. You provide the files you edit.
+This project reads and writes data files for DISPEL®. It ships no game content. You choose the files you edit.
 
 DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark owner.
 
-The source code is licensed under the MIT License (LICENSE). Game content is not covered by this license.
+The MIT License (LICENSE) covers the source code. It does not cover game content.
 
 ## What's in this repository
 
