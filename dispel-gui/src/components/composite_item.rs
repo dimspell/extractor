@@ -121,6 +121,17 @@ pub fn composite_item_picker(
         .map(|(key, name)| (name.clone(), key.clone()))
         .collect();
 
+    // A non-canonical no-item key still renders as the shared "[-]" option,
+    // but re-selecting it must emit the exact stored key to keep the record
+    // byte-for-byte intact.
+    if is_no_item && value != NO_ITEM_KEY {
+        for (label, key) in &mut labelled_keys {
+            if label == NO_ITEM_LABEL {
+                *key = value.to_string();
+            }
+        }
+    }
+
     // An id that is gone from the lookup still gets a visible, selectable
     // label. The stored value is left untouched; choosing the fallback keeps
     // the original key.
@@ -204,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn test_unmapped_composite_keys_render_a_label_and_emit_sentinel() {
+    fn test_unmapped_composite_keys_render_a_label_and_keep_value() {
         let entries = [
             ("1:0".to_string(), "Invented Sword".to_string()),
             ("255:15".to_string(), "[-]".to_string()),
@@ -238,8 +249,56 @@ mod tests {
             })
             .collect();
         assert!(
-            emitted.iter().any(|v| v == "255:15"),
-            "choosing the sentinel must emit the normalized key, got {emitted:?}"
+            emitted.iter().any(|v| v == "255:0"),
+            "choosing the sentinel must keep the exact stored key, got {emitted:?}"
+        );
+    }
+
+    #[test]
+    fn test_no_item_selection_preserves_exact_key() {
+        use dispel_core::InventoryItem;
+
+        let entries = [
+            ("1:0".to_string(), "Invented Sword".to_string()),
+            ("255:15".to_string(), "[-]".to_string()),
+        ];
+        let element = |value: &'static str| {
+            composite_item_picker("Invented Item", value, Some(&entries), false, |v| {
+                Message::FileTree(crate::message::FileTreeMessage::Search(v))
+            })
+        };
+        let emitted_for = |value: &'static str| -> String {
+            let messages = crate::tests::common::activate_select_option(element(value), 1, 0);
+            messages
+                .into_iter()
+                .find_map(|m| match m {
+                    Message::FileTree(crate::message::FileTreeMessage::Search(v)) => Some(v),
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("no value emitted for {value}"))
+        };
+
+        for value in ["255:255", "255:5"] {
+            let values = crate::tests::common::select_values(element(value));
+            assert!(
+                values.iter().any(|v| v == "[-]"),
+                "{value} must render the shared no-item label, got {values:?}"
+            );
+        }
+
+        assert_eq!(emitted_for("255:255"), "255:255");
+        assert_eq!(emitted_for("255:5"), "255:5");
+        assert_eq!(emitted_for("255:15"), "255:15");
+
+        let emitted = emitted_for("255:255");
+        let parts: Vec<&str> = emitted.split(':').collect();
+        let item = InventoryItem::new(
+            ItemTypeId::from_u8(parts[0].parse().unwrap()).unwrap(),
+            parts[1].parse().unwrap(),
+        );
+        assert!(
+            item.is_empty(),
+            "255:255 must decode to an empty inventory item"
         );
     }
 
