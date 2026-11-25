@@ -1,406 +1,316 @@
-# Dispel game file system: cross references
+# Dispel game files: cross references
 
 ## Overview
 
-This document maps the cross references between game data files. The tool reads and writes data files that you supply. Each row below links a field in one file to a file name or a field in another file.
+This document lists the links between game data files. The tool reads and writes the files that you supply. Each link connects a field in one file with a field in another file. Some links point to a file name instead of a field.
 
-## File Dependency Map
+## File dependency map
 
-### Core Configuration Files (INI)
+This section groups files by role. A family name such as `DlgMapFiles.dlg` stands for a set of real files. A real file name such as `Dlgcat1.dlg` names one file on disk.
 
-- **AllMap.ini**: Master map index linking maps to resources
-- **Map.ini** (Ref/): Map initialization with positions and resource links
-- **Monster.ini** (CharacterInGame/): Monster visual definitions and animations
-- **Npc.ini**: NPC visual definitions and sprite references
-- **Extra.ini**: Interactive object definitions
-- **Event.ini**: Event scripts with conditions and triggers
-- **Wave.ini**: Sound effect mappings
+### Core configuration files (INI)
 
-### Database Files (DB)
+- `AllMap.ini`: Master map index. It lists each map and its resources.
+- `Ref/Map.ini`: Map setup with spawn coordinates and file links. Each row holds one entrance.
+- `CharacterInGame/Monster.ini`: Monster visuals and animation sequences.
+- `Npc.ini`: NPC visuals and sprite file names.
+- `Extra.ini`: Interactive object definitions.
+- `Event.ini`: Event conditions and script file names.
+- `Wave.ini`: Sound effect names that point to `.snf` files.
 
-- **Monster.db** (MonsterInGame/): Monster combat statistics and AI
-- **WeaponItem.db** (CharacterInGame/): Weapons and armor with stats
-- **HealItem.db** (CharacterInGame/): Consumable healing items
-- **MiscItem.db** (CharacterInGame/): Generic utility items
-- **EditItem.db** (CharacterInGame/): Modifiable equipment items
-- **EventItem.db** (CharacterInGame/): Quest and event items
-- **Store.db** (CharacterInGame/): Shops and inns with inventories
-- **ChData.db** (CharacterInGame/): Character statistics tracking
-- **PrtLevel.db** (NpcInGame/): Character progression (levels 1-20)
-- **Magic.db** (Ref/): Spell database with effects
-- **DrawItem.db** (Ref/): Object placements on maps
+### Database files (DB)
 
-### Reference Files (REF)
+- `CharacterInGame/WeaponItem.db`: Weapons and armor with combat stats.
+- `CharacterInGame/HealItem.db`: Consumable healing items.
+- `CharacterInGame/EditItem.db`: Editable items that the player can change.
+- `CharacterInGame/EventItem.db`: Quest and event items.
+- `CharacterInGame/MiscItem.db`: Utility items.
+- `CharacterInGame/STORE.DB`: Shops and inns with product lists.
+- `CharacterInGame/ChData.db`: One record of initial class statistics.
+- `MagicInGame/Magic.db`: Spell definitions and effects.
+- `NpcInGame/PrtLevel.db`: Party growth records for eight slots and twenty levels.
+- `MonsterInGame/Monster.db`: Monster combat statistics.
 
-- **PartyRef.ref** (Ref/): Party character definitions
-- **Eventnpc.ref** (NpcInGame/): Event-triggered NPC definitions
-- **NpcMapFiles.ref** (NpcInGame/): NPC placements with waypoints
-- **Extra.ref** (ExtraInGame/): Interactive object placements
-- **fogdata.dat** (ExtraInGame/): Map lighting fade tables, consumed by the map renderer/editor (see [ExtraInGame/fogdata.dat.md](ExtraInGame/fogdata.dat.md))
-- **MondunMonmap.ref** (MonsterInGame/): Monster placements on maps
+### Reference files (REF)
 
-### Script Files (SCR/DLG/PGP)
+- `Ref/PartyRef.ref`: Party member definitions and dialogue links.
+- `MonsterInGame/Mondun01.ref`: Monster placements. `MondunMonmap.ref` is the family name.
+- `NpcInGame/Npccat1.ref`: NPC placements. `NpcMapFiles.ref` is the family name.
+- `ExtraInGame/Extdun01.ref`: Interactive object placements. `Extra.ref` is the family name.
+- `NpcInGame/Eventnpc.ref`: NPCs that appear during events.
+- `Ref/DRAWITEM.ref`: Map item drops. This is a parenthesized CSV file with EUC-KR text.
+- `ExtraInGame/fogdata.dat`: Fade tables for map lighting. See [ExtraInGame/fogdata.dat.md](ExtraInGame/fogdata.dat.md).
 
-- **Message.scr** (ExtraInGame/): UI text messages
-- **Quest.scr** (ExtraInGame/): Quest journal entries
-- **DlgMapFiles.dlg** (NpcInGame/): Dialogue conversation scripts
-- **PgpMapFiles.pgp** (NpcInGame/): Dialogue text content
+### Script files (SCR/DLG/PGP)
 
-### Visual/Audio Assets
+- `ExtraInGame/Message.scr`: UI text messages.
+- `ExtraInGame/Quest.scr`: Quest journal entries.
+- `NpcInGame/Dlgcat1.dlg`: Dialogue scripts. `DlgMapFiles.dlg` is the family name.
+- `NpcInGame/Pgpcat1.pgp`: Dialogue text and parameters. `PgpMapFiles.pgp` is the family name.
 
-- **Sprites.spr** (Map/): Sprite files for characters, monsters, objects
-- **SNF files** (referenced by Wave.ini): Sound effect files
-- **Map.map** (Map/): Map geometry and tile data
-- **Map.gtl** (Map/): Ground tileset files
-- **Map.btl** (Map/): Building/roof tileset files
+### Visual, audio and map assets
 
-### Map Tileset Relationships
+- Map.map: Map geometry, tile layers and embedded sprites.
+- Tileset files: Ground and roof tiles. Each map stem names its own pair of `.gtl` and `.btl` files.
+- `.spr` files: Sprite art. File names come from `Monster.ini`, `Npc.ini` and `Extra.ini`.
+- `.snf` files: Audio data. `Wave.ini` names these files.
 
-```
-Map.map files
-    ├── gtl_tile_id → Map.gtl (ground tiles)
-    ├── btl_tile_id → Map.btl (building tiles)
-    └── event_id → Event.ini (tile events)
+## Relationship diagrams
 
-Map.gtl (ground tiles)
-    └── Referenced by Map.map for terrain
-
-Map.btl (building tiles)
-    └── Referenced by Map.map for structures
-```
-
-## Cross-Reference Relationships
-
-### 1. Map System Relationships
+### 1. Map system
 
 ```
-AllMap.ini (master index)
-    ├── map_file → Map.map files
-    ├── pgp → PgpMapFiles.pgp (dialogue text)
-    └── dlg → DlgMapFiles.dlg (dialogue scripts)
+AllMap.ini
+    ├── id → row key
+    ├── map_filename → Map.map stem
+    ├── pgp_filename → Pgpcat1.pgp (dialogue text)
+    ├── dlg_filename → Dlgcat1.dlg (dialogue scripts)
+    └── lighting → MapLighting code
 
-Map.ini (Ref/)
-    ├── id → AllMap.ini.id
-    ├── monsters → MondunMonmap.ref (monster placements)
-    ├── npcs → NpcMapFiles.ref (NPC placements)
-    ├── extras → Extra.ref (object placements)
-    ├── camera_event → Event.ini.event_id
-    └── cd_track → Audio track number
-
-Map.map (map geometry)
-    ├── gtl_tile_id → Map.gtl (ground tiles)
-    ├── btl_tile_id → Map.btl (building tiles)
-    ├── event_id → Event.ini (tile events)
-    └── Contains embedded sprites
-
-Map.gtl (ground tiles)
-    └── Referenced by Map.map for terrain
-
-Map.btl (building tiles)
-    └── Referenced by Map.map for structures
-```
-
-### 2. Character System Relationships
-
-```
-PartyRef.ref (Ref/)
-    ├── npc_id → Npc.ini.id (visual appearance)
-    ├── map_id → AllMap.ini.id (recruitment location)
-    ├── dlg_out → DlgMapFiles.dlg.id (dialogue when not in party)
-    └── dlg_in → DlgMapFiles.dlg.id (dialogue when in party)
-
-Npc.ini (visual definitions)
-    └── sprite_filename → Sprites.spr files
-
-PrtLevel.db (character progression)
-    └── 8 NPC slots × 20 levels = character stat growth
-
-ChData.db (character statistics)
-    └── Tracks overall game/player statistics
-
-Character System Cross-References:
-    ├── PartyRef.ref → PrtLevel.db (character progression)
-    ├── PrtLevel.db → WeaponItem.db (equipment requirements)
-    ├── PrtLevel.db → Magic.db (spell access)
-    └── ChData.db → Overall game statistics
-```
-
-### 3. Monster System Relationships
-
-```
-Monster.ini (visual definitions)
-    ├── sprite_filename → Sprites.spr files
-    ├── attack_seq → Sprite animation sequence
-    ├── hit_seq → Sprite animation sequence
-    ├── death_seq → Sprite animation sequence
-    ├── walk_seq → Sprite animation sequence
-    └── cast_seq → Sprite animation sequence
-
-Monster.db (combat statistics)
-    ├── known_spell_slot1 → Magic.db.id
-    ├── known_spell_slot2 → Magic.db.id
-    ├── known_spell_slot3 → Magic.db.id
-    └── AI type determines combat behavior
-
-MondunMonmap.ref (monster placements)
-    ├── mon_id → Monster.db.id (monster type)
-    ├── loot1/2/3_item_id → Item databases (loot drops)
-    └── Places monsters from Monster.db/ini on specific maps
-```
-
-### 4. NPC System Relationships
-
-```
-NpcMapFiles.ref (NPC placements)
-    ├── npc_id → Npc.ini.id (visual type)
-    ├── dialog_id → DlgMapFiles.dlg.id (dialogue script)
-    ├── show_on_event → Event.ini.event_id (visibility trigger)
-    └── Waypoints for patrol routes
-
-Eventnpc.ref (event NPCs)
-    ├── npc_ini_id → Npc.ini.id (visual type)
-    ├── show_on_event → Event.ini.event_id (trigger condition)
-    ├── dialog_id → DlgMapFiles.dlg.id (dialogue script)
-    └── Temporary NPCs appearing during specific events
-
-DlgMapFiles.dlg (dialogue scripts)
-    ├── prev_event → Event.ini.event_id (prerequisite)
-    ├── next_dlg → DlgMapFiles.dlg.id (conversation chain)
-    ├── dlg_id → PgpMapFiles.pgp.id (text content)
-    ├── event_id → Event.ini.event_id (triggered by dialogue)
-    └── Referenced by NpcMapFiles.ref and PartyRef.ref
-
-PgpMapFiles.pgp (dialogue text)
-    └── Contains actual dialogue text and parameters
-```
-
-### 5. Interactive Object System Relationships
-
-```
-Extra.ini (object definitions)
-    ├── sprite_filename → Sprites.spr files
-    └── flag (0=standard, 1=special/quest)
-
-Extra.ref (object placements)
-    ├── ext_id → Extra.ini.id (object type)
-    ├── event_id → Event.ini.event_id (interaction trigger)
-    ├── message_id → Message.scr.id (sign text)
-    ├── required_item_id → Item database
-    ├── required_item_type_id → Item type enum
-    ├── item_id → Item database (contents)
-    └── item_type_id → Item type enum
-
-DrawItem.db (object placements)
+Ref/Map.ini
+    ├── id → entrance row key
     ├── map_id → AllMap.ini.id
-    └── item_id → Extra.ini.id or object database
+    ├── event_id_on_camera_move → event index
+    ├── start_pos_x / start_pos_y → spawn point
+    ├── monsters_filename → Mondun01.ref
+    ├── npc_filename → Npccat1.ref
+    ├── extra_filename → Extdun01.ref
+    └── cd_music_track_number → audio track
 ```
 
-### 6. Event System Relationships
+### 2. Map.map layers
 
 ```
-Event.ini (event definitions)
-    ├── required_event_id → Event.ini.id (prerequisite)
-    ├── script_filename → Script files (.scr)
-    └── event_type (0-8) determines execution logic
-
-Events are referenced by:
-    ├── Map.ini.camera_event
-    ├── NpcMapFiles.ref.show_on_event
-    ├── DlgMapFiles.dlg.event_id
-    ├── DlgMapFiles.dlg.prev_event
-    ├── Extra.ref.event_id
-    └── Eventnpc.ref.show_on_event
+Map.map
+    ├── ground GTL index = (word >> 10) & 0x7FFF (Tile and Access words)
+    ├── BTL IDs → u16 array in the Tiled Objects block
+    ├── roof BTL index → bits 0..14 of the Access-Ref grid
+    ├── event IDs → bits 0..13 of a u32 (resolved via Map.ini and AllMap.ini)
+    └── sprites → embedded sprite block
 ```
 
-### 7. Item/Equipment System Relationships
+### 3. Character data
 
 ```
-WeaponItem.db (weapons/armor)
-    ├── Referenced by Store.db products (type=0,1)
-    ├── Referenced by Extra.ref contents (item_type_id=0,1)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+Ref/PartyRef.ref
+    ├── npc_id → Npc.ini.id (visual type)
+    ├── root_map_id → AllMap.ini.id
+    ├── dlg_when_not_in_party → PartyDlg.dlg paragraph
+    └── dlg_when_in_party → PartyDlg.dlg paragraph
 
-HealItem.db (consumable healing)
-    ├── Referenced by Store.db products (type=2)
-    ├── Referenced by Extra.ref contents (item_type_id=2)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+NpcInGame/PrtLevel.db
+    ├── 8 slots × 20 levels, with 36-byte records
+    ├── magic_spell_id_1 / 2 / 3 → spell indices
+    └── weapon_skill_level → skill level
 
-MiscItem.db (generic utility items)
-    ├── Referenced by Store.db products (type=3)
-    ├── Referenced by Extra.ref contents (item_type_id=3)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
-
-EditItem.db (modifiable equipment)
-    ├── Referenced by Store.db products (type=4)
-    ├── Referenced by Extra.ref contents (item_type_id=4)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
-
-EventItem.db (quest items)
-    ├── Referenced by Extra.ref contents (item_type_id=5)
-    └── Quest progression tracking
-
-Store.db (shops/inns)
-    ├── products reference item databases
-    └── Commerce system with haggling and dialogue
-
-Item Type Enum (used in Extra.ref and Store.db):
-    ├── 1: Weapon → WeaponItem.db
-    ├── 2: Healing → HealItem.db
-    ├── 3: Edit → EditItem.db
-    ├── 4: Event → EventItem.db
-    ├── 5: Misc → MiscItem.db
-    └── -1: NoItem → no item (0xFF on disk; SQL/GUI keys use 255)
+CharacterInGame/ChData.db
+    └── one 84-byte record of initial class statistics
 ```
 
-### 8. Audio System Relationships
+### 4. Monster data
 
 ```
-Wave.ini (sound mappings)
-    └── snf_filename → .snf audio files
+CharacterInGame/Monster.ini
+    └── sprite_filename → .spr file under CharacterInGame/
 
-Sound IDs referenced by:
-    ├── dialogue_paragraph.rs (wave_ini_entry_id)
-    └── Game events and interactions
+MonsterInGame/Monster.db
+    ├── known_spell_slot1 / 2 / 3 → spell indices (-1 = SQL NULL)
+    └── combat statistics
+
+MonsterInGame/Mondun01.ref
+    ├── monster_db_id → Monster.db.id
+    ├── loot_item_1 / 2 / 3 → items lookup (type:ID)
+    └── event_id_on_kill → event index
 ```
 
-### 9. Quest System Relationships
+### 5. NPC and dialogue data
 
 ```
-Quest.scr (quest definitions)
-    ├── type (0=main, 1=side, 2=traders journal)
-    └── Referenced by event system
+NpcInGame/Npccat1.ref
+    ├── npc_ini_id → Npc.ini.id
+    ├── dialog_id → Dlgcat1.dlg script
+    └── show_on_event → event index
 
-Message.scr (UI messages)
-    └── Referenced by Extra.ref.message_id for signs
+NpcInGame/Eventnpc.ref
+    ├── npc_ini_id → Npc.ini.id
+    ├── show_on_event → event index
+    └── dialog_id → Dlgcat1.dlg script
+
+NpcInGame/Dlgcat1.dlg (on-disk labels in parentheses)
+    ├── required_event_id (prev_event) → event index
+    ├── next_dialog_to_check (next_dlg) → Dlg script
+    ├── dialog_id (dlg_id) → Pgpcat1.pgp paragraph
+    └── triggered_event_id (event_id) → event index
+
+NpcInGame/Pgpcat1.pgp
+    └── dialogue text and parameters
 ```
 
-## Complete Cross-Reference Table
-
-| Source File      | Source Field          | Target File      | Target Field | Relationship       |
-|------------------|-----------------------|------------------|--------------|--------------------|
-| AllMap.ini       | map_file              | Map.map          | filename     | Map geometry       |
-| AllMap.ini       | pgp                   | PgpMapFiles.pgp  | filename     | Dialogue text      |
-| AllMap.ini       | dlg                   | DlgMapFiles.dlg  | filename     | Dialogue scripts   |
-| Map.ini          | monsters              | MondunMonmap.ref | filename     | Monster placements |
-| Map.ini          | npcs                  | NpcMapFiles.ref  | filename     | NPC placements     |
-| Map.ini          | extras                | Extra.ref        | filename     | Object placements  |
-| Map.ini          | camera_event          | Event.ini        | event_id     | Camera trigger     |
-| Monster.ini      | sprite_filename       | Sprites.spr      | filename     | Visual assets      |
-| Npc.ini          | sprite_filename       | Sprites.spr      | filename     | Visual assets      |
-| Extra.ini        | sprite_filename       | Sprites.spr      | filename     | Visual assets      |
-| PartyRef.ref     | npc_id                | Npc.ini          | id           | Visual appearance  |
-| PartyRef.ref     | map_id                | AllMap.ini       | id           | Location           |
-| PartyRef.ref     | dlg_out               | DlgMapFiles.dlg  | id           | Dialogue           |
-| PartyRef.ref     | dlg_in                | DlgMapFiles.dlg  | id           | Dialogue           |
-| NpcMapFiles.ref  | npc_id                | Npc.ini          | id           | NPC type           |
-| NpcMapFiles.ref  | dialog_id             | DlgMapFiles.dlg  | id           | Dialogue           |
-| NpcMapFiles.ref  | show_on_event         | Event.ini        | event_id     | Visibility         |
-| Eventnpc.ref     | show_on_event         | Event.ini        | event_id     | Trigger            |
-| Eventnpc.ref     | npc_ini_id            | Npc.ini          | id           | NPC type           |
-| Eventnpc.ref     | dialog_id             | DlgMapFiles.dlg  | id           | Dialogue           |
-| DlgMapFiles.dlg  | prev_event            | Event.ini        | event_id     | Prerequisite       |
-| DlgMapFiles.dlg  | next_dlg              | DlgMapFiles.dlg  | id           | Chain              |
-| DlgMapFiles.dlg  | dlg_id                | PgpMapFiles.pgp  | id           | Text               |
-| DlgMapFiles.dlg  | event_id              | Event.ini        | event_id     | Trigger            |
-| Extra.ref        | ext_id                | Extra.ini        | id           | Object type        |
-| Extra.ref        | event_id              | Event.ini        | event_id     | Interaction        |
-| Extra.ref        | message_id            | Message.scr      | id           | Sign text          |
-| Extra.ref        | required_item_type_id | Item type enum   | -            | Key type           |
-| Extra.ref        | item_type_id          | Item type enum   | -            | Content type       |
-| Monster.db       | known_spell_slot1-3   | Magic.db         | id           | Spells             |
-| DrawItem.db      | map_id                | AllMap.ini       | id           | Map location       |
-| DrawItem.db      | item_id               | Extra.ini        | id           | Object type        |
-| Map.map          | gtl_tile_id           | Map.gtl          | id           | Ground tiles       |
-| Map.map          | btl_tile_id           | Map.btl          | id           | Building tiles     |
-| Map.map          | event_id              | Event.ini        | event_id     | Tile events        |
-| Store.db         | products              | Item databases   | id           | Inventory          |
-| Store.db         | products (type=0,1)   | WeaponItem.db    | id           | Weapons/Armor      |
-| Store.db         | products (type=2)     | HealItem.db      | id           | Healing items      |
-| Store.db         | products (type=3)     | MiscItem.db      | id           | Misc items         |
-| Store.db         | products (type=4)     | EditItem.db      | id           | Modifiable items   |
-| Extra.ref        | item_type_id=1        | WeaponItem.db    | id           | Weapons/Armor      |
-| Extra.ref        | item_type_id=2        | HealItem.db      | id           | Healing items      |
-| Extra.ref        | item_type_id=3        | EditItem.db      | id           | Modifiable items   |
-| Extra.ref        | item_type_id=4        | EventItem.db     | id           | Quest items        |
-| Extra.ref        | item_type_id=5        | MiscItem.db      | id           | Misc items         |
-| MondunMonmap.ref | loot*_item_type=1     | WeaponItem.db    | id           | Weapon loot        |
-| MondunMonmap.ref | loot*_item_type=2     | HealItem.db      | id           | Healing loot       |
-| MondunMonmap.ref | loot*_item_type=3     | EditItem.db      | id           | Editable loot      |
-| MondunMonmap.ref | loot*_item_type=4     | EventItem.db     | id           | Event loot         |
-| MondunMonmap.ref | loot*_item_type=5     | MiscItem.db      | id           | Misc loot          |
-| Wave.ini         | snf_filename          | .snf files       | filename     | Audio              |
-
-## Data Flow Summary
-
-1. Map data: AllMap.ini → Map.ini → Map.map, MondunMonmap.ref, NpcMapFiles.ref and Extra.ref
-2. Map rendering: Map.map → Map.gtl (ground tiles), Map.btl (building tiles) and Sprites.spr (objects and NPCs)
-3. NPC data: NpcMapFiles.ref → Npc.ini → Sprites.spr, and DlgMapFiles.dlg → PgpMapFiles.pgp
-4. Monster data: MondunMonmap.ref → Monster.ini → Sprites.spr, and Monster.db → Magic.db
-5. Object data: Extra.ref → Extra.ini → Sprites.spr, Event.ini and Message.scr
-6. Quest data: Event.ini → script files → Quest.scr
-7. Character data: PartyRef.ref → PrtLevel.db → WeaponItem.db and Magic.db
-8. Commerce data: Store.db → item databases such as WeaponItem.db and HealItem.db
-9. Audio data: Wave.ini → .snf files
-10. Monster loot: MondunMonmap.ref → item databases
-
-## Item Database Relationships
-
-### Item Type Enum (ItemTypeId)
+### 6. Interactive object data
 
 ```
-1: Weapon → WeaponItem.db
-2: Healing → HealItem.db
-3: Edit → EditItem.db
-4: Event → EventItem.db
-5: Misc → MiscItem.db
--1: NoItem → no item (0xFF on disk; SQL/GUI numeric keys use 255)
+ExtraInGame/Extra.ini
+    └── sprite_filename → .spr file under ExtraInGame/
+
+ExtraInGame/Extdun01.ref
+    ├── extra_definition_id → Extra.ini.id
+    ├── map_object_id → map object number
+    ├── interaction_event_id → event index
+    ├── interaction_message_id → Message.scr.id
+    ├── required_item / required_item2 → items lookup (type:ID)
+    ├── loot_item → items lookup (type:ID)
+    ├── additional_loot_1 / additional_loot_2 → item IDs
+    ├── trap_spell_id → spell index
+    └── open_sfx_id → Wave.ini index
+
+Ref/DRAWITEM.ref
+    ├── map_id → AllMap.ini.id
+    ├── x_coord / y_coord → map position
+    └── item → items lookup (type:ID)
 ```
 
-### Item Database Cross-References
+### 7. Events and audio
 
 ```
-WeaponItem.db (weapons/armor)
-    ├── Referenced by Store.db products (type=1)
-    ├── Referenced by Extra.ref contents (item_type_id=1)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type=1)
+Event.ini
+    ├── required_event_id → event prerequisite
+    ├── event_filename → event script file
+    └── event_type → 0, 2, 5 or 6
 
-HealItem.db (consumable healing)
-    ├── Referenced by Store.db products (type=2)
-    ├── Referenced by Extra.ref contents (item_type_id=2)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type=2)
+Wave.ini
+    └── snf_filename → .snf audio file
 
-EditItem.db (modifiable equipment)
-    ├── Referenced by Store.db products (type=4)
-    ├── Referenced by Extra.ref contents (item_type_id=3)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type=3)
-
-EventItem.db (quest items)
-    ├── Referenced by Extra.ref contents (item_type_id=4)
-    └── Quest progression tracking
-
-MiscItem.db (generic utility items)
-    ├── Referenced by Store.db products (type=3)
-    ├── Referenced by Extra.ref contents (item_type_id=5)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type=5)
+NpcInGame/Pgpcat1.pgp
+    └── wave_ini_entry_id (column 3) → Wave.ini index
 ```
 
-## File Encoding Summary
+### 8. Item keys and store products
 
-| Encoding     | Files                                                                                                                                                                                                          |
-|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| EUC-KR       | Event.ini, Extra.ini, Npc.ini, Wave.ini, Map.ini, Monster.db, DlgMapFiles.dlg, HealItem.db (descriptions)                                                                                                      |
-| WINDOWS-1250 | AllMap.ini, Monster.ini, Store.db, WeaponItem.db, HealItem.db (names), MiscItem.db, EditItem.db, EventItem.db, Message.scr, Quest.scr, PgpMapFiles.pgp, Extra.ref, NpcMapFiles.ref, PartyRef.ref, Eventnpc.ref |
-| Binary       | Monster.db, WeaponItem.db, HealItem.db, MiscItem.db, EditItem.db, EventItem.db, Store.db, ChData.db, PrtLevel.db, Magic.db, DrawItem.db, Map.map, Map.gtl, Map.btl, Sprites.spr                                |
+```
+ItemTypeId (composite key type:ID)
+    ├── 1 Weapon → WeaponItem.db
+    ├── 2 Healing → HealItem.db
+    ├── 3 Edit → EditItem.db
+    ├── 4 Event → EventItem.db
+    ├── 5 Misc → MiscItem.db
+    └── -1 NoItem → 0xFF on disk, 255 in SQL and GUI keys
+
+ProductType (Store.db slots)
+    ├── 1 Weapon → WeaponItem.db
+    ├── 2 Healing → HealItem.db
+    ├── 3 EditItem → EditItem.db
+    ├── 4 MiscItem → MiscItem.db
+    └── 0 ends the list, with at most 15 products
+```
+
+## Complete cross-reference table
+
+| Source file | Source field | Target file | Target field | Relationship |
+|---|---|---|---|---|
+| AllMap.ini | map_filename | Map.map | stem | Map geometry |
+| AllMap.ini | pgp_filename | Pgpcat1.pgp | file name | Dialogue text |
+| AllMap.ini | dlg_filename | Dlgcat1.dlg | file name | Dialogue scripts |
+| Ref/Map.ini | map_id | AllMap.ini | id | Map link |
+| Ref/Map.ini | monsters_filename | Mondun01.ref | file name | Monster placements |
+| Ref/Map.ini | npc_filename | Npccat1.ref | file name | NPC placements |
+| Ref/Map.ini | extra_filename | Extdun01.ref | file name | Object placements |
+| Ref/Map.ini | cd_music_track_number | Wave.ini | index | Music track |
+| Mondun01.ref | monster_db_id | Monster.db | id | Monster type |
+| Mondun01.ref | loot_item_1 / 2 / 3 | items lookup | type:ID | Loot |
+| Mondun01.ref | event_id_on_kill | event index | - | Kill trigger |
+| Monster.db | known_spell_slot1 / 2 / 3 | spell index | - | Spells (NULL for -1) |
+| Npccat1.ref | npc_ini_id | Npc.ini | id | NPC type |
+| Npccat1.ref | dialog_id | Dlgcat1.dlg | id | Dialogue |
+| Npccat1.ref | show_on_event | event index | - | Visibility |
+| Eventnpc.ref | npc_ini_id | Npc.ini | id | NPC type |
+| Eventnpc.ref | show_on_event | event index | - | Trigger |
+| Eventnpc.ref | dialog_id | Dlgcat1.dlg | id | Dialogue |
+| Dlgcat1.dlg | required_event_id | event index | - | Prerequisite |
+| Dlgcat1.dlg | next_dialog_to_check | Dlgcat1.dlg | id | Chain |
+| Dlgcat1.dlg | dialog_id | Pgpcat1.pgp | paragraph | Text |
+| Dlgcat1.dlg | triggered_event_id | event index | - | Trigger |
+| Pgpcat1.pgp | wave_ini_entry_id | Wave.ini | index | Voice audio |
+| PartyRef.ref | npc_id | Npc.ini | id | Visual type |
+| PartyRef.ref | root_map_id | AllMap.ini | id | Location |
+| PartyRef.ref | dlg_when_not_in_party | PartyDlg.dlg | paragraph | Dialogue |
+| PartyRef.ref | dlg_when_in_party | PartyDlg.dlg | paragraph | Dialogue |
+| Extdun01.ref | extra_definition_id | Extra.ini | id | Object type |
+| Extdun01.ref | interaction_event_id | event index | - | Interaction |
+| Extdun01.ref | interaction_message_id | Message.scr | id | Sign text |
+| Extdun01.ref | required_item / required_item2 | items lookup | type:ID | Required item |
+| Extdun01.ref | loot_item | items lookup | type:ID | Loot |
+| Extdun01.ref | trap_spell_id | spell index | - | Trap spell |
+| Extdun01.ref | open_sfx_id | Wave.ini | index | Open sound |
+| DRAWITEM.ref | map_id | AllMap.ini | id | Map location |
+| DRAWITEM.ref | item | items lookup | type:ID | Dropped item |
+| Map.map | ground GTL index | Map.gtl | tile index | Ground tiles |
+| Map.map | BTL IDs | Map.btl | tile index | Roof tiles |
+| Map.map | event ID bits | event index | - | Tile event |
+| STORE.DB | product | items lookup | type:ID | Product |
+| PrtLevel.db | magic_spell_id_1 / 2 / 3 | spell index | - | Spells |
+| Monster.ini / Npc.ini / Extra.ini | sprite_filename | .spr | file name | Sprites |
+| Event.ini | event_filename | event script | file name | Event logic |
+| Wave.ini | snf_filename | .snf | file name | Audio |
+
+## Data flow summary
+
+1. Map data: `AllMap.ini` → `Ref/Map.ini` → `Map.map`, `Mondun01.ref`, `Npccat1.ref` and `Extdun01.ref`.
+2. Map rendering: `Map.map` → ground `.gtl` tiles, roof `.btl` tiles and the embedded sprite block.
+3. NPC data: `Npccat1.ref` → `Npc.ini` → `.spr` files, and `Dlgcat1.dlg` → `Pgpcat1.pgp`.
+4. Monster data: `Mondun01.ref` → `Monster.db` and `Monster.ini`, plus spell indices in `Monster.db`.
+5. Object data: `Extdun01.ref` → `Extra.ini`, `Event.ini` and `Message.scr`.
+6. Item drops: `DRAWITEM.ref` → item databases through the items lookup.
+7. Party data: `PartyRef.ref` → `Npc.ini` and `PartyDlg.dlg`, with growth in `PrtLevel.db`.
+8. Commerce data: `STORE.DB` → item databases through product types.
+9. Audio data: `Wave.ini` → `.snf` files, with indices from `Pgpcat1.pgp`.
+10. Event data: `Event.ini` → event scripts, with indices in placements and dialogue.
+
+## Item type section
+
+### Item type enum
+
+The tool uses `ItemTypeId` for composite item keys. A key holds a type code and an item ID.
+
+- 1 Weapon → `WeaponItem.db`
+- 2 Healing → `HealItem.db`
+- 3 Edit → `EditItem.db`
+- 4 Event → `EventItem.db`
+- 5 Misc → `MiscItem.db`
+- -1 NoItem → empty slot (`0xFF` on disk, `255` in SQL and GUI keys)
+
+There is no item type 0.
+
+### Product types in stores
+
+`STORE.DB` uses a different enum named `ProductType`. Each product slot holds a type code and an item ID.
+
+- 1 Weapon → `WeaponItem.db`
+- 2 Healing → `HealItem.db`
+- 3 EditItem → `EditItem.db`
+- 4 MiscItem → `MiscItem.db`
+- 0 ends the product list, with at most 15 products per store
+
+Unknown type codes fall back to MiscItem. EventItem has no product type. NoItem and 255 do not appear in `STORE.DB`.
+
+## File encoding summary
+
+Some files mix text and binary data. `Monster.db` is binary, and its 24-byte name field is EUC-KR. `MiscItem.db` has a WINDOWS-1250 name and an EUC-KR description.
+
+| Encoding | Files |
+|---|---|
+| EUC-KR | `Event.ini`, `Extra.ini`, `Npc.ini`, `Wave.ini`, `Map.ini`, DLG files, `HealItem.db` descriptions, `MiscItem.db` description, `Monster.db` name field, `DRAWITEM.ref` |
+| WINDOWS-1250 | `AllMap.ini`, `Monster.ini`, `WeaponItem.db`, `EditItem.db`, `EventItem.db`, `Message.scr`, `Quest.scr`, PGP files, `MiscItem.db` name, `STORE.DB` text fields, `Extra.ref` names, NPC refs, `PartyRef.ref`, `Eventnpc.ref` |
+| Binary | `WeaponItem.db`, `HealItem.db`, `MiscItem.db`, `EditItem.db`, `EventItem.db`, `STORE.DB`, `Monster.db`, `ChData.db`, `PrtLevel.db`, `Magic.db`, `Map.map`, `.gtl`, `.btl`, `.spr`, `.snf` |
 
 ## Scope
 
-The tool reads and writes data files that you supply. This document lists the field links between those files.
+The tool reads and writes the game files that you supply. This document lists the field links between those files. The extractor commands below use sample paths.
 
 ## Extractor commands
 
 The tool in `src/` parses and extracts data from game files. Run these commands from the repository root.
 
-### Quick Reference
+### Quick reference
 
 ```bash
 # Build the extractor
@@ -408,37 +318,38 @@ cargo build --release
 
 # Extract INI files to JSON
 cargo run -- extract -i "path/to/AllMap.ini"
+cargo run -- extract -i "path/to/Ref/Map.ini"
 cargo run -- extract -i "path/to/Event.ini"
 cargo run -- extract -i "path/to/Extra.ini"
-cargo run -- extract -i "path/to/Monster.ini"
+cargo run -- extract -i "path/to/CharacterInGame/Monster.ini"
 cargo run -- extract -i "path/to/Npc.ini"
 cargo run -- extract -i "path/to/Wave.ini"
-cargo run -- extract -i "path/to/Map.ini"
 
 # Extract database files to JSON
-cargo run -- extract -i "path/to/weaponItem.db"
-cargo run -- extract -i "path/to/Monster.db"
-cargo run -- extract -i "path/to/HealItem.db"
-cargo run -- extract -i "path/to/MiscItem.db"
-cargo run -- extract -i "path/to/EditItem.db"
-cargo run -- extract -i "path/to/EventItem.db"
-cargo run -- extract -i "path/to/STORE.DB"
-cargo run -- extract -i "path/to/Magic.db"
-cargo run -- extract -i "path/to/PrtLevel.db"
-cargo run -- extract -i "path/to/ChData.db"
+cargo run -- extract -i "path/to/CharacterInGame/weaponItem.db"
+cargo run -- extract -i "path/to/MonsterInGame/Monster.db"
+cargo run -- extract -i "path/to/CharacterInGame/HealItem.db"
+cargo run -- extract -i "path/to/CharacterInGame/MiscItem.db"
+cargo run -- extract -i "path/to/CharacterInGame/EditItem.db"
+cargo run -- extract -i "path/to/CharacterInGame/EventItem.db"
+cargo run -- extract -i "path/to/CharacterInGame/STORE.DB"
+cargo run -- extract -i "path/to/MagicInGame/Magic.db"
+cargo run -- extract -i "path/to/NpcInGame/PrtLevel.db"
+cargo run -- extract -i "path/to/CharacterInGame/ChData.db"
 
 # Extract reference files to JSON
-cargo run -- extract -i "path/to/PartyRef.ref"
-cargo run -- extract -i "path/to/DrawItem.ref"
-cargo run -- extract -i "path/to/Npccat1.ref"
-cargo run -- extract -i "path/to/Mondun01.ref"
-cargo run -- extract -i "path/to/Extdun01.ref"
-cargo run -- extract -i "path/to/Eventnpc.ref"
+cargo run -- extract -i "path/to/Ref/PartyRef.ref"
+cargo run -- extract -i "path/to/Ref/DRAWITEM.ref"
+cargo run -- extract -i "path/to/NpcInGame/Npccat1.ref"
+cargo run -- extract -i "path/to/MonsterInGame/Mondun01.ref"
+cargo run -- extract -i "path/to/ExtraInGame/Extdun01.ref"
+cargo run -- extract -i "path/to/NpcInGame/Eventnpc.ref"
 
 # Extract script files to JSON
-cargo run -- extract -i "path/to/Dlgcat1.dlg"
-cargo run -- extract -i "path/to/Message.scr"
-cargo run -- extract -i "path/to/Quest.scr"
+cargo run -- extract -i "path/to/NpcInGame/Dlgcat1.dlg"
+cargo run -- extract -i "path/to/NpcInGame/Pgpcat1.pgp"
+cargo run -- extract -i "path/to/ExtraInGame/Message.scr"
+cargo run -- extract -i "path/to/ExtraInGame/Quest.scr"
 
 # Extract sprites
 cargo run -- sprite "path/to/file.spr" "output_name"
