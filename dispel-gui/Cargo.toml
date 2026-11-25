@@ -48,7 +48,7 @@ default = []
 # UI simulation tests: runtime backend is chosen by `ICED_TEST_BACKEND=software`
 # (see docs/iced-fork-config.md). `iced/tiny-skia` compiles the software
 # renderer in so headless CI runs need no GPU/window server.
-iced_test = ["dep:iced_test", "iced/tiny-skia"]
+iced_test = ["dep:iced_test", "iced/tiny-skia", "iced_test/accessibility"]
 # Hot reload (very experimental in the iced fork); enabled together with
 # iced_test by `cargo test --workspace --all-features`.
 debug = ["iced/hot"]

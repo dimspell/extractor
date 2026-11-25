@@ -189,6 +189,53 @@ mod tests {
     }
 
     #[test]
+    fn test_npc_facing_directions_offer_left_in_map_editor() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};
+
+        let _ = NpcLookingDirection::Left;
+
+        fn check<R: EditableRecord>(field: &'static str) {
+            let mut record = R::default();
+            assert!(
+                record.set_field(field, "Left".to_string()),
+                "{field} must accept Left"
+            );
+            let value = record.get_field(field);
+            assert_eq!(value, "Left", "{field} must display Left");
+            let desc = R::field_descriptors()
+                .iter()
+                .find(|d| d.name == field)
+                .expect("descriptor exists");
+
+            let lookups = HashMap::new();
+            let element = inspector_field_row(
+                desc.label,
+                desc.name,
+                &desc.kind,
+                &value,
+                0,
+                SelectedEntity::Npc(0),
+                &lookups,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, "Left"),
+                "map editor row for {field} must render the selected Left label"
+            );
+        }
+
+        for field in [
+            "waypoint1_facing_direction",
+            "waypoint2_facing_direction",
+            "waypoint3_facing_direction",
+            "waypoint4_facing_direction",
+        ] {
+            check::<NPC>(field);
+            check::<EventNpcRef>(field);
+        }
+    }
+
+    #[test]
     fn test_map_editor_composite_field_keeps_its_label() {
         let kind = FieldKind::CompositeItem {
             lookup_key: "invented_items",

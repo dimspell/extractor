@@ -20,3 +20,15 @@ pub(crate) fn app_with_recording() -> App {
 pub(crate) fn app_without_recording() -> App {
     App::test_new(Workspace::new())
 }
+
+/// Check the value rendered by a select box. Selects paint their selected
+/// label directly instead of exposing it as a text candidate, so read it from
+/// the accessibility tree where it is published as the widget's value.
+#[cfg(feature = "iced_test")]
+pub(crate) fn select_shows<M: 'static>(element: iced::Element<'_, M>, value: &str) -> bool {
+    let mut ui = iced_test::simulator(element);
+    ui.accessibility_tree()
+        .nodes
+        .iter()
+        .any(|(_, node)| node.value() == Some(value))
+}

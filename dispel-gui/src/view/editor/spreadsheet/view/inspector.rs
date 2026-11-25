@@ -292,6 +292,62 @@ mod tests {
     }
 
     #[test]
+    fn test_npc_facing_directions_offer_left_in_inspector() {
+        use crate::components::editable::EditableRecord;
+        use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};
+
+        let _ = NpcLookingDirection::Left;
+
+        fn check<R: EditableRecord>(field: &'static str) {
+            let mut record = R::default();
+            assert!(
+                record.set_field(field, "Left".to_string()),
+                "{field} must accept Left"
+            );
+            assert_eq!(record.get_field(field), "Left", "{field} must display Left");
+            let desc = R::field_descriptors()
+                .iter()
+                .find(|d| d.name == field)
+                .expect("descriptor exists");
+            let FieldKind::Enum { variants } = &desc.kind else {
+                panic!("{field} must be an enum");
+            };
+            assert!(
+                variants.contains(&"Left"),
+                "{field} descriptor must offer Left"
+            );
+
+            let value = record.get_field(field);
+            let contents = HashMap::new();
+            let lookups = HashMap::new();
+            let element = build_inspector_field(
+                desc,
+                value,
+                0,
+                &lookups,
+                None,
+                field_changed,
+                &contents,
+                spreadsheet_msg,
+            );
+            assert!(
+                crate::tests::common::select_shows(element, "Left"),
+                "inspector for {field} must render the selected Left label"
+            );
+        }
+
+        for field in [
+            "waypoint1_facing_direction",
+            "waypoint2_facing_direction",
+            "waypoint3_facing_direction",
+            "waypoint4_facing_direction",
+        ] {
+            check::<NPC>(field);
+            check::<EventNpcRef>(field);
+        }
+    }
+
+    #[test]
     fn test_lookup_fallback_input_emits_field_changed() {
         let descriptor = FieldDescriptor {
             name: "monster_db_id",
