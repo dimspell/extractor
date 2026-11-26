@@ -303,6 +303,77 @@ mod tests {
     }
 
     #[test]
+    fn test_composite_field_combo_emits_exact_key() {
+        let descriptor = FieldDescriptor {
+            name: "item_type",
+            label: "Invented Item:",
+            kind: FieldKind::CompositeItem {
+                lookup_key: "invented_items",
+            },
+        };
+        let lookups = HashMap::from([(
+            "invented_items".to_string(),
+            vec![
+                ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
+                ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ],
+        )]);
+        let combo = combo_box::State::new(vec![
+            ItemOption {
+                key: "1:0".to_string(),
+                label: "[Weapon] Invented Sword".to_string(),
+            },
+            ItemOption {
+                key: "2:7".to_string(),
+                label: "[Healing] Invented Herb".to_string(),
+            },
+        ]);
+        let contents = HashMap::new();
+
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            &combo,
+            field_changed_spreadsheet_msg,
+        );
+        assert!(
+            crate::tests::common::select_shows(element, "[Weapon] Invented Sword"),
+            "the inspector combo must show the selected item label"
+        );
+
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            &combo,
+            field_changed_spreadsheet_msg,
+        );
+        let emitted: Vec<String> = crate::tests::common::activate_select_option(element, 0, 1)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Editor(crate::message::editor::EditorMessage::Weapon(
+                    crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            emitted,
+            vec!["2:7"],
+            "choosing an item must emit its composite key, not its label"
+        );
+    }
+
+    #[test]
     fn test_npc_facing_directions_offer_left_in_inspector() {
         use crate::components::editable::EditableRecord;
         use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};

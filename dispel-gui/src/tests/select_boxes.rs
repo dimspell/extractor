@@ -239,6 +239,7 @@ fn inspector_emissions(
     lookups: &HashMap<String, Vec<(String, String)>>,
     combo_state: &combo_box::State<ItemOption>,
     nth: usize,
+    offset: isize,
 ) -> Vec<String> {
     let empty = HashMap::new();
     let element = build_inspector_field(
@@ -252,7 +253,7 @@ fn inspector_emissions(
         combo_state,
         captured_spreadsheet,
     );
-    activate_select_option(element, nth, 0)
+    activate_select_option(element, nth, offset)
         .into_iter()
         .filter_map(|message| match message {
             Message::Editor(EditorMessage::Weapon(
@@ -268,6 +269,7 @@ fn map_emissions(
     value: &str,
     lookups: &HashMap<String, Vec<(String, String)>>,
     combo_state: &combo_box::State<ItemOption>,
+    offset: isize,
 ) -> Vec<String> {
     let element = fields::inspector_field_row(
         desc.label,
@@ -279,7 +281,7 @@ fn map_emissions(
         lookups,
         combo_state,
     );
-    activate_select_option(element, 0, 0)
+    activate_select_option(element, 0, offset)
         .into_iter()
         .filter_map(|message| match message {
             Message::Editor(EditorMessage::MapEditor(
@@ -308,9 +310,9 @@ fn audit_lookup<R: EditableRecord>(field: &'static str) {
     render_both(desc, "9", &present, &EMPTY_COMBO, "Invented 9");
     render_both(desc, "9", &absent, &EMPTY_COMBO, "Unknown (9)");
 
-    for emitted in inspector_emissions(desc, "9", &present, &EMPTY_COMBO, 0)
+    for emitted in inspector_emissions(desc, "9", &present, &EMPTY_COMBO, 0, 0)
         .into_iter()
-        .chain(map_emissions(desc, "9", &present, &EMPTY_COMBO))
+        .chain(map_emissions(desc, "9", &present, &EMPTY_COMBO, 0))
     {
         let mut record = R::default();
         assert!(
@@ -355,10 +357,20 @@ fn audit_composite<R: EditableRecord>(field: &'static str) {
     render_both(desc, "1:5", &present, &present_combo, "Invented Sword");
     render_both(desc, "1:5", &absent, &absent_combo, "Unknown (1:5)");
     render_both(desc, "1:99", &present, &present_combo, "Unknown (1:99)");
+    render_both(desc, "255:255", &present, &present_combo, "[-]");
 
-    for emitted in inspector_emissions(desc, "1:5", &present, &present_combo, 0)
+    for emitted in inspector_emissions(desc, "1:5", &present, &present_combo, 0, 0)
         .into_iter()
-        .chain(map_emissions(desc, "1:5", &present, &present_combo))
+        .chain(map_emissions(desc, "1:5", &present, &present_combo, 0))
+        .chain(inspector_emissions(
+            desc,
+            "255:255",
+            &present,
+            &present_combo,
+            0,
+            -1,
+        ))
+        .chain(map_emissions(desc, "255:255", &present, &present_combo, -1))
     {
         let mut record = R::default();
         assert!(
@@ -367,7 +379,12 @@ fn audit_composite<R: EditableRecord>(field: &'static str) {
         );
         let stored = record.get_field(field);
         assert_eq!(stored, emitted, "{field}: emitted key did not round-trip");
-        render_both(desc, &stored, &present, &present_combo, "Invented Sword");
+        let expected = if emitted.starts_with("255:") {
+            "[-]"
+        } else {
+            "Invented Sword"
+        };
+        render_both(desc, &stored, &present, &present_combo, expected);
     }
 }
 

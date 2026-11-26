@@ -197,6 +197,70 @@ mod tests {
     }
 
     #[test]
+    fn test_map_editor_composite_combo_emits_exact_key() {
+        let kind = FieldKind::CompositeItem {
+            lookup_key: "invented_items",
+        };
+        let lookups = HashMap::from([(
+            "invented_items".to_string(),
+            vec![
+                ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
+                ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ],
+        )]);
+        let combo = combo_box::State::new(vec![
+            ItemOption {
+                key: "1:0".to_string(),
+                label: "[Weapon] Invented Sword".to_string(),
+            },
+            ItemOption {
+                key: "2:7".to_string(),
+                label: "[Healing] Invented Herb".to_string(),
+            },
+        ]);
+
+        let element = inspector_field_row(
+            "Invented Item:",
+            "item_type",
+            &kind,
+            "1:0",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+            &combo,
+        );
+        assert!(
+            crate::tests::common::select_shows(element, "[Weapon] Invented Sword"),
+            "the map editor combo must show the selected item label"
+        );
+
+        let element = inspector_field_row(
+            "Invented Item:",
+            "item_type",
+            &kind,
+            "1:0",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+            &combo,
+        );
+        let emitted: Vec<String> = crate::tests::common::activate_select_option(element, 0, 1)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Editor(crate::message::editor::EditorMessage::MapEditor(
+                    MapEditorMessage::EntityFieldChanged(_, _, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            emitted,
+            vec!["2:7"],
+            "the map editor must emit the selected composite key"
+        );
+    }
+
+    #[test]
     fn test_npc_facing_directions_offer_left_in_map_editor() {
         use crate::components::editable::EditableRecord;
         use dispel_core::{EventNpcRef, NPC, references::enums::NpcLookingDirection};
