@@ -1,3 +1,4 @@
+use crate::components::composite_item::CompositeItemOptions;
 use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::message::{Message, system::SystemMessage};
@@ -20,6 +21,8 @@ pub struct AppState {
     pub shared_game_path: String,
     pub editors: EditorRegistry,
     pub lookups: HashMap<String, Vec<(String, String)>>,
+    /// Shared searchable options for every composite item field.
+    pub composite_item_options: CompositeItemOptions,
     pub workspace: Workspace,
     pub pane_state: PaneState,
     pub file_index_cache_manager: Option<FileIndexCacheManager>,
@@ -258,6 +261,7 @@ impl Default for AppState {
             status_msg: String::new(),
             editors: EditorRegistry::default(),
             lookups: HashMap::new(),
+            composite_item_options: CompositeItemOptions::default(),
             workspace: Workspace::new(),
             pane_state: PaneState::default(),
             file_index_cache_manager: None,

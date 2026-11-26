@@ -166,9 +166,6 @@ macro_rules! handle_spreadsheet_messages_inner {
                 $compute_caches
                 return task;
             }
-            SM::CompositeItemFilterChanged(field, query) => {
-                $ss.composite_item_filters.insert(field, query);
-            }
             SM::CachesComputed(data) => {
                 $ss.install_caches(data);
                 $ss.is_loading = false;

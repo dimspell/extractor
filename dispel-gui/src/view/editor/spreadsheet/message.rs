@@ -63,9 +63,6 @@ pub enum SpreadsheetMessage {
     /// Fired by `text_input` / `pick_list` widgets in the inspector panel.
     /// Routes through the macro so that `compute_all_caches` is called after.
     InspectorFieldChanged(usize, String, String),
-    /// Search text typed into a composite item picker. `(field_name, query)`
-    /// is stored on the spreadsheet state; no record is touched.
-    CompositeItemFilterChanged(String, String),
 
     // ── Async cache loading ────────────────────────────────────────────────
     /// Result of an off-thread `compute_caches` job. The handler installs the

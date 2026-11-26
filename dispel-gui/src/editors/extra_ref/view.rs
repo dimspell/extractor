@@ -36,6 +36,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |idx, field, val| Message::extra_ref(ExtraRefEditorMessage::FieldChanged(idx, field, val)),
         |msg| Message::extra_ref(ExtraRefEditorMessage::Spreadsheet(msg)),
         &app.state.lookups,
+        &app.state.composite_item_options.state,
         |event| Message::extra_ref(ExtraRefEditorMessage::PaneResized(event)),
         |pane| Message::extra_ref(ExtraRefEditorMessage::PaneClicked(pane)),
         Some(Message::extra_ref(ExtraRefEditorMessage::AddEntry)),

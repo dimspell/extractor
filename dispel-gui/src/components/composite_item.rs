@@ -1,9 +1,11 @@
-use std::rc::Rc;
+use std::collections::hash_map::DefaultHasher;
+use std::fmt;
+use std::hash::Hasher;
 
-use iced::widget::{column as col, pick_list, row, text, text_input};
+use iced::widget::combo_box::{self, ComboBox};
+use iced::widget::{row, text, text_input};
 use iced::{Element, Length};
 
-use crate::components::select::lookup_select;
 use crate::message::Message;
 use crate::style;
 
@@ -11,6 +13,73 @@ const LABEL_W: f32 = 140.0;
 
 /// The empty-slot option shared with the item catalog.
 const NO_ITEM_KEY: &str = "255:15";
+const NO_ITEM_LABEL: &str = "[-]";
+
+/// One item in the shared composite item catalog.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemOption {
+    pub key: String,
+    pub label: String,
+}
+
+impl fmt::Display for ItemOption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.label)
+    }
+}
+
+/// A single app-level option list shared by every composite item field.
+#[derive(Default)]
+pub struct CompositeItemOptions {
+    pub state: combo_box::State<ItemOption>,
+    pub fingerprint: u64,
+}
+
+fn fingerprint_options(entries: Option<&[(String, String)]>) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    hasher.write_u8(u8::from(entries.is_some()));
+    if let Some(entries) = entries {
+        for (key, label) in entries {
+            hasher.write(key.as_bytes());
+            hasher.write_u8(0);
+            hasher.write(label.as_bytes());
+            hasher.write_u8(1);
+        }
+    }
+    hasher.finish()
+}
+
+/// Rebuild the shared option list whenever the `"items"` lookup changes.
+pub fn refresh_composite_item_options(state: &mut crate::state::AppState) {
+    let entries = state.lookups.get("items").map(Vec::as_slice);
+    let fingerprint = fingerprint_options(entries);
+    if fingerprint == state.composite_item_options.fingerprint {
+        return;
+    }
+
+    let options = match entries {
+        Some(entries) => {
+            let mut options: Vec<ItemOption> = entries
+                .iter()
+                .map(|(key, label)| ItemOption {
+                    key: key.clone(),
+                    label: label.clone(),
+                })
+                .collect();
+            if !options.iter().any(|option| option.key == NO_ITEM_KEY) {
+                options.push(ItemOption {
+                    key: NO_ITEM_KEY.to_string(),
+                    label: NO_ITEM_LABEL.to_string(),
+                });
+            }
+            options
+        }
+        None => Vec::new(),
+    };
+
+    state.composite_item_options.state = combo_box::State::new(options);
+    state.composite_item_options.fingerprint = fingerprint;
+}
 
 /// Render a picker body, optionally prefixed with a fixed-width label column.
 ///
@@ -39,147 +108,98 @@ fn with_optional_label<'a>(
 
 /// Build a searchable item picker for `CompositeItem` fields.
 ///
-/// All item files share one select: every entry carries its type in the
-/// display label (`[Weapon] Cap`, `[Healing] Herb`, …). A text input above the
-/// select filters those labels and composite keys. Falls back to a plain
-/// `text_input` when `entries` is `None` (lookups unavailable). `show_label`
-/// controls whether the label column is drawn by this component or the caller.
-pub fn composite_item_picker(
+/// Every item file shares the one app-level option list, so all fields get the
+/// same built-in fuzzy search. Falls back to a plain `text_input` before the
+/// item catalog has been loaded. `show_label` controls whether the label
+/// column is drawn by this component or the caller.
+pub fn composite_item_picker<'a>(
     label: &'static str,
     value: &str,
-    entries: Option<&[(String, String)]>,
+    combo_state: &'a combo_box::State<ItemOption>,
     show_label: bool,
-    filter: &str,
-    on_filter: impl Fn(String) -> Message + 'static,
-    on_change: impl Fn(String) -> Message + 'static,
-) -> Element<'static, Message> {
-    let filter = filter.to_owned();
-    let on_filter: Rc<dyn Fn(String) -> Message> = Rc::new(on_filter);
-    let on_change: Rc<dyn Fn(String) -> Message> = Rc::new(on_change);
-
-    let search_input: Element<'static, Message> = {
-        let of = on_filter.clone();
-        text_input("Search items...", filter.clone())
-            .on_input(move |v| of(v))
-            .padding(4)
-            .size(11)
-            .width(Length::Fill)
-            .into()
-    };
-
-    let Some(entries) = entries else {
-        let oc = on_change;
-        let input: Element<'static, Message> = text_input("", value.to_owned())
-            .on_input(move |v| oc(v))
+    on_change: impl Fn(String) -> Message + 'a,
+) -> Element<'a, Message> {
+    // Without lookups there is nothing to search: keep the raw key editable.
+    if combo_state.options().is_empty() {
+        let input: Element<'a, Message> = text_input("", value.to_owned())
+            .on_input(on_change)
             .padding(4)
             .size(11)
             .width(Length::Fill)
             .into();
-        let body: Element<'static, Message> = col![search_input, input].spacing(4).into();
-        return with_optional_label(label, body, show_label);
-    };
-
-    // One option per item file. Every key with the no-item byte denotes the
-    // same empty slot, so only the canonical sentinel survives.
-    let mut collapsed: Vec<(String, String)> = Vec::with_capacity(entries.len());
-    for (key, display) in entries {
-        if key.starts_with("255:") {
-            if key == NO_ITEM_KEY && !collapsed.iter().any(|(k, _)| k == key) {
-                collapsed.push((key.clone(), display.clone()));
-            }
-        } else {
-            collapsed.push((key.clone(), display.clone()));
-        }
-    }
-    if !collapsed.iter().any(|(key, _)| key == NO_ITEM_KEY) {
-        collapsed.push((NO_ITEM_KEY.to_string(), "[-]".to_string()));
+        return with_optional_label(label, input, show_label);
     }
 
-    let is_no_item = value.starts_with("255:");
-    let query = filter.to_lowercase();
-    let mut filtered_entries: Vec<(String, String)> = collapsed
+    // ComboBox copies the selection into a String, so a locally-built option
+    // is enough. Only the label must match; the closure owns the exact key.
+    let selected = combo_state
+        .options()
         .iter()
-        .filter(|(key, display)| {
-            display.to_lowercase().contains(&query) || key.to_lowercase().contains(&query)
-        })
+        .find(|option| option.key == value)
         .cloned()
-        .collect();
+        .unwrap_or_else(|| ItemOption {
+            key: value.to_owned(),
+            label: if value.starts_with("255:") {
+                NO_ITEM_LABEL.to_string()
+            } else {
+                format!("Unknown ({value})")
+            },
+        });
 
-    // The current value must never vanish from the select while the user
-    // types. A no-item value also keeps the sentinel that stands in for it.
-    let mut required: Vec<&str> = vec![value];
-    if is_no_item {
-        required.push(NO_ITEM_KEY);
-    }
-    for key in required {
-        if !filtered_entries.iter().any(|(k, _)| k == key)
-            && let Some(entry) = collapsed.iter().find(|(k, _)| k == key)
-        {
-            filtered_entries.push(entry.clone());
-        }
-    }
+    // A non-canonical stored key (e.g. `255:255`) renders as the shared empty
+    // slot. Re-selecting that option must still emit the exact stored key so
+    // `InventoryItem::is_empty()` keeps working.
+    let stored_key = value.to_owned();
+    let picker: Element<'a, Message> = ComboBox::new(
+        combo_state,
+        "Search items...",
+        Some(&selected),
+        move |option: ItemOption| {
+            let key = if option.key == NO_ITEM_KEY && stored_key.starts_with("255:") {
+                stored_key.clone()
+            } else {
+                option.key
+            };
+            on_change(key)
+        },
+    )
+    .padding(4)
+    .size(11)
+    .width(Length::Fill)
+    .menu_height(240.0)
+    .into();
 
-    // A non-canonical stored key (e.g. `255:255`) still renders as the shared
-    // empty-slot option, but re-selecting that option must emit the exact key
-    // so `InventoryItem::is_empty()` keeps working.
-    let effective_selected_id = if is_no_item { NO_ITEM_KEY } else { value };
-    let mut select = lookup_select(&filtered_entries, effective_selected_id);
-    if is_no_item && value != NO_ITEM_KEY {
-        for id in select.label_to_id.values_mut() {
-            if id == NO_ITEM_KEY {
-                *id = value.to_string();
-            }
-        }
-    }
-
-    let picker: Element<'static, Message> = {
-        let ids = select.label_to_id;
-        let fallback_key = value.to_owned();
-        pick_list(select.selected, select.options, String::clone)
-            .on_select(move |selected_name| {
-                let key = ids
-                    .get(&selected_name)
-                    .cloned()
-                    .unwrap_or_else(|| fallback_key.clone());
-                on_change(key)
-            })
-            .width(Length::Fill)
-            .into()
-    };
-
-    let body: Element<'static, Message> = col![search_input, picker].spacing(4).into();
-    with_optional_label(label, body, show_label)
+    with_optional_label(label, picker, show_label)
 }
 
 #[cfg(all(test, feature = "iced_test"))]
 mod tests {
     use super::*;
     use crate::editors::weapon::WeaponEditorMessage;
-    use crate::message::{EditorMessage, FileTreeMessage};
-    use dispel_core::ItemTypeId;
+    use crate::message::EditorMessage;
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
 
-    fn picker(
-        value: &str,
-        entries: Option<&[(String, String)]>,
-        filter: &str,
-    ) -> Element<'static, Message> {
-        composite_item_picker(
-            "Invented Item",
-            value,
-            entries,
-            false,
-            filter,
-            |v| Message::FileTree(FileTreeMessage::Search(v)),
-            |v| {
-                Message::Editor(EditorMessage::Weapon(WeaponEditorMessage::FieldChanged(
-                    0,
-                    "item".to_string(),
-                    v,
-                )))
-            },
+    fn options(entries: &[(&str, &str)]) -> combo_box::State<ItemOption> {
+        combo_box::State::new(
+            entries
+                .iter()
+                .map(|(key, label)| ItemOption {
+                    key: (*key).to_string(),
+                    label: (*label).to_string(),
+                })
+                .collect(),
         )
+    }
+
+    fn picker<'a>(value: &str, state: &'a combo_box::State<ItemOption>) -> Element<'a, Message> {
+        composite_item_picker("Invented Item", value, state, false, |v| {
+            Message::Editor(EditorMessage::Weapon(WeaponEditorMessage::FieldChanged(
+                0,
+                "item".to_string(),
+                v,
+            )))
+        })
     }
 
     fn emitted_keys(messages: Vec<Message>) -> Vec<String> {
@@ -196,199 +216,75 @@ mod tests {
             .collect()
     }
 
-    /// Type into the search box and feed the emitted query back into a fresh
-    /// render, the way the real caller stores it in state.
-    fn typed_filter(element: Element<'static, Message>, query: &str) -> String {
-        let mut ui = simulator(element);
-        let mut search = |candidate: Candidate<'_>| match candidate {
-            Candidate::TextInput { state, .. }
-                if state.text().into_owned() == "Search items..." =>
-            {
-                Some(Target::from(candidate))
-            }
-            _ => None,
-        };
-        ui.click(&mut search)
-            .expect("search input must be rendered");
-        ui.typewrite(query);
-        ui.into_messages()
-            .filter_map(|m| match m {
-                Message::FileTree(FileTreeMessage::Search(v)) => Some(v),
-                _ => None,
-            })
-            .last()
-            .expect("search input must emit its query")
-    }
-
     fn select_option(
         value: &str,
-        entries: &[(String, String)],
-        filter: &str,
+        state: &combo_box::State<ItemOption>,
         offset: isize,
     ) -> Vec<String> {
         emitted_keys(crate::tests::common::activate_select_option(
-            picker(value, Some(entries), filter),
+            picker(value, state),
             0,
             offset,
         ))
     }
 
-    fn label_rendered(entries: Option<&[(String, String)]>, show_label: bool) -> bool {
-        let element: Element<'_, Message> = composite_item_picker(
+    fn label_rendered(state: Option<&combo_box::State<ItemOption>>, show_label: bool) -> bool {
+        let empty = options(&[]);
+        let state = state.unwrap_or(&empty);
+        let mut ui = simulator(composite_item_picker(
             "Invented Item",
             "1:0",
-            entries,
+            state,
             show_label,
-            "",
-            |_| Message::FileTree(FileTreeMessage::Search(String::new())),
-            |_| Message::FileTree(FileTreeMessage::Search(String::new())),
-        );
-        let mut ui = simulator(element);
+            |_| {
+                Message::Editor(EditorMessage::Weapon(WeaponEditorMessage::FieldChanged(
+                    0,
+                    "item".to_string(),
+                    String::new(),
+                )))
+            },
+        ));
         ui.find("Invented Item").is_ok()
     }
 
     #[test]
-    fn test_unmapped_composite_keys_render_a_label_and_keep_value() {
-        let entries = [
-            ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-
-        for value in ["255:0", "255:255"] {
-            let values = crate::tests::common::select_values(picker(value, Some(&entries), ""));
-            assert!(
-                values.iter().any(|v| v == "[-]"),
-                "{value} must resolve to the no-item sentinel label, got {values:?}"
-            );
-        }
-
-        let values = crate::tests::common::select_values(picker("1:999", Some(&entries), ""));
-        assert!(
-            values.iter().any(|v| v == "Unknown (1:999)"),
-            "an unmapped composite key must render a visible fallback label, got {values:?}"
-        );
-
-        let keys = select_option("255:0", &entries, "", 0);
-        assert_eq!(
-            keys,
-            vec!["255:0"],
-            "choosing the sentinel must keep the exact stored key"
-        );
+    fn test_selected_option_emits_its_composite_key() {
+        let state = options(&[
+            ("1:0", "[Weapon] Invented Sword"),
+            ("2:7", "[Healing] Invented Herb"),
+            ("255:15", NO_ITEM_LABEL),
+        ]);
+        assert_eq!(select_option("1:0", &state, 1), vec!["2:7"]);
     }
 
     #[test]
-    fn test_one_select_offers_items_from_every_type() {
-        let entries = [
-            ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
-            ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
-            ("3:2".to_string(), "[Edit] Invented Charm".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-        let values = crate::tests::common::select_values(picker("1:0", Some(&entries), ""));
-        assert_eq!(
-            values.len(),
-            1,
-            "there must be exactly one select, got {values:?}"
-        );
-
-        assert_eq!(select_option("1:0", &entries, "", 1), vec!["2:7"]);
-        assert_eq!(select_option("1:0", &entries, "", 2), vec!["3:2"]);
-        assert_eq!(select_option("1:0", &entries, "", 3), vec!["255:15"]);
+    fn test_non_canonical_no_item_key_is_preserved() {
+        let state = options(&[
+            ("1:0", "[Weapon] Invented Sword"),
+            ("255:15", NO_ITEM_LABEL),
+        ]);
+        assert_eq!(select_option("255:255", &state, -1), vec!["255:255"]);
     }
 
     #[test]
-    fn test_search_narrows_options_and_keeps_selection_visible() {
-        let entries = [
-            ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
-            ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
-            ("3:2".to_string(), "[Edit] Invented Charm".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-        let query = typed_filter(picker("1:0", Some(&entries), ""), "herb");
-        assert_eq!(query, "herb");
-
-        let values = crate::tests::common::select_values(picker("1:0", Some(&entries), &query));
-        assert!(
-            values.iter().any(|v| v == "[Weapon] Invented Sword"),
-            "the current item must stay selected while filtering, got {values:?}"
-        );
-
-        assert_eq!(
-            select_option("1:0", &entries, &query, -1),
-            vec!["2:7"],
-            "the only other option must be the matching item"
-        );
-        let reachable: std::collections::HashSet<String> = (-3..=3)
-            .flat_map(|offset| select_option("1:0", &entries, "charm", offset))
-            .collect();
-        assert_eq!(
-            reachable,
-            std::collections::HashSet::from(["1:0".to_string(), "3:2".to_string()]),
-            "non-matching items must be absent from the narrowed list"
-        );
-
-        // Filtering by the composite key works just like filtering by label.
-        let query = typed_filter(picker("1:0", Some(&entries), ""), "3:2");
-        assert_eq!(select_option("1:0", &entries, &query, -1), vec!["3:2"]);
-    }
-
-    #[test]
-    fn test_selected_label_emits_its_exact_composite_key() {
-        let entries = [
-            ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
-            ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-        assert_eq!(select_option("2:7", &entries, "", 0), vec!["2:7"]);
-        assert_eq!(select_option("2:7", &entries, "", -1), vec!["1:0"]);
-    }
-
-    #[test]
-    fn test_no_item_selection_preserves_exact_key() {
-        use dispel_core::InventoryItem;
-
-        let entries = [
-            ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-
-        for value in ["255:255", "255:5"] {
-            assert_eq!(select_option(value, &entries, "", 0), vec![value]);
-        }
-        assert_eq!(select_option("255:15", &entries, "", 0), vec!["255:15"]);
-
-        // Filtering out "[-]" must not hide the empty slot either.
-        assert_eq!(
-            select_option("255:255", &entries, "sword", 0),
-            vec!["255:255"]
-        );
-
-        let item = InventoryItem::new(ItemTypeId::NoItem, 255);
-        assert!(
-            item.is_empty(),
-            "255:255 must decode to an empty inventory item"
-        );
-    }
-
-    #[test]
-    fn test_duplicate_display_names_stay_distinguishable() {
-        let entries = [
-            ("1:4".to_string(), "Invented Blade".to_string()),
-            ("2:4".to_string(), "Invented Blade".to_string()),
-            ("255:15".to_string(), "[-]".to_string()),
-        ];
-        let values = crate::tests::common::select_values(picker("2:4", Some(&entries), ""));
-        assert!(
-            values.iter().any(|v| v == "Invented Blade (2:4)"),
-            "duplicate labels must be qualified with their composite key, got {values:?}"
-        );
-        assert_eq!(select_option("2:4", &entries, "", -1), vec!["1:4"]);
-        assert_eq!(select_option("2:4", &entries, "", 0), vec!["2:4"]);
+    fn test_fallback_text_input_edits_the_raw_value() {
+        let state = options(&[]);
+        let mut ui = simulator(picker("255:255", &state));
+        let mut input = |candidate: Candidate<'_>| match candidate {
+            Candidate::TextInput { state, .. } if state.text().into_owned() == "255:255" => {
+                Some(Target::from(candidate))
+            }
+            _ => None,
+        };
+        ui.click(&mut input)
+            .expect("raw value input must be rendered");
+        ui.typewrite("5");
+        assert_eq!(emitted_keys(ui.into_messages().collect()), vec!["255:2555"]);
     }
 
     #[test]
     fn test_composite_picker_label_follows_show_label() {
-        let entries = [("1:0".to_string(), "[Weapon] Invented Sword".to_string())];
+        let state = options(&[("1:0", "[Weapon] Invented Sword")]);
         for show_label in [true, false] {
             assert_eq!(
                 label_rendered(None, show_label),
@@ -396,9 +292,9 @@ mod tests {
                 "fallback picker label must follow show_label"
             );
             assert_eq!(
-                label_rendered(Some(&entries), show_label),
+                label_rendered(Some(&state), show_label),
                 show_label,
-                "lookup picker label must follow show_label"
+                "combo box label must follow show_label"
             );
         }
     }

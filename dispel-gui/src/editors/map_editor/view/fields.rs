@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::components::composite_item::composite_item_picker;
+use crate::components::composite_item::{ItemOption, composite_item_picker};
 use crate::components::editable::{EditableRecord, FieldKind};
 use crate::message::{Message, MessageExt};
 use crate::style;
-use iced::widget::{column, pick_list, row, scrollable, text, text_input};
+use iced::widget::{column, combo_box, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill};
 
 use super::super::message::{MapEditorMessage, SelectedEntity};
@@ -18,7 +18,7 @@ pub fn build_record_fields<'a, R: EditableRecord>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
-    composite_filters: &'a HashMap<String, String>,
+    combo_state: &'a combo_box::State<ItemOption>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
 
@@ -32,7 +32,7 @@ pub fn build_record_fields<'a, R: EditableRecord>(
             tab_id,
             sel,
             lookups,
-            composite_filters,
+            combo_state,
         ));
     }
     scrollable(col).spacing(6).into()
@@ -52,7 +52,7 @@ pub fn inspector_field_row<'a>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
-    composite_filters: &'a HashMap<String, String>,
+    combo_state: &'a combo_box::State<ItemOption>,
 ) -> Element<'a, Message> {
     const LABEL_W: f32 = 140.0;
     match kind {
@@ -159,34 +159,15 @@ pub fn inspector_field_row<'a>(
             .into()
         }
 
-        FieldKind::CompositeItem { lookup_key } => {
-            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
-            let filter = composite_filters
-                .get(name)
-                .map(String::as_str)
-                .unwrap_or("");
-            composite_item_picker(
-                label,
-                value,
-                entries,
-                true,
-                filter,
-                move |text| {
-                    Message::map_editor(MapEditorMessage::CompositeItemFilterChanged(
-                        tab_id,
-                        name.to_string(),
-                        text,
-                    ))
-                },
-                move |v| {
-                    Message::map_editor(MapEditorMessage::EntityFieldChanged(
-                        tab_id,
-                        sel,
-                        name.to_string(),
-                        v,
-                    ))
-                },
-            )
+        FieldKind::CompositeItem { lookup_key: _ } => {
+            composite_item_picker(label, value, combo_state, true, move |v| {
+                Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                    tab_id,
+                    sel,
+                    name.to_string(),
+                    v,
+                ))
+            })
         }
     }
 }
@@ -197,8 +178,8 @@ mod tests {
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
 
-    static EMPTY_FILTERS: std::sync::LazyLock<HashMap<String, String>> =
-        std::sync::LazyLock::new(HashMap::new);
+    static EMPTY_COMBO: std::sync::LazyLock<combo_box::State<ItemOption>> =
+        std::sync::LazyLock::new(|| combo_box::State::new(Vec::new()));
 
     fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
         let mut ui = simulator(element);
@@ -244,7 +225,7 @@ mod tests {
                 0,
                 SelectedEntity::Npc(0),
                 &lookups,
-                &EMPTY_FILTERS,
+                &EMPTY_COMBO,
             );
             assert!(
                 crate::tests::common::select_shows(element, "Left"),
@@ -278,7 +259,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(unknown, "Bogus"),
@@ -293,7 +274,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(known, "Beta"),
@@ -320,7 +301,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(missing, "Unknown (99)"),
@@ -335,7 +316,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(duplicate, "Invented Creature (9)"),
@@ -350,7 +331,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
         let emitted: Vec<String> = messages
@@ -382,7 +363,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
         );
         assert_eq!(
             count_label_text(element, "Invented Item:"),

@@ -36,6 +36,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |idx, field, val| Message::npc_ref(NpcRefEditorMessage::FieldChanged(idx, field, val)),
         |msg| Message::npc_ref(NpcRefEditorMessage::Spreadsheet(msg)),
         &app.state.lookups,
+        &app.state.composite_item_options.state,
         |event| Message::npc_ref(NpcRefEditorMessage::PaneResized(event)),
         |pane| Message::npc_ref(NpcRefEditorMessage::PaneClicked(pane)),
         Some(Message::npc_ref(NpcRefEditorMessage::AddEntry)),

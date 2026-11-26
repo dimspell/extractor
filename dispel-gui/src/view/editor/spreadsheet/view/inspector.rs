@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 
 use iced::widget::{
-    Column, button, column, container, pick_list, row, scrollable, text, text_input,
+    Column, button, column, combo_box, container, pick_list, row, scrollable, text, text_input,
 };
 use iced::{Element, Fill, Length};
 
-use crate::components::composite_item::composite_item_picker;
+use crate::components::composite_item::{ItemOption, composite_item_picker};
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::utils::horizontal_space;
@@ -24,7 +24,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
     spreadsheet: &'a SpreadsheetState,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
-    composite_filters: &'a HashMap<String, String>,
+    combo_state: &'a combo_box::State<ItemOption>,
     field_changed_msg: fn(usize, String, String) -> Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
@@ -60,7 +60,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
                     validation_error,
                     field_changed_msg,
                     &spreadsheet.inspector_textarea_contents,
-                    composite_filters,
+                    combo_state,
                     spreadsheet_msg,
                 ));
             }
@@ -91,7 +91,7 @@ pub(crate) fn build_inspector_field<'a>(
     validation_error: Option<String>,
     field_changed_msg: fn(usize, String, String) -> Message,
     textarea_contents: &'a HashMap<String, TextAreaContent>,
-    composite_filters: &'a HashMap<String, String>,
+    combo_state: &'a combo_box::State<ItemOption>,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     let label = text(descriptor.label).size(11).style(style::subtle_text);
@@ -161,34 +161,15 @@ pub(crate) fn build_inspector_field<'a>(
                 .width(Length::Fill)
                 .into()
         }
-        FieldKind::CompositeItem { lookup_key } => {
-            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
+        FieldKind::CompositeItem { lookup_key: _ } => {
             let field_name = descriptor.name.to_string();
-            let filter_name = descriptor.name.to_string();
-            let filter = composite_filters
-                .get(descriptor.name)
-                .map(String::as_str)
-                .unwrap_or("");
-            composite_item_picker(
-                descriptor.label,
-                &value,
-                entries,
-                false,
-                filter,
-                move |text| {
-                    spreadsheet_msg(SpreadsheetMessage::CompositeItemFilterChanged(
-                        filter_name.clone(),
-                        text,
-                    ))
-                },
-                move |v| {
-                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                        orig_idx,
-                        field_name.clone(),
-                        v,
-                    ))
-                },
-            )
+            composite_item_picker(descriptor.label, &value, combo_state, false, move |v| {
+                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                    orig_idx,
+                    field_name.clone(),
+                    v,
+                ))
+            })
         }
         _ => {
             let field_name = descriptor.name.to_string();
@@ -227,8 +208,8 @@ mod tests {
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
 
-    static EMPTY_FILTERS: std::sync::LazyLock<HashMap<String, String>> =
-        std::sync::LazyLock::new(HashMap::new);
+    static EMPTY_COMBO: std::sync::LazyLock<combo_box::State<ItemOption>> =
+        std::sync::LazyLock::new(|| combo_box::State::new(Vec::new()));
 
     fn field_changed(idx: usize, name: String, value: String) -> Message {
         Message::Editor(crate::message::editor::EditorMessage::Weapon(
@@ -285,7 +266,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert_eq!(
@@ -299,6 +280,10 @@ mod tests {
             "invented_items".to_string(),
             vec![("1:0".to_string(), "Invented Sword".to_string())],
         )]);
+        let combo = combo_box::State::new(vec![ItemOption {
+            key: "1:0".to_string(),
+            label: "Invented Sword".to_string(),
+        }]);
         let element = build_inspector_field(
             &descriptor,
             "1:0".into(),
@@ -307,7 +292,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &combo,
             spreadsheet_msg,
         );
         assert_eq!(
@@ -354,7 +339,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
-                &EMPTY_FILTERS,
+                &EMPTY_COMBO,
                 spreadsheet_msg,
             );
             assert!(
@@ -401,7 +386,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
-                &EMPTY_FILTERS,
+                &EMPTY_COMBO,
                 spreadsheet_msg,
             );
             assert!(
@@ -435,7 +420,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert!(
@@ -451,7 +436,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert!(
@@ -467,7 +452,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
             field_changed_spreadsheet_msg,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
@@ -503,7 +488,7 @@ mod tests {
             None,
             field_changed,
             &contents,
-            &EMPTY_FILTERS,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         let mut ui = simulator(element);

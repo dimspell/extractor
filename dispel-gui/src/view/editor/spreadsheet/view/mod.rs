@@ -7,6 +7,7 @@ pub mod table;
 
 use super::message::SpreadsheetMessage;
 use super::state::{SpreadsheetPaneContent, SpreadsheetState};
+use crate::components::composite_item::ItemOption;
 use crate::components::editable::EditableRecord;
 use crate::components::filter::{self, FilterBarExtras};
 use crate::components::generic_editor::GenericEditorState;
@@ -14,6 +15,7 @@ use crate::components::utils::horizontal_rule;
 use crate::message::Message;
 use gui_widgets::components::modal;
 use iced::widget::column;
+use iced::widget::combo_box;
 use iced::widget::pane_grid::{self, Pane};
 use iced::{Element, Fill, Length};
 use std::collections::HashMap;
@@ -28,6 +30,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
     field_changed_msg: fn(usize, String, String) -> Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    combo_state: &'a combo_box::State<ItemOption>,
     pane_resized_msg: fn(pane_grid::ResizeEvent) -> Message,
     pane_clicked_msg: fn(Pane) -> Message,
     add_msg: Option<Message>,
@@ -73,7 +76,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
                     editor,
                     spreadsheet,
                     lookups,
-                    &spreadsheet.composite_item_filters,
+                    combo_state,
                     field_changed_msg,
                     spreadsheet_msg,
                 ),

@@ -125,9 +125,6 @@ pub enum MapEditorMessage {
     Deselect(usize),
     /// Entity field edited in the inspector.
     EntityFieldChanged(usize, SelectedEntity, String, String),
-    /// Search text typed into a composite item picker. State-only: the record
-    /// is untouched, so no cache refresh or history entry is needed.
-    CompositeItemFilterChanged(usize, String, String),
     /// Save all modified entity .ref files.
     SaveEntities(usize),
     /// Async save completed. Ok carries a status message; Err the error text.

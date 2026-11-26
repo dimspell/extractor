@@ -127,9 +127,6 @@ pub struct SpreadsheetState {
     /// record, keyed by field name. Populated on `SelectRow`. Allows the
     /// cursor / selection to survive re-renders.
     pub inspector_textarea_contents: HashMap<String, TextAreaContent>,
-    /// Search text of the composite item picker, keyed by field name. Kept per
-    /// field so switching rows does not lose an in-progress item search.
-    pub composite_item_filters: HashMap<String, String>,
 
     /// Process-wide cache of pre-shaped paragraphs. Shared by every cell
     /// the table widget paints; cheap to clone (Arc).
@@ -168,7 +165,6 @@ impl Default for SpreadsheetState {
             column_filter_options: Vec::new(),
             column_filter_search: String::new(),
             inspector_textarea_contents: HashMap::new(),
-            composite_item_filters: HashMap::new(),
             paragraph_cache: ParagraphCache::default(),
         }
     }
