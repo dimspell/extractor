@@ -66,8 +66,9 @@ pub(crate) fn activate_select_option<M: 'static>(
         .collect();
     let (target, is_combo_box) = targets[nth];
     if is_combo_box {
-        // A ComboBox initially filters its options by the current selection.
-        // Open it with a click, then erase that text to expose the full list.
+        // Click to open the dropdown. The widget clears its seeded selection
+        // on focus; the extra Backspaces keep the simulated input's query
+        // empty so arrow navigation starts from the full option list.
         let mut seen = 0;
         let mut text_len = 0;
         let mut select = |candidate: Candidate<'_>| match candidate {
@@ -146,6 +147,9 @@ pub(crate) fn filter_select<M: 'static>(
         }
         _ => None,
     };
+    // Click to open the combo. The widget clears its seeded selection on
+    // focus; the Backspaces keep the simulated query empty before typing so
+    // filtering starts from every option.
     ui.click(&mut select).expect("combo box must be clickable");
     for _ in 0..text_len {
         ui.tap_key(Key::Backspace);

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::hash::Hasher;
@@ -59,14 +60,34 @@ pub fn refresh_composite_item_options(state: &mut crate::state::AppState) {
 
     let options = match entries {
         Some(entries) => {
+            // Count the original labels before adding the sentinel. The
+            // fingerprint above also comes from these unmodified pairs.
+            let mut label_counts: HashMap<&str, usize> = HashMap::new();
+            for (_, label) in entries {
+                *label_counts.entry(label.as_str()).or_default() += 1;
+            }
+            let needs_sentinel = !entries.iter().any(|(key, _)| key == NO_ITEM_KEY);
+            if needs_sentinel {
+                *label_counts.entry(NO_ITEM_LABEL).or_default() += 1;
+            }
+
             let mut options: Vec<ItemOption> = entries
                 .iter()
-                .map(|(key, label)| ItemOption {
-                    key: key.clone(),
-                    label: label.clone(),
+                .map(|(key, label)| {
+                    let display = if key != NO_ITEM_KEY
+                        && label_counts.get(label.as_str()).copied().unwrap_or(0) > 1
+                    {
+                        format!("{label} ({key})")
+                    } else {
+                        label.clone()
+                    };
+                    ItemOption {
+                        key: key.clone(),
+                        label: display,
+                    }
                 })
                 .collect();
-            if !options.iter().any(|option| option.key == NO_ITEM_KEY) {
+            if needs_sentinel {
                 options.push(ItemOption {
                     key: NO_ITEM_KEY.to_string(),
                     label: NO_ITEM_LABEL.to_string(),
@@ -230,8 +251,10 @@ mod tests {
         ))
     }
 
-    /// Labels of the options shown by the open combo box. The current
-    /// selection is erased first so the widget filters by an empty query.
+    /// Labels of the options shown by the open combo box. Clicking opens the
+    /// dropdown; the widget clears its seeded selection on focus, but the
+    /// simulated click can leave that text in the input. The backspaces keep
+    /// the query empty so the whole option list stays visible.
     fn visible_options(state: &combo_box::State<ItemOption>) -> Vec<String> {
         let mut ui = simulator(picker("1:0", state));
         let mut seen = 0;
@@ -348,19 +371,55 @@ mod tests {
 
     #[test]
     fn test_duplicate_display_names_remain_distinct() {
-        let state = options(&[
-            ("1:4", "Invented Blade"),
-            ("2:4", "Invented Blade"),
-            ("255:15", NO_ITEM_LABEL),
-        ]);
-        let labels = visible_options(&state);
+        let mut app = crate::state::AppState::default();
+        app.lookups.insert(
+            "items".to_string(),
+            vec![
+                ("1:4".to_string(), "Invented Blade".to_string()),
+                ("2:4".to_string(), "Invented Blade".to_string()),
+                ("255:15".to_string(), NO_ITEM_LABEL.to_string()),
+            ],
+        );
+        refresh_composite_item_options(&mut app);
+        let state = &app.composite_item_options.state;
+
+        let labels = visible_options(state);
         assert_eq!(
             labels,
-            vec!["Invented Blade", "Invented Blade", NO_ITEM_LABEL],
-            "both duplicate rows must stay in the one option list"
+            vec![
+                "Invented Blade (1:4)",
+                "Invented Blade (2:4)",
+                NO_ITEM_LABEL
+            ],
+            "both duplicate rows must stay distinct in the one option list"
         );
-        assert_eq!(select_option("2:4", &state, 0), vec!["1:4"]);
-        assert_eq!(select_option("2:4", &state, 1), vec!["2:4"]);
+        assert_eq!(select_option("2:4", state, 0), vec!["1:4"]);
+        assert_eq!(select_option("2:4", state, 1), vec!["2:4"]);
+    }
+
+    #[test]
+    fn test_duplicate_selected_value_shows_qualified_label() {
+        let mut app = crate::state::AppState::default();
+        app.lookups.insert(
+            "items".to_string(),
+            vec![
+                ("1:4".to_string(), "Cap".to_string()),
+                ("2:4".to_string(), "Cap".to_string()),
+            ],
+        );
+        refresh_composite_item_options(&mut app);
+        let state = &app.composite_item_options.state;
+
+        assert_eq!(
+            crate::tests::common::select_values(picker("2:4", state)),
+            vec!["Cap (2:4)"],
+            "a field holding 2:4 must not show the same label as 1:4"
+        );
+        assert_eq!(
+            select_option("2:4", state, 1),
+            vec!["2:4"],
+            "the qualified label must still emit the exact key"
+        );
     }
 
     #[test]
@@ -470,6 +529,45 @@ mod refresh_tests {
         refresh_composite_item_options(&mut app);
         assert_ne!(app.composite_item_options.fingerprint, fingerprint);
         assert_eq!(app.composite_item_options.state.options().len(), 4);
+    }
+
+    #[test]
+    fn test_refresh_fingerprints_original_entries_and_qualifies_duplicates() {
+        let mut app = AppState::default();
+        let entries = vec![
+            ("1:4".to_string(), "Cap".to_string()),
+            ("2:4".to_string(), "Cap".to_string()),
+            (NO_ITEM_KEY.to_string(), NO_ITEM_LABEL.to_string()),
+        ];
+        app.lookups.insert("items".to_string(), entries.clone());
+
+        refresh_composite_item_options(&mut app);
+        assert_eq!(
+            app.composite_item_options.fingerprint,
+            fingerprint_options(Some(&entries)),
+            "the fingerprint must come from the raw key/label pairs"
+        );
+        let labels: Vec<&str> = app
+            .composite_item_options
+            .state
+            .options()
+            .iter()
+            .map(|option| option.label.as_str())
+            .collect();
+        assert_eq!(
+            labels,
+            vec!["Cap (1:4)", "Cap (2:4)", NO_ITEM_LABEL],
+            "only repeated labels are qualified, and the sentinel stays as-is"
+        );
+
+        let fingerprint = app.composite_item_options.fingerprint;
+        app.lookups.get_mut("items").unwrap()[1].0 = "2:5".to_string();
+        refresh_composite_item_options(&mut app);
+        assert_ne!(fingerprint, app.composite_item_options.fingerprint);
+        assert_eq!(
+            app.composite_item_options.state.options()[1].label,
+            "Cap (2:5)"
+        );
     }
 
     #[test]
