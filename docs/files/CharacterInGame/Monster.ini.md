@@ -1,13 +1,10 @@
 # Monster.ini
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## File Information
 
 ### Overview
 
-Text file that defines monster visual appearances and animation sequences for the game's monster rendering system.
+The tool reads `Monster.ini` as a CSV file with comments. Each row holds a visual type ID, a name, a sprite filename and five animation sequence IDs.
 
 ### File Structure
 
@@ -67,21 +64,21 @@ The file organizes monsters into logical groups based on the comment header:
 
 **Combat Animations:**
 
-- `attack_seq`: Attacking/offensive animations
+- `attack_seq`: attack animations
 - `hit_seq`: Damage/taking hit animations
 - `death_seq`: Death/dying animations
 
 **Movement Animations:**
 
-- `walk_seq`: Walking/movement animations
-- `cast_seq`: Spellcasting/magic animations
+- `walk_seq`: movement animations
+- `cast_seq`: magic animations
 
 ### Special Values
 
 - **"null"**: Literal string indicating no name or sprite
 - **0**: Unused animation sequence (no animation)
 - **-1**: Special or alternative animation sequence
-- **;**: Lines starting with semicolon are comments
+- **`;`**: Lines starting with this mark are comments.
 - **Empty lines**: Ignored during processing
 
 ### Example Format
@@ -107,8 +104,8 @@ The file organizes monsters into logical groups based on the comment header:
 
 **File Processing**:
 
-- Comments (lines starting with ";") are ignored
-- Empty lines are skipped
+- The parser ignores comments that start with `;`.
+- The parser skips empty lines.
 - CSV format with comma delimiter
 - "null" literal used for missing name/sprite fields
 
@@ -116,8 +113,8 @@ The file organizes monsters into logical groups based on the comment header:
 
 - Processed by `MonsterIni` struct in the codebase
 - Stored in database with all field mappings
-- Linked to monster placement files (mondun*.ref, monmap*.ref)
-- Referenced by combat and rendering systems
+- Monster placement files (`mondun*.ref`, `monmap*.ref`) use these IDs.
+- Other file formats reference these IDs.
 
 ### Animation Sequence System
 
@@ -136,20 +133,20 @@ pub struct MonsterIni {
 }
 ```
 
-### Usage in Game
+### File use
 
-1. **Monster Rendering**: Game loads visual definitions from Monster.ini
-2. **Animation Mapping**: Links monster IDs to animation sequences
-3. **Combat System**: Uses attack/hit/death animations during battles
-4. **Movement System**: Applies walking animations during navigation
-5. **Magic System**: Triggers casting animations for spellcasters
+1. The tool reads visual definitions from `Monster.ini`.
+2. It links monster IDs to animation sequence IDs.
+3. It stores the attack, hit and death sequence IDs.
+4. It stores the walking sequence ID.
+5. It stores the casting sequence ID.
 
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
 - Comments are in Polish (WINDOWS-1250 encoding)
 - Animation sequences link to SPR file frame indices
-- Integrated with monster placement and combat systems
+- Other file formats link to these IDs.
 
 ## Extractor
 

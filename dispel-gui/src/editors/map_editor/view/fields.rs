@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use crate::components::composite_item::composite_item_picker;
+use crate::components::composite_item::{ItemOption, composite_item_picker};
 use crate::components::editable::{EditableRecord, FieldKind};
 use crate::message::{Message, MessageExt};
 use crate::style;
-use iced::widget::{column, pick_list, row, scrollable, text, text_input};
+use iced::widget::{column, combo_box, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill};
 
 use super::super::message::{MapEditorMessage, SelectedEntity};
@@ -18,13 +18,21 @@ pub fn build_record_fields<'a, R: EditableRecord>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    combo_state: &'a combo_box::State<ItemOption>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
 
     for desc in R::field_descriptors() {
         let value = record.get_field(desc.name);
         col = col.push(inspector_field_row(
-            desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
+            desc.label,
+            desc.name,
+            &desc.kind,
+            &value,
+            tab_id,
+            sel,
+            lookups,
+            combo_state,
         ));
     }
     scrollable(col).spacing(6).into()
@@ -35,6 +43,7 @@ pub fn build_record_fields<'a, R: EditableRecord>(
 /// `label` and `name` are `&'static str` (from `FieldDescriptor`); `value` is a
 /// short-lived borrow of a locally-computed `String`; text inputs clone it before
 /// constructing their returned widgets.
+#[allow(clippy::too_many_arguments)]
 pub fn inspector_field_row<'a>(
     label: &'static str,
     name: &'static str,
@@ -43,6 +52,7 @@ pub fn inspector_field_row<'a>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    combo_state: &'a combo_box::State<ItemOption>,
 ) -> Element<'a, Message> {
     const LABEL_W: f32 = 140.0;
     match kind {
@@ -149,9 +159,8 @@ pub fn inspector_field_row<'a>(
             .into()
         }
 
-        FieldKind::CompositeItem { lookup_key } => {
-            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
-            composite_item_picker(label, value, entries, true, move |v| {
+        FieldKind::CompositeItem { lookup_key: _ } => {
+            composite_item_picker(label, value, combo_state, true, move |v| {
                 Message::map_editor(MapEditorMessage::EntityFieldChanged(
                     tab_id,
                     sel,
@@ -169,6 +178,9 @@ mod tests {
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
 
+    static EMPTY_COMBO: std::sync::LazyLock<combo_box::State<ItemOption>> =
+        std::sync::LazyLock::new(|| combo_box::State::new(Vec::new()));
+
     fn count_label_text(element: Element<'_, Message>, label: &str) -> usize {
         let mut ui = simulator(element);
         let mut count = 0usize;
@@ -182,6 +194,70 @@ mod tests {
         };
         let _ = ui.find(&mut selector);
         count
+    }
+
+    #[test]
+    fn test_map_editor_composite_combo_emits_exact_key() {
+        let kind = FieldKind::CompositeItem {
+            lookup_key: "invented_items",
+        };
+        let lookups = HashMap::from([(
+            "invented_items".to_string(),
+            vec![
+                ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
+                ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ],
+        )]);
+        let combo = combo_box::State::new(vec![
+            ItemOption {
+                key: "1:0".to_string(),
+                label: "[Weapon] Invented Sword".to_string(),
+            },
+            ItemOption {
+                key: "2:7".to_string(),
+                label: "[Healing] Invented Herb".to_string(),
+            },
+        ]);
+
+        let element = inspector_field_row(
+            "Invented Item:",
+            "item_type",
+            &kind,
+            "1:0",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+            &combo,
+        );
+        assert!(
+            crate::tests::common::select_shows(element, "[Weapon] Invented Sword"),
+            "the map editor combo must show the selected item label"
+        );
+
+        let element = inspector_field_row(
+            "Invented Item:",
+            "item_type",
+            &kind,
+            "1:0",
+            0,
+            SelectedEntity::DrawItem(0),
+            &lookups,
+            &combo,
+        );
+        let emitted: Vec<String> = crate::tests::common::activate_select_option(element, 0, 1)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Editor(crate::message::editor::EditorMessage::MapEditor(
+                    MapEditorMessage::EntityFieldChanged(_, _, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            emitted,
+            vec!["2:7"],
+            "the map editor must emit the selected composite key"
+        );
     }
 
     #[test]
@@ -213,6 +289,7 @@ mod tests {
                 0,
                 SelectedEntity::Npc(0),
                 &lookups,
+                &EMPTY_COMBO,
             );
             assert!(
                 crate::tests::common::select_shows(element, "Left"),
@@ -246,6 +323,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(unknown, "Bogus"),
@@ -260,6 +338,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(known, "Beta"),
@@ -286,6 +365,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(missing, "Unknown (99)"),
@@ -300,6 +380,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         assert!(
             crate::tests::common::select_shows(duplicate, "Invented Creature (9)"),
@@ -314,6 +395,7 @@ mod tests {
             0,
             SelectedEntity::Monster(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
         let emitted: Vec<String> = messages
@@ -345,6 +427,7 @@ mod tests {
             0,
             SelectedEntity::DrawItem(0),
             &lookups,
+            &EMPTY_COMBO,
         );
         assert_eq!(
             count_label_text(element, "Invented Item:"),

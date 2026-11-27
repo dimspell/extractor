@@ -57,6 +57,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             },
             |msg| Message::party_level_db(PartyLevelDbEditorMessage::Spreadsheet(msg)),
             &app.state.lookups,
+            &app.state.composite_item_options.state,
             |msg| Message::party_level_db(PartyLevelDbEditorMessage::PaneResized(msg)),
             |pane| Message::party_level_db(PartyLevelDbEditorMessage::PaneClicked(pane)),
             None,

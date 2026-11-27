@@ -1,22 +1,18 @@
-# Event.ini Documentation
+# Event.ini documentation
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
-## File Information
+## File information
 
 ### Overview
 
-Text file that defines event scripts with execution conditions, prerequisites, and repetition limits for the game's
-event system.
+The tool reads `Event.ini` as a CSV file with comments. Each row holds an event ID, a prerequisite ID, a type code, a script filename and a counter.
 
-### File Structure
+### File structure
 
-**Location**: `Event.ini`
-**Encoding**: EUC-KR (Korean character encoding)
-**Format**: CSV (Comma-Separated Values) with comments
+- **Location**: `Event.ini`
+- **Encoding**: EUC-KR (Korean character encoding)
+- **Format**: CSV (Comma-Separated Values) with comments
 
-### Format Specification
+### Format specification
 
 ```ini
 ; Comment line explaining event types and execution conditions
@@ -27,7 +23,7 @@ event_id,required_event_id,event_type,script_filename,counter
 ...
 ```
 
-### Field Definitions
+### Field definitions
 
 | Field             | Type   | Description                                         |
 |-------------------|--------|-----------------------------------------------------|
@@ -37,9 +33,9 @@ event_id,required_event_id,event_type,script_filename,counter
 | script_filename   | string | Script filename or "null" for no script             |
 | counter           | i32    | Execution limit (0 = unlimited, N = max executions) |
 
-### Event Type System
+### Event type system
 
-The file includes a detailed comment header explaining the event type system:
+The file carries a comment header that defines the type codes:
 
 ```ini
 ; Event number, preceding event identifier, type:
@@ -55,31 +51,29 @@ The file includes a detailed comment header explaining the event type system:
 ; Script filename, number of times to execute (N)
 ```
 
-### Event Type Details
+### Event type details
 
-**Unconditional Execution (Types 0, 1, 2):**
+**Unconditional execution (types 0, 1 and 2):**
 
-- Execute regardless of previous event status
-- Type 0: Execute once
-- Type 1: Execute N times (uses counter)
-- Type 2: Execute unconditionally
+- Type 0 uses one execution and ignores the prerequisite.
+- Type 1 uses `N` executions through the counter and ignores the prerequisite.
+- Type 2 has no counter and ignores the prerequisite.
 
-**Conditional Execution (Types 3-8):**
+**Conditional execution (types 3 to 8):**
 
-- Execution depends on previous event status
-- Types 3-5: Execute when previous event unsatisfied
-- Types 6-8: Execute when previous event satisfied
-- Types 4, 7, 8: Use counter for repetition limits
+- Types 3 to 5 use an unsatisfied prerequisite.
+- Types 6 to 8 use a satisfied prerequisite.
+- Types 4, 7 and 8 use the counter for repetition limits.
 
-### Special Values
+### Special values
 
-- **"null"**: Literal string indicating no script filename
-- **counter = 0**: No execution limit (infinite)
-- **counter = N**: Maximum execution count
-- **;**: Lines starting with semicolon are comments
-- **Empty lines**: Ignored during processing
+- **"null"**: The tool reads this string when no script filename is present.
+- **counter = 0**: No execution limit.
+- **counter = N**: Maximum execution count.
+- **`;`**: Lines starting with this mark are comments.
+- **Empty lines**: The parser ignores them.
 
-### Example Format
+### Example format
 
 ```ini
 ; Default data
@@ -94,48 +88,42 @@ The file includes a detailed comment header explaining the event type system:
 11,10,7,transition.scr,3
 ```
 
-### Technical Details
+### Technical details
 
 **Encoding**: EUC-KR (Extended Unix Code Korea)
 
-- Supports Korean characters in comments
-- Requires proper encoding handling for reading/writing
+- The encoding covers Korean characters in comments.
+- The reader and writer must use this encoding.
 
-**File Processing**:
+**File processing:**
 
-- Comments (lines starting with ";") are ignored
-- Empty lines are skipped
-- CSV format with comma delimiter
-- "null" literal used for missing script filenames
+- The parser ignores comment lines that start with `;`.
+- It skips empty lines.
+- It splits rows on commas.
+- It reads `null` as a missing script filename.
 
-### Database Integration
+### Database integration
 
-- Processed by the `Event` struct in `src/references/event_ini.rs`
-- Uses the `EventType` enum from `src/references/enums.rs` for type-safe event types
-- Stored in database with all field mappings
-- Referenced by other game systems (NPC, Extra objects)
+The `Event` struct in `src/references/event_ini.rs` parses the file. The `EventType` enum in `src/references/enums.rs` holds the type value. The tool stores every field in the database. Other file formats reference event IDs.
 
-### Event Chaining
+### Event chains
 
-The system supports complex event sequences:
-
-- **Linear Progression**: Event A → Event B → Event C
-- **Conditional Branching**: Different paths based on success/failure
-- **Parallel Events**: Multiple independent event chains
-- **Repeating Events**: Limited or unlimited execution cycles
+- Linear progression: Event A → Event B → Event C
+- Conditional branching: paths based on a prerequisite state
+- Parallel events: independent event chains
+- Repeated events: limited or unlimited execution cycles
 
 ### Notes
 
-- File uses Windows-style line endings (`\r\n`)
-- Comments provide detailed explanations
-- Event system forms core of game progression mechanics
-- Integrated with multiple game subsystems
+- The file uses Windows-style line endings (`\r\n`).
+- The comment header defines the type codes.
+- Event IDs link to other file formats.
 
 ## Extractor
 
-The file is parsed by the `Event` struct in `src/references/event_ini.rs`, which implements the `Extractor` trait.
+The `Event` struct in `src/references/event_ini.rs` parses the file. It implements the `Extractor` trait.
 
-### How to Run
+### How to run
 
 ```bash
 # Extract Event.ini to JSON

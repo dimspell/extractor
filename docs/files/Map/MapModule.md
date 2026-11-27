@@ -1,19 +1,15 @@
 # Map Module Specification
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ---
 
 ## Overview
 
-The `src/map/` module handles parsing, rendering, and database operations for the Dispel game's `.MAP`, `.GTL`, and
-`.BTL` binary file formats. It provides:
+The `src/map/` module parses and renders `.MAP`, `.GTL` and `.BTL` files. It also writes data to SQLite. It provides:
 
 - **Binary parsing** of `.MAP` files (geometry, sprites, tiles, events, collisions)
 - **Tileset extraction** from `.GTL` (ground) and `.BTL` (building) files
 - **Isometric rendering** to PNG images
-- **Database import/export** via SQLite
+- **Database import and export** with SQLite
 - **Sprite loading** from `.SPR` files for entity rendering
 
 ### Module Files
@@ -36,10 +32,9 @@ The `src/map/` module handles parsing, rendering, and database operations for th
 
 ## File Formats
 
-### `.MAP` — Map File
+### `.MAP`: map file
 
-Binary file containing the complete map definition: geometry, embedded sprites, tiled objects, event triggers, ground
-tiles, collision data, and optional roof tiles.
+The file holds geometry, embedded sprites, tiled objects, event triggers, ground tiles, collision data and optional roof tiles.
 
 #### Structure
 
@@ -162,7 +157,7 @@ start_y = (-x + y) × 16 + (diagonal / 2 × 16)
 
 #### Event Block Location
 
-The event block and tile blocks are located at the **end of the file**. The parser seeks backwards from EOF:
+The event block and tile blocks sit at the end of the file. The parser seeks backwards from EOF:
 
 ```
 seek_offset = -(tiled_map_width × tiled_map_height × 4 × 3)
@@ -173,9 +168,9 @@ bytes/tile).
 
 ---
 
-### `.GTL` / `.BTL` — Tileset Files
+### `.GTL` and `.BTL`: tileset files
 
-Simple binary format with **no header**. Direct sequence of 32×32 pixel tiles in RGB565.
+The format has no header. It holds a sequence of 32×32 RGB565 tiles.
 
 #### Structure
 
@@ -213,14 +208,14 @@ blue  = bits 0–4 of pixel   → scale 0-31 to 0-255
 
 **File types:**
 
-- `.GTL` — Ground Tile Layer (terrain, paths, natural features)
-- `.BTL` — Building Tile Layer (structures, roofs, man-made objects)
+- `.GTL`: ground tile layer for terrain, paths and natural features
+- `.BTL`: building tile layer for structures, roofs and man-made objects
 
 ---
 
-### `.SPR` — Sprite Files (referenced, not owned by map module)
+### `.SPR`: sprite files (referenced, not owned by map module)
 
-Sprite files are parsed by the parent `sprite` module but loaded by `sprite_loader.rs` for entity rendering.
+The parent `sprite` module parses `.spr` files. `sprite_loader.rs` loads them for entity rendering.
 
 #### Structure (per sequence)
 
@@ -345,8 +340,7 @@ struct LoadedSpriteFrame {
 
 ### Database
 
-Owned by `src/database/map_persistence.rs`; re-exported from `map` so existing
-`dispel_core::map::save_to_db` paths keep working.
+These functions live in `src/database/map_persistence.rs`. The `map` module re-exports them. Existing `dispel_core::map::save_to_db` paths keep working.
 
 | Function                                        | Description                        |
 |-------------------------------------------------|------------------------------------|
@@ -378,12 +372,12 @@ Owned by `src/database/map_persistence.rs`; re-exported from `map` so existing
 
 ### Depth Sorting
 
-Sprites and tiled objects are sorted by `ground_y` before rendering:
+The renderer sorts sprites and tiled objects by `ground_y`.
 
 - **Sprites**: `ground_y = sprite_y + frame_height`
 - **Tiled objects**: `ground_y = tile_y + (stack_height × 32)`
 
-This ensures proper isometric depth ordering (painter's algorithm).
+This gives isometric depth order through the painter's algorithm.
 
 ---
 
@@ -415,7 +409,7 @@ This ensures proper isometric depth ordering (painter's algorithm).
 
 ## JSON Schema for Map Data Export
 
-The following JSON schema describes the structure for exporting `.MAP` file data:
+This JSON schema describes exported `.MAP` data:
 
 ```json
 {
@@ -865,7 +859,7 @@ Where `w = tiled_map_width`, `h = tiled_map_height`.
 
 ## External Entity Rendering Colors
 
-When `game_path` is not provided or sprite files are missing, entities are rendered as colored diamond markers:
+The tool draws entities as colored diamond markers when `game_path` is absent or sprite files are missing.
 
 | Entity Type | Color (RGBA)                     | Sprite Directory |
 |-------------|----------------------------------|------------------|
@@ -877,11 +871,10 @@ When `game_path` is not provided or sprite files are missing, entities are rende
 
 ## Notes
 
-1. **Two unknown blocks** at the start of `.MAP` files are skipped — their purpose is not yet understood
-2. **Image stamps** (6 or 9) determine the padding size after sprite sequence data (1904 or 2996 bytes respectively)
-3. **Tiled object sentinel** — the end of the tiled objects block is detected by scanning 20 bytes backwards for the
-   byte value 1
-4. **Roof block is optional** — only parsed if remaining file size is sufficient
-5. **Collision flag** is extracted from bit 0 of the packed tile value; tile index is bits 10–24
-6. **All integers are little-endian**
-7. **Sprite sequences** in the map file are self-contained — pixel data is embedded directly, not referenced externally
+1. The tool skips the first two blocks. The supplied data shows no use for these fields.
+2. Image stamp 6 uses 1904 bytes of padding after sprite sequence data. Image stamp 9 uses 2996 bytes.
+3. The tool finds the end of the tiled objects block with a 20-byte backwards scan for byte value 1.
+4. The tool parses the roof block only when enough bytes remain.
+5. The collision flag comes from bit 0 of the packed tile value. The tile index uses bits 10 to 24.
+6. All integers are little-endian.
+7. Sprite sequences in the map file hold embedded pixel data. The file does not reference external sprite data.

@@ -1,21 +1,19 @@
 # Store.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## File Information
 
 ### Overview
 
-Binary database file that defines shops and inns with inventories, prices, merchant dialogue, and economic behavior for
-the game's commerce system.
+The tool reads `Store.db` as shop and inn records. Each record holds a name, a cost, product slots and text fields.
 
 ### File Structure
 
-**Location**: `CharacterInGame/STORE.DB`
-**Encoding**: Binary (Little-Endian)
-**Text Encoding**: WINDOWS-1250 **Header**: 4-byte record count **Record Size**: 948 bytes **Total Records**: Variable
-(determined by header)
+- **Location**: `CharacterInGame/STORE.DB`
+- **Encoding**: Binary (Little-Endian)
+- **Text Encoding**: WINDOWS-1250
+- **Header**: 4-byte record count
+- **Record Size**: 948 bytes
+- **Total Records**: Variable (determined by header)
 
 ### Binary Format
 
@@ -55,24 +53,22 @@ the game's commerce system.
 
 **Inn (inn_night_cost > 0):**
 
-- No products (144 bytes padding)
-- Provides rest/healing services
-- Nightly accommodation cost
-- Dialogue for innkeeper
+- No products, 144 bytes of padding
+- A nightly cost value
+- Text fields
 
 **Shop (inn_night_cost = 0):**
 
-- Product inventory (up to 15 items)
-- Sells goods and equipment
-- Price modifier affects economy
-- Merchant dialogue and haggling
+- Up to 15 product slots
+- A price modifier
+- Text fields
 
 ### Product Structure
 
 **ProductType Enum:**
 
 - **1**: Weapon - Weapons and armor
-- **2**: Healing - Healing items (potions, etc.)
+- **2**: potions and other healing items
 - **3**: EditItem - Editable/modifiable equipment
 - **4**: MiscItem - Miscellaneous items
 
@@ -85,17 +81,16 @@ the game's commerce system.
 
 ### Price Modifier & Pricing Formulas
 
-The `price_modifier` field is a signed percentage applied to an item's base price:
+The tool reads `price_modifier` as a signed percentage. The documented pricing equations are:
 
 ```
 buy_price  = base_price + (price_modifier * base_price) / 100
 sell_price = base_price/2 + (price_modifier * (base_price/2)) / 100
 ```
 
-- **Buy price**: the player pays `base_price * (1 + price_modifier/100)`.
-- **Sell price**: the shop pays the player `(base_price/2) * (1 + price_modifier/100)`
-  (items sell at half their base price, then the modifier is applied).
-- A positive modifier raises prices (e.g. `10` → +10%); a negative modifier lowers them.
+- Buy price: `base_price * (1 + price_modifier/100)`.
+- Sell price: `(base_price/2) * (1 + price_modifier/100)`. The tool halves the base price before it applies the modifier.
+- A positive modifier raises prices, for example `10` for +10%. A negative modifier lowers them.
 - A value of `0` means the shop sells at the item's unmodified base price.
 
 ### Data Structure

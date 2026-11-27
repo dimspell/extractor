@@ -1,22 +1,19 @@
 # Monster.db Documentation
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ## File Information
 
 ### Overview
 
-Binary database file that defines all monster types with complete combat statistics, behavior patterns, and reward
-systems for the game's monster spawning and combat AI.
+The tool reads `Monster.db` as fixed-size monster records. Each record holds a name and 34 numeric fields.
 
 ### File Structure
 
-**Location**: `MonsterInGame/Monster.db`
-**Encoding**: Binary (Little-Endian)
-**Text Encoding**: EUC-KR **Record Size**: 160 bytes (24-byte name + 34 × i32 fields)
-**Header**: None (count derived from file size)
-**Total Records**: Variable (file_size / 160)
+- **Location**: `MonsterInGame/Monster.db`
+- **Encoding**: Binary (Little-Endian)
+- **Text Encoding**: EUC-KR
+- **Record Size**: 160 bytes (24-byte name + 34 × i32 fields)
+- **Header**: None (count derived from file size)
+- **Total Records**: Variable (file_size / 160)
 
 ### Binary Format
 
@@ -111,13 +108,13 @@ systems for the game's monster spawning and combat AI.
 
 **MonsterAiType (ai_type):**
 
-- **0**: Aggressor — Actively seeks and engages the player
-- **1**: HitAndFlee — Attacks then retreats (hit-and-run)
-- **2**: FleeWhenApproached — Runs away when player approaches
-- **3**: AttackWhenOutnumbered — Engages only when it has numerical advantage
-- **4**: TeleportTactic — Uses teleportation during combat
-- **5**: AttackWhenProvoked — Only attacks when attacked first
-- **6**: RunAwayWhenAttacked — Flees upon taking damage
+- **0**: Aggressor
+- **1**: HitAndFlee
+- **2**: FleeWhenApproached
+- **3**: AttackWhenOutnumbered
+- **4**: TeleportTactic
+- **5**: AttackWhenProvoked
+- **6**: RunAwayWhenAttacked
 
 ### Data Structure
 
@@ -214,14 +211,11 @@ Offset | Size | Field | Description
 - **is_undead = 1**: Holy weakness, no bleed
 - **has_blood = 0**: No blood effects (golems)
 - **is_oversize = 1**: Large monsters (dragons, etc.)
-- **special_attack != 0**: The attack carries a poison (1) or paralysis (2)
-  status rider — see the *Special-attack rider* section under Field
-  Definitions. `special_attack_chance` is a percent roll against the victim,
-  `special_attack_duration` counts 55 ms scheduler ticks.
+- **special_attack != 0**: the record carries a poison (1) or paralysis (2) status rider. See the *Special-attack rider* section under Field Definitions. `special_attack_chance` is a percentage value. `special_attack_duration` counts 55 ms scheduler ticks.
 
 ### File Purpose
 
-Defines all monster types with combat statistics, AI behavior patterns, and reward systems.
+The file holds 160-byte records with the fields listed above.
 
 ## Extractor
 

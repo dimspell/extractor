@@ -50,6 +50,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
         |msg| Message::dialogue_paragraph(DialogueParagraphEditorMessage::Spreadsheet(msg)),
         &app.state.lookups,
+        &app.state.composite_item_options.state,
         |event| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneResized(event)),
         |pane| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneClicked(pane)),
         None,

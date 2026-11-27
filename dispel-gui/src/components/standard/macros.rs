@@ -35,6 +35,7 @@ macro_rules! define_standard_view {
                 },
                 |msg| $crate::message::Message::$name(<$Msg>::Spreadsheet(msg)),
                 &app.state.lookups,
+                &app.state.composite_item_options.state,
                 |event| $crate::message::Message::$name(<$Msg>::PaneResized(event)),
                 |pane| $crate::message::Message::$name(<$Msg>::PaneClicked(pane)),
                 None,

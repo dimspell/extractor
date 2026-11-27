@@ -1,29 +1,24 @@
-# File Formats & Parsing
+# File formats and parsing
 
-## Legal Notice
+This document records the binary layouts that the extractor reads.
 
-This documentation describes the file formats parsed by the extractor, based on observable data behavior, for interoperability and re-implementation.
+## Common data types
 
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+The tool reads all integers as little-endian values.
 
-This document details the binary formats parsed by the extractor. This information is critical for re-implementation or generating parsers.
+Colors use a 16-bit RGB 565 value:
 
-## Common Data Types
-- **LittleEndian Integers**: Checking `read_i32::<LittleEndian>()` or `read_i16` confirms data is stored in Little Endian.
-- **Color Format (RGB 565)**:
-    - 16-bit integer.
-    - **Red**: 5 bits (Mask `0xF800` >> 11)
-    - **Green**: 6 bits (Mask `0x07E0` >> 5)
-    - **Blue**: 5 bits (Mask `0x001F`)
-    - Expansion to 8-bit: `val << 3` (for R/B) or `val << 2` (for G).
+- Red takes 5 bits from mask `0xF800` after a shift of 11 places.
+- Green takes 6 bits from mask `0x07E0` after a shift of 5 places.
+- Blue takes 5 bits from mask `0x001F`.
+- Expansion to 8-bit values uses `val << 3` for red and blue, and `val << 2` for green.
 
----
+## 1. SNF audio (`snf.rs`)
 
-## 1. SNF Audio (`snf.rs`)
+The tool reads SNF files as PCM data with a 22-byte header.
 
-The SNF format appears to be a raw PCM container very similar to WAV but with a custom header.
+### Header structure
 
-### Header Structure
 | Byte Offset | Type | Description |
 |---|---|---|
 | 0 | i32 | Data Size |
@@ -33,121 +28,107 @@ The SNF format appears to be a raw PCM container very similar to WAV but with a 
 | 12 | i32 | Byte Rate |
 | 16 | i16 | Block Align |
 | 18 | i16 | Bits Per Sample |
-| 20 | i16 | *Unknown / Padding* (skipped) |
+| 20 | i16 | Unknown value that the tool skips |
 
 ### Conversion
-The extractor writes a standard RIFF WAVE header followed by the raw PCM data read from the SNF file.
 
----
+The tool writes a standard RIFF WAVE header. It then appends the raw PCM data from the SNF file.
 
-## 2. Map Format (`map.rs`)
+## 2. Map format (`map.rs`)
 
-Map files are complex binary structures containing multiple blocks of data.
+Map files hold several blocks of binary data.
 
-### 2.1 Header / Model
+### 2.1 Header and model
+
 - `Width` (i32)
 - `Height` (i32)
-- Derived "Tiled Map Size": `Width * 25 - 1` by `Height * 25 - 1` (implying 25x25 chunks).
+- The tool derives the tiled map size as `Width * 25 - 1` by `Height * 25 - 1`. The formula uses 25x25 chunks.
 
-### 2.2 Data Blocks
-The file is read sequentially.
+### 2.2 Data blocks
 
-#### Block 1 (Unknown)
+The tool reads these blocks in sequence.
+
+#### Block 1
+
 - `Multiplier` (i32)
 - `Size` (i32)
-- Skips 8 bytes.
-- Skips `Multiplier * Size * 4` bytes.
+- The tool skips 8 bytes.
+- The tool skips `Multiplier * Size * 4` bytes.
 
-#### Block 2 (Unknown)
+#### Block 2
+
 - `Size` (i32)
-- Skips `Size * 2` bytes.
+- The tool skips `Size * 2` bytes.
 
-#### Internal Sprites Block
+#### Internal sprites block
+
 - `Count` (i32)
-- For each sprite:
-    - `Image Stamp` (i32): Determines a static offset (1904 if 6, 2996 if 9).
-    - Skip 264 bytes.
-    - **Sequence Info**: Parsed (see Sprite Format).
-    - Seek past image data based on the static offset logic.
+- For each sprite, the tool reads `Image Stamp` (i32). It uses a static offset of 1904 for stamp 6 and 2996 for stamp 9.
+- The tool skips 264 bytes.
+- The tool parses the sequence information (see Sprite format).
+- The tool seeks past the image data using that static offset.
 
-#### Sprite Position Block
+#### Sprite position block
+
 - `Count` (i32)
-- For each entry:
-    - `Sprite ID` (i32): Index into internal sprites.
-    - Skip 2x i32.
-    - Skip 2x i32 (bottom-right coords?).
-    - `Sprite X` (i32)
-    - `Sprite Y` (i32)
-    - Skip calculated based on frames in the referenced sprite sequence.
+- `Sprite ID` (i32) indexes the internal sprites.
+- The tool skips two `i32` values, then two more `i32` values.
+- `Sprite X` (i32)
+- `Sprite Y` (i32)
+- The tool skips a length based on the frame count in the referenced sprite sequence.
 
-#### Tiled Objects Block
+#### Tiled objects block
+
 - `Count` (i32)
 - `Number1` (i32)
-- For each object:
-    - Skip 264 bytes.
-    - Read 4x i32 (s8, s0_1, s1, s0_2)
-    - Read 4x i32 (v1..v4)
-    - `X`, `Y` (i32)
-    - Read 2x i32 (v7, v8)
-    - `C1`, `C2`, `C3` (i32)
-    - Read `C3` count of `i16` (IDs).
-    - Skip 84 bytes.
-    - Skip `(C1 + C2 + C3) * 4` bytes.
-- **Correction Logic**: Contains a specific seek-back-and-scan logic to handle a variable length footer or padding (looking for byte `1`).
+- For each object, the tool skips 264 bytes.
+- It reads four `i32` values: `s8`, `s0_1`, `s1` and `s0_2`.
+- It reads four `i32` values: `v1` through `v4`.
+- It reads `X` and `Y` (i32).
+- It reads two `i32` values: `v7` and `v8`.
+- It reads `C1`, `C2` and `C3` (i32).
+- It reads `C3` values of type `i16` as IDs.
+- It skips 84 bytes.
+- It skips `(C1 + C2 + C3) * 4` bytes.
+- The tool seeks back and scans for byte `1` to handle a variable-length footer or padding.
 
-### 2.3 Tile & Event Layers
-The file reading jumps to the END of the file and seeks backwards to find tile data.
+### 2.3 Tile and event layers
 
-- **Seek**: `-(TiledHeight * TiledWidth * 4 * 3)` from End.
-- **Event Block**: `TiledWidth * TiledHeight` entries of:
-    - `Event ID` (i16)
-    - `Unknown` (i16)
-- **GTL (Ground Tile Layer) / Collision**: `TiledWidth * TiledHeight` entries of:
-    - `Value` (i32)
-    - `ID` = `Value >> 10`
-    - `Collision` = `(Value & 1) == 1`
-- **BTL (Building/Roof Tile Layer)**: `TiledWidth * TiledHeight` entries of:
-    - `Tile ID` (i16)
-    - `Flag` (i16)
+The tool jumps to the end of the file. It seeks backwards to find the tile data.
 
----
+- Seek: `-(TiledHeight * TiledWidth * 4 * 3)` from End.
+- Event block: `TiledWidth * TiledHeight` entries, each with `Event ID` (i16) and `Unknown` (i16).
+- GTL (ground tile layer) and collision: `TiledWidth * TiledHeight` entries, each with `Value` (i32). The tool computes `ID = Value >> 10` and `Collision = (Value & 1) == 1`.
+- BTL (building and roof tile layer): `TiledWidth * TiledHeight` entries, each with `Tile ID` (i16) and `Flag` (i16).
 
-## 3. Tileset Format (`tileset.rs`)
+## 3. Tileset format (`tileset.rs`)
 
-Simple contiguous array of raw pixels.
-- **File Length** is used to determine tile count.
-- **Tile Size**: 32x32 pixels.
-- **Pixel Format**: u16 (RGB 565).
-- Loop until EOF: Read 32*32*2 bytes.
+A tileset file holds a contiguous array of raw pixels.
 
-### Isometry Mask
-The code procedurally generates a diamond-shape mask (`decode::tile_mask()` in `src/decode.rs`) to render the 32x32 square tile into a 62x32 isometric projection.
+- The file length determines the tile count.
+- Each tile is 32x32 pixels.
+- Each pixel is a u16 RGB 565 value.
+- The tool reads 32*32*2 bytes at a time until it reaches EOF.
 
----
+### Isometry mask
 
-## 4. Sprite / Animation Format (`sprite.rs`)
+The tool generates a diamond-shape mask with `decode::tile_mask()` in `src/decode.rs`. The mask draws the 32x32 square tile as a 62x32 isometric projection.
 
-Starts at byte **268**.
+## 4. Sprite and animation format (`sprite.rs`)
 
-### Sequence Loop
-- Checks if file has enough bytes left.
-- **Validation**: Reads 15x `i32`. Checks specific values to determine if it's a valid sequence header (e.g., `ints[11] * ints[12] == ints[13]`).
-- If valid:
-    - Read `Stamp` (i32).
-    - If Stamp == 0, read `FrameCount` (i32).
-    - **Frame Loop**:
-        - Skip 24 bytes (6 * 4).
-        - Read `Origin X`, `Origin Y`, `Width`, `Height` (i32).
-        - Read `Size` (u32).
-        - Actual Data Size = `Size * 2`.
-        - **Image Data**: u16 pixels (RGB 565). `Width * Height`.
+Sprite data starts at byte 268.
 
-## Legal Compliance
+### Sequence loop
 
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any proprietary algorithms or game content
-- Focuses on **technical organization and data structures**
-- Provides information for **independent interoperability research based on observable behavior** only, without circumvention of technological protection measures
-- Maintains **nominative use** for trademark references
-- **No copyrighted content** is reproduced or distributed
+- The tool checks that enough bytes remain in the file.
+- The tool reads 15 `i32` values. It treats the header as a valid sequence when `ints[11] * ints[12] == ints[13]`.
+- For a valid sequence, the tool reads `Stamp` (i32).
+- When `Stamp` is 0, the tool reads `FrameCount` (i32).
+
+### Frame loop
+
+- The tool skips 24 bytes (6 * 4).
+- It reads `Origin X`, `Origin Y`, `Width` and `Height` (i32).
+- It reads `Size` (u32).
+- The actual data size is `Size * 2`.
+- The tool reads `Width * Height` pixels of type u16 in RGB 565 format.

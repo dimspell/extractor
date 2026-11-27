@@ -1,120 +1,96 @@
-# hexedit — A standalone, embeddable hex editor widget for Iced
+# hexedit: a standalone, embeddable hex editor widget for Iced
 
-**hexedit** is a full-featured hex editor library built on [Iced 0.15](https://iced.rs/).
-It ships as a reusable Rust library (`hexedit` crate) and one standalone binary
-(`hexedit`).
-
-Designed for the [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor),
-it is embeddable inside any Iced application and powers the hex-editing tab in `dispel-gui`.
-
----
+hexedit is a hex editor library built on [Iced 0.15](https://iced.rs/). It ships as a reusable Rust library, the `hexedit` crate, and one binary, `hexedit`. The [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor) uses the library for the hex editing tab in `dispel-gui`. You can also embed the library in any Iced application.
 
 ## Table of Contents
 
 1. [Features](#features)
-2. [Architecture Overview](#architecture-overview)
-3. [Domain Layer (Pure Data Model)](#domain-layer-pure-data-model)
-4. [UI Layer (Iced-specific)](#ui-layer-iced-specific)
-5. [HexEditorState (Aggregate State)](#hexeditorstate-aggregate-state)
-6. [HexEditorConfig (Host Injection)](#hexeditorconfig-host-injection)
-7. [HexEditorMessage (Enum Reference)](#hexeditormessage-enum-reference)
-8. [HexMatrix Custom Widget](#hexmatrix-custom-widget)
-9. [Coloring System](#coloring-system)
-10. [Inspector Decoder System](#inspector-decoder-system)
-11. [Pattern System](#pattern-system)
-12. [Writing / Inline Editing](#writing--inline-editing)
-13. [Search & Navigation](#search--navigation)
-14. [Write Modes & Text Encoding](#write-modes--text-encoding)
-15. [Byte Statistics & Entropy Panel](#byte-statistics--entropy-panel)
-16. [Pane Grid Layout](#pane-grid-layout)
+2. [Architecture overview](#architecture-overview)
+3. [Domain layer (pure data model)](#domain-layer-pure-data-model)
+4. [UI layer (Iced-specific)](#ui-layer-iced-specific)
+5. [HexEditorState (aggregate state)](#hexeditorstate-aggregate-state)
+6. [HexEditorConfig (host injection)](#hexeditorconfig-host-injection)
+7. [HexEditorMessage (enum reference)](#hexeditormessage-enum-reference)
+8. [HexMatrix custom widget](#hexmatrix-custom-widget)
+9. [Cell colours](#the-coloring-system)
+10. [Inspector decoder system](#inspector-decoder-system)
+11. [Pattern system](#pattern-system)
+12. [Inline editing](#inline-editing-and-writing)
+13. [Search and navigation](#search-and-navigation)
+14. [Write modes and text encoding](#write-modes-and-text-encoding)
+15. [Byte statistics and entropy panel](#byte-statistics-and-entropy-panel)
+16. [Pane grid layout](#pane-grid-layout)
 17. [Minimap](#minimap)
-18. [Theme System](#theme-system)
-19. [Test Structure](#test-structure)
+18. [Theme system](#theme-system)
+19. [Test structure](#test-structure)
 20. [Usage (library)](#usage-library)
 21. [Usage (standalone binaries)](#usage-standalone-binaries)
 22. [Build](#build)
 23. [Feature flags](#feature-flags)
 24. [Keybindings](#keybindings)
 25. [Dependencies](#dependencies)
-26. [LLM Guidance — Conventions & Invariants](#llm-guidance--conventions--invariants)
-
----
+26. [LLM guidance: conventions and invariants](#llm-guidance-conventions-and-invariants)
 
 ## Features
 
 ### Core editing
-- **Virtualized hex matrix** — Address gutter, hex bytes (grouped 8+8), ASCII column, and
-  annotation column. Only rows in the viewport are rendered (virtualized scrolling).
-- **Inline overwrite editing** — Double-click or `F2` to begin editing a byte; type two hex
-  digits to auto-commit and advance to the next byte. `Tab`/`Enter` to commit and advance,
-  `Esc` to cancel.
-- **Selection** — Click, drag, or Shift+arrow to select byte ranges. Arrow keys, `Home`/`End`,
-  `Page Up`/`Page Down`, `Ctrl+Home`/`Ctrl+End` for keyboard navigation.
-- **Copy / Paste** — `Ctrl+C` copies the selected range as hex text (`DE AD BE EF`);
-  `Ctrl+V` pastes hex text from the clipboard back into the buffer.
-- **Write bytes** — `WriteBytes` message for programmatic inspector edits and other
-  host-driven changes.
 
-### Search & navigation
-- **Search** (`Ctrl+F`) — Hex byte-sequence search (`DE AD BE EF` or `DEADBEEF`) and
-  ASCII substring search. Next/prev match navigation with match highlighting in the matrix.
-- **Goto** (`Ctrl+G`) — Navigate to a specific address. Accepts hex (`0xFF`, `FF`),
-  decimal (`255`), and relative offsets (`+10`, `-5`).
-- **Bytes-per-row toggle** — Set any row width from 1 to 64 bytes: preset buttons
-  (8/16/32) plus a custom numeric input in the settings modal.
+- **Virtualized hex matrix:** The address gutter, hex bytes grouped 8+8, the ASCII column and the annotation column appear on screen. The widget draws only rows in the viewport.
+- **Inline overwrite editing:** Double-click or press `F2` to edit a byte. Type two hex digits to commit the byte and move to the next one. Press `Tab` or `Enter` to commit and advance. Press `Esc` to cancel.
+- **Selection:** Click, drag or press Shift with an arrow key to select a byte range. Arrow keys, `Home`, `End`, `Page Up`, `Page Down`, `Ctrl+Home` and `Ctrl+End` move the cursor.
+- **Copy and paste:** `Ctrl+C` copies the selected range as hex text (`DE AD BE EF`). `Ctrl+V` pastes hex text from the clipboard into the buffer.
+- **Write bytes:** The `WriteBytes` message supports inspector edits and other host changes.
+
+### Search and navigation
+
+- **Search (`Ctrl+F`):** The tool finds hex byte sequences (`DE AD BE EF` or `DEADBEEF`) and ASCII substrings. It highlights matches in the matrix. It moves to the next or previous match.
+- **Goto (`Ctrl+G`):** The tool moves to an address. The input accepts hex (`0xFF`, `FF`), decimal (`255`) and relative offsets (`+10`, `-5`).
+- **Bytes-per-row toggle:** The settings modal sets any row width from 1 to 64 bytes. Preset buttons cover 8, 16 and 32. A custom numeric input accepts other widths.
 
 ### Data inspector
-- **Built-in decoders** — `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `f32`, `f64`,
-  ASCII char, UTF-8 char, RGB565 pixel, null-terminated C string, and raw hex dump.
-- **Editable values** — All numeric decoders support inline editing via a modal: type a
-  decimal or `0x`-prefixed hex value and it's written back in the correct endianness.
+
+- **Built-in decoders:** `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `f32`, `f64`, ASCII char, UTF-8 char, RGB565 pixel, null-terminated C string and raw hex dump.
+- **Editable values:** Each numeric decoder has an inline edit modal. Type a decimal value or a `0x` hex value. The tool writes the bytes in the matching endianness.
 
 ### Pattern highlighting
-- **Named byte ranges** — Select a range, right-click → "Create Pattern" (or `Ctrl+E`).
-  Patterns are rendered with a distinct background/foreground colour in the matrix.
-- **Repeated (zebra) patterns** — Create multi-instance repeating patterns with automatic
-  annotation labels (e.g. `Monster[0]`, `Monster[1]`...).
-- **Pattern groups** — Organize related patterns into collapsible groups with rename, colour
-  cycling, and bulk delete.
-- **Annotations** — Text annotations per pattern shown in the annotation column to the right
-  of the ASCII area. Annotations of patterns under the cursor are highlighted.
-- **Import / Export** — Patterns and groups can be exported to and imported from a
-  JSON file.
+
+- **Named byte ranges:** Select a range, right-click and choose `Create Pattern`. You can also press `Ctrl+E`. Patterns use a distinct background and foreground colour in the matrix.
+- **Repeated (zebra) patterns:** Create a repeating pattern with several instances. The tool adds annotation labels such as `Monster[0]` and `Monster[1]`.
+- **Pattern groups:** Group related patterns. Groups support rename, colour cycling and bulk delete.
+- **Annotations:** Each pattern can carry text in the annotation column to the right of the ASCII area. The tool highlights annotations for patterns under the cursor.
+- **Import and export:** The tool exports patterns and groups to a JSON file and imports them from a JSON file.
 
 ### Visual colouring
-- 5 colour schemes via the settings modal:
-  - **Monochrome** — Single colour for all bytes (the classic hex editor look).
-  - **Nybble** — 18 colour groups by high nibble (one per nybble + special `0x00`/`0xFF`).
-  - **Categories** — 6 semantic groups (NULL, whitespace, printable, DEL, control, non-ASCII).
-  - **Rainbow** — Continuous hue gradient across the full `0x00–0xFF` range.
-  - **Heatmap** — Cold-to-hot heatmap (blue → cyan → green → yellow → red).
-- **Dim nulls** — Optionally render `0x00` bytes in a dim colour regardless of the active scheme.
-- **Dirty vs vanilla-diff colouring** — Bytes dirtied this session use one colour; bytes that
-  differ cumulatively from the on-disk snapshot use another.
 
-### Layout & panels
-- **Pane grid** — Halloy-style movable, splittable, resizable panels. The default layout is a
-  vertical split: hex matrix on the left, data inspector on the right. The pattern list opens
-  as an additional split pane.
-- **Toolbar** — Save button, Goto, Patterns toggle, text export, settings, bytes-per-row toggle,
-  and status message.
-- **Minimap** — Overview strip showing file structure at a glance, with cursor position marker
-  and dirty/diff pixel indicators.
+The settings modal offers five colour schemes:
 
-### Save & integration
-- **Host-configurable save** — The host app provides a `SavePort` callback, a save label,
-  and a `can_save` flag. The editor surfaces these in the toolbar.
-- **Dirty tracking** — `BufferProvider` tracks which addresses have been modified since load.
-- **Text export** — Export the file as a formatted hex dump text file (configurable: address
-  gutter, decimal/hex addresses, ASCII column).
+- **Monochrome:** One colour for all bytes.
+- **Nybble:** 18 colour groups by high nibble, one per nybble plus special `0x00` and `0xFF`.
+- **Categories:** Six semantic groups, NULL, whitespace, printable, DEL, control and non-ASCII.
+- **Rainbow:** A continuous hue gradient across the full `0x00` to `0xFF` range.
+- **Heatmap:** Cold to hot, blue, cyan, green, yellow and red.
+
+- **Dim nulls:** The tool can draw `0x00` bytes in a dim colour under any scheme.
+- **Dirty and vanilla diff colouring:** Bytes changed in this session use one colour. Bytes that differ from the on-disk snapshot use another.
+
+### Layout and panels
+
+- **Pane grid:** Movable, splittable, resizable panels follow the Halloy style. The default layout splits the hex matrix on the left from the inspector on the right. The pattern list opens as another split pane.
+- **Toolbar:** The toolbar holds Save, Goto, Patterns toggle, text export, settings, bytes-per-row toggle and the status message.
+- **Minimap:** An overview strip shows file structure, the cursor position marker and dirty or diff pixels.
+
+### Save and integration
+
+- **Host-configurable save:** The host app supplies a `SavePort` callback, a save label and a `can_save` flag. The editor shows them in the toolbar.
+- **Dirty tracking:** `BufferProvider` tracks addresses that changed since load.
+- **Text export:** The tool exports a formatted hex dump text file. The address gutter, decimal or hex addresses and the ASCII column are configurable.
 
 ### File support
-- Library: `hexedit::HexEditorState::load_from_path(&path)` loads any file into memory.
-- Binaries: Open files via command-line argument (`hexedit path/to/file.bin`) or file dialog.
 
----
+- **Library:** `hexedit::HexEditorState::load_from_path(&path)` loads any file into memory.
+- **Binaries:** Open a file with a command-line argument (`hexedit path/to/file.bin`) or a file dialog.
 
-## Architecture Overview
+## Architecture overview
 
 ```
 hexedit/
@@ -171,88 +147,95 @@ hexedit/
 └── Cargo.toml
 ```
 
-**Design principle:** `domain/` is pure Rust — no Iced types, no widget dependencies.
-`ui/` contains all Iced-specific code. This lets the data model be tested and reused
-without a running UI.
+The `domain/` directory holds pure Rust data types. It imports no Iced widget types. The `ui/` directory holds all Iced code. This split lets you test and reuse the data model without a UI.
 
----
+## Domain layer (pure data model)
 
-## Domain Layer (Pure Data Model)
+Every file in `src/domain/` is free of Iced widget types. Unit tests cover them without a running UI.
 
-All files in `src/domain/` are free of Iced widget types. They can be unit-tested
-without a running UI.
+### `provider.rs`: Byte source abstraction
 
-### `provider.rs` — Byte source abstraction
-- **`HexProvider` trait** (`read()`, `write()`, `len()`, `is_writable()`): Abstraction over byte sources so vanilla snapshots and the live editing buffer can coexist.
-- **`BufferProvider`**: In-memory `Vec<u8>` with a `BTreeSet<u64>` of dirty addresses. Tracks which bytes have been modified since load. Key methods: `from_bytes()`, `dirty()`, `dirty_count()`, `clear_dirty()`, `as_slice()`.
-- **Rule:** `write()` only marks an address dirty if the new byte differs from the old one.
+- **`HexProvider` trait** (`read()`, `write()`, `len()`, `is_writable()`): A common interface for byte sources. It lets a vanilla snapshot and the live editing buffer coexist.
+- **`BufferProvider`**: An in-memory `Vec<u8>` with a `BTreeSet<u64>` of dirty addresses. It tracks bytes that changed since load. Key methods: `from_bytes()`, `dirty()`, `dirty_count()`, `clear_dirty()`, `as_slice()`.
+- **Rule:** `write()` marks an address dirty only when the new byte differs from the old one.
 
-### `selection.rs` — Cursor & selection model
+### `selection.rs`: Cursor and selection model
+
 - **`Selection`**: `{ anchor: u64, cursor: u64 }`. The selected range is `min(anchor,cursor)..=max(anchor,cursor)`. Methods: `single()`, `range()`, `start()`, `end()`, `len()`, `is_single()`, `contains()`, `select()`, `extend()`.
 - **`NavDir` enum**: Left, Right, Up, Down, LineStart, LineEnd, PageUp, PageDown, DocumentStart, DocumentEnd.
-- **`nav_target(cursor, dir, bytes_per_row, page_rows, max_addr) -> u64`**: Pure function computing the new cursor after navigation. All edge cases (saturating at 0, clamping to max_addr) are unit-tested.
+- **`nav_target(cursor, dir, bytes_per_row, page_rows, max_addr) -> u64`**: A pure function that computes the new cursor. Unit tests cover the edge cases. These include saturation at 0 and clamping to `max_addr`.
 
-### `pattern.rs` — Pattern highlighting
-- **`Pattern`**: `{ id, start, end, color_idx, group_id, annotation }`. Serializable via serde.
-- **`RepeatedPatternGroup`**: `{ id, label, color_idx }`. Groups related patterns together.
-- **`RepeatPatternDialog`**: Transient modal state for creating repeated patterns from a selection.
-- **`PatternExport`**: Versioned JSON envelope (`{ version, groups, patterns }`) for import/export.
-- **`pattern_bg(idx)` / `pattern_fg(idx)`**: Return palette colours (16-colour cyclic palette from `DARK_THEME`).
+### `pattern.rs`: Pattern highlighting
 
-### `search.rs` — Search engine
+- **`Pattern`**: `{ id, start, end, color_idx, group_id, annotation }`. Serde serializes it.
+- **`RepeatedPatternGroup`**: `{ id, label, color_idx }`. It groups related patterns.
+- **`RepeatPatternDialog`**: Transient modal state for repeated patterns created from a selection.
+- **`PatternExport`**: A versioned JSON envelope (`{ version, groups, patterns }`) for import and export.
+- **`pattern_bg(idx)` / `pattern_fg(idx)`**: Palette colours from the 16-colour cyclic palette in `DARK_THEME`.
+
+### `search.rs`: Search engine
+
 - **`SearchMode`**: `Hex` or `Ascii`.
-- **`SearchState`**: `{ visible, query, mode, results: Vec<u64>, query_len, current_match, match_set: BTreeSet<u64> }`. The `match_set` is a precomputed O(log n) lookup table for the renderer.
-- **`parse_hex_query(s)`**: Parse `"DE AD BE EF"` or `"DEADBEEF"` into `Vec<u8>`. Requires even number of hex digits.
-- **`SearchMatchProvider`**: Implements `CellColorProvider` for search match highlighting in the matrix.
+- **`SearchState`**: `{ visible, query, mode, results: Vec<u64>, query_len, current_match, match_set: BTreeSet<u64> }`. The `match_set` holds a precomputed O(log n) lookup table for the renderer.
+- **`parse_hex_query(s)`**: Parses `"DE AD BE EF"` or `"DEADBEEF"` into `Vec<u8>`. The parser needs an even digit count.
+- **`SearchMatchProvider`**: Implements `CellColorProvider` for search matches in the matrix.
 
-### `goto.rs` — Goto address parsing
+### `goto.rs`: Goto address parsing
+
 - **`GotoState`**: `{ draft, error }`.
-- **`parse(cursor, max_addr)`**: Accepts hex (`0xFF`, `FF`), decimal (`255`), relative (`+10`, `-5`). Clamps to `[0, max_addr]`. Pure function, fully unit-tested.
+- **`parse(cursor, max_addr)`**: Accepts hex (`0xFF`, `FF`), decimal (`255`) and relative values (`+10`, `-5`). It clamps the result to `[0, max_addr]`. Unit tests cover the function.
 
-### `editing.rs` — Inline edit state
-- **`EditState`**: `{ addr, draft: String }`. Draft holds 0–2 uppercase hex characters. `push_char()`, `pop_char()`, `is_complete()`, `staged_byte()` (single-digit draft treated as low nibble, e.g., `"A"` → `0x0A`).
-- **`InspectorEditState`**: `{ entry_idx, addr, draft, error }`. Modal state for the inspector inline-edit flow.
+### `editing.rs`: Inline edit state
 
-### `write_mode.rs` — Text encoding modes
+- **`EditState`**: `{ addr, draft: String }`. The draft holds 0 to 2 uppercase hex characters. Methods: `push_char()`, `pop_char()`, `is_complete()`, `staged_byte()`. A single-digit draft becomes the low nibble, so `"A"` gives `0x0A`.
+- **`InspectorEditState`**: `{ entry_idx, addr, draft, error }`. Modal state for inspector inline edits.
+
+### `write_mode.rs`: Text encoding modes
+
 - **`WriteMode`**: `Hex`, `Ascii`, `Utf8`, `Windows1250`, `EucKr`, `Custom(usize)`.
-- **`EncodingEntry`**: `{ label, encoding_name }` for user-added encodings (persisted by host).
-- **`encode_text(text, mode, custom) -> Vec<u8>`**: Encode a single string character into bytes. Used by the inline text-typing path.
-- **`is_text_mode(mode) -> bool`**: `true` for any mode except `Hex`.
-- **`COMMON_ENCODINGS`**: Static list of 30+ `(label, encoding_rs_name)` pairs available for custom encoding entries.
-- **`remap_write_mode()`**: Re-indexes `WriteMode::Custom(i)` when items are removed from the custom list.
+- **`EncodingEntry`**: `{ label, encoding_name }` for user-added encodings. The host persists them.
+- **`encode_text(text, mode, custom) -> Vec<u8>`**: Converts one string character to bytes. The inline text typing path calls it.
+- **`is_text_mode(mode) -> bool`**: Returns `true` for every mode except `Hex`.
+- **`COMMON_ENCODINGS`**: A static list of 30+ `(label, encoding_rs_name)` pairs for custom encoding entries.
+- **`remap_write_mode()`**: Re-indexes `WriteMode::Custom(i)` when items leave the custom list.
 
-### `panel.rs` — Pane grid types
+### `panel.rs`: Pane grid types
+
 - **`HexPanelContent`**: `Matrix`, `Inspector`, `PatternList`, `Statistics`.
-- **`HexPanel`**: Wrapper around `HexPanelContent`.
-- **`default_pane_grid() -> pane_grid::State<HexPanel>`**: Creates the default vertical split (75/25 matrix/inspector).
+- **`HexPanel`**: A wrapper around `HexPanelContent`.
+- **`default_pane_grid() -> pane_grid::State<HexPanel>`**: Creates the default vertical split, 75/25 matrix to inspector.
 
-### `layout.rs` — Structure overlay registry (future)
+### `layout.rs`: Structure overlay registry (future)
+
 - **`BinaryLayout` trait**: `layout(bytes) -> Vec<FieldSpan>`.
 - **`FieldSpan`**: `{ range, name, ty }`.
-- **`LayoutRegistry`**: Extension-keyed lookup table. Empty in v1 — reserved for future auto-derived structure overlays from `dispel_core`'s `#[extractor]` attributes.
+- **`LayoutRegistry`**: An extension-keyed lookup table. It is empty in v1. A future version may derive structure overlays from `dispel_core` `#[extractor]` attributes.
 
-### `byte_stats.rs` — Byte statistics & entropy
-- **`ByteStatistics`**: Counts, frequencies, min/max, Shannon entropy, structure heuristics.
+### `byte_stats.rs`: Byte statistics and entropy
+
+- **`ByteStatistics`**: Counts, frequencies, min/max, Shannon entropy and structure heuristics.
 - **`RowEntropyCache`**: Per-row entropy values for the gutter colour band.
-- **`compute_statistics(bytes) -> ByteStatistics`**: Full analysis (async, via `Task::perform`).
+- **`compute_statistics(bytes) -> ByteStatistics`**: Full analysis. It runs asynchronously through `Task::perform`.
 - **`compute_row_entropies(bytes, bpr) -> RowEntropyCache`**: Per-row entropy values.
-- **`entropy_to_color()`**: Maps entropy value to a colour for the gutter band.
-- **`StructureHeuristic`**: Detects uniform runs, high/low entropy patterns, mixed content.
+- **`entropy_to_color()`**: Maps an entropy value to a colour for the gutter band.
+- **`StructureHeuristic`**: Detects uniform runs, high and low entropy patterns and mixed content.
 
-### `vanilla_diff.rs` — Change tracking
-- **`compute_diff(vanilla, current) -> BTreeSet<u64>`**: Linear scan comparing two byte slices, returning addresses where they differ.
+### `vanilla_diff.rs`: Change tracking
 
-### `fill_dialog.rs` — Fill selection
-- **`FillDialog`**: `{ draft, error }`. Parses a hex byte pattern string to repeat across the selected range.
+- **`compute_diff(vanilla, current) -> BTreeSet<u64>`**: Compares two byte slices in a linear scan. It returns the addresses that differ.
 
-### `pattern_layout.rs` — Branch connectors
-- Types for rendering Git-log-style branch connectors in the pattern list panel for grouped patterns.
+### `fill_dialog.rs`: Fill selection
 
----
+- **`FillDialog`**: `{ draft, error }`. It parses a hex byte pattern string to repeat across the selected range.
 
-## UI Layer (Iced-specific)
+### `pattern_layout.rs`: Branch connectors
 
-### `update.rs` — Message handler
+- Types that draw Git-log-style branch connectors in the pattern list panel for grouped patterns.
+
+## UI layer (Iced-specific)
+
+### `update.rs`: Message handler
+
 ```rust
 pub fn update(
     state: &mut HexEditorState,
@@ -260,30 +243,33 @@ pub fn update(
     message: HexEditorMessage,
 ) -> Task<HexEditorMessage>
 ```
-Pure update function (~1300 lines). Dispatches all message variants. Returns `Task::none()` for synchronous mutations, or an async `Task` for file I/O, clipboard, and analysis operations.
 
-Key handler sections:
-- Pane grid operations (click, resize, drag, split, close)
-- Cursor movement & selection (SelectAt, ExtendTo, Nav)
-- Inline editing (BeginEdit, EditTypeChar, EditBackspace, EditCancel, EditCommit)
-- Inspector (copy, begin edit, commit edit)
-- Save (delegates to config's `SavePort`)
-- Search (open, execute, toggle mode, next/prev, close)
+The `update()` function is pure and about 1300 lines long. It dispatches every message variant. Synchronous changes return `Task::none()`. File I/O, clipboard and analysis return an async `Task`.
+
+Handler sections:
+
+- Pane grid operations: click, resize, drag, split and close
+- Cursor movement and selection: `SelectAt`, `ExtendTo` and `Nav`
+- Inline editing: `BeginEdit`, `EditTypeChar`, `EditBackspace`, `EditCancel` and `EditCommit`
+- Inspector: copy, begin edit and commit edit
+- Save through the config `SavePort`
+- Search: open, execute, toggle mode, next, previous and close
 - Goto dialog flow
-- Pattern CRUD (create, remove, clear, right-click)
+- Pattern create, remove, clear and right-click actions
 - Repeated pattern dialog
-- Pattern list & group operations
-- Pattern import/export (async file dialogs)
-- Settings (theme, colour scheme, dim nulls, entropy band, minimap)
-- Write mode & encoding settings
-- Copy/Paste (clipboard)
+- Pattern list and group operations
+- Pattern import and export through async file dialogs
+- Settings: theme, colour scheme, dim nulls, entropy band and minimap
+- Write mode and encoding settings
+- Copy and paste through the clipboard
 - Fill selection
-- Extend file (insert bytes at the cursor)
-- Text export (async file dialog + write)
-- Byte statistics analysis (async)
-- Navigation centering via `pending_center_on`
+- Extend file: insert bytes at the cursor
+- Text export through an async file dialog and write
+- Byte statistics analysis through async work
+- Navigation centering through `pending_center_on`
 
-### `inspector.rs` — Decoder registry
+### `inspector.rs`: Decoder registry
+
 ```rust
 pub struct InspectorEntry {
     pub name: String,
@@ -296,11 +282,13 @@ pub struct InspectorEntry {
 
 pub static ENTRIES: Lazy<Vec<InspectorEntry>>;
 ```
-15 built-in entries: u8, i8, u16, i16, u32, i32, u64, i64, f32, f64, ascii, utf8, rgb565, cstr, hex.
-Numeric entries are editable (have `encode`). The host can inject additional entries via `config.extra_entries`.
 
-### `coloring.rs` — Cell colouring system
-Layered provider chain pattern. Each provider implements `CellColorProvider`:
+The 15 built-in entries are u8, i8, u16, i16, u32, i32, u64 and i64. The tool also ships f32, f64, ascii, utf8, rgb565, cstr and hex. Numeric entries have `encode`, so you can edit them. The host can add entries through `config.extra_entries`.
+
+### `coloring.rs`: Cell colouring system
+
+The providers form a layered chain. Each one implements `CellColorProvider`:
+
 ```rust
 pub trait CellColorProvider {
     fn color(&self, addr: u64, byte: u8) -> (Option<Color>, Option<Color>);
@@ -308,29 +296,30 @@ pub trait CellColorProvider {
 
 pub fn fold_color(providers, addr, byte) -> (Option<Color>, Option<Color>);
 ```
+
 Later providers in the chain override earlier ones when they return `Some`.
 
-Built-in providers (in application order):
-1. **`SearchMatchProvider`** — highlights search matches and current match
-2. **`DiffVsVanillaProvider`** — highlights bytes differing from vanilla snapshot
-3. **`DirtyProvider`** — highlights bytes modified this session
-4. **`PatternBgProvider`** — applies pattern background colours
-5. **`AnnotationProvider`** — applies annotation foreground for active patterns
-6. **`SchemeProvider`** — applies the active `ColorScheme` (Monochrome/Nybble/Categories/Rainbow/Heatmap)
-7. **`DimNullsProvider`** — optionally dims `0x00` bytes
-8. **`SelectionProvider`** — highlights selection range and cursor cell
+Built-in providers in application order:
 
-### `theme/` — Theme system
-- **`HexEditorTheme`**: Flat struct with ~90+ colour fields covering matrix, header, selection, edit/dirty/diff, search matches, annotations, scrollbar, modals, minimap, pattern panel, statistics panel, byte-colouring schemes, pattern palettes, and Iced application palette.
-- **`DARK_THEME`**: Near-black background with warm amber/brown tones (original).
-- **`LIGHT_THEME`**: Warm parchment background for accessibility (WCAG AA).
-- Both are `const` values compiled at compile time using `const fn hex()`.
-- `ThemeVariant` enum: `Dark` / `Light` (with `Default` on `Dark`).
-- Theme includes HSL saturation/lightness params for gradient schemes (0.70 for dark, 0.35 for light).
+1. **`SearchMatchProvider`**: highlights search matches and the current match
+2. **`DiffVsVanillaProvider`**: highlights bytes that differ from the vanilla snapshot
+3. **`DirtyProvider`**: highlights bytes changed in this session
+4. **`PatternBgProvider`**: applies pattern background colours
+5. **`AnnotationProvider`**: applies annotation foreground for active patterns
+6. **`SchemeProvider`**: applies the active `ColorScheme` (Monochrome, Nybble, Categories, Rainbow, Heatmap)
+7. **`DimNullsProvider`**: dims `0x00` bytes when enabled
+8. **`SelectionProvider`**: highlights the selection range and cursor cell
 
----
+### `theme/`: Theme system
 
-## HexEditorState (Aggregate State)
+- **`HexEditorTheme`**: A flat struct with 90+ colour fields. It covers the matrix, header, selection, edit, dirty and diff states. It also covers search matches, annotations, scrollbar, modals and minimap. Other groups are the pattern panel, statistics panel, byte-colouring schemes, pattern palettes and the Iced application palette.
+- **`DARK_THEME`**: Near-black background with warm amber and brown tones.
+- **`LIGHT_THEME`**: Warm parchment background for accessibility, WCAG AA.
+- Both are `const` values. They compile at build time through `const fn hex()`.
+- The `ThemeVariant` enum has `Dark` and `Light`, with `Default` on `Dark`.
+- The theme holds HSL saturation and lightness parameters for gradient schemes: 0.70 for dark and 0.35 for light.
+
+## HexEditorState (aggregate state)
 
 ```rust
 pub struct HexEditorState {
@@ -386,20 +375,19 @@ pub struct HexEditorState {
 ```
 
 Key methods:
-- `load_from_path(path)` — constructs state from file (reads bytes, computes initial entropies, sets default pane layout)
-- `max_addr()` — `provider.len().saturating_sub(1)`
-- `recompute_vanilla_diff()` — linear scan, call after every write
-- `add_pattern(start, end) -> usize` — creates pattern, rebuilds lookups
-- `remove_pattern(id)` — removes pattern + orphan groups
-- `clear_patterns()` — wipes all patterns and groups
-- `rebuild_pattern_lookup()` — rebuilds `pattern_by_addr` BTreeMap
-- `recompute_row_annotations()` — rebuilds annotation map + refreshes active patterns
-- `refresh_active_patterns()` — recomputes which patterns contain the cursor
-- `invalidate_stats()` — clears cached byte statistics when content changes
 
----
+- `load_from_path(path)`: builds state from a file. It reads bytes, computes initial entropies and sets the default pane layout.
+- `max_addr()`: `provider.len().saturating_sub(1)`
+- `recompute_vanilla_diff()`: linear scan. Call it after every write.
+- `add_pattern(start, end) -> usize`: creates a pattern and rebuilds lookups
+- `remove_pattern(id)`: removes a pattern and orphan groups
+- `clear_patterns()`: removes all patterns and groups
+- `rebuild_pattern_lookup()`: rebuilds the `pattern_by_addr` BTreeMap
+- `recompute_row_annotations()`: rebuilds the annotation map and refreshes active patterns
+- `refresh_active_patterns()`: recomputes which patterns contain the cursor
+- `invalidate_stats()`: clears cached byte statistics when content changes
 
-## HexEditorConfig (Host Injection)
+## HexEditorConfig (host injection)
 
 ```rust
 // domain/save.rs — plain data, no iced message types cross this boundary.
@@ -432,21 +420,16 @@ pub struct HexEditorConfig {
 }
 ```
 
-Assemble the config with `HexEditorConfig::new()` and its chainable setters
-(`pane_gap`, `on_save`, `save_label`, `can_save`, `save_hint`, `extra_entries`,
-`custom_encodings`, `on_write_mode_changed`). Both embedders use this one
-builder; the standalone binary additionally uses the shared
-`standalone_config(...)` helper so its defaults cannot drift from the GUI's.
+Build the config with `HexEditorConfig::new()` and its chainable setters: `pane_gap`, `on_save`, `save_label`, `can_save`, `save_hint`, `extra_entries`, `custom_encodings` and `on_write_mode_changed`. Both embedders use this builder. The standalone binary also uses the shared `standalone_config(...)` helper to keep its defaults aligned with the GUI.
 
-Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can_save && on_save.is_some() && dirty_count > 0`).
+Helper methods: `save_label()`, `has_save()` and `can_save_now(state)`. The last one checks `can_save && on_save.is_some() && dirty_count > 0`.
 
----
+## HexEditorMessage (enum reference)
 
-## HexEditorMessage (Enum Reference)
-
-~48 variant categories, ~200+ total variants. All variants are `#[derive(Debug, Clone)]` and produce `iced::Task<HexEditorMessage>`.
+There are ~48 variant categories and ~200+ total variants. Every variant uses `#[derive(Debug, Clone)]` and produces `iced::Task<HexEditorMessage>`.
 
 ### Pane grid
+
 | Variant | Purpose |
 |---------|---------|
 | `PaneClicked(pane)` | Set keyboard focus to pane |
@@ -455,17 +438,19 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `SplitPane(Axis)` | Split focused pane (max 8 panes) |
 | `ClosePane` | Close focused pane |
 
-### Cursor & selection
+### Cursor and selection
+
 | Variant | Purpose |
 |---------|---------|
 | `SetBytesPerRow(u8)` | Set row width (any value 1–64) |
 | `BytesPerRowInputChanged(String)` | Draft text of the custom bytes-per-row input |
 | `BytesPerRowInputInvalid` | Custom BPR submitted with an out-of-range/non-numeric value |
-| `SelectAt(u64)` | Single click — set anchor=cursor=addr |
-| `ExtendTo(u64)` | Shift-click/drag — move cursor only |
+| `SelectAt(u64)` | Single click: set anchor=cursor=addr |
+| `ExtendTo(u64)` | Shift-click/drag: move cursor only |
 | `Nav { dir, extend }` | Keyboard navigation |
 
 ### Inline editing
+
 | Variant | Purpose |
 |---------|---------|
 | `BeginEdit(u64)` | Enter edit mode at addr |
@@ -477,6 +462,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `WriteBytes { addr, bytes }` | Programmatic write (inspector/injection) |
 
 ### Inspector
+
 | Variant | Purpose |
 |---------|---------|
 | `CopyInspectorValue(usize)` | Copy decoded value to clipboard |
@@ -486,6 +472,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CommitInspectorEdit` | Encode and write |
 
 ### Save
+
 | Variant | Purpose |
 |---------|---------|
 | `SaveIntoRecording` | Trigger save (delegates to `SavePort`) |
@@ -493,6 +480,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `ClearStatus` | Clear status message |
 
 ### Pattern highlighting
+
 | Variant | Purpose |
 |---------|---------|
 | `CreatePattern` | From selection range |
@@ -502,6 +490,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `RightClickAt(u64)` | For context menu targeting |
 
 ### Repeated pattern dialog
+
 | Variant | Purpose |
 |---------|---------|
 | `BeginRepeatedPattern` | Open dialog from selection |
@@ -511,6 +500,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CloseRepeatedPattern` | Dismiss |
 
 ### Goto
+
 | Variant | Purpose |
 |---------|---------|
 | `OpenGotoDialog` | Opens modal, focuses input |
@@ -519,6 +509,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CloseGotoDialog` | Dismiss |
 
 ### Search
+
 | Variant | Purpose |
 |---------|---------|
 | `OpenSearch` | Show overlay |
@@ -527,7 +518,8 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `SearchNext` / `SearchPrev` | Navigate matches |
 | `CloseSearch` | Hide overlay |
 
-### Pattern list & groups
+### Pattern list and groups
+
 | Variant | Purpose |
 |---------|---------|
 | `TogglePatternList` / `ToggleInspector` | Show/hide panels |
@@ -542,12 +534,14 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `PatternsExported` / `PatternsImported` | Async results |
 
 ### Address format
+
 | Variant | Purpose |
 |---------|---------|
 | `ToggleAddrFormat` | Hex ↔ decimal |
 | `SetAddrFormat(bool)` | Explicit |
 
 ### Settings modal
+
 | Variant | Purpose |
 |---------|---------|
 | `OpenSettings` / `CloseSettings` | Modal visibility |
@@ -558,7 +552,8 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `SetShowMinimapEnabled(bool)` | Minimap toggle |
 | `ResetSettings` | All defaults |
 
-### Write mode & encoding
+### Write mode and encoding
+
 | Variant | Purpose |
 |---------|---------|
 | `SetWriteMode(WriteMode)` | Switch mode |
@@ -567,7 +562,8 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `RemoveCustomEncoding(usize)` | Remove entry |
 | `SetCustomEncodings(Vec<EncodingEntry>)` | Bulk replace (deserialize) |
 
-### Copy / Paste
+### Copy and paste
+
 | Variant | Purpose |
 |---------|---------|
 | `CopySelection` | Copy as hex text |
@@ -575,6 +571,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `PasteContent(String)` | Parse and write |
 
 ### Fill selection
+
 | Variant | Purpose |
 |---------|---------|
 | `BeginFill` | Open dialog |
@@ -583,6 +580,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CloseFill` | Dismiss |
 
 ### Extend file
+
 | Variant | Purpose |
 |---------|---------|
 | `BeginExtend` | Open dialog (context menu at cursor) |
@@ -592,6 +590,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CloseExtend` | Dismiss |
 
 ### Byte statistics
+
 | Variant | Purpose |
 |---------|---------|
 | `ToggleStats` | Show/hide panel |
@@ -601,6 +600,7 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `SelectionAnalyzed(ByteStatistics)` | Async result |
 
 ### Text export
+
 | Variant | Purpose |
 |---------|---------|
 | `OpenExportConfig` / `CloseExportConfig` | Modal visibility |
@@ -610,68 +610,69 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 | `CommitExport` | File dialog + write |
 | `TextExportCompleted(Result<...>)` | Async result |
 
----
+## HexMatrix custom widget
 
-## HexMatrix Custom Widget
-
-Located in `src/ui/view/matrix/` (5 files):
+The widget lives in `src/ui/view/matrix/` (5 files).
 
 ### `mod.rs`
-Public API: `HexMatrix` widget struct, `hex_matrix()` constructor function. Wraps `layout`, `state`, `draw`, and `event` modules.
+
+Public API: the `HexMatrix` widget struct and the `hex_matrix()` constructor. It wraps the `layout`, `state`, `draw` and `event` modules.
 
 ### `layout.rs`
-Computes the visual layout: column widths (address gutter, hex bytes grouped 8+8, ASCII column, annotation column), row height, total content height for scrolling. Returns sizing metrics consumed by the draw and event handlers.
+
+It computes column widths for the address gutter, hex bytes grouped 8+8, ASCII column and annotation column. It also computes row height and total content height for scrolling. It returns sizing metrics for the draw and event handlers.
 
 ### `state.rs`
-Internal mutable state cached between frames: scroll offset, selection/cursor visual positions, hot/cold state for click handling.
+
+Internal mutable state cached between frames: scroll offset, selection and cursor visual positions, and hot or cold state for click handling.
 
 ### `draw.rs` (~984 lines)
-The rendering core. Paints via Iced's `Renderer` (wgpu backend):
+
+The rendering core paints through Iced's `Renderer` on the wgpu backend:
+
 - Address gutter with hex or decimal labels
-- Hex byte columns with 8+8 grouping and group separator lines
-- ASCII column with printable characters (0x20–0x7E), dots for non-printable
+- Hex byte columns grouped 8+8 with group separator lines
+- ASCII column with printable characters (0x20 to 0x7E) and dots for other values
 - Annotation column with pattern text
-- Colour resolution via the provider chain (CellColorProvider)
-- Selection highlight, cursor cell
+- Colour resolution through the `CellColorProvider` chain
+- Selection highlight and cursor cell
 - Edit-in-progress highlight
-- Scrollbar with search match dots and cursor dot
+- Scrollbar with search match dots and a cursor dot
 
 ### `event.rs` (~605 lines)
+
 Mouse and keyboard event handling:
-- Click/drag selection
-- Double-click → `BeginEdit`
-- Keyboard navigation (arrows, Home/End, PageUp/Down, Ctrl+Home/End)
-- Hex digit typing → auto-starts edit
-- Shift+arrows → extend selection
+
+- Click and drag selection
+- Double-click to begin an edit
+- Keyboard navigation with arrows, `Home`, `End`, `PageUp`, `PageDown`, `Ctrl+Home` and `Ctrl+End`
+- Hex digit typing to start an edit
+- Shift with arrows to extend the selection
 - Scroll wheel
-- All event handling defers to `HexEditorMessage` for state mutation
+- Every event defers state mutation to `HexEditorMessage`
 
-**Virtualization:** Only rows in the viewport are drawn. The widget computes which rows are visible based on scroll offset and viewport height, then iterates byte addresses in that range.
+**Virtualization:** The widget draws only rows in the viewport. It computes visible rows from the scroll offset and viewport height. It then iterates byte addresses in that range.
 
----
-
-## Coloring System
+## The coloring system
 
 The hex matrix resolves cell colours through a layered provider chain. The application order in `draw.rs` is:
 
-1. **Search match** — `SearchMatchProvider` highlights all bytes in search results (green tones)
-2. **Diff vs vanilla** — `DiffVsVanillaProvider` shows cumulative changes from on-disk snapshot
-3. **Dirty bytes** — `DirtyProvider` shows bytes modified this session
-4. **Pattern background** — `PatternBgProvider` applies pattern background colours
-5. **Pattern annotation** — `AnnotationProvider` adjusts foreground for active pattern annotations
-6. **Colour scheme** — `SchemeProvider` applies the base font colour (Monochrome/Nybble/Categories/Rainbow/Heatmap)
-7. **Dim nulls** — `DimNullsProvider` optionally dims `0x00` bytes
-8. **Selection** — `SelectionProvider` paints selection range and cursor cell
+1. **Search match:** `SearchMatchProvider` highlights all bytes in search results with green tones
+2. **Diff vs vanilla:** `DiffVsVanillaProvider` shows cumulative changes from the on-disk snapshot
+3. **Dirty bytes:** `DirtyProvider` shows bytes changed in this session
+4. **Pattern background:** `PatternBgProvider` applies pattern background colours
+5. **Pattern annotation:** `AnnotationProvider` adjusts foreground for active pattern annotations
+6. **Colour scheme:** `SchemeProvider` applies the base font colour (Monochrome, Nybble, Categories, Rainbow, Heatmap)
+7. **Dim nulls:** `DimNullsProvider` dims `0x00` bytes when enabled
+8. **Selection:** `SelectionProvider` paints the selection range and cursor cell
 
-Each provider returns `(Option<fg>, Option<bg>)`. `fold_color()` merges them: later providers override earlier ones. This means search highlights take priority over dirty/diff, which take priority over patterns, which take priority over the base scheme.
+Each provider returns `(Option<fg>, Option<bg>)`. `fold_color()` merges the results. Later providers override earlier ones. Search highlights take priority over dirty and diff colours. Those take priority over patterns. Patterns take priority over the base scheme.
 
-**`default_byte_colors(scheme, byte, dim_nulls)`** is the convenience function used by both the matrix widget and the settings-modal palette preview to ensure consistency.
+`default_byte_colors(scheme, byte, dim_nulls)` is the shared convenience function. The matrix widget and the settings modal palette preview both call it.
 
----
+## Inspector decoder system
 
-## Inspector Decoder System
-
-15 built-in `InspectorEntry` values in `ENTRIES` lazy static:
+15 built-in `InspectorEntry` values live in the `ENTRIES` lazy static:
 
 | Name | Size | Editable | Category |
 |------|------|----------|----------|
@@ -691,82 +692,84 @@ Each provider returns `(Option<fg>, Option<bg>)`. `fold_color()` merges them: la
 | cstr | 1 | No | Text |
 | hex | 1 | No | Binary |
 
-Each entry has a `decode` function that converts bytes to a display string, and optionally an `encode` function that parses user input and produces bytes.
+Each entry has a `decode` function that converts bytes to a display string. Entries with an `encode` function also parse user input into bytes.
 
-The host can add entries via `config.extra_entries`. The update handler selects between built-in and extra entries based on index: indices below `ENTRIES.len()` are built-in; higher indices index into `config.extra_entries`.
+The host can add entries through `config.extra_entries`. The update handler picks between built-in and extra entries by index. Indices below `ENTRIES.len()` refer to built-in entries. Higher indices refer to `config.extra_entries`.
 
----
-
-## Pattern System
+## Pattern system
 
 ### Data model
-- **`Pattern`**: Serializable struct with id, byte range, colour index (0–15, cyclic palette), optional group id, optional annotation string.
-- **`RepeatedPatternGroup`**: Named group with shared colour. All child patterns inherit the group's colour.
+
+- **`Pattern`**: A serializable struct with id, byte range, colour index (0 to 15, cyclic palette), optional group id and optional annotation string.
+- **`RepeatedPatternGroup`**: A named group with a shared colour. Child patterns inherit the group colour.
 
 ### Lookup structures
-- **`pattern_by_addr: BTreeMap<u64, (usize, u8)>`**: Maps every byte address to the pattern id and colour index that covers it. Rebuilt on every pattern mutation.
-- **`row_annotations: BTreeMap<u64, Vec<(usize, String)>>`**: Maps row start addresses to annotation segments for the annotation column. Rebuilt on every pattern mutation.
-- **`active_patterns: BTreeSet<usize>`**: Pattern ids whose span includes the cursor. Refreshed on cursor movement.
+
+- **`pattern_by_addr: BTreeMap<u64, (usize, u8)>`**: Maps every byte address to its pattern id and colour index. A pattern mutation triggers a rebuild.
+- **`row_annotations: BTreeMap<u64, Vec<(usize, String)>>`**: Maps row start addresses to annotation segments for the annotation column. A pattern mutation triggers a rebuild.
+- **`active_patterns: BTreeSet<usize>`**: Pattern ids whose span includes the cursor. Cursor movement refreshes this set.
 
 ### Creation flow
-1. User selects a byte range
-2. Right-click → "Create Pattern" or `Ctrl+E`
-3. `add_pattern(start, end)` creates `Pattern { id, start, end, color_idx }`, rebuilds lookups
+
+1. The user selects a byte range.
+2. The user right-clicks and chooses `Create Pattern`, or presses `Ctrl+E`.
+3. `add_pattern(start, end)` creates `Pattern { id, start, end, color_idx }` and rebuilds lookups.
 
 ### Repeated pattern flow
-1. User selects a block
-2. Right-click → "Add Repeated Pattern"
-3. Modal: enter repeat count and group label
-4. `CommitRepeatedPattern` creates alternating-colour `Pattern` entries, auto-fills annotations as `"GroupName[0]"`, `"GroupName[1]"`, etc.
-5. Group rename updates child annotations matching `"{old_label}[{digits}]"` pattern
 
-### Import/Export
-Patterns export as JSON via `PatternExport` struct (versioned, currently v1). Async file dialog flow.
+1. The user selects a block.
+2. The user right-clicks and chooses `Add Repeated Pattern`.
+3. The modal asks for a repeat count and a group label.
+4. `CommitRepeatedPattern` creates alternating-colour `Pattern` entries. It fills annotations such as `"GroupName[0]"` and `"GroupName[1]"`.
+5. A group rename updates child annotations that match `"{old_label}[{digits}]"`.
 
----
+### Import and export
 
-## Writing / Inline Editing
+Patterns export as JSON through the `PatternExport` struct, currently v1. The flow uses an async file dialog.
+
+## Inline editing and writing
 
 ### Hex mode (default)
-1. User presses a hex digit → auto-creates `EditState{ addr: cursor, draft: "" }` and appends the digit
-2. Second digit appended → auto-commits: `provider.write(addr, byte)`, advances cursor +1, creates new `EditState` at next address
-3. `Tab`/`Enter` → `EditCommit { advance: true }`: commit current draft (or nothing if empty), advance cursor
-4. `Esc` → `EditCancel`: discard draft
+
+1. A hex digit starts `EditState{ addr: cursor, draft: "" }` and appends the digit.
+2. A second digit commits the byte through `provider.write(addr, byte)`. The cursor advances by one. A new `EditState` starts at the next address.
+3. `Tab` or `Enter` sends `EditCommit { advance: true }`. It commits a nonempty draft and advances the cursor.
+4. `Esc` sends `EditCancel` and discards the draft.
 
 ### Text mode (ASCII, UTF-8, Windows-1250, EUC-KR, Custom)
-1. User types any printable character → immediately encoded via `encode_text()`, written to buffer, cursor advanced by encoded byte count
-2. No draft — each character is written atomically
-3. `Backspace` moves cursor left by one byte (no delete)
-4. `Delete` key writes 0x00 at cursor and advances
+
+1. A printable character goes through `encode_text()`. The tool writes the bytes and advances the cursor by the encoded byte count.
+2. There is no draft. The tool writes each character atomically.
+3. `Backspace` moves the cursor left by one byte. It does not delete.
+4. `Delete` writes 0x00 at the cursor and advances.
 
 ### Inspector edit
-1. User clicks "Edit" on an inspector entry → `BeginInspectorEdit(idx)` opens modal with pre-filled current value
-2. User edits draft → `SetInspectorDraft(String)`
-3. User confirms → `CommitInspectorEdit`: calls entry's `encode(&draft)`, writes bytes, closes modal
 
----
+1. The user clicks `Edit` on an inspector entry. `BeginInspectorEdit(idx)` opens a modal with the current value.
+2. `SetInspectorDraft(String)` updates the draft.
+3. `CommitInspectorEdit` calls the entry's `encode(&draft)`, writes bytes and closes the modal.
 
-## Search & Navigation
+## Search and navigation
 
 ### Search
+
 - Two modes: Hex (`"DE AD BE EF"` or `"DEADBEEF"`) and ASCII (`"hello"`)
-- Results are `Vec<u64>` of match start addresses, pre-computed on every query change
-- `match_set: BTreeSet<u64>` for O(log n) lookup during rendering
-- Current match highlighted differently from other matches
-- Next/prev wrap around
-- Search overlay appears below toolbar, rendered in `search_overlay.rs`
+- Results are `Vec<u64>` of match start addresses. The tool precomputes them on every query change.
+- `match_set: BTreeSet<u64>` supports O(log n) lookup during rendering
+- The current match uses a different highlight
+- Next and previous wrap around
+- The search overlay sits below the toolbar and lives in `search_overlay.rs`
 
 ### Goto
-- Modal dialog activated by `Ctrl+G`
-- Input parsing: `0xFF` (hex prefix), `FF` (hex-detected if contains a-f), `255` (decimal), `+10` (relative forward), `-5` (relative backward)
-- On commit: selection jumps to target address, viewport centers on it via `pending_center_on`
-- Backed by `GotoState.parse(cursor, max_addr)`, fully unit-tested
 
----
+- The modal dialog opens with `Ctrl+G`.
+- Input parsing: `0xFF` has a hex prefix. The tool treats `FF` as hex when it contains a-f. `255` is decimal. `+10` moves forward. `-5` moves backward.
+- On commit, the selection jumps to the target address. The viewport centers on it through `pending_center_on`.
+- The flow uses `GotoState.parse(cursor, max_addr)`, which has full unit tests.
 
-## Write Modes & Text Encoding
+## Write modes and text encoding
 
-The `WriteMode` enum controls how keyboard input is interpreted:
+The `WriteMode` enum controls how keyboard input becomes bytes:
 
 | Mode | Input → Bytes | Use case |
 |------|--------------|----------|
@@ -777,71 +780,66 @@ The `WriteMode` enum controls how keyboard input is interpreted:
 | `EucKr` | Each char → 1–2 bytes via encoding_rs | Korean text |
 | `Custom(idx)` | Via `encoding_rs` for user-added encoding | Any encoding_rs-supported encoding |
 
-Users can add custom encodings from a list of 30+ `COMMON_ENCODINGS` via the encoding settings modal.
+Users can add custom encodings from a list of 30+ `COMMON_ENCODINGS` through the encoding settings modal.
 
-**Serde:** `WriteMode` serializes as string label. `Custom` stores its label, not index — index is resolved at deserialization through the custom encoding list.
+`WriteMode` serializes as a string label through Serde. `Custom` stores its label rather than its index. Deserialization resolves the index through the custom encoding list.
 
----
+## Byte statistics and entropy panel
 
-## Byte Statistics & Entropy Panel
+A toggleable panel shows:
 
-Toggleable panel showing:
-- **Byte distribution histogram** (bar chart of byte value frequencies)
-- **Shannon entropy** (file-level and per-row)
-- **Structure heuristics** (uniform runs, high/low entropy regions, mixed content)
-- **Entropy colour band** in the address gutter (visual entropy fingerprint)
+- **Byte distribution histogram:** a bar chart of byte value frequencies
+- **Shannon entropy:** file level and per row
+- **Structure heuristics:** uniform runs, high and low entropy regions, mixed content
+- **Entropy colour band** in the address gutter, a visual entropy fingerprint
 
-All analysis runs async via `Task::perform`. Selection-only analysis available. Statistics are cached and invalidated on content change or row-width change.
+All analysis runs asynchronously through `Task::perform`. The tool also analyzes the selection only. It caches statistics and invalidates them when content or row width changes.
 
----
+## Pane grid layout
 
-## Pane Grid Layout
+The editor uses the Halloy pattern for panes: `pane_grid::State<HexPanel>` with movable, splittable, resizable panels.
 
-Hex editor uses the **Halloy pattern** for pane management: `pane_grid::State<HexPanel>` with movable, splittable, resizable panels.
-
-**Default layout:** Vertical split — 75% hex matrix (left), 25% inspector (right).
+**Default layout:** a vertical split with 75% hex matrix on the left and 25% inspector on the right.
 
 **Panel types** (`HexPanelContent`):
-- `Matrix` — The main hex byte display (always present)
-- `Inspector` — Decoded value inspector (shown by default)
-- `PatternList` — Pattern management panel (toggled via toolbar)
-- `Statistics` — Byte statistics & entropy panel (toggled via toolbar)
+
+- `Matrix`: the main hex byte display, always present
+- `Inspector`: decoded value inspector, shown by default
+- `PatternList`: pattern management panel, opened from the toolbar
+- `Statistics`: byte statistics and entropy panel, opened from the toolbar
 
 **Operations:**
-- Panels can be split (`SplitPane`) up to 8 total
-- Panels can be reordered via drag (`PaneDragged`)
-- Panels can be closed (`ClosePane`, minimum 1 panel)
-- Focused panel receives keyboard input
-- Divider resize with configurable gap (`config.pane_gap`)
 
----
+- Split a panel with `SplitPane`, up to 8 total
+- Reorder panels by drag with `PaneDragged`
+- Close panels with `ClosePane`, with at least 1 left
+- The focused panel receives keyboard input
+- Resize dividers with the configurable `config.pane_gap`
 
 ## Minimap
 
-Overview strip at the bottom of the matrix panel shows:
-- **File structure** — each row of the minimap represents many file rows (pixel-per-row mapping)
-- **Cursor marker** — shows current position in the file
-- **Dirty/diff pixels** — shows which regions have been modified
-- Cached as `RefCell<Option<MinimapCache>>` to avoid recomputing every frame
+An overview strip at the bottom of the matrix panel shows:
 
----
+- **File structure:** each minimap row represents many file rows through a pixel-per-row mapping
+- **Cursor marker:** the current position in the file
+- **Dirty and diff pixels:** the regions that changed
 
-## Theme System
+The tool caches the strip as `RefCell<Option<MinimapCache>>` to avoid recomputing every frame.
 
-All colours consolidated into `HexEditorTheme` — a flat struct with ~90+ fields. Two built-in compile-time constants:
+## Theme system
 
-- **`DARK_THEME`**: Leather/amber (original). Near-black background `#14110f`, warm text `#d4cabd`, amber accents.
-- **`LIGHT_THEME`**: Warm parchment. Background `#F5EDE0`, dark text `#3A3228`, blue selection.
+All colours live in `HexEditorTheme`, a flat struct with 90+ fields. Two constants compile at build time:
 
-Both themes meet WCAG AA contrast ratio (4.5:1) for normal-size text across all byte colouring schemes (with the intentional exception of `dim_nulls` for `0x00`).
+- **`DARK_THEME`:** leather and amber, the original theme. Near-black background `#14110f`, warm text `#d4cabd` and amber accents.
+- **`LIGHT_THEME`:** warm parchment. Background `#F5EDE0`, dark text `#3A3228` and blue selection.
 
-The theme is stored as `&'static HexEditorTheme` on state (a reference to the static constant), so switching themes is just changing the pointer. The `ThemeVariant` enum tracks which is active for the settings UI.
+Both themes meet WCAG AA contrast ratio (4.5:1) for normal-size text across all byte colouring schemes. `dim_nulls` for `0x00` is the exception.
 
----
+State holds the theme as `&'static HexEditorTheme`, a reference to the static constant. A theme change only updates the pointer. The `ThemeVariant` enum tracks the active theme for the settings UI.
 
-## Test Structure
+## Test structure
 
-Located in `src/tests/`, using `iced_test::Simulator` for end-to-end view→update→view pipeline tests:
+Files in `src/tests/` use `iced_test::Simulator` for end-to-end view-update-view pipeline tests:
 
 | File | Tests |
 |------|-------|
@@ -859,8 +857,6 @@ Located in `src/tests/`, using `iced_test::Simulator` for end-to-end view→upda
 | `settings.rs` | Settings modal (theme, scheme, dim nulls) |
 | `toolbar.rs` | Toolbar buttons visibility |
 | `pane_grid.rs` | Pane split, close, focus |
-
----
 
 ## Usage (library)
 
@@ -889,12 +885,7 @@ fn view(&self) -> iced::Element<'_, HexEditorMessage> {
 }
 ```
 
-The host app provides a `SavePort` callback in `HexEditorConfig` if persistence
-should be wired to mod recording or direct file saves. It receives a
-domain-level `SaveRequest` (path + current bytes) and returns a task producing
-a `SaveOutcome`; it never constructs or matches on `HexEditorMessage`.
-
----
+The host provides a `SavePort` callback in `HexEditorConfig` when persistence should connect to mod recording or direct file saves. The callback receives a domain-level `SaveRequest` with the path and current bytes. It returns a task producing a `SaveOutcome`. It never constructs or matches on `HexEditorMessage`.
 
 ## Usage (standalone binaries)
 
@@ -906,8 +897,6 @@ cargo run -p hexedit
 cargo run -p hexedit -- path/to/file.bin
 ```
 
----
-
 ## Build
 
 ```bash
@@ -916,13 +905,9 @@ cargo test -p hexedit                            # Unit + integration tests
 cargo test -p hexedit --test '' -- --ignored     # All tests (including slow ones)
 ```
 
----
-
 ## Feature flags
 
 `hexedit` declares no crate-specific Cargo features.
-
----
 
 ## Keybindings
 
@@ -943,79 +928,59 @@ cargo test -p hexedit --test '' -- --ignored     # All tests (including slow one
 | `Ctrl+E` | Create pattern from selection |
 | Hex digit (`0-9 A-F`) | Auto-start editing at cursor |
 
----
-
 ## Dependencies
 
-- **Iced 0.15** — UI framework (wgpu, advanced, canvas, lazy features)
-- **gui-widgets** — Reusable Iced widgets (context menu, modal, paragraph cache)
-- **lru 0.12** — LRU cache for inspector / internal use
-- **tokio 1** — Async file I/O
-- **rfd 0.17** — File dialogs (standalone binaries)
-- **encoding_rs** — Text encoding for write modes and custom encodings
-- **serde** + **serde_json** — Pattern import/export serialization
-- **once_cell** — Lazy static for inspector entries
+- **Iced 0.15:** UI framework with wgpu, advanced, canvas and lazy features
+- **gui-widgets:** reusable Iced widgets, context menu, modal and paragraph cache
+- **lru 0.12:** LRU cache for the inspector and internal use
+- **tokio 1:** async file I/O
+- **rfd 0.17:** file dialogs for the standalone binaries
+- **encoding_rs:** text encoding for write modes and custom encodings
+- **serde** and **serde_json:** pattern import and export serialization
+- **once_cell:** lazy static for inspector entries
 
----
+## LLM guidance: conventions and invariants
 
-## LLM Guidance — Conventions & Invariants
+Keep these invariants when you change the code:
 
-### When modifying this code, preserve these invariants:
+1. **Domain and UI separation:** Never import Iced widget types into `src/domain/`. Domain types hold pure data with no widget dependencies. Put UI code in `src/ui/`.
 
-1. **Domain/UI separation:** Never import Iced widget types into `src/domain/`. Domain types should be pure data structures with no widget dependencies. UI-specific code always goes in `src/ui/`.
+2. **State mutation discipline:** All state mutation happens in `update()`. `view()` stays pure. It never mutates state, apart from reading `Cell<Option<u64>>` through `Cell::take()` for one-frame events.
 
-2. **State mutation discipline:** All state mutation happens in the `update()` function. The `view()` function is pure — it never mutates state (except reading `Cell<Option<u64>>` via `Cell::take()` for one-frame events).
+3. **Provider chain order:** The `fold_color()` chain in the matrix renderer has a fixed order: search, diff, dirty, pattern, scheme, dim and selection. A new provider must go in the right position. The order sets priority.
 
-3. **Provider chain order:** The `fold_color()` provider chain in the matrix rendering has a specific layered order (search → diff → dirty → pattern → scheme → dim → selection). Adding a new provider means inserting it at the correct position. The order determines priority.
+4. **Pattern lookup consistency:** After any pattern mutation (create, remove, colour change or annotation change), call `rebuild_pattern_lookup()` and `recompute_row_annotations()`. These keep address lookups and annotation rendering in sync.
 
-4. **Pattern lookup consistency:** After any pattern mutation (create, remove, update colour, update annotation), you MUST call `rebuild_pattern_lookup()` + `recompute_row_annotations()` to keep address-based lookups and annotation rendering in sync.
+5. **Vanilla diff freshness:** Call `recompute_vanilla_diff()` after every `provider.write()` call. The linear scan is cheap. If you skip it, the diff highlighting becomes stale.
 
-5. **Vanilla diff freshness:** Call `recompute_vanilla_diff()` after every `provider.write()` call. It's a linear scan so it's cheap, but forgetting it will cause stale diff highlighting.
+6. **Statistics invalidation:** Call `invalidate_stats()` when file content or `bytes_per_row` changes. The tool caches statistics and computes them through async work.
 
-6. **Statistics invalidation:** Call `invalidate_stats()` whenever file content changes or `bytes_per_row` changes. Statistics are cached and computed async.
+7. **Error string handling:** Do not use `"."` or empty strings for errors. The host shows `status_msg` to the user. `error` records load-time failures. Both should be informative.
 
-7. **Error string handling:** Never use `"."` or empty strings for error cases. The host uses `status_msg` for user-facing messages and `error` for load-time failures. Both should be informative.
+8. **Message return discipline:** `update()` returns `Task<HexEditorMessage>`. Synchronous mutations return `Task::none()`. Async work (file I/O, clipboard, analysis) returns `Task::perform(...)`. Do not return `Task::none()` from an update that should produce follow-up messages.
 
-8. **Message return discipline:** The `update()` function returns `Task<HexEditorMessage>`. Synchronous mutations return `Task::none()`. Async operations (file I/O, clipboard, analysis) return a `Task::perform(...)`. Never return `Task::none()` from an update that should produce follow-up messages.
+9. **Pane count limit:** The maximum is 8 panes. Before a split, the `SplitPane` handler checks `state.panes.len() < 8`.
 
-9. **Pane count limit:** Maximum 8 panes (`state.panes.len() < 8` check before split). Enforced in the `SplitPane` handler.
+10. **Bytes-per-row validation:** Any value in `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW` (1 to 64) is valid. The `SetBytesPerRow` handler enforces the range. The settings modal custom input goes through `parse_bpr()` and shows a status message for invalid values. A BPR change also re-lays out pattern annotations through `recompute_row_annotations()`. The tool keys annotations by `row * bpr`.
 
-10. **Bytes-per-row validation:** Any value in `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW`
-    (1–64) is valid. The `SetBytesPerRow` handler enforces this range; the settings
-    modal's custom input goes through `parse_bpr()` and surfaces a status message
-    for invalid submissions. Note that a BPR change also re-lays-out pattern
-    annotations (`recompute_row_annotations()`) since they're keyed by `row * bpr`.
+11. **ParagraphCache:** The app shares `state.cache` across frames. The widget gets a cheap clone each frame. Use it for shaped text that survives between frames.
 
-11. **ParagraphCache:** The `state.cache` is shared across frames. It's cheaply cloned into the widget each frame. Always use it for shaped text that survives between frames.
+12. **Test pattern:** Integration tests use `iced_test::Simulator`. Construct state, call `view()`, assert the widget tree with `ui.find()`, send messages through `update()` and check the view again. See `tests/` for examples.
 
-12. **Test pattern:** Integration tests use `iced_test::Simulator`: construct state, call `view()`, assert widget tree with `ui.find()`, send messages via `update()`, re-check view. See `tests/` for examples.
+13. **New decoder:**
 
-13. **Adding a new decoder:**
-    - Add a `dec_*` function and optional `enc_*` function in `ui/inspector.rs`
+    - Add a `dec_*` function and an optional `enc_*` function in `ui/inspector.rs`
     - Add an `entry()` call in the `ENTRIES` lazy static
     - Add a `call_decode` test in the `#[cfg(test)]` block
-    - The host can also add entries via `config.extra_entries` (no code change needed)
+    - The host can also add entries through `config.extra_entries` without a code change
 
-14. **When adding a new message variant:**
+14. **New message variant:**
+
     - Add the variant to `HexEditorMessage` in `message.rs`
-    - Add a handler arm in the `match` in `update.rs`
-    - Wire the update handler to any async returns or state mutations
-    - If the message changes the view, write an iced_test for it
-
----
+    - Add a handler arm to the `match` in `update.rs`
+    - Connect async returns and state mutations to the handler
+    - Write an iced_test for the message if it changes the view
 
 ## Project context
 
-hexedit is part of the [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor),
-a 5-crate Rust workspace. It powers the hex editor tab inside `dispel-gui` and can also
-be used standalone for general-purpose binary editing.
-
-**DISPEL®** is a registered trademark. This project is **not affiliated with, endorsed by,
-or sponsored by** the trademark owner.
-
----
-
-## License
-
-Like the rest of the Dispel Extractor workspace, this crate is distributed under
-the terms of the project license.
+hexedit is part of the [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor), a 6-crate Rust workspace: root `dispel-extractor`, `dispel-encodings`, `dispel-gui`, `dispel-macros`, `gui-widgets` and `hexedit`. It powers the hex editor tab inside `dispel-gui`. You can also use it standalone for general binary editing.

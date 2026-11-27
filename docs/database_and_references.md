@@ -1,57 +1,63 @@
-# Database & Entities
+# Database and entities
 
-The extractor populates a SQLite database (`database.sqlite`) using `database.rs`.
+The tool populates a SQLite database (`database.sqlite`) through `database.rs`.
 
-## Schema Overview
-Tables are created on the fly using SQL files found in `src/queries/`.
+## Schema overview
 
-### Core Entities
+Tables come from SQL files in `src/queries/`. The tool creates the tables when it imports data.
+
+### Core entities
 
 #### Maps (`save_maps`)
-- **Table**: `create_table_maps.sql`
-- **Fields**: ID, Filename, Name, PGP Filename, DLG Filename, Is Light.
 
-#### Map Tiles (`save_map_tiles`)
-- Stored per coordinate (X, Y).
-- **Fields**: MapID, X, Y, GTL_ID (Ground), BTL_ID (Building), Collision (Bool), EventID.
+- Table: `create_table_maps.sql`
+- Fields: ID, Filename, Name, PGP Filename, DLG Filename, Is Light.
 
-#### Events & Dialogs
-- **Events**: ID, Previous ID, Type, Filename, Counter.
-- **Dialogs**: ID, Prev Event ID, Next Dialog, Type, Owner, DLG ID, Event ID.
+#### Map tiles (`save_map_tiles`)
+
+- The tool stores one row per coordinate (X, Y).
+- Fields: MapID, X, Y, GTL_ID (ground), BTL_ID (building), Collision (Bool), EventID.
+
+#### Events and dialogs
+
+- Events: ID, Previous ID, Type, Filename, Counter.
+- Dialogs: ID, Prev Event ID, Next Dialog, Type, Owner, DLG ID, Event ID.
 
 #### Items
-Separate tables for different item categories:
-- **Weapons**: Stats (Str, Agi, Wis, Atk, Def), Price, Requirements.
-- **HealItems**: HP/MP/Status recovery effects.
-- **MiscItems**: Basic description/price.
-- **EventItems**: Name/Description.
-- **DrawItems**: Map items (MapID, X, Y, ItemID).
-- **Store**: Shop definitions and product lists.
 
-#### Characters & Monsters
-- **Monsters**: Huge stat block (HP/MP min/max, Atk/Def/Hit/Dodge min/max, XP/Gold, Spells, AI type).
-  - **Monster Refs**: Placed monster instances on maps (Pos X, Y, Loot).
-  - **Monster Inis**: Visual/Sprite references.
-- **NPCs**:
-  - **NPC Refs**: Placed NPCs (Pos, Scripts, Dialog IDs).
-  - **NPC Inis**: Visual/Sprite references.
-- **Party**:
-  - **Party Refs**: Joinable components, Job names.
+The tool uses separate tables for item categories:
+
+- Weapons: Stats (Str, Agi, Wis, Atk, Def), Price, Requirements.
+- HealItems: HP, MP and status recovery effects.
+- MiscItems: Basic description and price.
+- EventItems: Name and description.
+- DrawItems: Map items with MapID, X, Y and ItemID.
+- Store: Shop definitions and product lists.
+
+#### Characters and monsters
+
+- Monsters: HP, MP, Atk, Def, Hit and Dodge minimum and maximum values, plus XP, Gold, Spells and AI type.
+- Monster refs: Placed monster instances on maps with Pos X, Y and Loot.
+- Monster inis: Visual and sprite references.
+- NPCs:
+  - NPC refs: Placed NPCs with Pos, Scripts and Dialog IDs.
+  - NPC inis: Visual and sprite references.
+- Party:
+  - Party refs: Joinable components and Job names.
 
 #### Other
-- **Extras**: Interactive objects? (Sprite file, Description).
-- **Waves**: SNF filenames (Sound/Music triggers?).
 
-## Data Injection Logic
-The `save_all` function in `main.rs` reads from hardcoded paths (e.g., `fixtures/Dispel/Ref/Map.ini`) using parsers in the `references` module, then calls the corresponding `save_*` function in `database.rs`.
+- Extras: Sprite file and description.
+- Waves: SNF filenames.
 
-Each `save_*` function:
-1.  Executes a `create_table_*.sql`.
-2.  Iterates over the parsed data vector.
-3.  Executes an `insert_*.sql` for each record.
+## Data import
 
-**Exception:** the inserts for `chest_spawns`, `monster_spawns`, `map_info_multi` and
-`tile_grids` live inline in `src/references/chest_spawn.rs`, `monster_spawn.rs`,
-`map_info_multi.rs` and `tile_grid.rs` respectively (they use `conn.execute`
-directly rather than a prepared `include_str!` statement). There are deliberately
-no `insert_*.sql` files for those four tables — do not re-add them.
+The CLI imports game data with `cargo run -- database import <dir> <db.sqlite>`. The command reads files from the given directory with the parsers in `src/references/`. It calls the matching `save_*` function in `database.rs`.
+
+Each `save_*` function does three things:
+
+1. It runs a `create_table_*.sql` file.
+2. It iterates over the parsed records.
+3. It runs an `insert_*.sql` file for each record.
+
+The inserts for `chest_spawns`, `monster_spawns`, `map_info_multi` and `tile_grids` live inline in `src/references/chest_spawn.rs`, `src/references/monster_spawn.rs`, `src/references/map_info_multi.rs` and `src/references/tile_grid.rs`. They call `conn.execute` directly instead of a prepared `include_str!` statement. No `insert_*.sql` files exist for those four tables. Do not re-add them.

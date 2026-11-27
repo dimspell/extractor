@@ -1,21 +1,19 @@
 # EventItem.db
 
-> DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## File Information
 
 ### Overview
 
-Binary database file that defines quest and event items with names and descriptions for the game's quest progression and
-event triggering system.
+The tool reads `EventItem.db` as name and description records for quest and event items.
 
 ### File Structure
 
-**Location**: `CharacterInGame/EventItem.db`
-**Encoding**: Binary (Little-Endian)
-**Text Encoding**: WINDOWS-1250 (Central European)
-**Header**: 4-byte record count **Record Size**: 240 bytes **Total Records**: Variable (determined by header)
+- **Location**: `CharacterInGame/EventItem.db`
+- **Encoding**: Binary (Little-Endian)
+- **Text Encoding**: WINDOWS-1250 (Central European)
+- **Header**: 4-byte record count
+- **Record Size**: 240 bytes
+- **Total Records**: Variable (determined by header)
 
 ### Binary Format
 
@@ -91,7 +89,7 @@ Offset | Size | Field | Description
 - File uses binary format with WINDOWS-1250 text encoding
 - Simple name/description/price structure for quest items
 - Fixed record size enables efficient parsing
-- Integrated with quest progression systems
+- Other files reference these item IDs.
 
 ## Extractor
 

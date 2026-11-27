@@ -1,20 +1,14 @@
 # Save.ifo
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
 ## Purpose
 
-`Save.ifo` is the save-slot metadata index. It describes the six save slots (`0.sav` … `5.sav`): whether each slot is
-occupied and when it was last written. It also snapshots a small amount of global state needed to resume the session
-from the `game.tmp` append-log.
+`Save.ifo` is the save-slot metadata index. It describes six save slots (`0.sav` … `5.sav`). It records a timestamp and an occupied flag for each slot. It also holds a small global tail.
 
-## File Structure
+## File structure
 
 - **Location**: `Save.ifo` (game root directory)
 - **Encoding**: binary, little-endian
-- **Format**: fixed size of 224 bytes — six 32-byte slot records followed by a 32-byte global tail, addressed as two
-  blocks: bytes 0–191 (slots) and 192–223 (tail).
+- **Format**: fixed size of 224 bytes with six 32-byte slot records followed by a 32-byte global tail. The tool addresses two blocks: bytes 0–191 for slots and 192–223 for the tail.
 
 ### Slot records (offsets 0–191, record *p* at *p* × 32)
 
@@ -42,10 +36,8 @@ from the `game.tmp` append-log.
 
 ## Usage
 
-Written on every save alongside the `%d.sav` payload file. The save/load menu reads it at startup and lists each
-occupied slot as `MM / DD HH : MM`. The tail snapshots the state needed to traverse the current session's payloads
-inside the `game.tmp` append-log.
+The tool reads and writes this file alongside the `%d.sav` payload files. Each occupied slot carries month, day, hour and minute values. The documented display format is `MM / DD HH : MM`. The tool preserves the tail values.
 
 ## Parser
 
-The Rust parser is in `src/references/save_ifo.rs` (`SaveIfo` / `SaveSlotInfo` structs, `Extractor` trait).
+The Rust parser is in `src/references/save_ifo.rs`. It defines the `SaveIfo` and `SaveSlotInfo` structs and implements the `Extractor` trait.

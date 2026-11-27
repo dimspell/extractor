@@ -46,6 +46,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
         |msg| Message::dialogue_script(DialogueScriptEditorMessage::Spreadsheet(msg)),
         &app.state.lookups,
+        &app.state.composite_item_options.state,
         |event| Message::dialogue_script(DialogueScriptEditorMessage::PaneResized(event)),
         |pane| Message::dialogue_script(DialogueScriptEditorMessage::PaneClicked(pane)),
         None,

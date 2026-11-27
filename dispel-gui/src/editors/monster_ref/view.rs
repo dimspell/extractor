@@ -42,6 +42,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         },
         |msg| Message::monster_ref(MonsterRefEditorMessage::Spreadsheet(msg)),
         &app.state.lookups,
+        &app.state.composite_item_options.state,
         |event| Message::monster_ref(MonsterRefEditorMessage::PaneResized(event)),
         |pane| Message::monster_ref(MonsterRefEditorMessage::PaneClicked(pane)),
         Some(Message::monster_ref(MonsterRefEditorMessage::AddEntry)),

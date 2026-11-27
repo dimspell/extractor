@@ -8,23 +8,41 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
+use iced::widget::combo_box;
+
 use dispel_core::references::enums::WireValue;
 use dispel_core::{
-    BooleanFlag, DialogOwner, DialogType, DialogueScript, EditItem, EditItemEffect,
+    BooleanFlag, DialogOwner, DialogType, DialogueScript, DrawItem, EditItem, EditItemEffect,
     EditItemModification, Event, EventNpcRef, EventType, ExtraObjectType, ExtraRef, HealItem,
     HealItemFlag, MagicSpell, MagicSpellFlag, MagicType, Map, MapLighting, Monster, MonsterAiType,
     MonsterRef, MonsterSpawn, NPC, NpcInteractionMode, NpcLookingDirection, NpcMovementMode,
     NpcRoleResult, SmallRange0to3, SpellTargetType,
 };
 
+use super::common::{activate_select_option, filter_select, select_shows, select_values};
+use crate::components::composite_item::ItemOption;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::editors::map_editor::MapEditorMessage;
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::view::fields;
 use crate::message::{EditorMessage, Message, SystemMessage};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::view::inspector::build_inspector_field;
 
-use super::common::{activate_select_option, select_shows};
+static EMPTY_COMBO: std::sync::LazyLock<combo_box::State<ItemOption>> =
+    std::sync::LazyLock::new(|| combo_box::State::new(Vec::new()));
+
+fn combo_options(entries: &[(String, String)]) -> combo_box::State<ItemOption> {
+    combo_box::State::new(
+        entries
+            .iter()
+            .map(|(key, label)| ItemOption {
+                key: key.clone(),
+                label: label.clone(),
+            })
+            .collect(),
+    )
+}
 
 /// The formatting protocol of a field's get path.
 trait LabelFormat<E> {
@@ -117,6 +135,7 @@ fn render_both(
     desc: &FieldDescriptor,
     value: &str,
     lookups: &HashMap<String, Vec<(String, String)>>,
+    combo_state: &combo_box::State<ItemOption>,
     expected: &str,
 ) {
     let empty = HashMap::new();
@@ -128,11 +147,18 @@ fn render_both(
         None,
         captured_field_changed,
         &empty,
+        combo_state,
         captured_spreadsheet,
     );
+    let shown = select_values(inspector);
     assert!(
-        select_shows(inspector, expected),
-        "inspector for {} must render {expected:?}",
+        shown.iter().any(|value| value == expected),
+        "inspector for {} must render {expected:?}, got {shown:?}",
+        desc.name
+    );
+    assert!(
+        shown.iter().all(|value| !value.trim().is_empty()),
+        "inspector for {} must never render a blank selection, got {shown:?}",
         desc.name
     );
 
@@ -144,10 +170,17 @@ fn render_both(
         0,
         SelectedEntity::Npc(0),
         lookups,
+        combo_state,
+    );
+    let shown = select_values(row);
+    assert!(
+        shown.iter().any(|value| value == expected),
+        "map editor row for {} must render {expected:?}, got {shown:?}",
+        desc.name
     );
     assert!(
-        select_shows(row, expected),
-        "map editor row for {} must render {expected:?}",
+        shown.iter().all(|value| !value.trim().is_empty()),
+        "map editor row for {} must never render a blank selection, got {shown:?}",
         desc.name
     );
 }
@@ -181,7 +214,7 @@ where
             label,
             "{field}: get_field disagrees with the rendered label"
         );
-        render_both(desc, &label, &lookups, &label);
+        render_both(desc, &label, &lookups, &EMPTY_COMBO, &label);
     }
 
     // Walk the options themselves so a variant the setter cannot accept, or
@@ -204,7 +237,9 @@ fn inspector_emissions(
     desc: &FieldDescriptor,
     value: &str,
     lookups: &HashMap<String, Vec<(String, String)>>,
+    combo_state: &combo_box::State<ItemOption>,
     nth: usize,
+    offset: isize,
 ) -> Vec<String> {
     let empty = HashMap::new();
     let element = build_inspector_field(
@@ -215,9 +250,10 @@ fn inspector_emissions(
         None,
         captured_field_changed,
         &empty,
+        combo_state,
         captured_spreadsheet,
     );
-    activate_select_option(element, nth, 0)
+    activate_select_option(element, nth, offset)
         .into_iter()
         .filter_map(|message| match message {
             Message::Editor(EditorMessage::Weapon(
@@ -232,6 +268,8 @@ fn map_emissions(
     desc: &FieldDescriptor,
     value: &str,
     lookups: &HashMap<String, Vec<(String, String)>>,
+    combo_state: &combo_box::State<ItemOption>,
+    offset: isize,
 ) -> Vec<String> {
     let element = fields::inspector_field_row(
         desc.label,
@@ -241,8 +279,9 @@ fn map_emissions(
         0,
         SelectedEntity::Npc(0),
         lookups,
+        combo_state,
     );
-    activate_select_option(element, 0, 0)
+    activate_select_option(element, 0, offset)
         .into_iter()
         .filter_map(|message| match message {
             Message::Editor(EditorMessage::MapEditor(
@@ -268,12 +307,12 @@ fn audit_lookup<R: EditableRecord>(field: &'static str) {
         vec![("7".to_string(), "Invented 7".to_string())],
     )]);
 
-    render_both(desc, "9", &present, "Invented 9");
-    render_both(desc, "9", &absent, "Unknown (9)");
+    render_both(desc, "9", &present, &EMPTY_COMBO, "Invented 9");
+    render_both(desc, "9", &absent, &EMPTY_COMBO, "Unknown (9)");
 
-    for emitted in inspector_emissions(desc, "9", &present, 0)
+    for emitted in inspector_emissions(desc, "9", &present, &EMPTY_COMBO, 0, 0)
         .into_iter()
-        .chain(map_emissions(desc, "9", &present))
+        .chain(map_emissions(desc, "9", &present, &EMPTY_COMBO, 0))
     {
         let mut record = R::default();
         assert!(
@@ -282,7 +321,13 @@ fn audit_lookup<R: EditableRecord>(field: &'static str) {
         );
         let stored = record.get_field(field);
         assert_eq!(stored, emitted, "{field}: emitted id did not round-trip");
-        render_both(desc, &stored, &present, &format!("Invented {stored}"));
+        render_both(
+            desc,
+            &stored,
+            &present,
+            &EMPTY_COMBO,
+            &format!("Invented {stored}"),
+        );
     }
 }
 
@@ -306,13 +351,26 @@ fn audit_composite<R: EditableRecord>(field: &'static str) {
         ],
     )]);
 
-    render_both(desc, "1:5", &present, "Invented Sword");
-    render_both(desc, "1:5", &absent, "Unknown (5)");
-    render_both(desc, "1:99", &present, "Unknown (99)");
+    let present_combo = combo_options(present.get(*lookup_key).expect("present items"));
+    let absent_combo = combo_options(absent.get(*lookup_key).expect("absent items"));
 
-    for emitted in inspector_emissions(desc, "1:5", &present, 1)
+    render_both(desc, "1:5", &present, &present_combo, "Invented Sword");
+    render_both(desc, "1:5", &absent, &absent_combo, "Unknown (1:5)");
+    render_both(desc, "1:99", &present, &present_combo, "Unknown (1:99)");
+    render_both(desc, "255:255", &present, &present_combo, "[-]");
+
+    for emitted in inspector_emissions(desc, "1:5", &present, &present_combo, 0, 0)
         .into_iter()
-        .chain(map_emissions(desc, "1:5", &present))
+        .chain(map_emissions(desc, "1:5", &present, &present_combo, 0))
+        .chain(inspector_emissions(
+            desc,
+            "255:255",
+            &present,
+            &present_combo,
+            0,
+            -1,
+        ))
+        .chain(map_emissions(desc, "255:255", &present, &present_combo, -1))
     {
         let mut record = R::default();
         assert!(
@@ -321,7 +379,12 @@ fn audit_composite<R: EditableRecord>(field: &'static str) {
         );
         let stored = record.get_field(field);
         assert_eq!(stored, emitted, "{field}: emitted key did not round-trip");
-        render_both(desc, &stored, &present, "Invented Sword");
+        let expected = if emitted.starts_with("255:") {
+            "[-]"
+        } else {
+            "Invented Sword"
+        };
+        render_both(desc, &stored, &present, &present_combo, expected);
     }
 }
 
@@ -504,6 +567,160 @@ fn test_every_lookup_and_composite_field_round_trips_through_both_views() {
     audit_composite::<NPC>("interaction_result_item");
 }
 
+fn inspector_combo_emissions(
+    desc: &FieldDescriptor,
+    value: &str,
+    lookups: &HashMap<String, Vec<(String, String)>>,
+    combo_state: &combo_box::State<ItemOption>,
+    query: &str,
+) -> Vec<String> {
+    let empty = HashMap::new();
+    let element = build_inspector_field(
+        desc,
+        value.to_string(),
+        0,
+        lookups,
+        None,
+        captured_field_changed,
+        &empty,
+        combo_state,
+        captured_spreadsheet,
+    );
+    filter_select(element, 0, query)
+        .into_iter()
+        .filter_map(|message| match message {
+            Message::Editor(EditorMessage::Weapon(
+                crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+            )) => Some(value),
+            _ => None,
+        })
+        .collect()
+}
+
+fn map_combo_emissions(
+    desc: &FieldDescriptor,
+    value: &str,
+    lookups: &HashMap<String, Vec<(String, String)>>,
+    combo_state: &combo_box::State<ItemOption>,
+    query: &str,
+) -> Vec<String> {
+    let element = fields::inspector_field_row(
+        desc.label,
+        desc.name,
+        &desc.kind,
+        value,
+        0,
+        SelectedEntity::Npc(0),
+        lookups,
+        combo_state,
+    );
+    filter_select(element, 0, query)
+        .into_iter()
+        .filter_map(|message| match message {
+            Message::Editor(EditorMessage::MapEditor(MapEditorMessage::EntityFieldChanged(
+                _,
+                _,
+                _,
+                value,
+            ))) => Some(value),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn test_combo_box_filter_narrows_spreadsheet_inspector_options() {
+    let desc = descriptor_of::<DrawItem>("item");
+    let FieldKind::CompositeItem { lookup_key } = &desc.kind else {
+        panic!("item must be a composite field");
+    };
+    let entries = vec![
+        ("1:5".to_string(), "[Weapon] Invented Sword".to_string()),
+        ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+        ("255:15".to_string(), "[-]".to_string()),
+    ];
+    let lookups = HashMap::from([(lookup_key.to_string(), entries.clone())]);
+    let combo = combo_options(&entries);
+    let contents = HashMap::new();
+
+    let element = build_inspector_field(
+        desc,
+        "1:5".into(),
+        0,
+        &lookups,
+        None,
+        captured_field_changed,
+        &contents,
+        &combo,
+        captured_spreadsheet,
+    );
+    assert!(
+        select_values(element)
+            .iter()
+            .any(|value| value == "[Weapon] Invented Sword"),
+        "the current item must stay visible before filtering"
+    );
+
+    assert_eq!(
+        inspector_combo_emissions(desc, "1:5", &lookups, &combo, "herb"),
+        vec!["2:7"],
+        "typing a label fragment must leave only the matching option"
+    );
+    assert_eq!(
+        inspector_combo_emissions(desc, "1:5", &lookups, &combo, "sword"),
+        vec!["1:5"],
+        "typing the current label must leave only the current option"
+    );
+    assert_eq!(
+        inspector_combo_emissions(desc, "1:5", &lookups, &combo, "nomatch"),
+        Vec::<String>::new(),
+        "a query with no matching label must offer nothing to select"
+    );
+}
+
+#[test]
+fn test_combo_box_filter_narrows_map_editor_options() {
+    let desc = descriptor_of::<DrawItem>("item");
+    let FieldKind::CompositeItem { lookup_key } = &desc.kind else {
+        panic!("item must be a composite field");
+    };
+    let entries = vec![
+        ("1:5".to_string(), "[Weapon] Invented Sword".to_string()),
+        ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+        ("255:15".to_string(), "[-]".to_string()),
+    ];
+    let lookups = HashMap::from([(lookup_key.to_string(), entries.clone())]);
+    let combo = combo_options(&entries);
+
+    let element = fields::inspector_field_row(
+        desc.label,
+        desc.name,
+        &desc.kind,
+        "1:5",
+        0,
+        SelectedEntity::Npc(0),
+        &lookups,
+        &combo,
+    );
+    assert!(
+        select_values(element)
+            .iter()
+            .any(|value| value == "[Weapon] Invented Sword"),
+        "the current item must stay visible before filtering"
+    );
+
+    assert_eq!(
+        map_combo_emissions(desc, "1:5", &lookups, &combo, "herb"),
+        vec!["2:7"],
+        "the map editor combo box must filter on label text"
+    );
+    assert_eq!(
+        map_combo_emissions(desc, "1:5", &lookups, &combo, "sword"),
+        vec!["1:5"],
+        "filtering to the current label must emit its exact key"
+    );
+}
+
 #[test]
 fn test_lookup_label_collision_emits_each_own_id() {
     let desc = descriptor_of::<MonsterRef>("monster_db_id");
@@ -525,6 +742,7 @@ fn test_lookup_label_collision_emits_each_own_id() {
             None,
             captured_field_changed,
             &empty,
+            &EMPTY_COMBO,
             captured_spreadsheet,
         );
         activate_select_option(element, 0, offset)

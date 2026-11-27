@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 
 use iced::widget::{
-    Column, button, column, container, pick_list, row, scrollable, text, text_input,
+    Column, button, column, combo_box, container, pick_list, row, scrollable, text, text_input,
 };
 use iced::{Element, Fill, Length};
 
-use crate::components::composite_item::composite_item_picker;
+use crate::components::composite_item::{ItemOption, composite_item_picker};
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::utils::horizontal_space;
@@ -24,6 +24,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
     spreadsheet: &'a SpreadsheetState,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    combo_state: &'a combo_box::State<ItemOption>,
     field_changed_msg: fn(usize, String, String) -> Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
@@ -59,6 +60,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
                     validation_error,
                     field_changed_msg,
                     &spreadsheet.inspector_textarea_contents,
+                    combo_state,
                     spreadsheet_msg,
                 ));
             }
@@ -89,6 +91,7 @@ pub(crate) fn build_inspector_field<'a>(
     validation_error: Option<String>,
     field_changed_msg: fn(usize, String, String) -> Message,
     textarea_contents: &'a HashMap<String, TextAreaContent>,
+    combo_state: &'a combo_box::State<ItemOption>,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     let label = text(descriptor.label).size(11).style(style::subtle_text);
@@ -158,10 +161,9 @@ pub(crate) fn build_inspector_field<'a>(
                 .width(Length::Fill)
                 .into()
         }
-        FieldKind::CompositeItem { lookup_key } => {
-            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
+        FieldKind::CompositeItem { lookup_key: _ } => {
             let field_name = descriptor.name.to_string();
-            composite_item_picker(descriptor.label, &value, entries, false, move |v| {
+            composite_item_picker(descriptor.label, &value, combo_state, false, move |v| {
                 spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                     orig_idx,
                     field_name.clone(),
@@ -205,6 +207,9 @@ mod tests {
     use super::*;
     use iced_test::selector::{Candidate, Target};
     use iced_test::simulator;
+
+    static EMPTY_COMBO: std::sync::LazyLock<combo_box::State<ItemOption>> =
+        std::sync::LazyLock::new(|| combo_box::State::new(Vec::new()));
 
     fn field_changed(idx: usize, name: String, value: String) -> Message {
         Message::Editor(crate::message::editor::EditorMessage::Weapon(
@@ -261,6 +266,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert_eq!(
@@ -274,6 +280,10 @@ mod tests {
             "invented_items".to_string(),
             vec![("1:0".to_string(), "Invented Sword".to_string())],
         )]);
+        let combo = combo_box::State::new(vec![ItemOption {
+            key: "1:0".to_string(),
+            label: "Invented Sword".to_string(),
+        }]);
         let element = build_inspector_field(
             &descriptor,
             "1:0".into(),
@@ -282,12 +292,84 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &combo,
             spreadsheet_msg,
         );
         assert_eq!(
             count_label_text(element, "Invented Item:"),
             1,
             "composite field must not render its label twice with lookups"
+        );
+    }
+
+    #[test]
+    fn test_composite_field_combo_emits_exact_key() {
+        let descriptor = FieldDescriptor {
+            name: "item_type",
+            label: "Invented Item:",
+            kind: FieldKind::CompositeItem {
+                lookup_key: "invented_items",
+            },
+        };
+        let lookups = HashMap::from([(
+            "invented_items".to_string(),
+            vec![
+                ("1:0".to_string(), "[Weapon] Invented Sword".to_string()),
+                ("2:7".to_string(), "[Healing] Invented Herb".to_string()),
+            ],
+        )]);
+        let combo = combo_box::State::new(vec![
+            ItemOption {
+                key: "1:0".to_string(),
+                label: "[Weapon] Invented Sword".to_string(),
+            },
+            ItemOption {
+                key: "2:7".to_string(),
+                label: "[Healing] Invented Herb".to_string(),
+            },
+        ]);
+        let contents = HashMap::new();
+
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            &combo,
+            field_changed_spreadsheet_msg,
+        );
+        assert!(
+            crate::tests::common::select_shows(element, "[Weapon] Invented Sword"),
+            "the inspector combo must show the selected item label"
+        );
+
+        let element = build_inspector_field(
+            &descriptor,
+            "1:0".into(),
+            0,
+            &lookups,
+            None,
+            field_changed,
+            &contents,
+            &combo,
+            field_changed_spreadsheet_msg,
+        );
+        let emitted: Vec<String> = crate::tests::common::activate_select_option(element, 0, 1)
+            .into_iter()
+            .filter_map(|message| match message {
+                Message::Editor(crate::message::editor::EditorMessage::Weapon(
+                    crate::editors::weapon::WeaponEditorMessage::FieldChanged(_, _, value),
+                )) => Some(value),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            emitted,
+            vec!["2:7"],
+            "choosing an item must emit its composite key, not its label"
         );
     }
 
@@ -328,6 +410,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
+                &EMPTY_COMBO,
                 spreadsheet_msg,
             );
             assert!(
@@ -374,6 +457,7 @@ mod tests {
                 None,
                 field_changed,
                 &contents,
+                &EMPTY_COMBO,
                 spreadsheet_msg,
             );
             assert!(
@@ -407,6 +491,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert!(
@@ -422,6 +507,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         assert!(
@@ -437,6 +523,7 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_COMBO,
             field_changed_spreadsheet_msg,
         );
         let messages = crate::tests::common::activate_select_option(duplicate, 0, -1);
@@ -472,11 +559,16 @@ mod tests {
             None,
             field_changed,
             &contents,
+            &EMPTY_COMBO,
             spreadsheet_msg,
         );
         let mut ui = simulator(element);
+        // Select by placeholder: a composite picker would render its search
+        // input first, and clicking that would not edit the field value.
         let mut pick_input = |candidate: Candidate<'_>| match candidate {
-            Candidate::TextInput { .. } => Some(Target::from(candidate)),
+            Candidate::TextInput { state, .. } if state.text().into_owned().is_empty() => {
+                Some(Target::from(candidate))
+            }
             _ => None,
         };
         ui.click(&mut pick_input)

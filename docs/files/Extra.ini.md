@@ -1,21 +1,18 @@
-# Extra.ini Documentation
+# Extra.ini documentation
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
-## File Information
+## File information
 
 ### Overview
 
-Text file that defines interactive-object definitions with visual assets, activation-frame settings, and descriptions.
+The tool reads `Extra.ini` as a CSV file with comments. Each row defines an interactive object with a sprite filename, an activation-frame mode and a description.
 
-### File Structure
+### File structure
 
-**Location**: `Extra.ini`
-**Encoding**: EUC-KR (Korean character encoding)
-**Format**: CSV (Comma-Separated Values) with comments
+- **Location**: `Extra.ini`
+- **Encoding**: EUC-KR (Korean character encoding)
+- **Format**: CSV (Comma-Separated Values) with comments
 
-### Format Specification
+### Format specification
 
 ```ini
 ; Comment line explaining field structure
@@ -26,7 +23,7 @@ id,sprite_filename,activation_sprite_frame_mode,description
 ...
 ```
 
-### Field Definitions
+### Field definitions
 
 | Field                        | Type   | Description                                                                                                   |
 |------------------------------|--------|---------------------------------------------------------------------------------------------------------------|
@@ -35,19 +32,17 @@ id,sprite_filename,activation_sprite_frame_mode,description
 | activation_sprite_frame_mode | i32    | Selects the sprite frame used after activation for the object handlers that use this setting.                 |
 | description                  | string | Editor-facing description or "null". This column is not loaded by the game into its runtime definition table. |
 
-### Activation-Frame Mode
-Every placed instance using the definition carries a copy of this field. For
-object handlers 5, 6, and 8, values greater than `1` choose activated sprite
-frame `1`; values `0` and `1` choose frame `0`. Observed files contain `0`,
-`1`, and `2`, so this field is not a boolean or a quest flag.
+### Activation-frame mode
 
-### Text-Format Details
+The placement records in `Ext*.ref` carry a copy of this value. For object handlers 5, 6 and 8, values greater than `1` select sprite frame `1`. Values `0` and `1` select frame `0`. Observed files contain `0`, `1` and `2`.
 
-- **"null"**: Literal string indicating no sprite or description
-- **;**: Lines starting with semicolon are comments
-- **Empty lines**: Ignored during processing
+### Text-format details
 
-### Example Format
+- **"null"**: The tool reads this string when no sprite or description is present.
+- **`;`**: Lines starting with this mark are comments.
+- **Empty lines**: The parser ignores them.
+
+### Example format
 
 ```ini
 ; Default entry
@@ -62,28 +57,25 @@ frame `1`; values `0` and `1` choose frame `0`. Observed files contain `0`,
 11,unique.spr,1,Interactive object
 ```
 
-### Technical Details
+### Technical details
 
 **Encoding**: EUC-KR (Extended Unix Code Korea)
 
-- Supports Korean characters in descriptions
-- Requires proper encoding handling for reading/writing
+- The encoding covers Korean characters in descriptions.
+- The reader and writer must use this encoding.
 
-**File Processing**:
+**File processing:**
 
-- Comments (lines starting with ";") are ignored
-- Empty lines are skipped
-- CSV format with comma delimiter
-- "null" literal used for missing fields
+- The parser ignores comment lines that start with `;`.
+- It skips empty lines.
+- It splits rows on commas.
+- It reads `null` as a missing field.
 
-### Database Integration
+### Database integration
 
-- Processed by the `Extra` struct in `src/references/extra_ini.rs`
-- Stored in database with all field mappings
-- Linked to object placement files (Ext*.ref)
-- Referenced by interaction and puzzle systems
+The `Extra` struct in `src/references/extra_ini.rs` parses the file. The tool stores every field in the database. Object placement files (`Ext*.ref`) reference these IDs.
 
-### Object Type System
+### Object type system
 
 The codebase defines the structure for interactive objects:
 
@@ -98,23 +90,23 @@ pub struct Extra {
 
 ### Usage
 
-1. **Environment Interaction**: Defines objects players can interact with
-2. **Visual Mapping**: Links object IDs to sprite files
-3. **Activation visuals**: Selects an activated sprite frame for supported object handlers
-4. **Puzzle Systems**: Objects used in environmental puzzles
-5. **Map Placement**: Referenced by Ext*.ref placement files
+1. The tool defines objects with an ID and a sprite filename.
+2. It links object IDs to sprite files.
+3. It selects an activated sprite frame for supported handlers.
+4. Environmental puzzles can use these objects.
+5. `Ext*.ref` placement files reference the IDs.
 
 ### Notes
 
-- File uses Windows-style line endings (`\r\n`)
-- Descriptions use EUC-KR encoding for international characters
-- Integrated with map placement and interaction systems
+- The file uses Windows-style line endings (`\r\n`).
+- Descriptions use EUC-KR encoding for international characters.
+- The tool links these definitions to map placement files.
 
 ## Extractor
 
-The file is parsed by the `Extra` struct in `src/references/extra_ini.rs`, which implements the `Extractor` trait.
+The `Extra` struct in `src/references/extra_ini.rs` parses the file. It implements the `Extractor` trait.
 
-### How to Run
+### How to run
 
 ```bash
 # Extract Extra.ini to JSON

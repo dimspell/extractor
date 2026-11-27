@@ -1,7 +1,4 @@
-# PartyRef.ref — Party Characters
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# PartyRef.ref: party characters
 
 ## File Information
 
@@ -16,7 +13,7 @@
 
 - Lines starting with `;` are comments
 - CSV format with comma delimiter
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -35,7 +32,7 @@
 
 - Unique character identifier
 - Party member index
-- Used for character selection and management
+- The tool uses this ID for character selection.
 
 ### name
 
@@ -49,7 +46,7 @@
 - Origin map identifier
 - Where character is initially found
 - Links to map files and locations
-- Determines recruitment location
+- Records the origin map ID.
 
 ### npc_id
 
@@ -61,21 +58,21 @@
 ### dlg_out
 
 - Dialog ID when not in party
-- Conversation when character is roaming
+- Conversation text outside the party
 - Recruitment dialogue
 - Initial interaction text
 
 ### dlg_in
 
 - Dialog ID when in party
-- Conversation when character is recruited
+- Conversation text inside the party
 - Party member dialogue
-- Ongoing interaction text
+- Later interaction text
 
 ### in_party
 
 - Boolean flag (0/1) marking the character as currently in the party
-- A single byte; non-zero marks the character's name as highlighted in the party member list
+- A single byte. Non-zero marks the name as highlighted in the party member list.
 - `0`: character not in the party (default)
 - `1`: character is in the party (name shown highlighted)
 
@@ -88,21 +85,20 @@
 
 ## File Purpose
 
-Defines all party characters with their names, classes, origin locations, dialog references, and visual representations.
-Used for:
+The tool reads each row as a character record with a name, a job, an origin map and dialogue IDs. The data supports:
 
-- Party management system
-- Character recruitment
-- Dialogue interactions
-- UI display and portraits
-- Character progression tracking
+- Party membership flags
+- Character origin records
+- Dialogue references
+- UI text and portraits
+- Character progression records
 
 ## Implementation
 
 - **Rust Module**: `src/references/party_ref.rs`
 - **Extractor**: `PartyRef` struct implementing `Extractor` trait
 - **Data Structure**: `PartyRef` with character attributes
-- **Database**: Saved to SQLite via `save_party_refs` function
+- **Database**: saved to SQLite by the `save_party_refs` function
 
 ## Example Usage
 
@@ -125,9 +121,9 @@ cargo run -- extract -i "fixtures/Dispel/Ref/PartyRef.ref"
 
 ## Related Files
 
-- `Npc.ini` — NPC definitions
-- `PrtIni.db` — Party initialization data
-- `PrtLevel.db` — Character progression data
+- `Npc.ini`: NPC definitions
+- `PrtIni.db`: party initialization data
+- `PrtLevel.db`: character progression data
 - Dialogue files (`.dlg`)
 - Map files (`.map`)
 

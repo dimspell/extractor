@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use crate::components::composite_item::ItemOption;
 use crate::components::editable::EditableRecord;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::{Message, MessageExt};
 use crate::style;
 use dispel_core::{DrawItem, ExtraRef, MonsterRef, NPC};
-use iced::widget::{button, column, container, row, scrollable, text, text_input};
+use iced::widget::{button, column, combo_box, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
 
 use super::super::message::{MapEditorMessage, SelectedEntity};
@@ -18,13 +19,14 @@ pub fn build_inspector<'a>(
     tab_id: usize,
     sel: SelectedEntity,
     lookups: &'a HashMap<String, Vec<(String, String)>>,
+    combo_state: &'a combo_box::State<ItemOption>,
 ) -> Element<'a, Message> {
     let close_msg = Message::map_editor(MapEditorMessage::Deselect(tab_id));
 
     let (title, width, body): (&'static str, f32, Element<'a, Message>) = match sel {
         SelectedEntity::Monster(i) => {
             let body = if let Some(record) = state.data.monsters.get(i) {
-                fields::build_record_fields::<MonsterRef>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<MonsterRef>(record, tab_id, sel, lookups, combo_state)
             } else {
                 text("Monster not found").size(12).into()
             };
@@ -36,7 +38,14 @@ pub fn build_inspector<'a>(
                 for desc in NPC::field_descriptors() {
                     let value = record.get_field(desc.name);
                     els.push(fields::inspector_field_row(
-                        desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
+                        desc.label,
+                        desc.name,
+                        &desc.kind,
+                        &value,
+                        tab_id,
+                        sel,
+                        lookups,
+                        combo_state,
                     ));
                 }
                 column(els).spacing(6).into()
@@ -47,7 +56,7 @@ pub fn build_inspector<'a>(
         }
         SelectedEntity::Extra(i) => {
             let body = if let Some(record) = state.data.extra_refs.get(i) {
-                fields::build_record_fields::<ExtraRef>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<ExtraRef>(record, tab_id, sel, lookups, combo_state)
             } else {
                 text("Object not found").size(12).into()
             };
@@ -55,7 +64,7 @@ pub fn build_inspector<'a>(
         }
         SelectedEntity::DrawItem(i) => {
             let body = if let Some(record) = state.data.draw_items.get(i) {
-                fields::build_record_fields::<DrawItem>(record, tab_id, sel, lookups)
+                fields::build_record_fields::<DrawItem>(record, tab_id, sel, lookups, combo_state)
             } else {
                 text("Draw item not found").size(12).into()
             };

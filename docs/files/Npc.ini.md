@@ -1,21 +1,18 @@
-# Npc.ini Documentation
+# Npc.ini documentation
 
-> **DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-> owner.
-
-## File Information
+## File information
 
 ### Overview
 
-Text file that defines visual appearances and descriptions for NPC (Non-Player Character) types in the game.
+The tool reads `Npc.ini` as a CSV file with comments. Each row holds a visual type ID, a sprite filename and a description.
 
-### File Structure
+### File structure
 
-**Location**: `Npc.ini`
-**Encoding**: EUC-KR (Korean character encoding)
-**Format**: CSV (Comma-Separated Values) with comments
+- **Location**: `Npc.ini`
+- **Encoding**: EUC-KR (Korean character encoding)
+- **Format**: CSV (Comma-Separated Values) with comments
 
-### Format Specification
+### Format specification
 
 ```ini
 ; Comment line
@@ -25,7 +22,7 @@ id,sprite_filename,description
 ...
 ```
 
-### Field Definitions
+### Field definitions
 
 | Field           | Type   | Description                                      |
 |-----------------|--------|--------------------------------------------------|
@@ -33,13 +30,13 @@ id,sprite_filename,description
 | sprite_filename | string | SPR filename or "null" for no sprite             |
 | description     | string | NPC role/appearance description (EUC-KR encoded) |
 
-### Special Values
+### Special values
 
-- `null`: Literal string indicating no sprite filename
-- `;`: Lines starting with semicolon are comments
-- Empty lines are ignored
+- `null`: The tool reads this string when no sprite filename is present.
+- `;`: Lines starting with a semicolon are comments.
+- Empty lines: The parser ignores them.
 
-### Example Entries
+### Example entries
 
 ```ini
 ; Party members
@@ -55,40 +52,39 @@ id,sprite_filename,description
 17,King2.spr,Royal Guard
 ```
 
-### Technical Details
+### Technical details
 
 **Encoding**: EUC-KR (Extended Unix Code Korea)
 
-- Supports Korean characters used in descriptions
-- Requires proper encoding handling for reading/writing
+- The encoding covers Korean characters in descriptions.
+- The reader and writer must use this encoding.
 
-**File Processing**:
+**File processing:**
 
-- Comments (lines starting with ";") are ignored
-- Empty lines are skipped
-- CSV format with comma delimiter
-- "null" literal used for missing sprite filenames
+- The parser ignores comment lines that start with `;`.
+- It skips empty lines.
+- It splits rows on commas.
+- It reads `null` as a missing sprite filename.
 
 ### Usage
 
-1. Game loads NPC definitions from Npc.ini
-2. Links NPC visual types to behavior scripts
-3. Renders NPCs using specified sprite files
-4. Displays descriptions in appropriate contexts
-5. Manages NPC interactions based on type
+1. The tool reads NPC definitions from `Npc.ini`.
+2. It links visual type IDs to sprite files.
+3. It stores each description with its ID.
+4. Other file formats reference these IDs.
 
 ### Notes
 
-- Some entries have "null" sprite filenames when no visual is needed
-- Descriptions are in Korean (EUC-KR encoding)
-- File uses Windows-style line endings (`\r\n`)
-- IDs may have gaps in the sequence
+- Some entries have a `null` sprite filename.
+- Descriptions are in Korean and use EUC-KR encoding.
+- The file uses Windows-style line endings (`\r\n`).
+- IDs may have gaps in the sequence.
 
 ## Extractor
 
-The file is parsed by the `NpcIni` struct in `src/references/npc_ini.rs`, which implements the `Extractor` trait.
+The `NpcIni` struct in `src/references/npc_ini.rs` parses the file. It implements the `Extractor` trait.
 
-### How to Run
+### How to run
 
 ```bash
 # Extract Npc.ini to JSON

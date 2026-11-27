@@ -6,7 +6,7 @@
 
 - No header.
 - Exactly eight 28-byte records.
-- Records are addressed as `party_slot * 28`.
+- The parser addresses records as `party_slot * 28`.
 - `name` is a 20-byte, null-padded string. Names are ASCII-compatible.
 
 | Offset | Size | Type   | Field               | Meaning                                  |
@@ -18,10 +18,6 @@
 | `23` | 1 | u8 | `pathfinding_mode` | Map/path-query mode; observed value 7 |
 | `24` | 4 | u32 | `character_variant` | Variant selector; observed values 0 and 1 |
 
-The loader copies `class_id`, `starting_level`, `pathfinding_mode`, and
-`character_variant` into runtime character state. It uses `class_id` for class-specific behavior and titles, and uses
-`character_variant` to choose one of two class variants. The binary does not establish whether that variant is a gender,
-portrait, or another presentation choice, so the parser uses the neutral name `character_variant`.
+The tool reads `class_id`, `starting_level`, `pathfinding_mode` and `character_variant` into character state. The supplied data does not establish what `character_variant` represents. The parser uses that neutral name.
 
-DISPEL® is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark
-owner.
+

@@ -1,19 +1,12 @@
 # ExtraInGame/fogdata.dat Documentation
 
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
-
 ## File Information
 
 ### Overview
 
-Map-lighting fade tables. The file is a flat array of brightness factors used
-to shade tiles that carry a shadow (darkness) level. Each row of the table is one
-animated flicker pattern for a single light level; the renderer walks the row per rendered frame
-to make torch-lit darkness shimmer.
+The file holds brightness factors in a flat array. Each row covers one light level and has 512 bytes. The renderer reads a row for each shadowed tile.
 
-This file feeds the map lighting pass, which only runs on maps flagged **Dark** in `AllMap.ini`
-(see `docs/rendering.md` and `src/map/render.rs::plot_shadows`).
+The map lighting pass reads this file on maps flagged **Dark** in `AllMap.ini` (see `docs/rendering.md` and `src/map/render.rs::plot_shadows`).
 
 ### File Structure
 
@@ -49,38 +42,28 @@ Row `L-1` serves light level `L`. A consumer indexes the file as:
 byte[(level - 1) * 512 + pair]
 ```
 
-where `pair` is the pixel-pair index (`0..512`) within a shadowed tile — each factor byte covers
-two horizontally adjacent pixels.
+Here `pair` is the pixel-pair index (`0..512`) within a shadowed tile. Each factor byte covers two horizontally adjacent pixels.
 
-**Range nuance:** light levels `1..=199` occur in the map's access-ref grid (levels ≥ 200 are
-skipped by the lighting pass entirely), but the file only covers levels `1..=123`.
-Levels above 123 would read past the table; tooling must clamp or skip.
+**Range:** light levels `1..=199` occur in the map's access-ref grid. The lighting pass skips levels of 200 or more. The file covers levels `1..=123`. Levels above 123 read past the table. Tooling must clamp or skip them.
 
 ### Factor Semantics
 
-Each byte is a brightness factor `f` in `0..=31` — a 5-bit fixed-point value:
+Each byte is a brightness factor `f` in `0..=31`. This is a 5-bit fixed-point value:
 
 - Effective multiplier on shadowed pixels: `f / 32`.
 - Applied to **all three colour channels**.
-- `f = 0` → pixel pair blacked out; `f = 31` → nearly full brightness.
-- Values are **not monotonic in level**: each row is an animated flicker pattern, so adjacent
-  levels can have very different brightness at the same pair index.
+- `f = 0` blacks out the pixel pair. `f = 31` gives nearly full brightness.
+- Values do not rise with level. Adjacent levels can have very different brightness at the same pair index.
 
 ### File Purpose
 
-Provides the per-level darkness fade/flicker patterns that the map lighting pass applies to
-shadowed tiles on Dark maps, producing an animated torch-light falloff.
+The tool reads per-level brightness patterns. It applies them to shadowed tiles on Dark maps.
 
 ### Rendering Dark Maps
 
-The `.map` file's own light-level bits (access-ref word bits 15–29) are not used for
-rendering: a fixed 500-byte viewport template is applied per visible slot instead. A
-static render that uses the file's bits therefore shows every dark map as pitch black.
+The tool does not use the `.map` light-level bits (access-ref word bits 15 to 29) for rendering. It applies a fixed 500-byte viewport template per visible slot. A static render that uses the file's bits shows every dark map as black.
 
-`map render --light-template <png> [--camera x,y]` applies that template before the fog
-pass and reproduces the lighting the game draws (the template is the 500×1 grayscale PNG the
-Godot remake's `tools/convert_lighting.py` writes). `make map-render-lit map_id=dun01`
-wraps it.
+`map render --light-template <png> [--camera x,y]` applies that template before the fog pass. The template is a 500×1 grayscale PNG. `tools/convert_lighting.py` writes it. `make map-render-lit map_id=dun01` wraps the command.
 
 ### Cross-References
 
@@ -95,8 +78,8 @@ See also `docs/rendering.md` (isometric rendering pipeline) and
 
 ### Technical Details
 
-- No header, no padding — exactly 62,976 raw bytes.
-- Byte order is irrelevant (single-byte fields).
+- No header and no padding. The file holds exactly 62,976 raw bytes.
+- Byte order does not apply because fields are single bytes.
 - Parsed by `dispel_core::map::fogdata::FogData` (re-exported as
   `dispel_core::map::render::FogData`), which validates the length and provides
   bounds-checked accessors plus an editor-safe `set_factor` that rejects values > 31
@@ -104,6 +87,5 @@ See also `docs/rendering.md` (isometric rendering pipeline) and
 
 ### Notes
 
-- Level 0 tiles are not looked up here: on Dark maps they are blacked out outright.
-- When editing, keep every byte in `0..=31`; larger values are invalid in this table even though
-  they wrap silently when consumed.
+- The tool does not look up level 0 tiles. It draws them black on Dark maps.
+- When you edit the file, keep every byte in `0..=31`. Larger values are invalid in this table.

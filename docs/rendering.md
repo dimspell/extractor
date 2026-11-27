@@ -1,31 +1,32 @@
-# Rendering Logic
+# Rendering logic
 
-## Map Rendering (`src/map/`)
-The tool can render a full map into a single image (`render_map`).
+## Map rendering (`src/map/`)
 
-### Isometric Projection
-The map logic handles conversion between "Map Coords" (grid) and "Image Coords" (pixel).
+The tool can render a full map into one image with `render_map`.
 
-- **Tile Dimensions**: 62x32 pixels.
-- **Formula**:
-    ```rust
-    start_x = (x + y) * 32; // TILE_HORIZONTAL_OFFSET_HALF
-    start_y = (-x + y) * 16 + (diagonal / 2 * 16); // TILE_HEIGHT_HALF
-    ```
+### Isometric projection
+
+The map code converts map coordinates on a grid to image coordinates in pixels.
+
+- Tile dimensions: 62x32 pixels.
+- The tool uses this formula:
+
+```rust
+start_x = (x + y) * 32; // TILE_HORIZONTAL_OFFSET_HALF
+start_y = (-x + y) * 16 + (diagonal / 2 * 16); // TILE_HEIGHT_HALF
+```
 
 ### Layers
-1.  **Base (Ground)**: Iterates diagonally. Renders `gtl_tiles`.
-    - Applies color mixing for Event tiles (Blue tint) or Collision tiles (optional).
-    - Uses a mask to draw the diamond tile shape.
-2.  **Objects**: Sprites and Tiled Objects.
-    - Sorted by `ground_y` coordinate to handle depth/occlusion correctly (painter's algorithm).
-    - **Sprites**: Rendered from `internal_sprites` extracted from the map file.
-    - **Tiled Objects**: Collections of tiles designated by `tiled_infos` (multi-tile structures).
-3.  **Roofs (BTL)**: Renders `btl_tiles`.
 
-## Sprite Rendering (`src/sprite.rs`)
-- **Transparency**: Pixels with value `0` are skipped/transparent.
-- **Positioning**: Uses `origin_x`, `origin_y` relative to a calculated bounding box for animations.
+1. Base ground: The tool iterates diagonally and renders `gtl_tiles`. It applies a blue tint to event tiles and an optional tint to collision tiles. It uses a mask to draw the diamond tile shape.
+2. Objects: The tool renders sprites and tiled objects. It sorts them by `ground_y` and draws them in that order. This order follows the painter's algorithm. Sprites come from `internal_sprites` in the map file. Tiled objects group tiles through `tiled_infos`.
+3. Roofs: The tool renders `btl_tiles`.
 
-## Tile Rendering (`src/map/tileset.rs`)
-- **Masking**: Since the source data is a 32x32 square but the output is isometric, `decode::tile_mask()` (in `src/decode.rs`, shared with the GUI) generates an offset array (`mask[0]` for start x, `mask[1]` for width) per line `y` to draw a diamond shape.
+## Sprite rendering (`src/sprite.rs`)
+
+- The tool skips pixels with value `0`.
+- Sprite position uses `origin_x` and `origin_y` relative to a calculated bounding box for animations.
+
+## Tile rendering (`src/map/tileset.rs`)
+
+`decode::tile_mask()` in `src/decode.rs` generates an offset array for each line `y`. The GUI also uses this mask. `mask[0]` gives the start x position. `mask[1]` gives the width. The array draws the diamond shape from the 32x32 source square.

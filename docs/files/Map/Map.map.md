@@ -1,12 +1,6 @@
 # DISPEL® Map File Format (`.map`)
 
-All game maps — overworld (`map1.map`…), catacombs (`cat1.map`…, `catp.map`), and dungeons (`dun01.map`…, `final.map`) —
-share this binary format. A `.map`
-file contains everything needed to render a map: dimensions, embedded sprites (thrones, statues, decor), building
-stacks, and three per-tile grids (events, ground tiles, occlusion).
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+The tool reads overworld, catacomb and dungeon maps with one binary format. Sample names include `map1.map`, `cat1.map`, `catp.map`, `dun01.map` and `final.map`. A `.map` file holds dimensions, embedded sprites, building stacks and three per-tile grids for events, ground tiles and occlusion.
 
 ## Quick Facts
 
@@ -59,9 +53,7 @@ count: i32
 records: (count − 1) × 8 bytes   -- each record: word0: i32, word1: i32
 ```
 
-Skipping `(count − 1) × 8` lands exactly on the next block's size field, verified against the cat1/cat3/dun01/map1/catp
-fixtures. Both words are **constant across all shipped maps** — `word0 == 0` and `word1 == 1` in all 99,104 records
-probed — so their purpose is unknown. The earlier "linear tile index into the end grids" interpretation was wrong.
+The tool skips `(count − 1) × 8` bytes and lands on the next block's size field. The cat1, cat3, dun01, map1 and catp samples contain 99,104 records. In those records `word0 == 0` and `word1 == 1`. The supplied data shows no use for these fields.
 
 ### Second Block *(u16 lookup table)*
 
@@ -87,8 +79,7 @@ for each sprite:
                                     6 → 1904 bytes, 9 → 2996 bytes
 ```
 
-Any other `image_stamp` is a parse error. Sprites here are thrones, statues, decor — anything placed by pixel coordinate
-rather than tile grid.
+Any other `image_stamp` is a parse error. These sprites use pixel coordinates rather than tile grid coordinates.
 
 ### Sprite Info Block *(placements)*
 
@@ -105,16 +96,11 @@ for each placement:
     frame_skip: (frame_count − 1) × 6 × 4 bytes
 ```
 
-The seven i32s after `sprite_id` are actually **frame 0 of a per-frame record**
-(24 bytes each: `{left, top, right, bottom}` box + duplicated `{x, y}` anchor;
-the game stores them in separate per-frame arrays so they can diverge).
-Verified against cat1/map1: `right − left` and `bottom − top` equal the frame's
-pixel `width × height` exactly. Placements Y-sort by `bottom`.
+The seven i32 values after `sprite_id` hold frame 0 of a per-frame record. Each record has 24 bytes: a `{left, top, right, bottom}` box and a duplicated `{x, y}` anchor. The format stores these values in separate per-frame arrays. In the cat1 and map1 samples, `right − left` and `bottom − top` equal the frame pixel `width × height`. Placements sort by `bottom` on the Y axis.
 
-### Tiled Objects Block *(buildings)* — fully typed
+### Tiled Objects Block *(buildings)*: fully typed
 
-This block is a three-level tree: bundle, record, item, and entry. The
-structure below is based on the on-disk data.
+This block is a three-level tree: bundle, record, item and entry. The structure below follows the on-disk data.
 
 ```
 bundle_count: i32
@@ -148,26 +134,16 @@ for each bundle:
                                     -- stack level; their meaning is unknown
 ```
 
-There is **no end-of-block sentinel**: the three end grids follow the last
-bundle's level flags immediately. The previously described "empirically fitted"
-layout (`264-byte blob`, `control words`, `84-byte trailer`,
-`sentinel alignment scan`) was an approximation that happened to consume the
-same byte stream; it has been deleted.
+There is no end-of-block sentinel. The three end grids follow the last bundle's level flags immediately.
 
-Discovered semantics (verified over all 33 fixture maps, 43,554 entries):
-- `anchor_x`/`anchor_y` are the stack anchor `(x, y)` in map-local pixels;
-  the entry's `ids` u16 array is its BTL tile stack. The renderer-facing
-  `TiledObjectInfo` is derived from the bundle's *first* entry
-  (first record → first item → first entry).
-- The bbox relations above hold exactly on every shipped entry.
+The 33 sample maps contain 43,554 entries. Those entries use this layout:
+- `anchor_x` and `anchor_y` give the stack anchor `(x, y)` in map-local pixels. The entry's `ids` u16 array is its BTL tile stack. The renderer-facing `TiledObjectInfo` comes from the bundle's first entry (first record, first item, first entry).
+- The 43,554 entries follow the bounding-box relations above.
 - An entry's `grid_height` sizes the per-bundle flag arrays that follow.
 
-Shipped data is degenerate: exactly one record per bundle, eight items per
-record, at most one entry per item; `type_flag ≡ 0` and `field_14 ≡ 0`
-everywhere.
+The sample maps contain one record per bundle, eight items per record and at most one entry per item. `type_flag` and `field_14` are zero in those files.
 
-Each bundle's first-entry tile stack is drawn downward from the anchor, one 62×32 diamond per id.
-Negative ids occur and are skipped when drawing.
+The tool draws each bundle's first-entry tile stack downward from the anchor. It draws one 62×32 diamond per id. Negative ids occur. The tool skips them when it draws.
 
 ### Event Block
 
@@ -182,7 +158,7 @@ flags: i16                       -- high half: parameter/flag bits
 
 In the packed u32, bit 22 sets `EventBlock::is_tile_marked`.
 
-Two game systems use the following exact event-word predicate:
+Two documented checks use this exact event-word predicate:
 
 ```text
 (word & 0x0FC00000) == 0x00400000
@@ -198,7 +174,7 @@ remaining high bits have no documented meaning.
 
 ### Tile & Access Block
 
-One packed u32 per tile, row-major (bit layout verified against shipped map data):
+One packed u32 per tile, row-major:
 
 | Bits  | Meaning                                                      |
 |-------|--------------------------------------------------------------|
@@ -211,8 +187,7 @@ The index points straight into the `.gtl` pixel data: the renderer blits from
 `gtl_base + index × 2048` (one 32×32 RGB565 tile). Across observed maps the maximum index matches the `.gtl` tile
 capacity minus one.
 
-Bits 0–9 together form one access field that can be rewritten without touching the tile index. Maps only ever
-use bit 0; bits 1–9 are written at runtime.
+Bits 0 to 9 form one access field. The tool can rewrite that field without changing the tile index. The sample maps use bit 0 only. No sample value sets bits 1 to 9.
 
 ### Access-Ref Block *(a.k.a. "roof" block)*
 
@@ -226,12 +201,10 @@ shadow_and_flags: i16            -- bits 15–29 of the u32: shadow level 0–19
 
 This grid packs **two layers** in one u32:
 
-1. **BTL overlay ref** (bits 0–14): when the referenced Second Block entry has
-   its *high* byte set, the game blits BTL pixels from
+1. BTL overlay ref (bits 0 to 14): when the referenced Second Block entry has its high byte set, the renderer blits BTL pixels from
    `btl_base + ref_id × 2048` (entry *low* byte selects transparent vs opaque
    blit). So the Second Block is `{transparency, draw_enable}` per overlay id.
-2. **Shadow/fog level** (bits 15–29): 0–199 darkness applied per tile via a
-   fade table; entities carrying light raise the value (max wins).
+2. Shadow and fog level (bits 15 to 29): the value spans 0 to 199. The documented rule raises the value for light sources. The highest value wins.
 
 On a dark map, a BTL overlay must have a non-zero reference and at least one
 bit in positions 15–31. The extractor exposes this condition as
@@ -239,8 +212,7 @@ bit in positions 15–31. The extractor exposes this condition as
 the referenced Second Block entry must also have its draw-enable byte set.
 Light maps use a different roof pass and do not apply this extra condition.
 
-Bit 15 overlaps the signed-i16 view of `ref_id`; readers must mask the low 15
-bits instead of treating a negative i16 value as an absent reference.
+Bit 15 overlaps the signed-i16 view of `ref_id`. Readers must mask the low 15 bits. A negative i16 value does not mean the reference is absent.
 
 ---
 
@@ -253,11 +225,9 @@ pixel_x = (x + y) × 32
 pixel_y = (y − x) × 16 + (map_diagonal / 2) × 16
 ```
 
-where `map_diagonal = tiled_width + tiled_height`. Moving `+1` in `x` steps up-left on screen (−32, −16); moving `+1` in
-`y` steps down-right (+32, +16).
+Here `map_diagonal = tiled_width + tiled_height`. A step of +1 in `x` moves the tile by (−32, −16) on screen. A step of +1 in `y` moves it by (+32, +16).
 
-Sprite and building placements inside the file are **map-local**: subtract
-`map_non_occluded_start_x/y` (computed in `src/map/model.rs`) to convert to world pixels.
+Sprite and building placements in the file use map-local coordinates. Subtract `map_non_occluded_start_x/y`, computed in `src/map/model.rs`, to convert them to world pixels.
 
 ## File Size Calculation
 
@@ -278,7 +248,7 @@ total      = header + variable blocks + fixed_tail
 ## Implementation & Usage
 
 - Parser: `read_map_data()` in `src/map/mod.rs`, block readers in `src/map/reader.rs`
-- Renderer: `render_map()` in `src/map/render.rs`; GUI canvas in
+- Renderer: `render_map()` in `src/map/render.rs`. The GUI canvas is in
   `dispel-gui/src/components/map_render/`
 
 ```bash

@@ -1,10 +1,6 @@
 # DISPEL® Building Tile Layer (`.btl`)
 
-Raw tileset binary used for structures, roofs, and architectural elements. The format is identical to `.gtl`; only the
-semantic role differs.
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+The tool reads `.btl` files as raw tilesets for structures and roofs. The binary format matches `.gtl`.
 
 ## Quick Facts
 
@@ -47,24 +43,20 @@ blue  = bits 0–4 of pixel     → scale 0–31  to 0–255
 
 ## Isometric Rendering
 
-Tiles are projected as isometric diamonds (62×32 px). A diamond-shaped mask clips each tile so that corners blend
-seamlessly.
+The renderer projects tiles as isometric diamonds of 62×32 pixels. A diamond-shaped mask clips each tile.
 
-The blit mode is chosen **per ref**, from the transparency and draw-enable bytes of the
-building overlay's map entry: transparency 0 means opaque copy, non-zero means a skip-zero blit
-that copies only the non-zero source pixels; the draw-enable byte must be set for the cell to be
-drawn at all. Only the shadowed cells are drawn by this pass. An atlas therefore bakes in one mode —
-`map atlas` uses the skip-zero blit for `.BTL` files, which matches the shadow art but drops the
-black pixels of the opaque-mode refs (764 of 1419 in `dun01`).
+The renderer picks a blit mode from the building overlay entry. Transparency 0 selects an opaque copy. A non-zero value selects a skip-zero blit, which copies only non-zero pixels. The draw-enable byte must be set before the renderer draws the cell. Only shadowed cells use this pass.
+
+An atlas bakes in one mode. `map atlas` uses the skip-zero blit for `.btl` files. In `dun01`, 764 of 1419 references use opaque mode.
 
 ## Relationship to `.map` Files
 
 A `.map` file references BTL tile IDs in two places:
 
-- **Tiled Objects block** — building stacks drawn from anchor points
-- **Access-Ref block** — occlusion/access lookup per tile
+- **Tiled Objects block**: building stacks drawn from anchor points
+- **Access-Ref block**: occlusion and access lookup per tile
 
-BTL tile IDs inside the Tiled Objects block are stacked bottom-to-top; negative IDs are skipped during rendering.
+The tool stacks BTL tile IDs bottom-to-top. It skips negative IDs when rendering.
 
 ## Related Files
 

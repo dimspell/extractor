@@ -54,6 +54,7 @@ pub(crate) fn activate_select_option<M: 'static>(
 ) -> Vec<M> {
     use iced_test::core::accessibility::accesskit;
     use iced_test::instruction::Key;
+    use iced_test::selector::{Candidate, Target};
 
     let mut ui = iced_test::simulator(element);
     let tree = ui.accessibility_tree();
@@ -61,16 +62,41 @@ pub(crate) fn activate_select_option<M: 'static>(
         .nodes
         .iter()
         .filter(|(_, node)| node.role() == accesskit::Role::ComboBox)
-        .map(|(id, _)| *id)
+        .map(|(id, node)| (*id, node.child_supports_action(accesskit::Action::Click)))
         .collect();
-    let target = targets[nth];
-    ui.accessibility_action(&accesskit::ActionRequest {
-        action: accesskit::Action::Focus,
-        target_tree: tree.tree_id,
-        target_node: target,
-        data: None,
-    });
-    ui.tap_key(Key::Enter);
+    let (target, is_combo_box) = targets[nth];
+    if is_combo_box {
+        // Click to open the dropdown. The widget clears its seeded selection
+        // on focus; the extra Backspaces keep the simulated input's query
+        // empty so arrow navigation starts from the full option list.
+        let mut seen = 0;
+        let mut text_len = 0;
+        let mut select = |candidate: Candidate<'_>| match candidate {
+            Candidate::TextInput { state, .. } if seen == nth => {
+                seen += 1;
+                text_len = state.text().chars().count();
+                Some(Target::from(candidate))
+            }
+            Candidate::TextInput { .. } => {
+                seen += 1;
+                None
+            }
+            _ => None,
+        };
+        ui.click(&mut select).expect("combo box must be clickable");
+        for _ in 0..text_len {
+            ui.tap_key(Key::Backspace);
+        }
+    } else {
+        ui.accessibility_action(&accesskit::ActionRequest {
+            action: accesskit::Action::Focus,
+            target_tree: tree.tree_id,
+            target_node: target,
+            data: None,
+        });
+        // A pick_list opens on Enter; a ComboBox is already open once clicked.
+        ui.tap_key(Key::Enter);
+    }
 
     let named = if offset < 0 {
         iced::keyboard::key::Named::ArrowUp
@@ -91,6 +117,44 @@ pub(crate) fn activate_select_option<M: 'static>(
         })]);
     }
 
+    ui.tap_key(Key::Enter);
+    ui.into_messages().collect()
+}
+
+/// Focus the `nth` combo box, type a filter query, and activate the highlighted
+/// option. Returns the messages produced by the interaction.
+#[cfg(feature = "iced_test")]
+pub(crate) fn filter_select<M: 'static>(
+    element: iced::Element<'_, M>,
+    nth: usize,
+    query: &str,
+) -> Vec<M> {
+    use iced_test::instruction::Key;
+    use iced_test::selector::{Candidate, Target};
+
+    let mut ui = iced_test::simulator(element);
+    let mut seen = 0;
+    let mut text_len = 0;
+    let mut select = |candidate: Candidate<'_>| match candidate {
+        Candidate::TextInput { state, .. } if seen == nth => {
+            seen += 1;
+            text_len = state.text().chars().count();
+            Some(Target::from(candidate))
+        }
+        Candidate::TextInput { .. } => {
+            seen += 1;
+            None
+        }
+        _ => None,
+    };
+    // Click to open the combo. The widget clears its seeded selection on
+    // focus; the Backspaces keep the simulated query empty before typing so
+    // filtering starts from every option.
+    ui.click(&mut select).expect("combo box must be clickable");
+    for _ in 0..text_len {
+        ui.tap_key(Key::Backspace);
+    }
+    ui.typewrite(query);
     ui.tap_key(Key::Enter);
     ui.into_messages().collect()
 }

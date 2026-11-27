@@ -1,7 +1,4 @@
-# Dlgcat1.dlg - Dialogue/Conversation Scripts
-
-> DISPEL® is a registered trademark. This project is not affiliated with,
-> endorsed by, or sponsored by the trademark owner.
+# Dlgcat1.dlg: dialogue scripts
 
 ## File Information
 
@@ -16,7 +13,7 @@
 
 - Lines starting with `;` are comments
 - CSV format with comma delimiter
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ### Record Structure
 
@@ -29,8 +26,8 @@ Each line has exactly 10 comma-separated fields:
 - `owner`: i32 - 0=player, 1=NPC
 - `dlg_id`: i32 - Reference to PGP text content
 - `opt0`: i32 - Next dialogue option 1 (choice dialogs) or next dialog in linear type
-- `opt1`: i32 - Next dialogue option 2 (choice dialogs); 0 = absent
-- `opt2`: i32 - Next dialogue option 3 (choice dialogs); 0 = absent
+- `opt1`: i32 - next dialogue option 2 for choice dialogs. Zero means absent.
+- `opt2`: i32 - next dialogue option 3 for choice dialogs. Zero means absent.
 - `event_id`: i32 - Event triggered by dialogue
 
 ## Field Definitions
@@ -41,7 +38,7 @@ Each line has exactly 10 comma-separated fields:
 - `type`: 0=normal, 1=choice dialog
 - `owner`: 0=player, 1=NPC
 - `dlg_id`: Reference to PGP text content
-- `opt0`–`opt2`: Choice-dialog branching targets; unused options are 0
+- `opt0` to `opt2`: choice-dialog targets. Unused options are 0.
 - `event_id`: Event triggered by dialogue
 
 ## Dialogue Types
@@ -59,7 +56,7 @@ Each line has exactly 10 comma-separated fields:
 - Optional fields are `0` when absent (not `"null"`)
 - Lines starting with `;` are comments
 - CSV format with comma delimiter
-- Empty lines are ignored
+- The parser ignores empty lines.
 
 ## File Purpose
 
@@ -77,7 +74,7 @@ quest dialogues, and story progression systems.
 
 - **Rust Module**: `src/references/dialogue_script.rs`
 - **Extractor**: `DialogueScript` struct implementing `Extractor` trait
-- **Database**: Saved to SQLite via `save_dialogs` function
+- **Database**: saved to SQLite by the `save_dialogs` function
 
 ## Extractor
 
